@@ -271,7 +271,10 @@ bool FRLogger::trace(const std::string& method, const std::string& operation,
                      jrt::Array<Point*>* impactedPoints) {
   if (enabled) {
     // PORT NOTE: DebugControl is out of scope; isInterested() is treated as false.
-    if (granularTraceEnabled && impactedItems.empty() && logLevel >= LEVEL_TRACE) {
+    // Debug aid (not in Java): FR_TRACE_ALL=1 logs every granular trace event, matching the
+    // -Dfr.traceAll=true switch of the debug reference build (tools/parity/).
+    static const bool traceAll = jrt::System::getenv("FR_TRACE_ALL").value_or("") == "1";
+    if (granularTraceEnabled && (impactedItems.empty() || traceAll) && logLevel >= LEVEL_TRACE) {
       std::string formattedMessage =
           "[" + method + "] [" + operation + "] " + message + ": " + impactedItems;
       emit(LEVEL_TRACE, formattedMessage, nullptr);

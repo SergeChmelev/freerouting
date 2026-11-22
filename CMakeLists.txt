@@ -40,6 +40,13 @@ if(FR_SOURCES)
     target_compile_options(freerouting-cpp PRIVATE ${FR_COMMON_FLAGS})
     target_link_libraries(freerouting-cpp PRIVATE frcore jrt)
   endif()
+  # Differential-testing helpers (see tools/parity/)
+  add_executable(board_dump ${CMAKE_SOURCE_DIR}/tools/parity/board_dump.cpp)
+  target_compile_options(board_dump PRIVATE ${FR_COMMON_FLAGS})
+  target_link_libraries(board_dump PRIVATE frcore jrt)
+  add_executable(trace_route ${CMAKE_SOURCE_DIR}/tools/parity/trace_route.cpp)
+  target_compile_options(trace_route PRIVATE ${FR_COMMON_FLAGS})
+  target_link_libraries(trace_route PRIVATE frcore jrt)
 endif()
 
 # --- Tests
