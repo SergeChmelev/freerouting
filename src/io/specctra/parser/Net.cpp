@@ -140,7 +140,7 @@ void Net::writePin(WriteScopeParameter* scopeParameter, fr::Pin* pin) {
 }
 
 void Net::setPins(jrt::Collection<Net_Pin*>* pinList) {
-  this->pinList = new jrt::TreeSet<Net_Pin*>(pinList);
+  this->pinList = new (jrt::kBoard) jrt::TreeSet<Net_Pin*>(pinList);
 }
 
 }  // namespace fr::dsn

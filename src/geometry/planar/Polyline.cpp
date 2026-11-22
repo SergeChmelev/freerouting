@@ -21,12 +21,12 @@ Polyline::Polyline(Polygon* polygon) {
   jrt::Array<Point*>* points = polygon->cornerArray();
   if (points->length < 2) {
     FRLogger::warn("Polyline: must contain at least 2 different points");
-    lines = new jrt::Array<Line*>(0);
+    lines = new (jrt::kGeom) jrt::Array<Line*>(0);
     return;
   }
-  lines = new jrt::Array<Line*>(points->length + 1);
+  lines = new (jrt::kGeom) jrt::Array<Line*>(points->length + 1);
   for (int32_t i = 1; i < points->length; i++) {
-    (*lines)[i] = new Line((*points)[i - 1], (*points)[i]);
+    (*lines)[i] = new (jrt::kGeom) Line((*points)[i - 1], (*points)[i]);
   }
   // construct perpendicular lines at the start and at the end to represent
   // the first and the last point of points as intersection of lines.
@@ -36,15 +36,15 @@ Polyline::Polyline(Polygon* polygon) {
       endpointCap((*lines)[points->length - 1]->opposite(), (*points)[points->length - 1]);
 }
 
-Polyline::Polyline(jrt::Array<Point*>* points) : Polyline(new Polygon(points)) {}
+Polyline::Polyline(jrt::Array<Point*>* points) : Polyline(new (jrt::kOp) Polygon(points)) {}
 
 Polyline::Polyline(Point* fromCorner, Point* toCorner) {
   if (fromCorner->equals(toCorner)) {
-    lines = new jrt::Array<Line*>(0);
+    lines = new (jrt::kGeom) jrt::Array<Line*>(0);
     return;
   }
-  lines = new jrt::Array<Line*>(3);
-  (*lines)[1] = new Line(fromCorner, toCorner);
+  lines = new (jrt::kGeom) jrt::Array<Line*>(3);
+  (*lines)[1] = new (jrt::kGeom) Line(fromCorner, toCorner);
   (*lines)[0] = endpointCap((*lines)[1], fromCorner);
   (*lines)[2] = endpointCap((*lines)[1], toCorner);
 }
@@ -53,13 +53,13 @@ Polyline::Polyline(jrt::Array<Line*>* inputLines) {
   jrt::Array<Line*>* filteredLines = removeConsecutiveParallelLines(inputLines);
   filteredLines = removeOverlaps(filteredLines);
   if (filteredLines->length < 3) {
-    this->lines = new jrt::Array<Line*>(0);
+    this->lines = new (jrt::kGeom) jrt::Array<Line*>(0);
     return;
   }
   if (filteredLines == inputLines) {
     filteredLines = inputLines->clone();
   }
-  precalculatedFloatCorners = new jrt::Array<FloatPoint*>(filteredLines->length - 1);
+  precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(filteredLines->length - 1);
 
   // turn evtl the direction of the lines that they point always
   // from the previous corner to the next corner
@@ -92,7 +92,7 @@ jrt::Array<Line*>* Polyline::removeConsecutiveParallelLines(jrt::Array<Line*>* l
     // polyline must have at least 3 lines
     return lines;
   }
-  auto* tmpArr = new jrt::Array<Line*>(lines->length);
+  auto* tmpArr = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   int32_t newLength = 0;
   (*tmpArr)[0] = (*lines)[0];
   for (int32_t i = 1; i < lines->length; i++) {
@@ -109,9 +109,9 @@ jrt::Array<Line*>* Polyline::removeConsecutiveParallelLines(jrt::Array<Line*>* l
   }
   // at least 1 line is skipped, adjust the array
   if (newLength < 3) {
-    return new jrt::Array<Line*>(0);
+    return new (jrt::kGeom) jrt::Array<Line*>(0);
   }
-  auto* result = new jrt::Array<Line*>(newLength);
+  auto* result = new (jrt::kGeom) jrt::Array<Line*>(newLength);
   jrt::arraycopy(tmpArr, 0, result, 0, newLength);
   return result;
 }
@@ -121,7 +121,7 @@ jrt::Array<Line*>* Polyline::removeOverlaps(jrt::Array<Line*>* lines) {
     return lines;
   }
   int32_t newLength = 0;
-  auto* tmpArr = new jrt::Array<Line*>(lines->length);
+  auto* tmpArr = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   (*tmpArr)[0] = (*lines)[0];
   if (!(*lines)[0]->isEqualOrOpposite((*lines)[2])) {
     ++newLength;
@@ -153,9 +153,9 @@ jrt::Array<Line*>* Polyline::removeOverlaps(jrt::Array<Line*>* lines) {
   }
   // at least 1 line is skipped, adjust the array
   if (newLength < 3) {
-    return new jrt::Array<Line*>(0);
+    return new (jrt::kGeom) jrt::Array<Line*>(0);
   }
-  auto* result = new jrt::Array<Line*>(newLength);
+  auto* result = new (jrt::kGeom) jrt::Array<Line*>(newLength);
   jrt::arraycopy(tmpArr, 0, result, 0, newLength);
   return result;
 }
@@ -199,11 +199,11 @@ Point* Polyline::lastCorner() { return corner(lines->length - 2); }
 
 jrt::Array<Point*>* Polyline::corners() {
   if (lines->length < 2) {
-    return new jrt::Array<Point*>(0);
+    return new (jrt::kGeom) jrt::Array<Point*>(0);
   }
   if (precalculatedCorners == nullptr) {
     // corner array is not yet allocated
-    precalculatedCorners = new jrt::Array<Point*>(lines->length - 1);
+    precalculatedCorners = new (jrt::kGeom) jrt::Array<Point*>(lines->length - 1);
   }
   for (int32_t i = 0; i < precalculatedCorners->length; i++) {
     if ((*precalculatedCorners)[i] == nullptr) {
@@ -215,11 +215,11 @@ jrt::Array<Point*>* Polyline::corners() {
 
 jrt::Array<FloatPoint*>* Polyline::cornerApproxArr() {
   if (lines->length < 2) {
-    return new jrt::Array<FloatPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<FloatPoint*>(0);
   }
   if (precalculatedFloatCorners == nullptr) {
     // corner array is not yet allocated
-    precalculatedFloatCorners = new jrt::Array<FloatPoint*>(lines->length - 1);
+    precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length - 1);
   }
   for (int32_t i = 0; i < precalculatedFloatCorners->length; i++) {
     if ((*precalculatedFloatCorners)[i] == nullptr) {
@@ -242,7 +242,7 @@ FloatPoint* Polyline::cornerApprox(int32_t cornerIndex) {
   }
   if (precalculatedFloatCorners == nullptr) {
     // corner array is not yet allocated
-    precalculatedFloatCorners = new jrt::Array<FloatPoint*>(lines->length - 1);
+    precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length - 1);
   }
   if ((*precalculatedFloatCorners)[no] == nullptr) {
     // corner is not yet calculated
@@ -270,7 +270,7 @@ Point* Polyline::corner(int32_t cornerIndex) {
   }
   if (precalculatedCorners == nullptr) {
     // corner array is not yet allocated
-    precalculatedCorners = new jrt::Array<Point*>(lines->length - 1);
+    precalculatedCorners = new (jrt::kGeom) jrt::Array<Point*>(lines->length - 1);
   }
   if ((*precalculatedCorners)[no] == nullptr) {
     // corner is not yet calculated
@@ -280,11 +280,11 @@ Point* Polyline::corner(int32_t cornerIndex) {
 }
 
 Polyline* Polyline::reverse() {
-  auto* reversedLines = new jrt::Array<Line*>(lines->length);
+  auto* reversedLines = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   for (int32_t i = 0; i < lines->length; i++) {
     (*reversedLines)[i] = (*lines)[lines->length - i - 1]->opposite();
   }
-  return new Polyline(reversedLines);
+  return new (jrt::kGeom) Polyline(reversedLines);
 }
 
 double Polyline::lengthApprox(int32_t requestedFromCorner, int32_t requestedToCorner) {
@@ -308,7 +308,7 @@ jrt::Array<TileShape*>* Polyline::offsetShapes(int32_t halfWidth, int32_t reques
   int32_t fromNo = jrt::Math::max(requestedFromNo, 0);
   int32_t toNo = jrt::Math::min(requestedToNo, this->lines->length - 1);
   int32_t shapeCount = jrt::Math::max(toNo - fromNo - 1, 0);
-  auto* shapes = new jrt::Array<TileShape*>(shapeCount);
+  auto* shapes = new (jrt::kGeom) jrt::Array<TileShape*>(shapeCount);
   if (shapeCount == 0) {
     return shapes;
   }
@@ -317,7 +317,7 @@ jrt::Array<TileShape*>* Polyline::offsetShapes(int32_t halfWidth, int32_t reques
   for (int32_t i = fromNo + 1; i < toNo; i++) {
     Vector* nextDir = (*this->lines)[i + 1]->direction()->getVector();
 
-    auto* offsetLines = new jrt::Array<Line*>(4);
+    auto* offsetLines = new (jrt::kGeom) jrt::Array<Line*>(4);
 
     (*offsetLines)[0] = (*this->lines)[i]->translate(-halfWidth);
     // current center line translated to the right
@@ -357,7 +357,7 @@ jrt::Array<TileShape*>* Polyline::offsetShapes(int32_t halfWidth, int32_t reques
     }
     FloatPoint* checkDistanceCorner = cornerApprox(i);
     const double checkDistSquare = 2.0 * halfWidth * halfWidth;
-    jrt::Collection<Line*>* cutDogEarLines = new jrt::LinkedList<Line*>();
+    jrt::Collection<Line*>* cutDogEarLines = new (jrt::kOp) jrt::LinkedList<Line*>();
     Vector* tmpCurrDir = nextDir;
     bool directionChanged = false;
     for (int32_t j = i + 2; j < this->lines->length - 1; j++) {
@@ -428,7 +428,7 @@ jrt::Array<TileShape*>* Polyline::offsetShapes(int32_t halfWidth, int32_t reques
     TileShape* s1 = TileShape::getInstance(offsetLines);
     int32_t cutLineCount = cutDogEarLines->size();
     if (cutLineCount > 0) {
-      auto* cutLines = new jrt::Array<Line*>(cutLineCount);
+      auto* cutLines = new (jrt::kGeom) jrt::Array<Line*>(cutLineCount);
       jrt::Iterator<Line*>* it = cutDogEarLines->iterator();
       for (int32_t j = 0; j < cutLineCount; j++) {
         (*cutLines)[j] = it->next();
@@ -469,7 +469,7 @@ TileShape* Polyline::offsetShape(int32_t halfWidth, int32_t no) {
 }
 
 IntBox* Polyline::offsetBox(int32_t halfWidth, int32_t no) {
-  LineSegment* currentLineSegment = new LineSegment(this, no + 1);
+  LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(this, no + 1);
   return currentLineSegment->boundingBox()->offset(halfWidth);
 }
 
@@ -477,19 +477,19 @@ Polyline* Polyline::translateBy(Vector* vector) {
   if (vector->equals(Vector::ZERO())) {
     return this;
   }
-  auto* newArray = new jrt::Array<Line*>(lines->length);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   for (int32_t i = 0; i < newArray->length; i++) {
     (*newArray)[i] = (*lines)[i]->translateBy(vector);
   }
-  return new Polyline(newArray);
+  return new (jrt::kGeom) Polyline(newArray);
 }
 
 Polyline* Polyline::turn90Degree(int32_t factor, IntPoint* pole) {
-  auto* newArray = new jrt::Array<Line*>(lines->length);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   for (int32_t i = 0; i < newArray->length; i++) {
     (*newArray)[i] = (*lines)[i]->turn90Degree(factor, pole);
   }
-  return new Polyline(newArray);
+  return new (jrt::kGeom) Polyline(newArray);
 }
 
 Polyline* Polyline::rotateApprox(double angle, FloatPoint* pole) {
@@ -497,27 +497,27 @@ Polyline* Polyline::rotateApprox(double angle, FloatPoint* pole) {
     return this;
   }
   // PORT NOTE: Java builds an IntPoint[] and passes it as Point[] (array covariance).
-  auto* newCorners = new jrt::Array<Point*>(this->cornerCount());
+  auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(this->cornerCount());
   for (int32_t i = 0; i < newCorners->length; i++) {
     (*newCorners)[i] = this->cornerApprox(i)->rotate(angle, pole)->round();
   }
-  return new Polyline(newCorners);
+  return new (jrt::kGeom) Polyline(newCorners);
 }
 
 Polyline* Polyline::mirrorVertical(IntPoint* pole) {
-  auto* newArray = new jrt::Array<Line*>(lines->length);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   for (int32_t i = 0; i < newArray->length; i++) {
     (*newArray)[i] = (*lines)[i]->mirrorVertical(pole);
   }
-  return new Polyline(newArray);
+  return new (jrt::kGeom) Polyline(newArray);
 }
 
 Polyline* Polyline::mirrorHorizontal(IntPoint* pole) {
-  auto* newArray = new jrt::Array<Line*>(lines->length);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   for (int32_t i = 0; i < newArray->length; i++) {
     (*newArray)[i] = (*lines)[i]->mirrorHorizontal(pole);
   }
-  return new Polyline(newArray);
+  return new (jrt::kGeom) Polyline(newArray);
 }
 
 IntBox* Polyline::boundingBox(int32_t requestedFromCornerNo, int32_t requestedToCornerNo) {
@@ -535,10 +535,10 @@ IntBox* Polyline::boundingBox(int32_t requestedFromCornerNo, int32_t requestedTo
     ury = jrt::Math::max(ury, currentCorner->y);
   }
   IntPoint* lowerLeft =
-      new IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
+      new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
   IntPoint* upperRight =
-      new IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
-  return new IntBox(lowerLeft, upperRight);
+      new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
+  return new (jrt::kGeom) IntBox(lowerLeft, upperRight);
 }
 
 IntBox* Polyline::boundingBox() {
@@ -573,7 +573,7 @@ IntOctagon* Polyline::boundingOctagon(int32_t requestedFromCornerNo,
     llx = jrt::Math::min(llx, tmp);
     urx = jrt::Math::max(urx, tmp);
   }
-  return new IntOctagon(jrt::d2i(jrt::Math::floor(lx)), jrt::d2i(jrt::Math::floor(ly)),
+  return new (jrt::kGeom) IntOctagon(jrt::d2i(jrt::Math::floor(lx)), jrt::d2i(jrt::Math::floor(ly)),
                         jrt::d2i(jrt::Math::ceil(rx)), jrt::d2i(jrt::Math::ceil(uy)),
                         jrt::d2i(jrt::Math::floor(ulx)), jrt::d2i(jrt::Math::ceil(lrx)),
                         jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::ceil(urx)));
@@ -633,7 +633,7 @@ Polyline* Polyline::combine(Polyline* other) {
   } else {
     return this;  // no common endpoint
   }
-  auto* newLines = new jrt::Array<Line*>(this->lines->length + other->lines->length - 2);
+  auto* newLines = new (jrt::kGeom) jrt::Array<Line*>(this->lines->length + other->lines->length - 2);
   if (combineAtStart) {
     // insert the lines of other in front
     if (combineOtherAtStart) {
@@ -661,7 +661,7 @@ Polyline* Polyline::combine(Polyline* other) {
       }
     }
   }
-  return new Polyline(newLines);
+  return new (jrt::kGeom) Polyline(newLines);
 }
 
 jrt::Array<Polyline*>* Polyline::split(int32_t lineIndex, Line* endLine) {
@@ -705,28 +705,28 @@ jrt::Array<Polyline*>* Polyline::split(int32_t lineIndex, Line* endLine) {
   jrt::Array<Line*>* firstPiece;
   if (this->corner(lineIndex - 1)->equals(newEndCorner)) {
     // skip line segment of length 0 at the end of the first piece
-    firstPiece = new jrt::Array<Line*>(lineIndex + 1);
+    firstPiece = new (jrt::kGeom) jrt::Array<Line*>(lineIndex + 1);
     jrt::arraycopy(this->lines, 0, firstPiece, 0, firstPiece->length);
 
   } else {
-    firstPiece = new jrt::Array<Line*>(lineIndex + 2);
+    firstPiece = new (jrt::kGeom) jrt::Array<Line*>(lineIndex + 2);
     jrt::arraycopy(this->lines, 0, firstPiece, 0, lineIndex + 1);
     (*firstPiece)[lineIndex + 1] = endLine;
   }
   jrt::Array<Line*>* secondPiece;
   if (this->corner(lineIndex)->equals(newEndCorner)) {
     // skip line segment of length 0 at the beginning of the second piece
-    secondPiece = new jrt::Array<Line*>(lines->length - lineIndex);
+    secondPiece = new (jrt::kGeom) jrt::Array<Line*>(lines->length - lineIndex);
     jrt::arraycopy(this->lines, lineIndex, secondPiece, 0, secondPiece->length);
 
   } else {
-    secondPiece = new jrt::Array<Line*>(lines->length - lineIndex + 1);
+    secondPiece = new (jrt::kGeom) jrt::Array<Line*>(lines->length - lineIndex + 1);
     (*secondPiece)[0] = endLine;
     jrt::arraycopy(this->lines, lineIndex, secondPiece, 1, secondPiece->length - 1);
   }
-  auto* result = new jrt::Array<Polyline*>(2);
-  (*result)[0] = new Polyline(firstPiece);
-  (*result)[1] = new Polyline(secondPiece);
+  auto* result = new (jrt::kGeom) jrt::Array<Polyline*>(2);
+  (*result)[0] = new (jrt::kGeom) Polyline(firstPiece);
+  (*result)[1] = new (jrt::kGeom) Polyline(secondPiece);
   if ((*result)[0]->isPoint() || (*result)[1]->isPoint()) {
     return nullptr;
   }
@@ -737,15 +737,15 @@ Polyline* Polyline::skipLines(int32_t fromNo, int32_t toNo) {
   if (fromNo < 0 || toNo > lines->length - 1 || fromNo > toNo) {
     return this;
   }
-  auto* newLines = new jrt::Array<Line*>(lines->length - (toNo - fromNo + 1));
+  auto* newLines = new (jrt::kGeom) jrt::Array<Line*>(lines->length - (toNo - fromNo + 1));
   jrt::arraycopy(this->lines, 0, newLines, 0, fromNo);
   jrt::arraycopy(this->lines, toNo + 1, newLines, fromNo, newLines->length - fromNo);
-  return new Polyline(newLines);
+  return new (jrt::kGeom) Polyline(newLines);
 }
 
 bool Polyline::contains(Point* point) {
   for (int32_t i = 1; i < lines->length - 1; i++) {
-    LineSegment* currentSegment = new LineSegment(this, i);
+    LineSegment* currentSegment = new (jrt::kGeom) LineSegment(this, i);
     if (currentSegment->contains(point)) {
       return true;
     }
@@ -782,7 +782,7 @@ LineSegment* Polyline::projectionLine(Point* point) {
       }
       Line* currentResultLine;
       try {
-        currentResultLine = new Line(point, directionTowardsLine);
+        currentResultLine = new (jrt::kGeom) Line(point, directionTowardsLine);
       } catch (const jrt::IllegalArgumentException& unsupportedProjection) {
         continue;
       }
@@ -803,12 +803,12 @@ LineSegment* Polyline::projectionLine(Point* point) {
     return nullptr;
   }
   Line* startLine = jrt::fast_cast<IntPoint>(point) != nullptr
-                        ? new Line(point, nearestLine->direction())
+                        ? new (jrt::kGeom) Line(point, nearestLine->direction())
                         : resultLine->capAt(point);
   if (startLine == nullptr) {
     return nullptr;
   }
-  return new LineSegment(startLine, resultLine, nearestLine);
+  return new (jrt::kGeom) LineSegment(startLine, resultLine, nearestLine);
 }
 
 Polyline* Polyline::shorten(int32_t newLineCount, double lastSegmentLength) {
@@ -819,18 +819,18 @@ Polyline* Polyline::shorten(int32_t newLineCount, double lastSegmentLength) {
     // skip the last line
     return skipLines(newLineCount - 1, newLineCount - 1);
   }
-  auto* newLines = new jrt::Array<Line*>(newLineCount);
+  auto* newLines = new (jrt::kGeom) jrt::Array<Line*>(newLineCount);
   jrt::arraycopy(this->lines, 0, newLines, 0, newLineCount - 2);
   // create the last 2 lines of the new polyline
   Point* firstLinePoint = (*lines)[newLineCount - 2]->a;
   if (firstLinePoint->equals(newLastCorner)) {
     firstLinePoint = (*lines)[newLineCount - 2]->b;
   }
-  Line* newPrevLastLine = new Line(firstLinePoint, static_cast<Point*>(newLastCorner));
+  Line* newPrevLastLine = new (jrt::kGeom) Line(firstLinePoint, static_cast<Point*>(newLastCorner));
   newLines->set(newLineCount - 2, newPrevLastLine);
   (*newLines)[newLineCount - 1] =
       Line::getInstance(newLastCorner, newPrevLastLine->direction()->turn45Degree(6));
-  return new Polyline(newLines);
+  return new (jrt::kGeom) Polyline(newLines);
 }
 
 }  // namespace fr

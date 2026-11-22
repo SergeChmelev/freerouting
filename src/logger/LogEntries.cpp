@@ -6,8 +6,8 @@
 namespace fr {
 
 LogEntries::LogEntries()
-    : entries(new jrt::ArrayList<LogEntry*>()),
-      listeners(new jrt::ArrayList<LogEntries_LogEntryAddedListener*>()) {}
+    : entries(new (jrt::kBoard) jrt::ArrayList<LogEntry*>()),
+      listeners(new (jrt::kBoard) jrt::ArrayList<LogEntries_LogEntryAddedListener*>()) {}
 
 int32_t LogEntries::getWarningCount() {
   int32_t count = 0;
@@ -46,7 +46,7 @@ std::string LogEntries::getAsString() {
 }
 
 jrt::Array<std::string>* LogEntries::get() {
-  auto* result = new jrt::Array<std::string>(entries->size());
+  auto* result = new (jrt::kOp) jrt::Array<std::string>(entries->size());
   int32_t i = 0;
   for (LogEntry* e : *entries) {
     (*result)[i++] = e->toString();
@@ -63,7 +63,7 @@ jrt::Array<LogEntry*>* LogEntries::getEntries(std::optional<int64_t> entriesSinc
       filtered.push_back(e);
     }
   }
-  return new jrt::Array<LogEntry*>(filtered);
+  return new (jrt::kOp) jrt::Array<LogEntry*>(filtered);
 }
 
 LogEntry* LogEntries::add(LogEntryType type, const std::string& message,
@@ -74,7 +74,7 @@ LogEntry* LogEntries::add(LogEntryType type, const std::string& message,
 LogEntry* LogEntries::add(LogEntryType type, const std::string& message,
                           const std::optional<std::string>& topic,
                           const std::exception* exception) {
-  LogEntry* logEntry = new LogEntry(type, message, exception, topic);
+  LogEntry* logEntry = new (jrt::kBoard) LogEntry(type, message, exception, topic);
 
   entries->add(logEntry);
 

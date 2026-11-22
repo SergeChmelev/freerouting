@@ -76,13 +76,13 @@ jrt::Array<jrt::Array<int32_t>*>* ViaNudger::DIRECTIONS() {
 
 ViaNudger::ViaNudger(RoutingBoard* board, int32_t pullTightAccuracy, Stoppable* stoppable)
     : board(board), pullTightAccuracy(pullTightAccuracy), stoppable(stoppable) {
-  jrt::List<ViaNudger_ZoneRegion*>* zoneRegions = new jrt::ArrayList<ViaNudger_ZoneRegion*>();
+  jrt::List<ViaNudger_ZoneRegion*>* zoneRegions = new (jrt::kOp) jrt::ArrayList<ViaNudger_ZoneRegion*>();
   for (ConductionArea* zone : *board->getConductionAreas()) {
     Area* area = zone->getArea();
     if (area == nullptr || area->isEmpty()) {
       continue;
     }
-    zoneRegions->add(new ViaNudger_ZoneRegion(zone->getLayer(), zone->clearanceClassIndex(),
+    zoneRegions->add(new (jrt::kOp) ViaNudger_ZoneRegion(zone->getLayer(), zone->clearanceClassIndex(),
                                               area->boundingBox(), area->splitToConvex()));
   }
   this->zones = zoneRegions;
@@ -90,7 +90,7 @@ ViaNudger::ViaNudger(RoutingBoard* board, int32_t pullTightAccuracy, Stoppable* 
 
 ViaNudger_Result* ViaNudger::run(RoutingBoard* board, int32_t pullTightAccuracy,
                                  Stoppable* stoppable) {
-  return (new ViaNudger(board, pullTightAccuracy, stoppable))->run();
+  return (new (jrt::kOp) ViaNudger(board, pullTightAccuracy, stoppable))->run();
 }
 
 ViaNudger_Result* ViaNudger::run() {
@@ -99,11 +99,11 @@ ViaNudger_Result* ViaNudger::run() {
   int32_t violationsAllowed = clearanceViolationCount(board);
   if (violationsAllowed > 0) {
     // Shoving next to copper that already violates a clearance is not reliable: leave the board.
-    return new ViaNudger_Result(0, 0, 0, start->length(), start->length(), start->bends(),
+    return new (jrt::kOp) ViaNudger_Result(0, 0, 0, start->length(), start->length(), start->bends(),
                                 start->bends(), start->vias(), start->vias(), incompleteAtStart,
                                 incompleteAtStart, violationsAllowed, violationsAllowed);
   }
-  jrt::List<int32_t>* viaIds = new jrt::ArrayList<int32_t>();
+  jrt::List<int32_t>* viaIds = new (jrt::kOp) jrt::ArrayList<int32_t>();
   for (Via* via : *board->getVias()) {
     viaIds->add(via->getId());
   }
@@ -115,7 +115,7 @@ ViaNudger_Result* ViaNudger::run() {
   jrt::List<FloatPoint*>* movedInPreviousPass = nullptr;
   while (passes < MAX_PASSES && !isStopRequested()) {
     ++passes;
-    jrt::List<FloatPoint*>* movedInThisPass = new jrt::ArrayList<FloatPoint*>();
+    jrt::List<FloatPoint*>* movedInThisPass = new (jrt::kOp) jrt::ArrayList<FloatPoint*>();
     for (int32_t viaId : *viaIds) {
       if (isStopRequested()) {
         break;
@@ -146,7 +146,7 @@ ViaNudger_Result* ViaNudger::run() {
       double bestScore = before->length() + bendWeight * before->bends();
       for (jrt::Array<int32_t>* direction : *DIRECTIONS()) {
         for (int32_t step : *STEPS_IN_HALF_PITCHES()) {
-          IntVector* move = new IntVector((*direction)[0] * step * halfPitch,
+          IntVector* move = new (jrt::kGeom) IntVector((*direction)[0] * step * halfPitch,
                                           (*direction)[1] * step * halfPitch);
           if (isInOrNearZone(via, move)) {
             continue;
@@ -210,7 +210,7 @@ ViaNudger_Result* ViaNudger::run() {
     }
   }
   ViaNudger_Cost* end = cost();
-  return new ViaNudger_Result(passes, tried, accepted, start->length(), end->length(),
+  return new (jrt::kOp) ViaNudger_Result(passes, tried, accepted, start->length(), end->length(),
                               start->bends(), end->bends(), start->vias(), end->vias(),
                               incompleteAtStart, board->routingLedger()->incompleteCount(),
                               violationsAllowed, clearanceViolationCount(board));
@@ -306,7 +306,7 @@ bool ViaNudger::shapeEntersZone(Shape* shape, int32_t layer, int32_t clearanceCl
 }
 
 jrt::Map<int32_t, int32_t>* ViaNudger::traceSignatures() {
-  jrt::Map<int32_t, int32_t>* result = new jrt::HashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* result = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
   if (zones->isEmpty()) {
     return result;
   }
@@ -384,7 +384,7 @@ ViaNudger_Cost* ViaNudger::cost() {
       ++vias;
     }
   }
-  return new ViaNudger_Cost(length, bends, vias);
+  return new (jrt::kOp) ViaNudger_Cost(length, bends, vias);
 }
 
 }  // namespace fr

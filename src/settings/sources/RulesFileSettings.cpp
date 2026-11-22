@@ -21,10 +21,10 @@ RulesFileSettings::RulesFileSettings(const std::optional<std::string>& fileName)
     if (std::filesystem::exists(*fileName, ec)) {
       this->settings = loadFromFile(*fileName);
     } else {
-      this->settings = new RouterSettings();
+      this->settings = new (jrt::kBoard) RouterSettings();
     }
   } else {
-    this->settings = new RouterSettings();
+    this->settings = new (jrt::kBoard) RouterSettings();
   }
 }
 
@@ -39,7 +39,7 @@ RouterSettings* RulesFileSettings::loadFromFile(const std::string& file) {
     return loadSettings(in);
   } catch (const jrt::Exception& e) {
     FRLogger::warn("Failed to load settings from RULES file: " + name + ": " + e.getMessage());
-    return new RouterSettings();
+    return new (jrt::kBoard) RouterSettings();
   }
 }
 
@@ -50,11 +50,11 @@ RouterSettings* RulesFileSettings::loadSettings(std::istream& in) {
       FRLogger::debug("Loaded router settings from RULES file: " + jrt::str(fileName));
       return extracted;
     }
-    return new RouterSettings();
+    return new (jrt::kBoard) RouterSettings();
   } catch (const jrt::Exception& e) {
     FRLogger::warn("Failed to load settings from RULES file: " + jrt::str(fileName) + ": " +
                    e.getMessage());
-    return new RouterSettings();
+    return new (jrt::kBoard) RouterSettings();
   }
 }
 

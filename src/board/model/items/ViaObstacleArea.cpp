@@ -23,13 +23,13 @@ ViaObstacleArea::ViaObstacleArea(Area* area, int32_t layer, Vector* translation,
                                  const std::optional<std::string>& name, FixedState fixedState,
                                  BasicBoard* board)
     : ViaObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
-                      new jrt::Array<int32_t>(0), clearanceClassIndex, id, groupId, name,
+                      new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex, id, groupId, name,
                       fixedState, board) {}
 
 Item* ViaObstacleArea::copy(int32_t id) {
-  auto* copiedNetNos = new jrt::Array<int32_t>(netNumbers->length);
+  auto* copiedNetNos = new (jrt::kOp) jrt::Array<int32_t>(netNumbers->length);
   jrt::arraycopy(netNumbers, 0, copiedNetNos, 0, netNumbers->length);
-  return new ViaObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
+  return new (jrt::kBoard) ViaObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
                              getRotationInDegree(), getSideChanged(), copiedNetNos,
                              clearanceClassIndex(), id, getComponentId(), this->name,
                              getFixedState(), board);
@@ -50,7 +50,7 @@ bool ViaObstacleArea::isSelectedByFilter(ItemSelectionFilter* filter) {
 }
 
 void ViaObstacleArea::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->appendBold(tm->getText("via_keepout"));
   this->printShapeInfo(printer, locale);

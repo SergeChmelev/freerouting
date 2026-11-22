@@ -47,7 +47,7 @@ jrt::Array<int8_t>* readAllBytes(const std::string& path) {
     throw jrt::IOException(path);
   }
   std::vector<char> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  auto* result = new jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
+  auto* result = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
   for (std::size_t i = 0; i < bytes.size(); i++) {
     (*result)[static_cast<int32_t>(i)] = static_cast<int8_t>(bytes[i]);
   }
@@ -77,10 +77,10 @@ bool isBlank(const std::optional<std::string>& s) {
 }  // namespace
 
 RoutingJob::RoutingJob() : id(randomUuid()), createdAt(jrt::System::currentTimeMillis()) {
-  this->routerSettings = new RouterSettings();
-  this->drcSettings = new DesignRulesCheckerSettings();
-  this->resourceUsage = new RouterJobResourceUsage();
-  this->resultPhaseMetrics = new RoutingResultManifest_PhaseMetrics();
+  this->routerSettings = new (jrt::kBoard) RouterSettings();
+  this->drcSettings = new (jrt::kBoard) DesignRulesCheckerSettings();
+  this->resourceUsage = new (jrt::kBoard) RouterJobResourceUsage();
+  this->resultPhaseMetrics = new (jrt::kBoard) RoutingResultManifest_PhaseMetrics();
   this->name = "J-" + jrt::toUpperCase(jrt::substring(this->id, 0, 6));
   this->shortName = jrt::toUpperCase(jrt::substring(this->id, 0, 6));
 }
@@ -196,7 +196,7 @@ std::optional<int64_t> RoutingJob::getDuration() {
 }
 
 bool RoutingJob::setInput(jrt::Array<int8_t>* inputFileContent) {
-  this->input = new BoardFileDetails();
+  this->input = new (jrt::kBoard) BoardFileDetails();
   this->input->addUpdatedEventListener(BoardFileDetailsUpdatedEventListener::of(
       [this](BoardFileDetailsUpdatedEvent*) { this->fireInputUpdatedEvent(); }));
   return this->tryToSetInput(inputFileContent);
@@ -205,7 +205,7 @@ bool RoutingJob::setInput(jrt::Array<int8_t>* inputFileContent) {
 void RoutingJob::setInput(const std::string& inputFilePath) { setInputFromFile(inputFilePath); }
 
 bool RoutingJob::setRules(jrt::Array<int8_t>* rulesFileContent) {
-  this->rules = new BoardFileDetails();
+  this->rules = new (jrt::kBoard) BoardFileDetails();
   this->rules->format = io::FileFormat::RULES;
   this->rules->setData(rulesFileContent);
   return true;
@@ -214,7 +214,7 @@ bool RoutingJob::setRules(jrt::Array<int8_t>* rulesFileContent) {
 void RoutingJob::setRules(const std::string& rulesFilePath) {
   if (fileExists(rulesFilePath)) {
     jrt::Array<int8_t>* data = readAllBytes(rulesFilePath);
-    this->rules = new BoardFileDetails();
+    this->rules = new (jrt::kBoard) BoardFileDetails();
     this->rules->format = io::FileFormat::RULES;
     this->rules->setFilename(fileName(rulesFilePath));
     this->rules->setData(data);
@@ -223,7 +223,7 @@ void RoutingJob::setRules(const std::string& rulesFilePath) {
 
 bool RoutingJob::setInitialSession(jrt::Array<int8_t>* sessionFileContent,
                                    const std::optional<std::string>& filename) {
-  this->initialSession = new BoardFileDetails();
+  this->initialSession = new (jrt::kBoard) BoardFileDetails();
   this->initialSession->setFilename(filename);
   this->initialSession->format = getFileFormat(sessionFileContent);
   if (this->initialSession->format == io::FileFormat::UNKNOWN && filename.has_value()) {
@@ -244,9 +244,9 @@ std::string RoutingJob::getRulesFile() {
 }
 
 void RoutingJob::setDummyInputFile(const std::optional<std::string>& filename) {
-  this->input = new BoardFileDetails();
+  this->input = new (jrt::kBoard) BoardFileDetails();
 
-  this->output = new BoardFileDetails();
+  this->output = new (jrt::kBoard) BoardFileDetails();
 
   if (filename.has_value() && jrt::endsWith(jrt::toLowerCase(*filename), DSN_FILE_EXTENSION)) {
     this->input->format = io::FileFormat::DSN;
@@ -308,7 +308,7 @@ bool RoutingJob::tryToSetOutputFile(const std::optional<std::string>& outputFile
 
   if ((ff == io::FileFormat::DSN) || (ff == io::FileFormat::FRB) || (ff == io::FileFormat::SES) ||
       (ff == io::FileFormat::SCR) || (ff == io::FileFormat::KICAD_DESIGN_JSON)) {
-    this->output = new BoardFileDetails(*outputFile);
+    this->output = new (jrt::kBoard) BoardFileDetails(*outputFile);
     this->output->addUpdatedEventListener(BoardFileDetailsUpdatedEventListener::of(
         [this](BoardFileDetailsUpdatedEvent*) { this->fireInputUpdatedEvent(); }));
     this->output->format =
@@ -342,21 +342,21 @@ void RoutingJob::setInputFromFile(const std::string& inputFile) {
   }
 
   if (this->input->format == io::FileFormat::FRB) {
-    this->output = new BoardFileDetails();
+    this->output = new (jrt::kBoard) BoardFileDetails();
     this->output->addUpdatedEventListener(BoardFileDetailsUpdatedEventListener::of(
         [this](BoardFileDetailsUpdatedEvent*) { this->fireOutputUpdatedEvent(); }));
     this->output->setFilename(changeFileExtension(input->getAbsolutePath(), BINARY_FILE_EXTENSION));
   }
 
   if (this->input->format == io::FileFormat::DSN) {
-    this->output = new BoardFileDetails();
+    this->output = new (jrt::kBoard) BoardFileDetails();
     this->output->addUpdatedEventListener(BoardFileDetailsUpdatedEventListener::of(
         [this](BoardFileDetailsUpdatedEvent*) { this->fireOutputUpdatedEvent(); }));
     this->output->setFilename(changeFileExtension(input->getAbsolutePath(), SES_FILE_EXTENSION));
   }
 
   if (this->input->format == io::FileFormat::KICAD_DESIGN_JSON) {
-    this->output = new BoardFileDetails();
+    this->output = new (jrt::kBoard) BoardFileDetails();
     this->output->addUpdatedEventListener(BoardFileDetailsUpdatedEventListener::of(
         [this](BoardFileDetailsUpdatedEvent*) { this->fireOutputUpdatedEvent(); }));
     this->output->setFilename(changeFileExtension(input->getAbsolutePath(), "json"));
@@ -383,7 +383,7 @@ void RoutingJob::addSettingsUpdatedEventListener(RoutingJobUpdatedEventListener*
 }
 
 void RoutingJob::fireSettingsUpdatedEvent() {
-  auto* event = new RoutingJobUpdatedEvent(this, this);
+  auto* event = new (jrt::kBoard) RoutingJobUpdatedEvent(this, this);
   for (RoutingJobUpdatedEventListener* listener : *settingsUpdatedEventListeners) {
     listener->onRoutingJobUpdated(event);
   }
@@ -394,7 +394,7 @@ void RoutingJob::addInputUpdatedEventListener(RoutingJobUpdatedEventListener* li
 }
 
 void RoutingJob::fireInputUpdatedEvent() {
-  auto* event = new RoutingJobUpdatedEvent(this, this);
+  auto* event = new (jrt::kBoard) RoutingJobUpdatedEvent(this, this);
   for (RoutingJobUpdatedEventListener* listener : *inputUpdatedEventListeners) {
     listener->onRoutingJobUpdated(event);
   }
@@ -405,7 +405,7 @@ void RoutingJob::addOutputUpdatedEventListener(RoutingJobUpdatedEventListener* l
 }
 
 void RoutingJob::fireOutputUpdatedEvent() {
-  auto* event = new RoutingJobUpdatedEvent(this, this);
+  auto* event = new (jrt::kBoard) RoutingJobUpdatedEvent(this, this);
   for (RoutingJobUpdatedEventListener* listener : *outputUpdatedEventListeners) {
     listener->onRoutingJobUpdated(event);
   }
@@ -421,7 +421,7 @@ void RoutingJob::removeLogEntryAddedEventListener(
 }
 
 void RoutingJob::fireLogEntryAddedEvent(LogEntry* logEntry) {
-  auto* event = new RoutingJobLogEntryAddedEvent(this, this, logEntry);
+  auto* event = new (jrt::kBoard) RoutingJobLogEntryAddedEvent(this, this, logEntry);
   for (RoutingJobLogEntryAddedEventListener* listener : *logEntryAddedEventListeners) {
     listener->onLogEntryAdded(event);
   }

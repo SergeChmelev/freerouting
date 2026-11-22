@@ -17,8 +17,8 @@ namespace fr {
 
 NetRoutingLedger::NetRoutingLedger(BasicBoard* board)
     : board(board),
-      conductionAreas(new jrt::ArrayList<ConductionArea*>()),
-      itemNets(new jrt::IdentityHashMap<Item*, jrt::Array<int32_t>*>()) {}
+      conductionAreas(new (jrt::kOp) jrt::ArrayList<ConductionArea*>()),
+      itemNets(new (jrt::kOp) jrt::IdentityHashMap<Item*, jrt::Array<int32_t>*>()) {}
 
 void NetRoutingLedger::invalidate() {
   built = false;
@@ -26,7 +26,7 @@ void NetRoutingLedger::invalidate() {
   dirtyNets->clear();
   itemNets->clear();
   itemsByNet = emptyLists();
-  incompleteByNet = new jrt::Array<int32_t>(0);
+  incompleteByNet = new (jrt::kOp) jrt::Array<int32_t>(0);
   incompleteTotal = 0;
   maximumConnections_ = 0;
 }
@@ -68,7 +68,7 @@ NetRoutingLedger_Counts* NetRoutingLedger::counts() {
     return nullptr;
   }
   flushDirty();
-  return new NetRoutingLedger_Counts(incompleteByNet->clone(), incompleteTotal,
+  return new (jrt::kOp) NetRoutingLedger_Counts(incompleteByNet->clone(), incompleteTotal,
                                      maximumConnections_);
 }
 
@@ -87,7 +87,7 @@ void NetRoutingLedger::seed(NetRoutingLedger_Counts* counts) {
 jrt::Set<int32_t>* NetRoutingLedger::incompleteNetNumbers() {
   ensureBuilt();
   flushDirty();
-  jrt::Set<int32_t>* result = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* result = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (int32_t netNumber = 1; netNumber < incompleteByNet->length; netNumber++) {
     if ((*incompleteByNet)[netNumber] > 0) {
       result->add(netNumber);
@@ -101,7 +101,7 @@ void NetRoutingLedger::ensureBuilt() {
     return;
   }
   int32_t maxNet = buildItemLists();
-  incompleteByNet = new jrt::Array<int32_t>(maxNet + 1);
+  incompleteByNet = new (jrt::kOp) jrt::Array<int32_t>(maxNet + 1);
   maximumConnections_ = countMaximumConnections();
   incompleteTotal = 0;
   for (int32_t netNumber = 1; netNumber <= maxNet; netNumber++) {
@@ -115,12 +115,12 @@ void NetRoutingLedger::ensureBuilt() {
 
 int32_t NetRoutingLedger::buildItemLists() {
   int32_t maxNet = board->rules->nets->maxNetNumber();
-  auto* lists = new jrt::Array<jrt::List<Item*>*>(maxNet + 1);
+  auto* lists = new (jrt::kOp) jrt::Array<jrt::List<Item*>*>(maxNet + 1);
   itemsByNet = lists;
   dirtyNets->clear();
   itemNets->clear();
   for (int32_t netNumber = 1; netNumber <= maxNet; netNumber++) {
-    (*itemsByNet)[netNumber] = new jrt::ArrayList<Item*>();
+    (*itemsByNet)[netNumber] = new (jrt::kOp) jrt::ArrayList<Item*>();
   }
   conductionAreas->clear();
   for (Item* item : *board->getItems()) {
@@ -152,7 +152,7 @@ int32_t NetRoutingLedger::countNet(int32_t netNumber) {
   if (netNumber < 1 || netNumber >= itemsByNet->length) {
     return 0;
   }
-  return (new NetIncompletes(netNumber, new jrt::ArrayList<Item*>((*itemsByNet)[netNumber]),
+  return (new (jrt::kOp) NetIncompletes(netNumber, new (jrt::kOp) jrt::ArrayList<Item*>((*itemsByNet)[netNumber]),
                              board))
       ->count();
 }
@@ -236,8 +236,8 @@ void NetRoutingLedger::markNets(Item* item) {
       }
       int32_t cl = jrt::d2i(jrt::Math::ceil(maxClearance));
       IntBox* inflatedItemBox =
-          new IntBox(new IntPoint(itemBox->ll->x - cl, itemBox->ll->y - cl),
-                     new IntPoint(itemBox->ur->x + cl, itemBox->ur->y + cl));
+          new (jrt::kGeom) IntBox(new (jrt::kGeom) IntPoint(itemBox->ll->x - cl, itemBox->ll->y - cl),
+                     new (jrt::kGeom) IntPoint(itemBox->ur->x + cl, itemBox->ur->y + cl));
       if (caBox->intersects(inflatedItemBox)) {
         for (int32_t index = 0; index < ca->netCount(); index++) {
           int32_t netNumber = ca->getNetNumber(index);

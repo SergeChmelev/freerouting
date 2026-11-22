@@ -13,28 +13,28 @@ PlannedConnection* PlannedConnection::from(int32_t netNumber, FoundConnectionLoc
     return nullptr;
   }
   auto* segments =
-      new jrt::Array<PlannedConnection_Segment*>(connection->connectionItems->size());
+      new (jrt::kOp) jrt::Array<PlannedConnection_Segment*>(connection->connectionItems->size());
   int32_t index = 0;
   for (FoundConnectionLocator_ResultItem* item : *connection->connectionItems) {
-    (*segments)[index++] = new PlannedConnection_Segment(copy(item->corners), item->layer);
+    (*segments)[index++] = new (jrt::kOp) PlannedConnection_Segment(copy(item->corners), item->layer);
   }
-  auto* rippedIds = new jrt::Array<int32_t>(rippedItems == nullptr ? 0 : rippedItems->size());
+  auto* rippedIds = new (jrt::kOp) jrt::Array<int32_t>(rippedItems == nullptr ? 0 : rippedItems->size());
   if (rippedItems != nullptr) {
     int32_t rippedIndex = 0;
     for (Item* rippedItem : *rippedItems) {
       (*rippedIds)[rippedIndex++] = rippedItem->getId();
     }
   }
-  return new PlannedConnection(netNumber, connection->startItem->getId(),
+  return new (jrt::kOp) PlannedConnection(netNumber, connection->startItem->getId(),
                                connection->targetItem->getId(), connection->startLayer,
                                connection->targetLayer, rippedIds, segments);
 }
 
 jrt::Array<IntPoint*>* PlannedConnection::copy(jrt::Array<IntPoint*>* corners) {
   if (corners == nullptr) {
-    return new jrt::Array<IntPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<IntPoint*>(0);
   }
-  auto* copied = new jrt::Array<IntPoint*>(corners->length);
+  auto* copied = new (jrt::kGeom) jrt::Array<IntPoint*>(corners->length);
   jrt::arraycopy(corners, 0, copied, 0, corners->length);
   return copied;
 }

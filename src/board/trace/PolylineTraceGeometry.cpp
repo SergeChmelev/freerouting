@@ -49,7 +49,7 @@ Polyline* PolylineTraceGeometry::mirrorVertical(Polyline* lines, IntPoint* pole)
 }
 
 TileShape* PolylineTraceGeometry::connectionShape(Polyline* lines, int32_t index) {
-  LineSegment* currentLineSegment = new LineSegment(lines, index + 1);
+  LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(lines, index + 1);
   return currentLineSegment->toSimplex()->simplify();
 }
 

@@ -231,10 +231,10 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->unit = Unit_toString(board->communication->unit);
 
   // Board
-  this->board->boundingBox = new BoardStatisticsRectangle(
+  this->board->boundingBox = new (jrt::kOp) BoardStatisticsRectangle(
       static_cast<float>(bb->ll->x), static_cast<float>(bb->ll->y),
       static_cast<float>(bb->ur->x - bb->ll->x), static_cast<float>(bb->ur->y - bb->ll->y));
-  this->board->size = new BoardStatisticsRectangle(
+  this->board->size = new (jrt::kOp) BoardStatisticsRectangle(
       0, 0,
       jrt::Math::abs(static_cast<float>(board->getBoundingBox()->ll->x) -
                      static_cast<float>(board->getBoundingBox()->ur->x)),
@@ -454,7 +454,7 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   }
 
   if (includeClearanceViolations) {
-    DesignRulesChecker* clearanceDrc = new DesignRulesChecker(board, nullptr);
+    DesignRulesChecker* clearanceDrc = new (jrt::kOp) DesignRulesChecker(board, nullptr);
     jrt::Collection<ClearanceViolation*>* violationsList =
         clearanceDrc->getAllClearanceViolations();
     this->clearanceViolations->totalCount = violationsList->size();
@@ -522,12 +522,12 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
     this->unit = Unit_toString(*unit);
 
     // Board
-    this->board->boundingBox = new BoardStatisticsRectangle(
+    this->board->boundingBox = new (jrt::kOp) BoardStatisticsRectangle(
         static_cast<float>(Unit_scale(this->board->boundingBox->x, fromUnit, toUnit)),
         static_cast<float>(Unit_scale(this->board->boundingBox->y, fromUnit, toUnit)),
         static_cast<float>(Unit_scale(this->board->boundingBox->width, fromUnit, toUnit)),
         static_cast<float>(Unit_scale(this->board->boundingBox->height, fromUnit, toUnit)));
-    this->board->size = new BoardStatisticsRectangle(
+    this->board->size = new (jrt::kOp) BoardStatisticsRectangle(
         0, 0, static_cast<float>(Unit_scale(this->board->size->width, fromUnit, toUnit)),
         static_cast<float>(Unit_scale(this->board->size->height, fromUnit, toUnit)));
 
@@ -554,9 +554,9 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   // The pins of a net walk the same items: query the contacts of each item, and the connectable
   // items of each net, once for all pins.
   jrt::Map<Item*, jrt::Collection<Item*>*>* contacts =
-      new jrt::HashMap<Item*, jrt::Collection<Item*>*>();
+      new (jrt::kOp) jrt::HashMap<Item*, jrt::Collection<Item*>*>();
   jrt::Map<int32_t, jrt::Collection<Item*>*>* connectableItems =
-      new jrt::HashMap<int32_t, jrt::Collection<Item*>*>();
+      new (jrt::kOp) jrt::HashMap<int32_t, jrt::Collection<Item*>*>();
   for (Pin* pin : *smdPins) {
     if (pin->netCount() > 0) {
       total++;
@@ -594,7 +594,7 @@ BoardStatistics::BoardStatistics(jrt::Array<int8_t>* data, std::optional<io::Fil
     std::vector<std::string> lines = splitLiteral(content, "(path ");
 
     // create a list to store the layer names
-    jrt::List<std::string>* layers = new jrt::ArrayList<std::string>();
+    jrt::List<std::string>* layers = new (jrt::kOp) jrt::ArrayList<std::string>();
     // iterate over the lines
     for (int32_t i = 0; i < static_cast<int32_t>(lines.size()); i++) {
       std::string line = lines[i];
@@ -676,9 +676,9 @@ bool BoardStatistics::isConnectedToWholeNet(
   if (!pin->containsNet(netNumber)) {
     return true;
   }
-  jrt::Set<Item*>* connected = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* connected = new (jrt::kOp) jrt::TreeSet<Item*>();
   connected->add(pin);
-  jrt::ArrayDeque<Item*>* toExpand = new jrt::ArrayDeque<Item*>();
+  jrt::ArrayDeque<Item*>* toExpand = new (jrt::kOp) jrt::ArrayDeque<Item*>();
   toExpand->push(pin);
   while (!toExpand->isEmpty()) {
     jrt::Collection<Item*>* itemContacts = contacts->computeIfAbsent(
@@ -970,7 +970,7 @@ float BoardStatistics::getV2RouterScore(RouterScoreSettings* settings) {
 
 void BoardStatistics::ensureDifficulty() {
   if (this->difficulty == nullptr) {
-    this->difficulty = new BoardStatisticsDifficulty();
+    this->difficulty = new (jrt::kOp) BoardStatisticsDifficulty();
   }
   if (this->difficulty->difficultyD.has_value()) {
     return;
@@ -1013,7 +1013,7 @@ RoutingCostSettings* BoardStatistics::legacyScoringOrDefault(RouterSettings* rou
   if (routerSettings != nullptr && routerSettings->scoring != nullptr) {
     return routerSettings->scoring;
   }
-  return (new DefaultSettings())->getSettings()->scoring;
+  return (new (jrt::kBoard) DefaultSettings())->getSettings()->scoring;
 }
 
 float BoardStatistics::getOptimizerScore(RoutingCostSettings* scoringSettings) {
@@ -1118,7 +1118,7 @@ BoardStatistics_OptimizerMetrics* BoardStatistics_OptimizerMetrics::of(BasicBoar
     totalLength = static_cast<float>(Unit_scale(totalLength, unit, Unit::MM));
     totalWeightedLength = static_cast<float>(Unit_scale(totalWeightedLength, unit, Unit::MM));
   }
-  return new BoardStatistics_OptimizerMetrics(viaCount, totalLength, totalWeightedLength);
+  return new (jrt::kOp) BoardStatistics_OptimizerMetrics(viaCount, totalLength, totalWeightedLength);
 }
 
 }  // namespace fr

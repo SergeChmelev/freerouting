@@ -34,7 +34,7 @@ class LambdaRoutingJobLogEntryAddedEventListener : public RoutingJobLogEntryAdde
 
 inline RoutingJobLogEntryAddedEventListener* RoutingJobLogEntryAddedEventListener::of(
     std::function<void(RoutingJobLogEntryAddedEvent*)> f) {
-  return new detail::LambdaRoutingJobLogEntryAddedEventListener(std::move(f));
+  return new (jrt::kOp) detail::LambdaRoutingJobLogEntryAddedEventListener(std::move(f));
 }
 
 }  // namespace fr

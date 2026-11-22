@@ -43,13 +43,13 @@ class RoutingJob : public virtual jrt::Object {
  protected:
   // events to signal input and output updates
   jrt::List<RoutingJobUpdatedEventListener*>* settingsUpdatedEventListeners =
-      new jrt::ArrayList<RoutingJobUpdatedEventListener*>();
+      new (jrt::kBoard) jrt::ArrayList<RoutingJobUpdatedEventListener*>();
   jrt::List<RoutingJobUpdatedEventListener*>* inputUpdatedEventListeners =
-      new jrt::ArrayList<RoutingJobUpdatedEventListener*>();
+      new (jrt::kBoard) jrt::ArrayList<RoutingJobUpdatedEventListener*>();
   jrt::List<RoutingJobUpdatedEventListener*>* outputUpdatedEventListeners =
-      new jrt::ArrayList<RoutingJobUpdatedEventListener*>();
+      new (jrt::kBoard) jrt::ArrayList<RoutingJobUpdatedEventListener*>();
   jrt::List<RoutingJobLogEntryAddedEventListener*>* logEntryAddedEventListeners =
-      new jrt::ArrayList<RoutingJobLogEntryAddedEventListener*>();
+      new (jrt::kBoard) jrt::ArrayList<RoutingJobLogEntryAddedEventListener*>();
 
  public:
   // "short_name": a short name for the job

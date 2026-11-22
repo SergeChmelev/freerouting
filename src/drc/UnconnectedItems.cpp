@@ -20,7 +20,7 @@ UnconnectedItems::UnconnectedItems(Item* firstItem, Item* secondItem, jrt::List<
     : firstItem(firstItem), secondItem(secondItem), type(type) {
   // Java: allItems != null ? new ArrayList<>(allItems) : Arrays.asList(firstItem, secondItem)
   if (allItems != nullptr) {
-    this->allItems = new jrt::ArrayList<Item*>(allItems);
+    this->allItems = new (jrt::kOp) jrt::ArrayList<Item*>(allItems);
   } else {
     this->allItems = jrt::ArrayList<Item*>::of({firstItem, secondItem});
   }

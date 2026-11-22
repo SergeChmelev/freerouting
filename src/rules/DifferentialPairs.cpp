@@ -8,8 +8,8 @@
 namespace fr {
 
 DifferentialPairs::DifferentialPairs()
-    : pairsByName(new jrt::LinkedHashMap<std::string, DifferentialPair*>()),
-      pairsByNetNumber(new jrt::HashMap<int32_t, DifferentialPair*>()) {}
+    : pairsByName(new (jrt::kBoard) jrt::LinkedHashMap<std::string, DifferentialPair*>()),
+      pairsByNetNumber(new (jrt::kBoard) jrt::HashMap<int32_t, DifferentialPair*>()) {}
 
 void DifferentialPairs::add(DifferentialPair* pair) {
   if (pair == nullptr) {
@@ -123,7 +123,7 @@ bool DifferentialPairs::remove(DifferentialPair* pair) {
 }
 
 jrt::Collection<DifferentialPair*>* DifferentialPairs::all() {
-  return new jrt::ArrayList<DifferentialPair*>(this->pairsByName->values());
+  return new (jrt::kOp) jrt::ArrayList<DifferentialPair*>(this->pairsByName->values());
 }
 
 int32_t DifferentialPairs::count() { return this->pairsByName->size(); }

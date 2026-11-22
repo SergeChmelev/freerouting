@@ -28,15 +28,15 @@ BigIntAux_RationalCoordinates* BigIntAux::addRationalCoordinates(
     const jrt::BigInteger& ax, const jrt::BigInteger& ay, const jrt::BigInteger& az,
     const jrt::BigInteger& bx, const jrt::BigInteger& by, const jrt::BigInteger& bz) {
   if (az.equals(bz)) {
-    return new BigIntAux_RationalCoordinates(ax.add(bx), ay.add(by), az);
+    return new (jrt::kOp) BigIntAux_RationalCoordinates(ax.add(bx), ay.add(by), az);
   }
-  return new BigIntAux_RationalCoordinates(ax.multiply(bz).add(bx.multiply(az)),
+  return new (jrt::kOp) BigIntAux_RationalCoordinates(ax.multiply(bz).add(bx.multiply(az)),
                                            ay.multiply(bz).add(by.multiply(az)), az.multiply(bz));
 }
 
 jrt::Array<jrt::BigInteger>* BigIntAux::addRationalCoordinates(
     jrt::Array<jrt::BigInteger>* first, jrt::Array<jrt::BigInteger>* second) {
-  auto* result = new jrt::Array<jrt::BigInteger>(3);
+  auto* result = new (jrt::kOp) jrt::Array<jrt::BigInteger>(3);
   if ((*first)[2].equals((*second)[2])) {
     // both rational numbers have the same denominator
     (*result)[2] = (*first)[2];

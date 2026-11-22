@@ -6,7 +6,7 @@
 
 namespace fr {
 
-ViaInfos::ViaInfos() : list(new jrt::LinkedList<ViaInfo*>()) {}
+ViaInfos::ViaInfos() : list(new (jrt::kBoard) jrt::LinkedList<ViaInfo*>()) {}
 
 bool ViaInfos::add(ViaInfo* viaInfo) {
   if (nameExists(viaInfo->getName())) {
@@ -44,7 +44,7 @@ bool ViaInfos::nameExists(const std::string& name) {
 bool ViaInfos::remove(ViaInfo* viaInfo) { return this->list->remove(viaInfo); }
 
 void ViaInfos::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("ViaInfos", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("ViaInfos", locale);
 
   printer->appendBold(tm->getText("vias") + ": ");
   int32_t counter = 0;

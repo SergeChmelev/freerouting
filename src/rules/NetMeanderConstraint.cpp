@@ -43,7 +43,7 @@ NetMeanderConstraint* NetMeanderConstraint::fromDsn(
       (radiusPct.has_value() && *radiusPct >= 0) ? *radiusPct : base->radiusPercentage();
   bool resolvedSingleSided = singleSided.has_value() ? *singleSided : base->singleSided();
 
-  return new NetMeanderConstraint(resolvedMin, resolvedMax, resolvedSpacing, resolvedCorner,
+  return new (jrt::kBoard) NetMeanderConstraint(resolvedMin, resolvedMax, resolvedSpacing, resolvedCorner,
                                   resolvedRadius, resolvedSingleSided);
 }
 

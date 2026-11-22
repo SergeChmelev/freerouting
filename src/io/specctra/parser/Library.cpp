@@ -86,7 +86,7 @@ void Library::writePadstackScope(WriteScopeParameter* scopeParameter, fr::Padsta
       continue;
     }
     fr::Layer* boardLayer = (*scopeParameter->board->layerStructure->layers)[i];
-    Layer* currentLayer = new Layer(boardLayer->name, i, boardLayer->isSignal);
+    Layer* currentLayer = new (jrt::kOp) Layer(boardLayer->name, i, boardLayer->isSignal);
     Shape* currentShape =
         scopeParameter->coordinateTransform->boardToDsnRel(currentBoardShape, currentLayer);
     scopeParameter->file->startScope();
@@ -141,7 +141,7 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
   bool isDrilllable = true;
   bool placedAbsolute = false;
   std::optional<double> drillDiameter;
-  jrt::Collection<Shape*>* shapeList = new jrt::LinkedList<Shape*>();
+  jrt::Collection<Shape*>* shapeList = new (jrt::kOp) jrt::LinkedList<Shape*>();
   try {
     jrt::Object* nextToken = scanner->nextToken();
     if (auto* string = jrt::fast_cast<JString>(nextToken)) {
@@ -221,19 +221,19 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
                    padstackName + "'");
     return true;
   }
-  auto* isGenericDefault = new jrt::Array<bool>(layerStructure->layers->length);
+  auto* isGenericDefault = new (jrt::kOp) jrt::Array<bool>(layerStructure->layers->length);
   jrt::List<jrt::List<fr::ConvexShape*>*>* layerPieces =
-      new jrt::ArrayList<jrt::List<fr::ConvexShape*>*>(layerStructure->layers->length);
+      new (jrt::kOp) jrt::ArrayList<jrt::List<fr::ConvexShape*>*>(layerStructure->layers->length);
   for (int32_t i = 0; i < layerStructure->layers->length; i++) {
-    layerPieces->add(new jrt::ArrayList<fr::ConvexShape*>());
+    layerPieces->add(new (jrt::kOp) jrt::ArrayList<fr::ConvexShape*>());
   }
 
   // The exact copper of round and oval pads, by the piece that bounds it.
   jrt::Map<fr::ConvexShape*, fr::PadOval*>* ovalOfPiece =
-      new jrt::IdentityHashMap<fr::ConvexShape*, fr::PadOval*>();
+      new (jrt::kOp) jrt::IdentityHashMap<fr::ConvexShape*, fr::PadOval*>();
   for (Shape* padShape : *shapeList) {
     fr::Shape* currentShape = padShape->transformToBoardRel(coordinateTransform);
-    jrt::List<fr::ConvexShape*>* pieces = new jrt::ArrayList<fr::ConvexShape*>();
+    jrt::List<fr::ConvexShape*>* pieces = new (jrt::kOp) jrt::ArrayList<fr::ConvexShape*>();
 
     if (auto* shape1 = jrt::fast_cast<fr::ConvexShape>(currentShape)) {
       pieces->add(shape1);
@@ -282,7 +282,7 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
 
     // Enlarge 1D/0D shapes to at least dimension 2 if needed
     jrt::List<fr::ConvexShape*>* validatedPieces =
-        new jrt::ArrayList<fr::ConvexShape*>(pieces->size());
+        new (jrt::kOp) jrt::ArrayList<fr::ConvexShape*>(pieces->size());
     for (fr::ConvexShape* p : *pieces) {
       if (p != nullptr) {
         if (p->dimension() < 2) {
@@ -323,10 +323,10 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
     }
   }
 
-  auto* padstackShapes = new jrt::Array<fr::ConvexShape*>(layerStructure->layers->length);
+  auto* padstackShapes = new (jrt::kGeom) jrt::Array<fr::ConvexShape*>(layerStructure->layers->length);
   auto* auxiliaryShapes =
-      new jrt::Array<jrt::Array<fr::ConvexShape*>*>(layerStructure->layers->length);
-  auto* ovals = new jrt::Array<fr::PadOval*>(layerStructure->layers->length);
+      new (jrt::kGeom) jrt::Array<jrt::Array<fr::ConvexShape*>*>(layerStructure->layers->length);
+  auto* ovals = new (jrt::kOp) jrt::Array<fr::PadOval*>(layerStructure->layers->length);
   bool hasOvals = false;
   bool hasNonConvex = false;
 
@@ -368,7 +368,7 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
       }
 
       (*padstackShapes)[l] = pieces->get(coreIndex);
-      auto* aux = new jrt::Array<fr::ConvexShape*>(pieces->size() - 1);
+      auto* aux = new (jrt::kGeom) jrt::Array<fr::ConvexShape*>(pieces->size() - 1);
       int32_t auxIdx = 0;
       for (int32_t p = 0; p < pieces->size(); p++) {
         if (p != coreIndex) {
@@ -396,8 +396,8 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
 bool Library::readScope(ReadScopeParameter* scopeParameter) {
   fr::RoutingBoard* board = scopeParameter->boardHandling->getRoutingBoard();
   board->library->padstacks =
-      new fr::Padstacks(scopeParameter->boardHandling->getRoutingBoard()->layerStructure);
-  jrt::Collection<Package*>* packageList = new jrt::LinkedList<Package*>();
+      new (jrt::kBoard) fr::Padstacks(scopeParameter->boardHandling->getRoutingBoard()->layerStructure);
+  jrt::Collection<Package*>* packageList = new (jrt::kOp) jrt::LinkedList<Package*>();
   jrt::Object* nextToken = nullptr;
   for (;;) {
     jrt::Object* prevToken = nextToken;
@@ -438,9 +438,9 @@ bool Library::readScope(ReadScopeParameter* scopeParameter) {
   }
 
   // Create the library packages on the board
-  board->library->packages = new fr::Packages(board->library->padstacks);
+  board->library->packages = new (jrt::kBoard) fr::Packages(board->library->padstacks);
   for (Package* currentPackage : *packageList) {
-    auto* pins = new jrt::Array<fr::Package_Pin*>(currentPackage->pinInfoArr->length);
+    auto* pins = new (jrt::kOp) jrt::Array<fr::Package_Pin*>(currentPackage->pinInfoArr->length);
     for (int32_t i = 0; i < pins->length; i++) {
       Package_PinInfo* pinInfo = (*currentPackage->pinInfoArr)[i];
       fr::FloatPoint* exactRel = scopeParameter->coordinateTransform->dsnToBoardRel(pinInfo->relCoor);
@@ -457,11 +457,11 @@ bool Library::readScope(ReadScopeParameter* scopeParameter) {
         return false;
       }
       (*pins)[i] =
-          new fr::Package_Pin(pinInfo->pinName, boardPadstack->id, exactRel, pinInfo->rotation);
+          new (jrt::kBoard) fr::Package_Pin(pinInfo->pinName, boardPadstack->id, exactRel, pinInfo->rotation);
     }
-    auto* outlines = new jrt::Array<fr::Shape*>(currentPackage->outline->size());
-    auto* outlineWidths = new jrt::Array<double>(currentPackage->outline->size());
-    auto* outlineIsClosed = new jrt::Array<bool>(currentPackage->outline->size());
+    auto* outlines = new (jrt::kOp) jrt::Array<fr::Shape*>(currentPackage->outline->size());
+    auto* outlineWidths = new (jrt::kOp) jrt::Array<double>(currentPackage->outline->size());
+    auto* outlineIsClosed = new (jrt::kOp) jrt::Array<bool>(currentPackage->outline->size());
 
     jrt::Iterator<Shape*>* it3 = currentPackage->outline->iterator();
     for (int32_t i = 0; i < outlines->length; i++) {
@@ -489,7 +489,7 @@ bool Library::readScope(ReadScopeParameter* scopeParameter) {
     generateMissingKeepoutNames("place_keepout_", currentPackage->placeKeepouts);
     // PORT NOTE: after generateMissingKeepoutNames every areaName is set, so value() is safe
     // (Java would pass null otherwise).
-    auto* keepouts = new jrt::Array<fr::Package_Keepout*>(currentPackage->keepouts->size());
+    auto* keepouts = new (jrt::kOp) jrt::Array<fr::Package_Keepout*>(currentPackage->keepouts->size());
     jrt::Iterator<Shape_ReadAreaScopeResult*>* it2 = currentPackage->keepouts->iterator();
     for (int32_t i = 0; i < keepouts->length; i++) {
       Shape_ReadAreaScopeResult* currentKeepout = it2->next();
@@ -497,9 +497,9 @@ bool Library::readScope(ReadScopeParameter* scopeParameter) {
       fr::Area* currentArea = Shape::transformAreaToBoardRel(currentKeepout->shapeList,
                                                              scopeParameter->coordinateTransform);
       (*keepouts)[i] =
-          new fr::Package_Keepout(currentKeepout->areaName.value(), currentArea, currentLayer->no);
+          new (jrt::kBoard) fr::Package_Keepout(currentKeepout->areaName.value(), currentArea, currentLayer->no);
     }
-    auto* viaKeepouts = new jrt::Array<fr::Package_Keepout*>(currentPackage->viaKeepouts->size());
+    auto* viaKeepouts = new (jrt::kOp) jrt::Array<fr::Package_Keepout*>(currentPackage->viaKeepouts->size());
     it2 = currentPackage->viaKeepouts->iterator();
     for (int32_t i = 0; i < viaKeepouts->length; i++) {
       Shape_ReadAreaScopeResult* currentKeepout = it2->next();
@@ -507,10 +507,10 @@ bool Library::readScope(ReadScopeParameter* scopeParameter) {
       fr::Area* currentArea = Shape::transformAreaToBoardRel(currentKeepout->shapeList,
                                                              scopeParameter->coordinateTransform);
       (*viaKeepouts)[i] =
-          new fr::Package_Keepout(currentKeepout->areaName.value(), currentArea, currentLayer->no);
+          new (jrt::kBoard) fr::Package_Keepout(currentKeepout->areaName.value(), currentArea, currentLayer->no);
     }
     auto* placeKeepoutArr =
-        new jrt::Array<fr::Package_Keepout*>(currentPackage->placeKeepouts->size());
+        new (jrt::kOp) jrt::Array<fr::Package_Keepout*>(currentPackage->placeKeepouts->size());
     it2 = currentPackage->placeKeepouts->iterator();
     for (int32_t i = 0; i < placeKeepoutArr->length; i++) {
       Shape_ReadAreaScopeResult* currentKeepout = it2->next();
@@ -518,7 +518,7 @@ bool Library::readScope(ReadScopeParameter* scopeParameter) {
       fr::Area* currentArea = Shape::transformAreaToBoardRel(currentKeepout->shapeList,
                                                              scopeParameter->coordinateTransform);
       (*placeKeepoutArr)[i] =
-          new fr::Package_Keepout(currentKeepout->areaName.value(), currentArea, currentLayer->no);
+          new (jrt::kBoard) fr::Package_Keepout(currentKeepout->areaName.value(), currentArea, currentLayer->no);
     }
     // PORT NOTE: currentPackage->name is never null in C++ (Java falls back to "Package").
     board->library->packages->add(currentPackage->name, pins, outlines, outlineWidths,

@@ -50,7 +50,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
   }
   int32_t lastIndex = polyline->lines->length - 4;
 
-  jrt::Array<Line*>* newLines = new jrt::Array<Line*>(polyline->lines->length);
+  jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(polyline->lines->length);
   (*newLines)[0] = (*polyline->lines)[0];
   (*newLines)[1] = (*polyline->lines)[1];
 
@@ -58,7 +58,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
 
   bool polylineChanged = false;
 
-  jrt::Array<Line*>* currentLines = new jrt::Array<Line*>(3);
+  jrt::Array<Line*>* currentLines = new (jrt::kGeom) jrt::Array<Line*>(3);
 
   for (int32_t i = 0; i <= lastIndex; i++) {
     bool skipLine = false;
@@ -69,7 +69,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
                         currentClipShape->contains(polyline->cornerApprox(newLineIndex)));
 
     if (inClipShape) {
-      (*currentLines)[1] = new Line(newA->round(), newB->round());
+      (*currentLines)[1] = new (jrt::kGeom) Line(newA->round(), newB->round());
       bool ok = true;
       if (newLineIndex == 1) {
         if (jrt::fast_cast<IntPoint>(polyline->firstCorner()) == nullptr) {
@@ -140,7 +140,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
       if (ok) {
         FloatPoint* skipCorner =
             (*newLines)[newLineIndex]->intersectionApprox((*polyline->lines)[i + 2]);
-        currentPolyline = new Polyline(currentLines);
+        currentPolyline = new (jrt::kGeom) Polyline(currentLines);
         if (currentPolyline->lines->length != 3) {
           ok = false;
         }
@@ -193,9 +193,9 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
   if (!polylineChanged) {
     return polyline;
   }
-  jrt::Array<Line*>* cleanedNewLines = new jrt::Array<Line*>(newLineIndex + 1);
+  jrt::Array<Line*>* cleanedNewLines = new (jrt::kGeom) jrt::Array<Line*>(newLineIndex + 1);
   jrt::arraycopy(newLines, 0, cleanedNewLines, 0, cleanedNewLines->length);
-  return new Polyline(cleanedNewLines);
+  return new (jrt::kGeom) Polyline(cleanedNewLines);
 }
 
 Polyline* TraceTightenerAnyAngle::smoothenCorners(Polyline* polyline) {
@@ -203,7 +203,7 @@ Polyline* TraceTightenerAnyAngle::smoothenCorners(Polyline* polyline) {
     return polyline;
   }
   bool polylineChanged = false;
-  jrt::Array<Line*>* lines = new jrt::Array<Line*>(polyline->lines->length);
+  jrt::Array<Line*>* lines = new (jrt::kGeom) jrt::Array<Line*>(polyline->lines->length);
   jrt::arraycopy(polyline->lines, 0, lines, 0, lines->length);
 
   for (int32_t i = 0; i < lines->length - 3; i++) {
@@ -211,7 +211,7 @@ Polyline* TraceTightenerAnyAngle::smoothenCorners(Polyline* polyline) {
     if (newLine != nullptr) {
       polylineChanged = true;
       // add the new line into the line array
-      jrt::Array<Line*>* tmpLines = new jrt::Array<Line*>(lines->length + 1);
+      jrt::Array<Line*>* tmpLines = new (jrt::kGeom) jrt::Array<Line*>(lines->length + 1);
       jrt::arraycopy(lines, 0, tmpLines, 0, i + 2);
       (*tmpLines)[i + 2] = newLine;
       jrt::arraycopy(lines, i + 2, tmpLines, i + 3, tmpLines->length - (i + 3));
@@ -222,7 +222,7 @@ Polyline* TraceTightenerAnyAngle::smoothenCorners(Polyline* polyline) {
   if (!polylineChanged) {
     return polyline;
   }
-  return new Polyline(lines);
+  return new (jrt::kGeom) Polyline(lines);
 }
 
 Polyline* TraceTightenerAnyAngle::repositionLines(Polyline* polyline) {
@@ -230,7 +230,7 @@ Polyline* TraceTightenerAnyAngle::repositionLines(Polyline* polyline) {
     return polyline;
   }
   bool polylineChanged = false;
-  jrt::Array<Line*>* lines = new jrt::Array<Line*>(polyline->lines->length);
+  jrt::Array<Line*>* lines = new (jrt::kGeom) jrt::Array<Line*>(polyline->lines->length);
   jrt::arraycopy(polyline->lines, 0, lines, 0, lines->length);
   for (int32_t i = 0; i < lines->length - 4; i++) {
     Line* newLine = repositionLine(lines, i);
@@ -248,7 +248,7 @@ Polyline* TraceTightenerAnyAngle::repositionLines(Polyline* polyline) {
   if (!polylineChanged) {
     return polyline;
   }
-  return new Polyline(lines);
+  return new (jrt::kGeom) Polyline(lines);
 }
 
 Polyline* TraceTightenerAnyAngle::reduceLines(Polyline* polyline) {
@@ -327,14 +327,14 @@ Polyline* TraceTightenerAnyAngle::reduceLines(Polyline* polyline) {
         continue;
       }
     }
-    jrt::Array<Line*>* currentLines = new jrt::Array<Line*>(
+    jrt::Array<Line*>* currentLines = new (jrt::kGeom) jrt::Array<Line*>(
         lines->length - crossedCornersBeforeCount - crossedCornersAfterCount);
     int32_t keepBeforeInd = i - crossedCornersBeforeCount;
     jrt::arraycopy(lines, 0, currentLines, 0, keepBeforeInd);
     (*currentLines)[keepBeforeInd] = newLine;
     jrt::arraycopy(lines, i + 1 + crossedCornersAfterCount, currentLines, keepBeforeInd + 1,
                    currentLines->length - (keepBeforeInd + 1));
-    Polyline* tmp = new Polyline(currentLines);
+    Polyline* tmp = new (jrt::kGeom) Polyline(currentLines);
     bool checkOk = false;
     if (tmp->lines->length == currentLines->length) {
       TileShape* shapeToCheck = tmp->offsetShape(currentHalfWidth, keepBeforeInd - 1);
@@ -354,7 +354,7 @@ Polyline* TraceTightenerAnyAngle::reduceLines(Polyline* polyline) {
   if (!polylineChanged) {
     return polyline;
   }
-  return new Polyline(lines);
+  return new (jrt::kGeom) Polyline(lines);
 }
 
 Line* TraceTightenerAnyAngle::smoothenCorner(jrt::Array<Line*>* lines, int32_t startNo) {
@@ -396,7 +396,7 @@ Line* TraceTightenerAnyAngle::smoothenCorner(jrt::Array<Line*>* lines, int32_t s
   if (jrt::Math::abs(maxTranslateDist) < 1) {
     return nullptr;
   }
-  jrt::Array<Line*>* currentLines = new jrt::Array<Line*>(lines->length + 1);
+  jrt::Array<Line*>* currentLines = new (jrt::kGeom) jrt::Array<Line*>(lines->length + 1);
   jrt::arraycopy(lines, 0, currentLines, 0, startNo + 2);
   jrt::arraycopy(lines, startNo + 2, currentLines, startNo + 3,
                  currentLines->length - startNo - 3);
@@ -412,7 +412,7 @@ Line* TraceTightenerAnyAngle::smoothenCorner(jrt::Array<Line*>* lines, int32_t s
     if (newLineSideOfNearestPoint == sideOfNearestPoint ||
         newLineSideOfNearestPoint == Side::COLLINEAR()) {
       (*currentLines)[startNo + 2] = newLine;
-      Polyline* tmp = new Polyline(currentLines);
+      Polyline* tmp = new (jrt::kGeom) Polyline(currentLines);
 
       if (tmp->lines->length == currentLines->length) {
         TileShape* shapeToCheck = tmp->offsetShape(currentHalfWidth, startNo + 1);
@@ -510,7 +510,7 @@ Line* TraceTightenerAnyAngle::repositionLine(jrt::Array<Line*>* lines, int32_t s
     nearestPoint = nextCorner;
     maxTranslateDist = nextDist;
   }
-  jrt::Array<Line*>* currentLines = new jrt::Array<Line*>(lines->length);
+  jrt::Array<Line*>* currentLines = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   jrt::arraycopy(lines, 0, currentLines, 0, startNo + 2);
   jrt::arraycopy(lines, startNo + 3, currentLines, startNo + 3,
                  currentLines->length - startNo - 3);
@@ -571,7 +571,7 @@ Line* TraceTightenerAnyAngle::repositionLine(jrt::Array<Line*>* lines, int32_t s
         prevTranslatedLine = currentTranslateLine->translate(-currentTranslateDist);
         (*currentLines)[startNo + 3 + i] = prevTranslatedLine;
       }
-      Polyline* tmp = new Polyline(currentLines);
+      Polyline* tmp = new (jrt::kGeom) Polyline(currentLines);
 
       if (tmp->lines->length == currentLines->length) {
         TileShape* shapeToCheck = tmp->offsetShape(currentHalfWidth, startNo + 1);
@@ -801,24 +801,24 @@ Polyline* TraceTightenerAnyAngle::smoothenStartCornerAtTrace(PolylineTrace* trac
       }
       Line* addLine = translateLine->translate(translateDist);
       // construct the new trace polyline.
-      jrt::Array<Line*>* newLines = new jrt::Array<Line*>(newLineCount);
+      jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(newLineCount);
       (*newLines)[0] = otherTraceLine;
       (*newLines)[1] = addLine;
       jrt::arraycopy(tracePolyline->lines, 2 - diff, newLines, 2, newLines->length - 2);
-      return new Polyline(newLines);
+      return new (jrt::kGeom) Polyline(newLines);
     }
   } else if (bend) {
-    jrt::Array<Line*>* checkLineArr = new jrt::Array<Line*>(newLineCount);
+    jrt::Array<Line*>* checkLineArr = new (jrt::kGeom) jrt::Array<Line*>(newLineCount);
     (*checkLineArr)[0] = otherPrevTraceLine;
     (*checkLineArr)[1] = otherTraceLine;
     jrt::arraycopy(tracePolyline->lines, 2 - diff, checkLineArr, 2, checkLineArr->length - 2);
     Line* newLine = repositionLine(checkLineArr, 0);
     if (newLine != nullptr) {
-      jrt::Array<Line*>* newLines = new jrt::Array<Line*>(tracePolyline->lines->length);
+      jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(tracePolyline->lines->length);
       (*newLines)[0] = otherTraceLine;
       (*newLines)[1] = newLine;
       jrt::arraycopy(tracePolyline->lines, 2, newLines, 2, newLines->length - 2);
-      return new Polyline(newLines);
+      return new (jrt::kGeom) Polyline(newLines);
     }
   }
   return nullptr;
@@ -930,24 +930,24 @@ Polyline* TraceTightenerAnyAngle::smoothenEndCornerAtTrace(PolylineTrace* trace)
       }
       Line* addLine = translateLine->translate(translateDist);
       // construct the new trace polyline.
-      jrt::Array<Line*>* newLines = new jrt::Array<Line*>(newLineCount);
+      jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(newLineCount);
       jrt::arraycopy(tracePolyline->lines, 0, newLines, 0, tracePolyline->lines->length - 1);
       (*newLines)[newLines->length - 2] = addLine;
       (*newLines)[newLines->length - 1] = otherTraceLine;
-      return new Polyline(newLines);
+      return new (jrt::kGeom) Polyline(newLines);
     }
   } else if (bend) {
-    jrt::Array<Line*>* checkLineArr = new jrt::Array<Line*>(newLineCount);
+    jrt::Array<Line*>* checkLineArr = new (jrt::kGeom) jrt::Array<Line*>(newLineCount);
     jrt::arraycopy(tracePolyline->lines, diff, checkLineArr, 0, checkLineArr->length - 2);
     (*checkLineArr)[checkLineArr->length - 2] = otherTraceLine;
     (*checkLineArr)[checkLineArr->length - 1] = otherPrevTraceLine;
     Line* newLine = repositionLine(checkLineArr, checkLineArr->length - 5);
     if (newLine != nullptr) {
-      jrt::Array<Line*>* newLines = new jrt::Array<Line*>(tracePolyline->lines->length);
+      jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(tracePolyline->lines->length);
       jrt::arraycopy(tracePolyline->lines, 0, newLines, 0, newLines->length - 2);
       (*newLines)[newLines->length - 2] = newLine;
       (*newLines)[newLines->length - 1] = otherTraceLine;
-      return new Polyline(newLines);
+      return new (jrt::kGeom) Polyline(newLines);
     }
   }
   return nullptr;

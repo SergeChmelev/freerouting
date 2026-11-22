@@ -32,7 +32,7 @@ FloatPoint* FoundConnectionLocatorAnyAngle::calcDoorRightCorner(
 }
 
 jrt::Collection<FloatPoint*>* FoundConnectionLocatorAnyAngle::calculateNextTraceCorners() {
-  jrt::Collection<FloatPoint*>* result = new jrt::LinkedList<FloatPoint*>();
+  jrt::Collection<FloatPoint*>* result = new (jrt::kOp) jrt::LinkedList<FloatPoint*>();
   if (this->currentToDoorIndex >= this->currentTargetDoorIndex) {
     if (this->currentToDoorIndex == this->currentTargetDoorIndex) {
       FloatPoint* nearestPoint =
@@ -174,7 +174,7 @@ jrt::Collection<FloatPoint*>* FoundConnectionLocatorAnyAngle::calculateNextTrace
       FloatPoint* currentTangentialPoint =
           this->currentFromPoint->leftTangentialPoint(nextRightCorner, traceHalfwidthMax);
       if (currentTangentialPoint != nullptr) {
-        FloatLine* checkLine = new FloatLine(this->currentFromPoint, currentTangentialPoint);
+        FloatLine* checkLine = new (jrt::kGeom) FloatLine(this->currentFromPoint, currentTangentialPoint);
         if (checkLine->segmentDistance(doorRightCorner) >= traceHalfwidthMax) {
           visabilityRangeGetsSmallerOnTheRightSide = true;
         }
@@ -191,7 +191,7 @@ jrt::Collection<FloatPoint*>* FoundConnectionLocatorAnyAngle::calculateNextTrace
       FloatPoint* currentTangentialPoint =
           this->currentFromPoint->rightTangentialPoint(nextLeftCorner, traceHalfwidthMax);
       if (currentTangentialPoint != nullptr) {
-        FloatLine* checkLine = new FloatLine(this->currentFromPoint, currentTangentialPoint);
+        FloatLine* checkLine = new (jrt::kGeom) FloatLine(this->currentFromPoint, currentTangentialPoint);
         if (checkLine->segmentDistance(doorLeftCorner) >= traceHalfwidthMax) {
           visabilityRangeGetsSmallerOnTheLeftSide = true;
         }
@@ -243,7 +243,7 @@ jrt::Collection<FloatPoint*>* FoundConnectionLocatorAnyAngle::calculateNextTrace
   // Check clearance violation with the previous door shapes
   // and correct them in this case.
 
-  FloatLine* checkLine = new FloatLine(this->currentFromPoint, resultCorner);
+  FloatLine* checkLine = new (jrt::kGeom) FloatLine(this->currentFromPoint, resultCorner);
   int32_t checkFromDoorIndex =
       jrt::Math::max(this->currentToDoorIndex - 5, this->currentFromDoorIndex + 1);
   FloatPoint* correctedResult = nullptr;
@@ -310,13 +310,13 @@ FloatPoint* FoundConnectionLocatorAnyAngle::rightTurnNextCorner(FloatPoint* from
     FRLogger::trace("FoundConnectionLocator.right_turn_next_corner: left tangential point is null");
     return fromCorner;
   }
-  FloatLine* const firstLine = new FloatLine(fromCorner, currentTangentialPoint);
+  FloatLine* const firstLine = new (jrt::kGeom) FloatLine(fromCorner, currentTangentialPoint);
   currentTangentialPoint = toCorner->rightTangentialPoint(nextCorner, 2 * dist + cTolerance);
   if (currentTangentialPoint == nullptr) {
     FRLogger::trace("FoundConnectionLocator.right_turn_next_corner: right tangential point is null");
     return fromCorner;
   }
-  FloatLine* secondLine = new FloatLine(toCorner, currentTangentialPoint);
+  FloatLine* secondLine = new (jrt::kGeom) FloatLine(toCorner, currentTangentialPoint);
   secondLine = secondLine->translate(dist);
   return firstLine->intersection(secondLine);
 }
@@ -329,13 +329,13 @@ FloatPoint* FoundConnectionLocatorAnyAngle::leftTurnNextCorner(FloatPoint* fromC
     FRLogger::trace("FoundConnectionLocator.left_turn_next_corner: right tangential point is null");
     return fromCorner;
   }
-  FloatLine* const firstLine = new FloatLine(fromCorner, currentTangentialPoint);
+  FloatLine* const firstLine = new (jrt::kGeom) FloatLine(fromCorner, currentTangentialPoint);
   currentTangentialPoint = toCorner->leftTangentialPoint(nextCorner, 2 * dist + cTolerance);
   if (currentTangentialPoint == nullptr) {
     FRLogger::trace("FoundConnectionLocator.left_turn_next_corner: left tangential point is null");
     return fromCorner;
   }
-  FloatLine* secondLine = new FloatLine(toCorner, currentTangentialPoint);
+  FloatLine* secondLine = new (jrt::kGeom) FloatLine(toCorner, currentTangentialPoint);
   secondLine = secondLine->translate(-dist);
   return firstLine->intersection(secondLine);
 }
@@ -350,14 +350,14 @@ FloatPoint* FoundConnectionLocatorAnyAngle::rightLeftTangentialPoint(FloatPoint*
         "FoundConnectionLocator. right_left_tangential_point: right tangential point is null");
     return nullptr;
   }
-  FloatLine* firstLine = new FloatLine(fromPoint, currentTangentialPoint);
+  FloatLine* firstLine = new (jrt::kGeom) FloatLine(fromPoint, currentTangentialPoint);
   currentTangentialPoint = toPoint->leftTangentialPoint(center, dist);
   if (currentTangentialPoint == nullptr) {
     FRLogger::trace(
         "FoundConnectionLocator. right_left_tangential_point: left tangential point is null");
     return nullptr;
   }
-  FloatLine* secondLine = new FloatLine(toPoint, currentTangentialPoint);
+  FloatLine* secondLine = new (jrt::kGeom) FloatLine(toPoint, currentTangentialPoint);
   return firstLine->intersection(secondLine);
 }
 
@@ -371,14 +371,14 @@ FloatPoint* FoundConnectionLocatorAnyAngle::leftRightTangentialPoint(FloatPoint*
         "FoundConnectionLocator. left_right_tangential_point: left tangential point is null");
     return nullptr;
   }
-  FloatLine* firstLine = new FloatLine(fromPoint, currentTangentialPoint);
+  FloatLine* firstLine = new (jrt::kGeom) FloatLine(fromPoint, currentTangentialPoint);
   currentTangentialPoint = toPoint->rightTangentialPoint(center, dist);
   if (currentTangentialPoint == nullptr) {
     FRLogger::trace(
         "FoundConnectionLocator. left_right_tangential_point: right tangential point is null");
     return nullptr;
   }
-  FloatLine* secondLine = new FloatLine(toPoint, currentTangentialPoint);
+  FloatLine* secondLine = new (jrt::kGeom) FloatLine(toPoint, currentTangentialPoint);
   return firstLine->intersection(secondLine);
 }
 

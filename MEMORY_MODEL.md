@@ -70,6 +70,40 @@ fills memory with a poison pattern; ASan builds; corpus parity runs.
 * **E — remove GC.** Plain `operator new`, drop `jrt::new_root`/`GcThreadScope`; LeakSanitizer +
   ASan clean; Lua module no longer needs its own static libstdc++ trick for the allocator.
 
+## Stage A — allocation sites classified (done)
+
+Every `new` in `src/` and `bindings/lua/` names its lifetime with a placement tag from
+`runtime/jrt/alloc.h`: `new (jrt::kBoard) T(...)`, `new (jrt::kOp) T(...)`,
+`new (jrt::kGeom) T(...)` (stage B adds `jrt::kSearch` and `jrt::kBoardData`). On the GC build
+the tags forward to the global `operator new`, so behaviour is unchanged.
+
+* `kBoard` — owned by the board or another long-lived owner (rules, library, settings, job,
+  logger, function-local statics).
+* `kOp` — per-operation temporary (locals, results, iterators, per-call engines).
+* `kGeom` — immutable geometry and arrays of geometry (stage D: values / ref-counting).
+
+The tags were assigned by `tools/mem/classify_allocs.py rewrite` (heuristics: allocated type,
+`static` locals, stores into members of board / geometry classes; see the script header) and
+spot-corrected by hand (undo-list nodes, search-tree leaf arrays). They are a first
+approximation for stage C, which turns `kBoard` into real owners and will refine misfits.
+`classify_allocs.py check` lists untagged sites (must be empty); `report [--top]` prints the
+table. Sites per package (end of stage A):
+
+| package | board | op | geom | total |
+|---|---:|---:|---:|---:|
+| autoroute | 24 | 648 | 169 | 841 |
+| board | 158 | 309 | 211 | 678 |
+| geometry | 1 | 51 | 597 | 649 |
+| io (DSN/SES) | 154 | 285 | 34 | 473 |
+| core | 70 | 82 | 2 | 154 |
+| rules | 79 | 36 | 3 | 118 |
+| drc | 1 | 85 | 13 | 99 |
+| settings | 59 | 29 | 0 | 88 |
+| datastructures | 12 | 68 | 3 | 83 |
+| interactive | 0 | 25 | 8 | 33 |
+| logger, util, bindings/lua | 12 | 7 | 0 | 19 |
+| **total** | **570** | **1625** | **1040** | **3235** |
+
 ## Verification
 
 * `tools/parity_corpus.sh` (180 fixtures, C++ vs Java SES byte-for-byte) after every stage;

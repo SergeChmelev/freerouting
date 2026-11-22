@@ -56,20 +56,20 @@ AutorouteControl::AutorouteControl(RoutingBoard* board, RouterSettings* settings
                                           ? *settings->autorouter->viaCentreOfGravity
                                           : !viaInPad;
   layerCount = board->getLayerCount();
-  traceHalfWidth = new jrt::Array<int32_t>(layerCount);
-  compensatedTraceHalfWidth = new jrt::Array<int32_t>(layerCount);
-  traceClearanceOffset = new jrt::Array<int32_t>(layerCount);
-  layerActive = new jrt::Array<bool>(layerCount);
+  traceHalfWidth = new (jrt::kOp) jrt::Array<int32_t>(layerCount);
+  compensatedTraceHalfWidth = new (jrt::kOp) jrt::Array<int32_t>(layerCount);
+  traceClearanceOffset = new (jrt::kOp) jrt::Array<int32_t>(layerCount);
+  layerActive = new (jrt::kOp) jrt::Array<bool>(layerCount);
   viasAllowed = settings->getViasAllowed();
-  viaRadii = new jrt::Array<double>(layerCount);
-  addViaCosts = new jrt::Array<AutorouteControl_ViaCost*>(layerCount);
-  this->bendCosts = new jrt::Array<double>(layerCount);
+  viaRadii = new (jrt::kOp) jrt::Array<double>(layerCount);
+  addViaCosts = new (jrt::kOp) jrt::Array<AutorouteControl_ViaCost*>(layerCount);
+  this->bendCosts = new (jrt::kOp) jrt::Array<double>(layerCount);
   for (int32_t i = 0; i < layerCount; i++) {
     (*this->bendCosts)[i] = settings->getBendCost(i);
   }
 
   for (int32_t i = 0; i < layerCount; i++) {
-    (*addViaCosts)[i] = new AutorouteControl_ViaCost(layerCount);
+    (*addViaCosts)[i] = new (jrt::kOp) AutorouteControl_ViaCost(layerCount);
     bool activeSetting = settings->getLayerActive(i);
     if (!(*board->layerStructure->layers)[i]->isSignal && activeSetting) {
       FRLogger::warn("Layer '" + (*board->layerStructure->layers)[i]->name +
@@ -205,7 +205,7 @@ void AutorouteControl::rebuildViaInfo(RoutingBoard* board, int32_t viaCosts, int
   } else {
     this->viaClearanceClass = 1;
   }
-  this->viaInfos = new jrt::Array<AutorouteControl_ViaMask*>(viaRule->viaCount());
+  this->viaInfos = new (jrt::kOp) jrt::Array<AutorouteControl_ViaMask*>(viaRule->viaCount());
   this->attachSmdAllowed = false;
   for (int32_t i = 0; i < viaRule->viaCount(); i++) {
     ViaInfo* currentVia = viaRule->getVia(i);
@@ -226,7 +226,7 @@ void AutorouteControl::rebuildViaInfo(RoutingBoard* board, int32_t viaCosts, int
       (*this->viaRadii)[j] = jrt::Math::max((*this->viaRadii)[j], currentRadius);
     }
     (*viaInfos)[i] =
-        new AutorouteControl_ViaMask(fromLayer, toLayer, currentVia->attachSmdAllowed());
+        new (jrt::kOp) AutorouteControl_ViaMask(fromLayer, toLayer, currentVia->attachSmdAllowed());
   }
 
   bool pureSmdNet = isPureSmdNet(board, netNumber);
@@ -238,7 +238,7 @@ void AutorouteControl::rebuildViaInfo(RoutingBoard* board, int32_t viaCosts, int
     // for same-net fanout/escape; cross-net DRC remains governed by the padstack's attach flag.
     this->attachSmdAllowed = true;
     for (int32_t i = 0; i < this->viaInfos->length; i++) {
-      (*this->viaInfos)[i] = new AutorouteControl_ViaMask((*this->viaInfos)[i]->fromLayer,
+      (*this->viaInfos)[i] = new (jrt::kOp) AutorouteControl_ViaMask((*this->viaInfos)[i]->fromLayer,
                                                           (*this->viaInfos)[i]->toLayer, true);
     }
   }
@@ -275,7 +275,7 @@ void AutorouteControl::applySignalLayerViaSurcharge(RoutingBoard* board, int32_t
   if (settings == nullptr || netNumber <= 0) {
     return;
   }
-  jrt::Array<bool>* planeLayer = new jrt::Array<bool>(layerCount);
+  jrt::Array<bool>* planeLayer = new (jrt::kOp) jrt::Array<bool>(layerCount);
   bool anyPlane = false;
   for (ConductionArea* area : *board->getConductionAreas()) {
     int32_t layer = area->getLayer();

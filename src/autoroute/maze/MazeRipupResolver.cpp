@@ -165,7 +165,7 @@ int32_t MazeRipupResolver::checkRipup(MazeListElement* listElement, Item* obstac
   int32_t result = jrt::Math::max(jrt::d2i(ripupCost), 1);
   const int32_t maxRipupCosts = jrt::Integer::MAX_VALUE / 100;
   result = jrt::Math::min(result, maxRipupCosts);
-  jrt::Array<int32_t>* nets = new jrt::Array<int32_t>(obstacleItem->netCount());
+  jrt::Array<int32_t>* nets = new (jrt::kOp) jrt::Array<int32_t>(obstacleItem->netCount());
   for (int32_t i = 0; i < nets->length; i++) {
     (*nets)[i] = obstacleItem->getNetNumber(i);
   }
@@ -233,16 +233,16 @@ bool MazeRipupResolver::enterThroughSmallDoor(MazeListElement* listElement, Item
   int32_t currentLayer = listElement->nextRoom->getLayer();
   int32_t checkRadius = (*search->ctrl->compensatedTraceHalfWidth)[currentLayer] +
                         AutorouteEngine::TRACE_WIDTH_TOLERANCE;
-  jrt::Array<Line*>* lines = new jrt::Array<Line*>(3);
+  jrt::Array<Line*>* lines = new (jrt::kGeom) jrt::Array<Line*>(3);
   (*lines)[0] = doorLine->translate(checkRadius);
-  (*lines)[1] = new Line(doorCenter, doorLine->direction()->turn45Degree(2));
+  (*lines)[1] = new (jrt::kGeom) Line(doorCenter, doorLine->direction()->turn45Degree(2));
   (*lines)[2] = doorLine->translate(-checkRadius);
 
-  Polyline* checkPolyline = new Polyline(lines);
+  Polyline* checkPolyline = new (jrt::kGeom) Polyline(lines);
   TileShape* checkShape = checkPolyline->offsetShape(checkRadius, 0);
-  jrt::Array<int32_t>* ignoreNetNos = new jrt::Array<int32_t>(1);
+  jrt::Array<int32_t>* ignoreNetNos = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*ignoreNetNos)[0] = search->ctrl->netNumber;
-  jrt::Set<SearchTreeObject*>* overlappingObjects = new jrt::TreeSet<SearchTreeObject*>();
+  jrt::Set<SearchTreeObject*>* overlappingObjects = new (jrt::kOp) jrt::TreeSet<SearchTreeObject*>();
   search->autorouteEngine->autorouteSearchTree->overlappingObjects(checkShape, currentLayer,
                                                                    ignoreNetNos, overlappingObjects);
 

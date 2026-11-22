@@ -16,14 +16,14 @@ namespace fr {
 NetClass::NetClass(const std::string& name, LayerStructure* layerStructure,
                    ClearanceMatrix* clearanceMatrix, bool ignoredByAutorouter) {
   // Java field initializers
-  this->defaultItemClearanceClasses = new DefaultItemClearanceClasses();
+  this->defaultItemClearanceClasses = new (jrt::kBoard) DefaultItemClearanceClasses();
   this->meanderConstraint = NetMeanderConstraint::UNCONSTRAINED();
 
   this->name = name;
   this->boardLayerStructure = layerStructure;
   this->clearanceMatrix = clearanceMatrix;
-  this->traceHalfWidthArr = new jrt::Array<int32_t>(layerStructure->layers->length);
-  this->activeRoutingLayerArr = new jrt::Array<bool>(layerStructure->layers->length);
+  this->traceHalfWidthArr = new (jrt::kBoard) jrt::Array<int32_t>(layerStructure->layers->length);
+  this->activeRoutingLayerArr = new (jrt::kBoard) jrt::Array<bool>(layerStructure->layers->length);
   for (int32_t i = 0; i < layerStructure->layers->length; i++) {
     (*this->activeRoutingLayerArr)[i] = (*layerStructure->layers)[i]->isSignal;
   }
@@ -57,7 +57,7 @@ void NetClass::copySettingsFrom(NetClass* other) {
       other->activeRoutingLayerArr, 0, this->activeRoutingLayerArr, 0,
       jrt::Math::min(other->activeRoutingLayerArr->length, this->activeRoutingLayerArr->length));
   this->defaultItemClearanceClasses =
-      new DefaultItemClearanceClasses(other->defaultItemClearanceClasses);
+      new (jrt::kBoard) DefaultItemClearanceClasses(other->defaultItemClearanceClasses);
   this->isIgnoredByAutorouter = other->isIgnoredByAutorouter;
   this->isRoutedFirst = other->isRoutedFirst;
   this->viaRule = other->viaRule;
@@ -71,7 +71,7 @@ void NetClass::copySettingsFrom(NetClass* other) {
 }
 
 NetLengthConstraint* NetClass::getLengthConstraint() {
-  return new NetLengthConstraint(this->minimumTraceLength, this->maximumTraceLength);
+  return new (jrt::kBoard) NetLengthConstraint(this->minimumTraceLength, this->maximumTraceLength);
 }
 
 void NetClass::setLengthConstraint(NetLengthConstraint* constraint) {
@@ -121,7 +121,7 @@ void NetClass::setAllInnerLayersActive(bool value) {
 }
 
 void NetClass::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("NetClass", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("NetClass", locale);
 
   printer->appendBold(tm->getText("net_class_2") + " ");
   printer->appendBold(this->name);

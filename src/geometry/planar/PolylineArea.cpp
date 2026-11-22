@@ -38,7 +38,7 @@ bool PolylineArea::isContainedIn(IntBox* box) { return borderShape->isContainedI
 jrt::Array<Shape*>* PolylineArea::getHoles() {
   // PORT NOTE: Java returns holeArr itself (array covariance); C++ arrays are not covariant, so a
   // new Shape* array with the same elements is returned.
-  auto* result = new jrt::Array<Shape*>(holeArr->length);
+  auto* result = new (jrt::kOp) jrt::Array<Shape*>(holeArr->length);
   for (int32_t i = 0; i < holeArr->length; i++) {
     (*result)[i] = (*holeArr)[i];
   }
@@ -93,11 +93,11 @@ PolylineArea* PolylineArea::translateBy(Vector* vector) {
     return this;
   }
   PolylineShape* translatedBorder = borderShape->translateBy(vector);
-  auto* translatedHoles = new jrt::Array<PolylineShape*>(holeArr->length);
+  auto* translatedHoles = new (jrt::kGeom) jrt::Array<PolylineShape*>(holeArr->length);
   for (int32_t i = 0; i < holeArr->length; i++) {
     (*translatedHoles)[i] = (*holeArr)[i]->translateBy(vector);
   }
-  return new PolylineArea(translatedBorder, translatedHoles);
+  return new (jrt::kGeom) PolylineArea(translatedBorder, translatedHoles);
 }
 
 jrt::Array<FloatPoint*>* PolylineArea::cornerApproxArr() {
@@ -105,7 +105,7 @@ jrt::Array<FloatPoint*>* PolylineArea::cornerApproxArr() {
   for (int32_t i = 0; i < holeArr->length; i++) {
     cornerCount += (*holeArr)[i]->borderLineCount();
   }
-  auto* result = new jrt::Array<FloatPoint*>(cornerCount);
+  auto* result = new (jrt::kGeom) jrt::Array<FloatPoint*>(cornerCount);
   jrt::Array<FloatPoint*>* currentCornerArr = borderShape->cornerApproxArr();
   jrt::arraycopy(currentCornerArr, 0, result, 0, currentCornerArr->length);
   int32_t destPos = currentCornerArr->length;
@@ -153,7 +153,7 @@ jrt::Array<TileShape*>* PolylineArea::splitToConvex(Stoppable* stoppableThread) 
     if (convexBorderPieces == nullptr) {
       return nullptr;
     }
-    jrt::Collection<TileShape*>* currentPieceList = new jrt::LinkedList<TileShape*>();
+    jrt::Collection<TileShape*>* currentPieceList = new (jrt::kOp) jrt::LinkedList<TileShape*>();
     for (int32_t i = 0; i < convexBorderPieces->length; i++) {
       currentPieceList->add((*convexBorderPieces)[i]);
     }
@@ -168,7 +168,7 @@ jrt::Array<TileShape*>* PolylineArea::splitToConvex(Stoppable* stoppableThread) 
       }
       for (int32_t j = 0; j < convexHolePieces->length; j++) {
         TileShape* currentHolePiece = (*convexHolePieces)[j];
-        jrt::Collection<TileShape*>* newPieceList = new jrt::LinkedList<TileShape*>();
+        jrt::Collection<TileShape*>* newPieceList = new (jrt::kOp) jrt::LinkedList<TileShape*>();
         for (TileShape* currentDividePiece : *currentPieceList) {
           if (stoppableThread != nullptr && stoppableThread->isStopRequested()) {
             return nullptr;
@@ -178,7 +178,7 @@ jrt::Array<TileShape*>* PolylineArea::splitToConvex(Stoppable* stoppableThread) 
         currentPieceList = newPieceList;
       }
     }
-    precalculatedConvexPieces = new jrt::Array<TileShape*>(currentPieceList->size());
+    precalculatedConvexPieces = new (jrt::kGeom) jrt::Array<TileShape*>(currentPieceList->size());
     jrt::Iterator<TileShape*>* it = currentPieceList->iterator();
     for (int32_t i = 0; i < precalculatedConvexPieces->length; i++) {
       (*precalculatedConvexPieces)[i] = it->next();
@@ -189,38 +189,38 @@ jrt::Array<TileShape*>* PolylineArea::splitToConvex(Stoppable* stoppableThread) 
 
 PolylineArea* PolylineArea::turn90Degree(int32_t factor, IntPoint* pole) {
   PolylineShape* newBorder = borderShape->turn90Degree(factor, pole);
-  auto* newHoleArr = new jrt::Array<PolylineShape*>(holeArr->length);
+  auto* newHoleArr = new (jrt::kGeom) jrt::Array<PolylineShape*>(holeArr->length);
   for (int32_t i = 0; i < newHoleArr->length; i++) {
     (*newHoleArr)[i] = (*holeArr)[i]->turn90Degree(factor, pole);
   }
-  return new PolylineArea(newBorder, newHoleArr);
+  return new (jrt::kGeom) PolylineArea(newBorder, newHoleArr);
 }
 
 PolylineArea* PolylineArea::rotateApprox(double angle, FloatPoint* pole) {
   PolylineShape* newBorder = borderShape->rotateApprox(angle, pole);
-  auto* newHoleArr = new jrt::Array<PolylineShape*>(holeArr->length);
+  auto* newHoleArr = new (jrt::kGeom) jrt::Array<PolylineShape*>(holeArr->length);
   for (int32_t i = 0; i < newHoleArr->length; i++) {
     (*newHoleArr)[i] = (*holeArr)[i]->rotateApprox(angle, pole);
   }
-  return new PolylineArea(newBorder, newHoleArr);
+  return new (jrt::kGeom) PolylineArea(newBorder, newHoleArr);
 }
 
 PolylineArea* PolylineArea::mirrorVertical(IntPoint* pole) {
   PolylineShape* newBorder = borderShape->mirrorVertical(pole);
-  auto* newHoleArr = new jrt::Array<PolylineShape*>(holeArr->length);
+  auto* newHoleArr = new (jrt::kGeom) jrt::Array<PolylineShape*>(holeArr->length);
   for (int32_t i = 0; i < newHoleArr->length; i++) {
     (*newHoleArr)[i] = (*holeArr)[i]->mirrorVertical(pole);
   }
-  return new PolylineArea(newBorder, newHoleArr);
+  return new (jrt::kGeom) PolylineArea(newBorder, newHoleArr);
 }
 
 PolylineArea* PolylineArea::mirrorHorizontal(IntPoint* pole) {
   PolylineShape* newBorder = borderShape->mirrorHorizontal(pole);
-  auto* newHoleArr = new jrt::Array<PolylineShape*>(holeArr->length);
+  auto* newHoleArr = new (jrt::kGeom) jrt::Array<PolylineShape*>(holeArr->length);
   for (int32_t i = 0; i < newHoleArr->length; i++) {
     (*newHoleArr)[i] = (*holeArr)[i]->mirrorHorizontal(pole);
   }
-  return new PolylineArea(newBorder, newHoleArr);
+  return new (jrt::kGeom) PolylineArea(newBorder, newHoleArr);
 }
 
 }  // namespace fr

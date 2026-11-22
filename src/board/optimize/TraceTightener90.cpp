@@ -28,12 +28,12 @@ Polyline* TraceTightener90::trySkipSecondCorner(Polyline* polyline) {
   if (polyline->lines->length < 5) {
     return polyline;
   }
-  jrt::Array<Line*>* checkLines = new jrt::Array<Line*>(4);
+  jrt::Array<Line*>* checkLines = new (jrt::kGeom) jrt::Array<Line*>(4);
   (*checkLines)[0] = (*polyline->lines)[1];
   (*checkLines)[1] = (*polyline->lines)[0];
   (*checkLines)[2] = (*polyline->lines)[3];
   (*checkLines)[3] = (*polyline->lines)[4];
-  Polyline* checkPolyline = new Polyline(checkLines);
+  Polyline* checkPolyline = new (jrt::kGeom) Polyline(checkLines);
   if (checkPolyline->lines->length != 4 ||
       (currentClipShape != nullptr &&
        !currentClipShape->contains(checkPolyline->cornerApprox(1)))) {
@@ -47,23 +47,23 @@ Polyline* TraceTightener90::trySkipSecondCorner(Polyline* polyline) {
     }
   }
   // now the second corner can be skipped.
-  jrt::Array<Line*>* newLines = new jrt::Array<Line*>(polyline->lines->length - 1);
+  jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(polyline->lines->length - 1);
   (*newLines)[0] = (*polyline->lines)[1];
   (*newLines)[1] = (*polyline->lines)[0];
   jrt::arraycopy(polyline->lines, 3, newLines, 2, newLines->length - 2);
-  return new Polyline(newLines);
+  return new (jrt::kGeom) Polyline(newLines);
 }
 
 Polyline* TraceTightener90::trySkipCorners(Polyline* polyline) {
   if (polyline->lines->length < 5) {
     return polyline;
   }
-  jrt::Array<Line*>* newLines = new jrt::Array<Line*>(polyline->lines->length);
+  jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(polyline->lines->length);
   (*newLines)[0] = (*polyline->lines)[0];
   (*newLines)[1] = (*polyline->lines)[1];
   int32_t newLineIndex = 1;
   bool polylineChanged = false;
-  jrt::Array<Line*>* checkLines = new jrt::Array<Line*>(4);
+  jrt::Array<Line*>* checkLines = new (jrt::kGeom) jrt::Array<Line*>(4);
   bool secondLastCornerSkipped = false;
   for (int32_t i = 5; i <= polyline->lines->length; i++) {
     bool skipLines = false;
@@ -79,7 +79,7 @@ Polyline* TraceTightener90::trySkipCorners(Polyline* polyline) {
         // use as concluding line the second last line
         (*checkLines)[3] = (*polyline->lines)[i - 2];
       }
-      Polyline* checkPolyline = new Polyline(checkLines);
+      Polyline* checkPolyline = new (jrt::kGeom) Polyline(checkLines);
       skipLines = checkPolyline->lines->length == 4 &&
                   (currentClipShape == nullptr ||
                    currentClipShape->contains(checkPolyline->cornerApprox(1)));
@@ -128,9 +128,9 @@ Polyline* TraceTightener90::trySkipCorners(Polyline* polyline) {
     }
   }
 
-  jrt::Array<Line*>* cleanedNewLines = new jrt::Array<Line*>(newLineIndex + 1);
+  jrt::Array<Line*>* cleanedNewLines = new (jrt::kGeom) jrt::Array<Line*>(newLineIndex + 1);
   jrt::arraycopy(newLines, 0, cleanedNewLines, 0, cleanedNewLines->length);
-  return new Polyline(cleanedNewLines);
+  return new (jrt::kGeom) Polyline(cleanedNewLines);
 }
 
 Polyline* TraceTightener90::smoothenStartCornerAtTrace(PolylineTrace* trace) { return nullptr; }

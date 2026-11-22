@@ -28,7 +28,7 @@ bool IntVector::equals(jrt::Object* other) {
   return x == otherVector->x && y == otherVector->y;
 }
 
-Vector* IntVector::negate() { return new IntVector(-x, -y); }
+Vector* IntVector::negate() { return new (jrt::kGeom) IntVector(-x, -y); }
 
 bool IntVector::isOrthogonal() { return x == 0 || y == 0; }
 
@@ -48,29 +48,29 @@ Vector* IntVector::turn90Degree(int32_t factor) {
   }
   switch (n) {
     case 0:
-      return new IntVector(x, y);  // 0 degrees
+      return new (jrt::kGeom) IntVector(x, y);  // 0 degrees
     case 1:
-      return new IntVector(-y, x);  // 90 degrees
+      return new (jrt::kGeom) IntVector(-y, x);  // 90 degrees
     case 2:
-      return new IntVector(-x, -y);  // 180 degrees
+      return new (jrt::kGeom) IntVector(-x, -y);  // 180 degrees
     case 3:
-      return new IntVector(y, -x);  // 270 degrees
+      return new (jrt::kGeom) IntVector(y, -x);  // 270 degrees
     default:
       return IntVector::ZERO();
   }
 }
 
-Vector* IntVector::mirrorAtYAxis() { return new IntVector(-this->x, this->y); }
+Vector* IntVector::mirrorAtYAxis() { return new (jrt::kGeom) IntVector(-this->x, this->y); }
 
-Vector* IntVector::mirrorAtXAxis() { return new IntVector(this->x, -this->y); }
+Vector* IntVector::mirrorAtXAxis() { return new (jrt::kGeom) IntVector(this->x, -this->y); }
 
 Vector* IntVector::add(Vector* other) { return other->add(this); }
 
-Vector* IntVector::add(IntVector* other) { return new IntVector(x + other->x, y + other->y); }
+Vector* IntVector::add(IntVector* other) { return new (jrt::kGeom) IntVector(x + other->x, y + other->y); }
 
 Vector* IntVector::add(RationalVector* other) { return other->add(this); }
 
-Point* IntVector::addTo(IntPoint* point) { return new IntPoint(point->x + x, point->y + y); }
+Point* IntVector::addTo(IntPoint* point) { return new (jrt::kGeom) IntPoint(point->x + x, point->y + y); }
 
 Point* IntVector::addTo(RationalPoint* point) { return point->translateBy(this); }
 
@@ -106,7 +106,7 @@ double IntVector::scalarProduct(IntVector* other) {
 
 double IntVector::scalarProduct(RationalVector* other) { return other->scalarProduct(this); }
 
-FloatPoint* IntVector::toFloat() { return new FloatPoint(x, y); }
+FloatPoint* IntVector::toFloat() { return new (jrt::kGeom) FloatPoint(x, y); }
 
 Vector* IntVector::changeLengthApprox(double length) {
   FloatPoint* newPoint = this->toFloat()->changeSize(length);
@@ -121,7 +121,7 @@ Direction* IntVector::toNormalizedDirection() {
     dx /= gcd;
     dy /= gcd;
   }
-  return new IntDirection(dx, dy);
+  return new (jrt::kGeom) IntDirection(dx, dy);
 }
 
 }  // namespace fr

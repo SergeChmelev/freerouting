@@ -34,7 +34,7 @@ class LambdaBoardFileDetailsUpdatedEventListener : public BoardFileDetailsUpdate
 
 inline BoardFileDetailsUpdatedEventListener* BoardFileDetailsUpdatedEventListener::of(
     std::function<void(BoardFileDetailsUpdatedEvent*)> f) {
-  return new detail::LambdaBoardFileDetailsUpdatedEventListener(std::move(f));
+  return new (jrt::kOp) detail::LambdaBoardFileDetailsUpdatedEventListener(std::move(f));
 }
 
 }  // namespace fr

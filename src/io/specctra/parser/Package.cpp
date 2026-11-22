@@ -31,13 +31,13 @@ namespace fr::dsn {
 Package* Package::readScope(IJFlexScanner* scanner, LayerStructure* layerStructure) {
   try {
     bool isFront = true;
-    jrt::Collection<Shape*>* outline = new jrt::LinkedList<Shape*>();
+    jrt::Collection<Shape*>* outline = new (jrt::kOp) jrt::LinkedList<Shape*>();
     jrt::Collection<Shape_ReadAreaScopeResult*>* keepouts =
-        new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
+        new (jrt::kOp) jrt::LinkedList<Shape_ReadAreaScopeResult*>();
     jrt::Collection<Shape_ReadAreaScopeResult*>* viaKeepouts =
-        new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
+        new (jrt::kOp) jrt::LinkedList<Shape_ReadAreaScopeResult*>();
     jrt::Collection<Shape_ReadAreaScopeResult*>* placeKeepouts =
-        new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
+        new (jrt::kOp) jrt::LinkedList<Shape_ReadAreaScopeResult*>();
     jrt::Object* nextToken = scanner->nextToken();
     auto* packageNameToken = jrt::fast_cast<JString>(nextToken);
     if (packageNameToken == nullptr) {
@@ -47,7 +47,7 @@ Package* Package::readScope(IJFlexScanner* scanner, LayerStructure* layerStructu
     }
     std::string packageName = packageNameToken->value;
     scanner->setScopeIdentifier(packageName);
-    jrt::Collection<Package_PinInfo*>* pinInfoList = new jrt::LinkedList<Package_PinInfo*>();
+    jrt::Collection<Package_PinInfo*>* pinInfoList = new (jrt::kOp) jrt::LinkedList<Package_PinInfo*>();
     for (;;) {
       jrt::Object* prevToken = nextToken;
       nextToken = scanner->nextToken();
@@ -109,12 +109,12 @@ Package* Package::readScope(IJFlexScanner* scanner, LayerStructure* layerStructu
         }
       }
     }
-    auto* pinInfoArr = new jrt::Array<Package_PinInfo*>(pinInfoList->size());
+    auto* pinInfoArr = new (jrt::kOp) jrt::Array<Package_PinInfo*>(pinInfoList->size());
     jrt::Iterator<Package_PinInfo*>* it = pinInfoList->iterator();
     for (int32_t i = 0; i < pinInfoArr->length; i++) {
       (*pinInfoArr)[i] = it->next();
     }
-    return new Package(packageName, pinInfoArr, outline, keepouts, viaKeepouts, placeKeepouts,
+    return new (jrt::kOp) Package(packageName, pinInfoArr, outline, keepouts, viaKeepouts, placeKeepouts,
                        isFront);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Package.read_scope: IO error scanning file", &e);
@@ -184,7 +184,7 @@ void Package::writePackageKeepout(fr::Package_Keepout* keepout,
   Layer* keepoutLayer;
   if (keepout->layer >= 0) {
     fr::Layer* boardLayer = (*scopeParameter->board->layerStructure->layers)[keepout->layer];
-    keepoutLayer = new Layer(boardLayer->name, keepout->layer, boardLayer->isSignal);
+    keepoutLayer = new (jrt::kOp) Layer(boardLayer->name, keepout->layer, boardLayer->isSignal);
   } else {
     keepoutLayer = Layer::SIGNAL();
   }
@@ -192,7 +192,7 @@ void Package::writePackageKeepout(fr::Package_Keepout* keepout,
   jrt::Array<fr::Shape*>* holes;
   if (auto* shape = jrt::fast_cast<fr::Shape>(keepout->area)) {
     boundaryShape = shape;
-    holes = new jrt::Array<fr::Shape*>(0);
+    holes = new (jrt::kOp) jrt::Array<fr::Shape*>(0);
   } else {
     boundaryShape = keepout->area->getBorder();
     holes = keepout->area->getHoles();
@@ -251,7 +251,7 @@ Package_PinInfo* Package::readPinInfo(IJFlexScanner* scanner) {
     }
     std::string pinName = nextToken->toString();
 
-    auto* pinCoor = new jrt::Array<double>(2);
+    auto* pinCoor = new (jrt::kOp) jrt::Array<double>(2);
     for (int32_t i = 0; i < 2; i++) {
       nextToken = scanner->nextToken();
       if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
@@ -286,7 +286,7 @@ Package_PinInfo* Package::readPinInfo(IJFlexScanner* scanner) {
         }
       }
     }
-    return new Package_PinInfo(padstackName, pinName, pinCoor, rotation);
+    return new (jrt::kOp) Package_PinInfo(padstackName, pinName, pinCoor, rotation);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Package.read_pin_info: IO error while scanning file", &e);
     return nullptr;

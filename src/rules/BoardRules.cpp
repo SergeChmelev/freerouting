@@ -45,16 +45,16 @@ class IdMap {
 
 BoardRules::BoardRules(LayerStructure* layerStructure, ClearanceMatrix* clearanceMatrix) {
   // Java field initializers (run before the constructor body)
-  this->viaInfos = new ViaInfos();
-  this->viaRules = new jrt::ArrayList<ViaRule*>();
-  this->netClasses = new NetClasses();
-  this->differentialPairs = new DifferentialPairs();
-  this->defaultMeanderConstraints = new jrt::TreeMap<MeanderPatternType, NetMeanderConstraint*>();
-  this->explicitMeanderConstraints = new jrt::HashSet<MeanderPatternType>();
+  this->viaInfos = new (jrt::kBoard) ViaInfos();
+  this->viaRules = new (jrt::kBoard) jrt::ArrayList<ViaRule*>();
+  this->netClasses = new (jrt::kBoard) NetClasses();
+  this->differentialPairs = new (jrt::kBoard) DifferentialPairs();
+  this->defaultMeanderConstraints = new (jrt::kBoard) jrt::TreeMap<MeanderPatternType, NetMeanderConstraint*>();
+  this->explicitMeanderConstraints = new (jrt::kBoard) jrt::HashSet<MeanderPatternType>();
 
   this->layerStructure = layerStructure;
   this->clearanceMatrix = clearanceMatrix;
-  nets = new Nets();
+  nets = new (jrt::kBoard) Nets();
   this->traceAngleRestriction = AngleRestriction::FORTYFIVE_DEGREE;
 
   this->minTraceHalfWidth = 100000;
@@ -194,7 +194,7 @@ NetClass* BoardRules::getNewNetClass(const std::string& name) {
 
 void BoardRules::createDefaultViaRule(NetClass* netClass, const std::string& name) {
   // Add the rule  containing all vias.
-  ViaRule* defaultRule = new ViaRule(name);
+  ViaRule* defaultRule = new (jrt::kBoard) ViaRule(name);
   int32_t defaultViaClClass =
       netClass->defaultItemClearanceClasses->get(DefaultItemClearanceClasses_ItemClass::VIA);
   for (int32_t i = 0; i < this->viaInfos->count(); i++) {
@@ -248,7 +248,7 @@ NetClass* BoardRules::appendNetClass(const std::string& name) {
       this->netClasses->append(name, this->layerStructure, this->clearanceMatrix, false);
   NetClass* defaultClass = this->netClasses->get(0);
   newClass->defaultItemClearanceClasses =
-      new DefaultItemClearanceClasses(defaultClass->defaultItemClearanceClasses);
+      new (jrt::kBoard) DefaultItemClearanceClasses(defaultClass->defaultItemClearanceClasses);
   newClass->setViaRule(defaultClass->getViaRule());
   newClass->setTraceHalfWidth(defaultClass->getTraceHalfWidth(0));
   newClass->setTraceClearanceClass(defaultClass->getTraceClearanceClass());
@@ -385,7 +385,7 @@ double BoardRules::getDefaultViaDiameter() {
 // null -> true.
 // -------------------------------------------------------------------------------------------------
 BoardRules* BoardRules::deepCopy() {
-  BoardRules* copy = new BoardRules();
+  BoardRules* copy = new (jrt::kBoard) BoardRules();
   copy->layerStructure = this->layerStructure;
   copy->clearanceMatrix =
       this->clearanceMatrix != nullptr ? this->clearanceMatrix->deepCopy() : nullptr;
@@ -397,7 +397,7 @@ BoardRules* BoardRules::deepCopy() {
   };
 
   // --- via infos ---
-  auto* viaInfoMap = new IdMap<ViaInfo*, ViaInfo*>();
+  auto* viaInfoMap = new (jrt::kOp) IdMap<ViaInfo*, ViaInfo*>();
   BoardRules* self = this;
   auto mapViaInfo = [viaInfoMap, self, copy](ViaInfo* v) -> ViaInfo* {
     if (v == nullptr) {
@@ -406,19 +406,19 @@ BoardRules* BoardRules::deepCopy() {
     ViaInfo* result = viaInfoMap->get(v);
     if (result == nullptr) {
       BoardRules* rules = v->boardRules == self ? copy : v->boardRules;
-      result = new ViaInfo(v->getName(), v->getPadstack(), v->getClearanceClassIndex(),
+      result = new (jrt::kBoard) ViaInfo(v->getName(), v->getPadstack(), v->getClearanceClassIndex(),
                            v->attachSmdAllowed(), rules);
       viaInfoMap->put(v, result);
     }
     return result;
   };
-  copy->viaInfos = new ViaInfos();
+  copy->viaInfos = new (jrt::kBoard) ViaInfos();
   for (ViaInfo* v : *this->viaInfos->list) {
     copy->viaInfos->list->add(mapViaInfo(v));
   }
 
   // --- via rules ---
-  auto* viaRuleMap = new IdMap<ViaRule*, ViaRule*>();
+  auto* viaRuleMap = new (jrt::kOp) IdMap<ViaRule*, ViaRule*>();
   auto mapViaRule = [viaRuleMap, mapViaInfo](ViaRule* r) -> ViaRule* {
     if (r == nullptr) {
       return nullptr;
@@ -428,7 +428,7 @@ BoardRules* BoardRules::deepCopy() {
     }
     ViaRule* result = viaRuleMap->get(r);
     if (result == nullptr) {
-      result = new ViaRule(r->name);
+      result = new (jrt::kBoard) ViaRule(r->name);
       viaRuleMap->put(r, result);
       for (ViaInfo* v : *r->list) {
         result->list->add(mapViaInfo(v));
@@ -436,15 +436,15 @@ BoardRules* BoardRules::deepCopy() {
     }
     return result;
   };
-  copy->viaRules = new jrt::ArrayList<ViaRule*>();
+  copy->viaRules = new (jrt::kOp) jrt::ArrayList<ViaRule*>();
   for (ViaRule* r : *this->viaRules) {
     copy->viaRules->add(mapViaRule(r));
   }
 
   // --- net classes ---
   auto* itemClassesMap =
-      new IdMap<DefaultItemClearanceClasses*, DefaultItemClearanceClasses*>();
-  auto* netClassMap = new IdMap<NetClass*, NetClass*>();
+      new (jrt::kOp) IdMap<DefaultItemClearanceClasses*, DefaultItemClearanceClasses*>();
+  auto* netClassMap = new (jrt::kOp) IdMap<NetClass*, NetClass*>();
   auto mapNetClass = [netClassMap, itemClassesMap, mapViaRule,
                       mapMatrix](NetClass* nc) -> NetClass* {
     if (nc == nullptr) {
@@ -452,7 +452,7 @@ BoardRules* BoardRules::deepCopy() {
     }
     NetClass* result = netClassMap->get(nc);
     if (result == nullptr) {
-      result = new NetClass(nc->name, nc->boardLayerStructure, mapMatrix(nc->clearanceMatrix),
+      result = new (jrt::kBoard) NetClass(nc->name, nc->boardLayerStructure, mapMatrix(nc->clearanceMatrix),
                             nc->isIgnoredByAutorouter);
       netClassMap->put(nc, result);
       result->traceHalfWidthArr = nc->traceHalfWidthArr->clone();
@@ -463,7 +463,7 @@ BoardRules* BoardRules::deepCopy() {
       } else {
         DefaultItemClearanceClasses* dstClasses = itemClassesMap->get(srcClasses);
         if (dstClasses == nullptr) {
-          dstClasses = new DefaultItemClearanceClasses(srcClasses);
+          dstClasses = new (jrt::kBoard) DefaultItemClearanceClasses(srcClasses);
           itemClassesMap->put(srcClasses, dstClasses);
         }
         result->defaultItemClearanceClasses = dstClasses;
@@ -481,17 +481,17 @@ BoardRules* BoardRules::deepCopy() {
     }
     return result;
   };
-  copy->netClasses = new NetClasses();
+  copy->netClasses = new (jrt::kBoard) NetClasses();
   for (NetClass* nc : *this->netClasses->classArr) {
     copy->netClasses->classArr->add(mapNetClass(nc));
   }
 
   // --- nets ---
-  copy->nets = new Nets();
+  copy->nets = new (jrt::kBoard) Nets();
   copy->nets->board = this->nets->board;  // re-pointed by the caller
   Nets* srcNets = this->nets;
   Nets* dstNets = copy->nets;
-  auto* netMap = new IdMap<Net*, Net*>();
+  auto* netMap = new (jrt::kOp) IdMap<Net*, Net*>();
   auto mapNet = [netMap, srcNets, dstNets, mapNetClass](Net* n) -> Net* {
     if (n == nullptr) {
       return nullptr;
@@ -499,7 +499,7 @@ BoardRules* BoardRules::deepCopy() {
     Net* result = netMap->get(n);
     if (result == nullptr) {
       // A net always belongs to the net list of its rules.
-      result = new Net(n, n->netList == srcNets ? dstNets : n->netList);
+      result = new (jrt::kBoard) Net(n, n->netList == srcNets ? dstNets : n->netList);
       netMap->put(n, result);
       result->netClass = mapNetClass(n->netClass);
     }
@@ -510,14 +510,14 @@ BoardRules* BoardRules::deepCopy() {
   }
 
   // --- differential pairs ---
-  auto* pairMap = new IdMap<DifferentialPair*, DifferentialPair*>();
+  auto* pairMap = new (jrt::kOp) IdMap<DifferentialPair*, DifferentialPair*>();
   auto mapPair = [pairMap, mapNet](DifferentialPair* p) -> DifferentialPair* {
     if (p == nullptr) {
       return nullptr;
     }
     DifferentialPair* result = pairMap->get(p);
     if (result == nullptr) {
-      result = new DifferentialPair(mapNet(p->positiveNet()), mapNet(p->negativeNet()),
+      result = new (jrt::kBoard) DifferentialPair(mapNet(p->positiveNet()), mapNet(p->negativeNet()),
                                     p->baseName(), p->coupledSpacing(), p->maxSkew());
       pairMap->put(p, result);
     }
@@ -526,7 +526,7 @@ BoardRules* BoardRules::deepCopy() {
   if (this->differentialPairs == nullptr) {
     copy->differentialPairs = nullptr;
   } else {
-    copy->differentialPairs = new DifferentialPairs();
+    copy->differentialPairs = new (jrt::kBoard) DifferentialPairs();
     for (auto* e : *this->differentialPairs->pairsByName->entrySet()) {
       copy->differentialPairs->pairsByName->put(e->getKey(), mapPair(e->getValue()));
     }
@@ -550,11 +550,11 @@ BoardRules* BoardRules::deepCopy() {
   copy->minAllowedTraceHalfWidth = this->minAllowedTraceHalfWidth;
 
   // --- meander constraints (values are immutable records, shared) ---
-  copy->defaultMeanderConstraints = new jrt::TreeMap<MeanderPatternType, NetMeanderConstraint*>();
+  copy->defaultMeanderConstraints = new (jrt::kOp) jrt::TreeMap<MeanderPatternType, NetMeanderConstraint*>();
   for (auto* e : *this->defaultMeanderConstraints->entrySet()) {
     copy->defaultMeanderConstraints->put(e->getKey(), e->getValue());
   }
-  copy->explicitMeanderConstraints = new jrt::HashSet<MeanderPatternType>();
+  copy->explicitMeanderConstraints = new (jrt::kOp) jrt::HashSet<MeanderPatternType>();
   for (MeanderPatternType t : *this->explicitMeanderConstraints) {
     copy->explicitMeanderConstraints->add(t);
   }

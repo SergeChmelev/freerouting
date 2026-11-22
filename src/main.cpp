@@ -38,7 +38,7 @@ jrt::Array<int8_t>* readFile(const std::string& path) {
   std::ifstream in(path, std::ios::binary);
   if (!in) return nullptr;
   std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  auto* bytes = new jrt::Array<int8_t>(static_cast<int32_t>(data.size()));
+  auto* bytes = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(data.size()));
   std::memcpy(bytes->data(), data.data(), data.size());
   return bytes;
 }
@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
   }
   if (maxPasses || maxThreads || timeout || !optimizer) {
     // Same role as Java's CLI/API settings source: only the given values override.
-    auto* s = new fr::RouterSettings();
+    auto* s = new (jrt::kBoard) fr::RouterSettings();
     if (maxPasses) s->setMaxPasses(maxPasses);
     if (maxThreads) s->setMaxThreads(maxThreads);
     if (timeout) s->setJobTimeoutString(timeout);

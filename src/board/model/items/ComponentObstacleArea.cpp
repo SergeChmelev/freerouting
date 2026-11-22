@@ -17,13 +17,13 @@ ComponentObstacleArea::ComponentObstacleArea(Area* area, int32_t layer, Vector* 
                                              const std::optional<std::string>& name,
                                              FixedState fixedState, BasicBoard* board)
     : ObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
-                   new jrt::Array<int32_t>(0), clearanceClassIndex, id, componentId, name,
+                   new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex, id, componentId, name,
                    fixedState, board) {}
 
 Item* ComponentObstacleArea::copy(int32_t id) {
   // PORT NOTE (deep copy): like Java, the copy drops netNumbers (always empty unless assignNetNo
   // was called on this keepout).
-  return new ComponentObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
+  return new (jrt::kBoard) ComponentObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
                                    getRotationInDegree(), getSideChanged(), clearanceClassIndex(),
                                    id, getComponentId(), this->name, getFixedState(), board);
 }
@@ -46,7 +46,7 @@ bool ComponentObstacleArea::isFront() {
 }
 
 void ComponentObstacleArea::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->appendBold(tm->getText("component_keepout"));
   this->printShapeInfo(printer, locale);

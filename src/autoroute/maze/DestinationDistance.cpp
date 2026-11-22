@@ -108,7 +108,7 @@ double DestinationDistance::calculate(IntBox* box, int32_t layer) {
 
 DestinationDistance_LowerBound* DestinationDistance::lowerBound(IntBox* box, int32_t layer) {
   if (boxIsEmpty) {
-    return new DestinationDistance_LowerBound();
+    return new (jrt::kOp) DestinationDistance_LowerBound();
   }
 
   // The coordinate differences are int arithmetic in Java (wrapping with -fwrapv), converted to
@@ -203,7 +203,7 @@ DestinationDistance_LowerBound* DestinationDistance::lowerBound(IntBox* box, int
     innerSideMinDelta = innerSideDeltaX;
   }
 
-  DestinationDistance_LowerBound* result = new DestinationDistance_LowerBound();
+  DestinationDistance_LowerBound* result = new (jrt::kOp) DestinationDistance_LowerBound();
 
   if (layer == 0) {  // calculate shortest distance to component side box
     // calculate one layer distance

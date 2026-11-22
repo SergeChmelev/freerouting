@@ -81,7 +81,7 @@ bool BatchAutorouter::BENCHMARK_RETAIN_AUTOROUTE_DATABASE() {
 
 jrt::Set<int32_t>* BatchAutorouter::netsNotToRipFor(int32_t netNo) {
   if (routedFirstNets == nullptr) {
-    routedFirstNets = new jrt::TreeSet<int32_t>();
+    routedFirstNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
     for (int32_t i = 1; i <= board->rules->nets->maxNetNumber(); i++) {
       Net* net = board->rules->nets->get(i);
       if (net != nullptr && net->isRoutedFirst()) {
@@ -93,7 +93,7 @@ jrt::Set<int32_t>* BatchAutorouter::netsNotToRipFor(int32_t netNo) {
   if (routedFirstNets->isEmpty()) {
     return remembered;
   }
-  jrt::TreeSet<int32_t>* result = new jrt::TreeSet<int32_t>(remembered);
+  jrt::TreeSet<int32_t>* result = new (jrt::kOp) jrt::TreeSet<int32_t>(remembered);
   result->addAll(routedFirstNets);
   return result;
 }
@@ -110,7 +110,7 @@ BallEscapeOrder* BatchAutorouter::getBallEscapeOrder() {
 BatchAutorouter* BatchAutorouter::createAttempt(RoutingJob* job, RoutingBoard* board, RouterSettings* settings,
                                                 bool removeUnconnectedVias) {
   int32_t accuracy = settings->tracePullTightAccuracy.has_value() ? *settings->tracePullTightAccuracy : 500;
-  BatchAutorouter* router = new BatchAutorouter(job->thread, board, settings, removeUnconnectedVias, true,
+  BatchAutorouter* router = new (jrt::kOp) BatchAutorouter(job->thread, board, settings, removeUnconnectedVias, true,
                                                 settings->getStartRipupCosts(), accuracy);
   router->job = job;
   return router;
@@ -134,13 +134,13 @@ BatchAutorouter::BatchAutorouter(StoppableThread* thread, RoutingBoard* board, R
                                  int32_t pullTightAccuracy)
     : NamedAlgorithm(thread, board, settings) {
   // Java field initializers
-  this->reusableAutorouteItemList = new jrt::ArrayList<Item*>();
-  this->reusablePlaneItemList = new jrt::ArrayList<Item*>();
-  this->reusableSignalItemList = new jrt::ArrayList<Item*>();
-  this->reusableHandledItems = new jrt::TreeSet<Item*>();
-  this->ripupMemory = new RipupMemory();
+  this->reusableAutorouteItemList = new (jrt::kOp) jrt::ArrayList<Item*>();
+  this->reusablePlaneItemList = new (jrt::kOp) jrt::ArrayList<Item*>();
+  this->reusableSignalItemList = new (jrt::kOp) jrt::ArrayList<Item*>();
+  this->reusableHandledItems = new (jrt::kOp) jrt::TreeSet<Item*>();
+  this->ripupMemory = new (jrt::kOp) RipupMemory();
 
-  this->random = new jrt::Random(0);
+  this->random = new (jrt::kOp) jrt::Random(0);
 
   this->removeUnconnectedVias = removeUnconnectedVias;
   this->preferredDirections = withPreferredDirections;
@@ -148,10 +148,10 @@ BatchAutorouter::BatchAutorouter(StoppableThread* thread, RoutingBoard* board, R
     this->traceCosts = this->settings->getTraceCosts();
   } else {
     // remove preferred direction
-    this->traceCosts = new jrt::Array<AutorouteControl_ExpansionCostFactor*>(this->board->getLayerCount());
+    this->traceCosts = new (jrt::kOp) jrt::Array<AutorouteControl_ExpansionCostFactor*>(this->board->getLayerCount());
     for (int32_t i = 0; i < this->traceCosts->length; i++) {
       double currentMinCost = this->settings->getPreferredDirectionTraceCosts(i);
-      (*this->traceCosts)[i] = new AutorouteControl_ExpansionCostFactor(currentMinCost, currentMinCost);
+      (*this->traceCosts)[i] = new (jrt::kOp) AutorouteControl_ExpansionCostFactor(currentMinCost, currentMinCost);
     }
   }
 
@@ -168,9 +168,9 @@ BatchAutorouter::BatchAutorouter(StoppableThread* thread, RoutingBoard* board, R
       }
     }
   }
-  this->connectionRouter = new AutorouteConnectionRouter(this);
-  this->passRunner = new AutoroutePassRunner(this);
-  this->batchLoop = new AutorouteBatchLoop(this);
+  this->connectionRouter = new (jrt::kOp) AutorouteConnectionRouter(this);
+  this->passRunner = new (jrt::kOp) AutoroutePassRunner(this);
+  this->batchLoop = new (jrt::kOp) AutorouteBatchLoop(this);
   BallEscapeOrder::checkMode(this->settings->autorouter != nullptr ? this->settings->autorouter->ballEscapeOrder
                                                                    : std::nullopt);
 }
@@ -213,7 +213,7 @@ int32_t BatchAutorouter::autoroutePassesForOptimizingItem(RoutingJob* job, int32
                                                           RoutingBoard* updatedRoutingBoard,
                                                           RouterSettings* routerSettings,
                                                           jrt::Set<int32_t>* netsLeftUnrouted) {
-  BatchAutorouter* routerInstance = new BatchAutorouter(job->thread, updatedRoutingBoard, routerSettings, true,
+  BatchAutorouter* routerInstance = new (jrt::kOp) BatchAutorouter(job->thread, updatedRoutingBoard, routerSettings, true,
                                                         withPreferredDirections, ripupCosts, tracePullTightAccuracy);
   routerInstance->job = job;
   routerInstance->isOptimizerAutorouter = true;
@@ -248,12 +248,12 @@ jrt::Array<Point*>* BatchAutorouter::getImpactedPoints(Item* item) {
   if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
     return jrt::Array<Point*>::of({drillItem->getCenter()});
   }
-  return new jrt::Array<Point*>(0);
+  return new (jrt::kGeom) jrt::Array<Point*>(0);
 }
 
 AutorouteAttemptResult* BatchAutorouter::enforceStrictDrc(RoutingBoard* board, int32_t routeNetNo,
                                                           int32_t maxItemIdBefore) {
-  jrt::List<Item*>* newItems = new jrt::ArrayList<Item*>();
+  jrt::List<Item*>* newItems = new (jrt::kOp) jrt::ArrayList<Item*>();
   bool hasViolation = false;
   for (Item* currentItem : *board->getConnectableItems(routeNetNo)) {
     if (currentItem->getId() <= maxItemIdBefore ||
@@ -269,7 +269,7 @@ AutorouteAttemptResult* BatchAutorouter::enforceStrictDrc(RoutingBoard* board, i
     return nullptr;
   }
   board->removeItems(newItems);
-  return new AutorouteAttemptResult(AutorouteAttemptState::FAILED,
+  return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::FAILED,
                                     "strict_drc: connection ripped because " + jrt::str(newItems->size()) +
                                         " new item(s) included clearance violations");
 }
@@ -293,7 +293,7 @@ jrt::List<Item*>* BatchAutorouter::getAutorouteItems(RoutingBoard* board) {
   reusableHandledItems->clear();
   jrt::List<Item*>* autorouteItemList = reusableAutorouteItemList;
   jrt::Set<Item*>* handledItems = reusableHandledItems;
-  jrt::Map<int32_t, BatchAutorouter_NetPlanes*>* planesByNet = new jrt::HashMap<int32_t, BatchAutorouter_NetPlanes*>();
+  jrt::Map<int32_t, BatchAutorouter_NetPlanes*>* planesByNet = new (jrt::kOp) jrt::HashMap<int32_t, BatchAutorouter_NetPlanes*>();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
   for (;;) {
     UndoableObjects_Storable* currentObject = board->itemList->readObject(it);
@@ -371,9 +371,9 @@ bool BatchAutorouter::coversAllPlanesOfNet(jrt::Set<Item*>* connectedSet,
                                            RoutingBoard* board, int32_t netNo) {
   BatchAutorouter_NetPlanes* planes =
       planesByNet->computeIfAbsent(netNo, [board](const int32_t& n) -> BatchAutorouter_NetPlanes* {
-        jrt::List<ConductionArea*>* all = new jrt::ArrayList<ConductionArea*>();
-        jrt::List<ConductionArea*>* withPins = new jrt::ArrayList<ConductionArea*>();
-        jrt::List<Pin*>* fracturedIslandPins = new jrt::ArrayList<Pin*>();
+        jrt::List<ConductionArea*>* all = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
+        jrt::List<ConductionArea*>* withPins = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
+        jrt::List<Pin*>* fracturedIslandPins = new (jrt::kOp) jrt::ArrayList<Pin*>();
         for (ConductionArea* ca : *board->getConductionAreas()) {
           if (ca->containsNet(n)) {
             if (!ca->isFractured()) {
@@ -386,7 +386,7 @@ bool BatchAutorouter::coversAllPlanesOfNet(jrt::Set<Item*>* connectedSet,
             }
           }
         }
-        return new BatchAutorouter_NetPlanes(all, withPins, fracturedIslandPins);
+        return new (jrt::kOp) BatchAutorouter_NetPlanes(all, withPins, fracturedIslandPins);
       });
   bool onPlane = false;
   for (ConductionArea* plane : *planes->all()) {
@@ -466,7 +466,7 @@ void BatchAutorouter::removeTails(Item_StopConnectionOption stopConnectionOption
   board->startMarkingChangedArea();
   board->removeTraceTails(-1, stopConnectionOption);
   int64_t pullTightStart = BENCHMARK_PROFILE_ENABLED() ? jrt::System::nanoTime() : 0;
-  board->optChangedArea(new jrt::Array<int32_t>(0), nullptr, this->tracePullTightAccuracy, this->traceCosts,
+  board->optChangedArea(new (jrt::kOp) jrt::Array<int32_t>(0), nullptr, this->tracePullTightAccuracy, this->traceCosts,
                         this->thread);
   if (BENCHMARK_PROFILE_ENABLED()) {
     this->profileTailRemovalNanos += jrt::System::nanoTime() - tailRemovalStart;

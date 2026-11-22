@@ -32,7 +32,7 @@ class LambdaTaskStateChangedEventListener : public TaskStateChangedEventListener
 
 inline TaskStateChangedEventListener* TaskStateChangedEventListener::of(
     std::function<void(TaskStateChangedEvent*)> f) {
-  return new detail::LambdaTaskStateChangedEventListener(std::move(f));
+  return new (jrt::kOp) detail::LambdaTaskStateChangedEventListener(std::move(f));
 }
 
 }  // namespace fr

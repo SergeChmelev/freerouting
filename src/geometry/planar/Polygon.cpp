@@ -9,7 +9,7 @@
 namespace fr {
 
 Polygon::Polygon(jrt::Array<Point*>* points) {
-  corners = new jrt::LinkedList<Point*>();
+  corners = new (jrt::kOp) jrt::LinkedList<Point*>();
   if (points->length == 0) {
     return;
   }
@@ -63,7 +63,7 @@ Polygon::Polygon(jrt::Array<Point*>* points) {
 }
 
 jrt::Array<Point*>* Polygon::withoutSpikes(jrt::Array<Point*>* corners) {
-  auto* result = new jrt::ArrayList<Point*>(corners->toVector());
+  auto* result = new (jrt::kOp) jrt::ArrayList<Point*>(corners->toVector());
   bool closed = result->size() > 1 && result->get(0)->equals(result->get(result->size() - 1));
   if (closed) {
     result->removeAt(result->size() - 1);
@@ -87,7 +87,7 @@ jrt::Array<Point*>* Polygon::withoutSpikes(jrt::Array<Point*>* corners) {
   if (closed) {
     result->add(result->get(0));
   }
-  return new jrt::Array<Point*>(result->toVector());
+  return new (jrt::kGeom) jrt::Array<Point*>(result->toVector());
 }
 
 bool Polygon::isSpike(Point* prevCorner, Point* corner, Point* nextCorner) {
@@ -109,7 +109,7 @@ bool Polygon::isSpike(Point* prevCorner, Point* corner, Point* nextCorner) {
 
 jrt::Array<Point*>* Polygon::cornerArray() {
   int32_t cornerCount = corners->size();
-  auto* result = new jrt::Array<Point*>(cornerCount);
+  auto* result = new (jrt::kGeom) jrt::Array<Point*>(cornerCount);
   jrt::Iterator<Point*>* it = corners->iterator();
   for (int32_t i = 0; i < cornerCount; i++) {
     (*result)[i] = it->next();
@@ -119,11 +119,11 @@ jrt::Array<Point*>* Polygon::cornerArray() {
 
 Polygon* Polygon::revertCorners() {
   jrt::Array<Point*>* corners = cornerArray();
-  auto* reverseCornerArr = new jrt::Array<Point*>(corners->length);
+  auto* reverseCornerArr = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*reverseCornerArr)[i] = (*corners)[corners->length - i - 1];
   }
-  return new Polygon(reverseCornerArr);
+  return new (jrt::kOp) Polygon(reverseCornerArr);
 }
 
 int32_t Polygon::windingNumberAfterClosing() {

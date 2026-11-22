@@ -29,8 +29,8 @@ SortedOrthogonalRoomNeighbours::SortedOrthogonalRoomNeighbours(ExpansionRoom* fr
   this->completedRoom = completedRoom;
   isObstacleExpansionRoom = jrt::fast_cast<ObstacleExpansionRoom>(fromRoom) != nullptr;
   roomShape = jrt::fast_cast<IntBox>(completedRoom->getShape());
-  sortedNeighbours = new jrt::TreeSet<SortedOrthogonalRoomNeighbours_SortedRoomNeighbour*>();
-  edgeInteriorTouchesObstacle = new jrt::Array<bool>(4);
+  sortedNeighbours = new (jrt::kOp) jrt::TreeSet<SortedOrthogonalRoomNeighbours_SortedRoomNeighbour*>();
+  edgeInteriorTouchesObstacle = new (jrt::kOp) jrt::Array<bool>(4);
   for (int32_t i = 0; i < 4; i++) {
     (*edgeInteriorTouchesObstacle)[i] = false;
   }
@@ -82,22 +82,22 @@ void SortedOrthogonalRoomNeighbours::calculateIncompleteRoomsWithEmptyNeighbours
     IntBox* newRoomBox;
     switch (i) {
       case 0:
-        newRoomBox = new IntBox(boundingBox->ll->x, boundingBox->ll->y, boundingBox->ur->x, roomBox->ll->y);
+        newRoomBox = new (jrt::kGeom) IntBox(boundingBox->ll->x, boundingBox->ll->y, boundingBox->ur->x, roomBox->ll->y);
         break;
       case 1:
-        newRoomBox = new IntBox(roomBox->ur->x, boundingBox->ll->y, boundingBox->ur->x, boundingBox->ur->y);
+        newRoomBox = new (jrt::kGeom) IntBox(roomBox->ur->x, boundingBox->ll->y, boundingBox->ur->x, boundingBox->ur->y);
         break;
       case 2:
-        newRoomBox = new IntBox(boundingBox->ll->x, roomBox->ur->y, boundingBox->ur->x, boundingBox->ur->y);
+        newRoomBox = new (jrt::kGeom) IntBox(boundingBox->ll->x, roomBox->ur->y, boundingBox->ur->x, boundingBox->ur->y);
         break;
       default:  // i == 3
-        newRoomBox = new IntBox(boundingBox->ll->x, boundingBox->ll->y, roomBox->ll->x, boundingBox->ur->y);
+        newRoomBox = new (jrt::kGeom) IntBox(boundingBox->ll->x, boundingBox->ll->y, roomBox->ll->x, boundingBox->ur->y);
         break;
     }
     IntBox* newContainedBox = roomBox->intersection(newRoomBox);
     FreeSpaceExpansionRoom* newRoom =
         autorouteEngine->addIncompleteExpansionRoom(newRoomBox, room->getLayer(), newContainedBox);
-    ExpansionDoor* newDoor = new ExpansionDoor(room, newRoom, 1);
+    ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(room, newRoom, 1);
     room->addDoor(newDoor);
     newRoom->addDoor(newDoor);
   }
@@ -113,15 +113,15 @@ SortedOrthogonalRoomNeighbours* SortedOrthogonalRoomNeighbours::calculateNeighbo
   }
   CompleteExpansionRoom* completedRoom;
   if (jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(room) != nullptr) {
-    completedRoom = new CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
+    completedRoom = new (jrt::kOp) CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
   } else if (auto* obstacleRoom = jrt::fast_cast<ObstacleExpansionRoom>(room)) {
     completedRoom = obstacleRoom;
   } else {
     FRLogger::warn("SortedOrthogonalRoomNeighbours.calculate: unexpected expansion room type");
     return nullptr;
   }
-  SortedOrthogonalRoomNeighbours* result = new SortedOrthogonalRoomNeighbours(room, completedRoom);
-  jrt::ArrayList<ShapeTree_TreeEntry*>* overlappingObjects = new jrt::ArrayList<ShapeTree_TreeEntry*>();
+  SortedOrthogonalRoomNeighbours* result = new (jrt::kOp) SortedOrthogonalRoomNeighbours(room, completedRoom);
+  jrt::ArrayList<ShapeTree_TreeEntry*>* overlappingObjects = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
   autorouteSearchTree->overlappingTreeEntries(roomShape, room->getLayer(), overlappingObjects);
 
   // Sort the overlapping objects deterministically to ensure parity with v1.9.
@@ -188,7 +188,7 @@ SortedOrthogonalRoomNeighbours* SortedOrthogonalRoomNeighbours::calculateNeighbo
       }
       if (neighbourRoom != nullptr) {
         if (SortedRoomNeighbours::insertDoorOk(completedRoom, neighbourRoom, intersection)) {
-          ExpansionDoor* newDoor = new ExpansionDoor(completedRoom, neighbourRoom);
+          ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(completedRoom, neighbourRoom);
           neighbourRoom->addDoor(newDoor);
           completedRoom->addDoor(newDoor);
         }
@@ -201,13 +201,13 @@ SortedOrthogonalRoomNeighbours* SortedOrthogonalRoomNeighbours::calculateNeighbo
 IntBox* SortedOrthogonalRoomNeighbours::removeBorderLine(IntBox* roomBox, int32_t removeEdgeNo) {
   switch (removeEdgeNo) {
     case 0:
-      return new IntBox(roomBox->ll->x, -Limits::CRIT_INT, roomBox->ur->x, roomBox->ur->y);
+      return new (jrt::kGeom) IntBox(roomBox->ll->x, -Limits::CRIT_INT, roomBox->ur->x, roomBox->ur->y);
     case 1:
-      return new IntBox(roomBox->ll->x, roomBox->ll->y, Limits::CRIT_INT, roomBox->ur->y);
+      return new (jrt::kGeom) IntBox(roomBox->ll->x, roomBox->ll->y, Limits::CRIT_INT, roomBox->ur->y);
     case 2:
-      return new IntBox(roomBox->ll->x, roomBox->ll->y, roomBox->ur->x, Limits::CRIT_INT);
+      return new (jrt::kGeom) IntBox(roomBox->ll->x, roomBox->ll->y, roomBox->ur->x, Limits::CRIT_INT);
     case 3:
-      return new IntBox(-Limits::CRIT_INT, roomBox->ll->y, roomBox->ur->x, roomBox->ur->y);
+      return new (jrt::kGeom) IntBox(-Limits::CRIT_INT, roomBox->ll->y, roomBox->ur->x, roomBox->ur->y);
     default: {
       FRLogger::warn("SortedOrthogonalRoomNeighbours.removeBorderLine: illegal removeEdgeNo");
       return nullptr;
@@ -336,7 +336,7 @@ void SortedOrthogonalRoomNeighbours::calculateNewIncompleteRooms(AutorouteEngine
 
 void SortedOrthogonalRoomNeighbours::insertIncompleteRoom(AutorouteEngine* autorouteEngine, int32_t llX,
                                                           int32_t llY, int32_t urX, int32_t urY) {
-  IntBox* newIncompleteRoomShape = new IntBox(llX, llY, urX, urY);
+  IntBox* newIncompleteRoomShape = new (jrt::kGeom) IntBox(llX, llY, urX, urY);
   if (newIncompleteRoomShape->dimension() == 2) {
     IntBox* newContainedShape = this->roomShape->intersection(newIncompleteRoomShape);
     if (!newContainedShape->isEmpty()) {
@@ -344,7 +344,7 @@ void SortedOrthogonalRoomNeighbours::insertIncompleteRoom(AutorouteEngine* autor
       if (doorDimension > 0) {
         FreeSpaceExpansionRoom* newRoom = autorouteEngine->addIncompleteExpansionRoom(
             newIncompleteRoomShape, this->fromRoom->getLayer(), newContainedShape);
-        ExpansionDoor* newDoor = new ExpansionDoor(this->completedRoom, newRoom, doorDimension);
+        ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(this->completedRoom, newRoom, doorDimension);
         this->completedRoom->addDoor(newDoor);
         newRoom->addDoor(newDoor);
       }
@@ -427,7 +427,7 @@ bool SortedOrthogonalRoomNeighbours::tryRemoveEdge(int32_t netNumber, ShapeSearc
                     ", tie_count=" + jrt::str(equalAreaTieCount) + ", selected_bounds=" +
                     (ignoreShape == nullptr ? std::string("null") : jrt::str(ignoreShape->boundingBox())) +
                     ", selected_area=" + jrt::str(maxDoorArea));
-    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
         enlargedBox, currentIncompleteRoom->getLayer(), currentIncompleteRoom->getContainedShape());
     jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRooms =
         autorouteSearchTree->completeShape(enlargedRoom, netNumber, ignoreObject, ignoreShape);
@@ -455,7 +455,7 @@ bool SortedOrthogonalRoomNeighbours::tryRemoveEdge(int32_t netNumber, ShapeSearc
 void SortedOrthogonalRoomNeighbours::addSortedNeighbour(SearchTreeObject* searchTreeObject, IntBox* neighbourShape,
                                                         IntBox* intersection) {
   SortedOrthogonalRoomNeighbours_SortedRoomNeighbour* newNeighbour =
-      new SortedOrthogonalRoomNeighbours_SortedRoomNeighbour(this, searchTreeObject, neighbourShape, intersection);
+      new (jrt::kOp) SortedOrthogonalRoomNeighbours_SortedRoomNeighbour(this, searchTreeObject, neighbourShape, intersection);
   sortedNeighbours->add(newNeighbour);
 }
 

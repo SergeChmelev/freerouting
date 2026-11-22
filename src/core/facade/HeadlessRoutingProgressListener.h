@@ -32,7 +32,7 @@ class LambdaHeadlessRoutingProgressListener : public HeadlessRoutingProgressList
 
 inline HeadlessRoutingProgressListener* HeadlessRoutingProgressListener::of(
     std::function<void(HeadlessRoutingProgress*)> f) {
-  return new detail::LambdaHeadlessRoutingProgressListener(std::move(f));
+  return new (jrt::kOp) detail::LambdaHeadlessRoutingProgressListener(std::move(f));
 }
 
 }  // namespace fr

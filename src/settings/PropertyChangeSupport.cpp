@@ -23,7 +23,7 @@ void PropertyChangeSupport::addPropertyChangeListener(
     namedListeners
         ->computeIfAbsent(*propertyName,
                           [](const std::string&) {
-                            return new jrt::ArrayList<PropertyChangeListener*>();
+                            return new (jrt::kOp) jrt::ArrayList<PropertyChangeListener*>();
                           })
         ->add(listener);
   }
@@ -51,7 +51,7 @@ void PropertyChangeSupport::firePropertyChange(const std::optional<std::string>&
   if (oldValue == newValue) {
     return;
   }
-  firePropertyChange(new PropertyChangeEvent(sourceBean, propertyName, oldValue, newValue));
+  firePropertyChange(new (jrt::kBoard) PropertyChangeEvent(sourceBean, propertyName, oldValue, newValue));
 }
 
 void PropertyChangeSupport::firePropertyChange(const std::optional<std::string>& propertyName,
@@ -59,7 +59,7 @@ void PropertyChangeSupport::firePropertyChange(const std::optional<std::string>&
   if (oldValue == newValue) {
     return;
   }
-  firePropertyChange(new PropertyChangeEvent(sourceBean, propertyName, jrt::str(oldValue),
+  firePropertyChange(new (jrt::kBoard) PropertyChangeEvent(sourceBean, propertyName, jrt::str(oldValue),
                                              jrt::str(newValue)));
 }
 
@@ -68,7 +68,7 @@ void PropertyChangeSupport::firePropertyChange(const std::optional<std::string>&
   if (oldValue == newValue) {
     return;
   }
-  firePropertyChange(new PropertyChangeEvent(sourceBean, propertyName, jrt::str(oldValue),
+  firePropertyChange(new (jrt::kBoard) PropertyChangeEvent(sourceBean, propertyName, jrt::str(oldValue),
                                              jrt::str(newValue)));
 }
 
@@ -77,7 +77,7 @@ void PropertyChangeSupport::firePropertyChange(PropertyChangeEvent* event) {
     return;
   }
   // CopyOnWriteArrayList iterates a snapshot.
-  auto* listenersSnapshot = new jrt::ArrayList<PropertyChangeListener*>(listeners);
+  auto* listenersSnapshot = new (jrt::kOp) jrt::ArrayList<PropertyChangeListener*>(listeners);
   for (PropertyChangeListener* listener : *listenersSnapshot) {
     listener->propertyChange(event);
   }
@@ -85,7 +85,7 @@ void PropertyChangeSupport::firePropertyChange(PropertyChangeEvent* event) {
   if (propertyName.has_value()) {
     jrt::ArrayList<PropertyChangeListener*>* specific = namedListeners->get(*propertyName);
     if (specific != nullptr) {
-      auto* specificSnapshot = new jrt::ArrayList<PropertyChangeListener*>(specific);
+      auto* specificSnapshot = new (jrt::kOp) jrt::ArrayList<PropertyChangeListener*>(specific);
       for (PropertyChangeListener* listener : *specificSnapshot) {
         listener->propertyChange(event);
       }

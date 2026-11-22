@@ -13,7 +13,7 @@ namespace {
 
 // String.getBytes(StandardCharsets.UTF_8): std::string already holds UTF-8.
 jrt::Array<int8_t>* utf8Bytes(const std::string& s) {
-  auto* result = new jrt::Array<int8_t>(static_cast<int32_t>(s.size()));
+  auto* result = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(s.size()));
   for (std::size_t i = 0; i < s.size(); i++) {
     (*result)[static_cast<int32_t>(i)] = static_cast<int8_t>(s[i]);
   }
@@ -55,7 +55,7 @@ HeadlessRoutingRequest_Builder* HeadlessRoutingRequest_Builder::dsnStream(std::i
     if (stream->bad()) {
       throw jrt::IOException("error reading the DSN stream");
     }
-    auto* data = new jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
+    auto* data = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
     for (std::size_t i = 0; i < bytes.size(); i++) {
       (*data)[static_cast<int32_t>(i)] = static_cast<int8_t>(bytes[i]);
     }
@@ -119,7 +119,7 @@ HeadlessRoutingRequest_Builder* HeadlessRoutingRequest_Builder::computeSes(bool 
 }
 
 HeadlessRoutingRequest* HeadlessRoutingRequest_Builder::build() {
-  auto* request = new HeadlessRoutingRequest(dsnBytes_, designName_, rulesBytes_, rulesName_,
+  auto* request = new (jrt::kBoard) HeadlessRoutingRequest(dsnBytes_, designName_, rulesBytes_, rulesName_,
                                              settings_, cancellationToken_, progressListener_,
                                              runDrc_, computeSes_);
   request->boardObserver = boardObserver_;
@@ -198,7 +198,7 @@ std::string HeadlessRoutingRequest::toString() {
 }
 
 HeadlessRoutingRequest_Builder* HeadlessRoutingRequest::builder() {
-  return new HeadlessRoutingRequest_Builder();
+  return new (jrt::kBoard) HeadlessRoutingRequest_Builder();
 }
 
 HeadlessRoutingRequest* HeadlessRoutingRequest::of(jrt::Array<int8_t>* dsnBytes) {

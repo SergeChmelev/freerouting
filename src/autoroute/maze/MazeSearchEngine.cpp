@@ -101,13 +101,13 @@ class MazeExpansionList : public jrt::TreeSet<MazeListElement*> {
 
 MazeSearchEngine::MazeSearchEngine(AutorouteEngine* autorouteEngine, AutorouteControl* ctrl)
     : autorouteEngine(autorouteEngine), ctrl(ctrl) {
-  this->fanoutDiagnostics = new MazeFanoutDiagnostics(ctrl);
+  this->fanoutDiagnostics = new (jrt::kOp) MazeFanoutDiagnostics(ctrl);
   randomGenerator->setSeed(ctrl->ripupCosts);  // Keep v1.9 deterministic randomization across passes.
   this->searchTree = autorouteEngine->autorouteSearchTree;
-  this->expansionEngine = new MazeExpansionEngine(this);
-  this->ripupResolver = new MazeRipupResolver(this);
-  mazeExpansionList = new MazeExpansionList(ctrl, autorouteEngine);
-  destinationDistance = new DestinationDistance(ctrl->traceCosts, ctrl->layerActive,
+  this->expansionEngine = new (jrt::kOp) MazeExpansionEngine(this);
+  this->ripupResolver = new (jrt::kOp) MazeRipupResolver(this);
+  mazeExpansionList = new (jrt::kOp) MazeExpansionList(ctrl, autorouteEngine);
+  destinationDistance = new (jrt::kOp) DestinationDistance(ctrl->traceCosts, ctrl->layerActive,
                                                 ctrl->minNormalViaCost, ctrl->minCheapViaCost);
 }
 
@@ -115,7 +115,7 @@ MazeSearchEngine* MazeSearchEngine::getInstance(jrt::Set<Item*>* startItems,
                                                 jrt::Set<Item*>* destinationItems,
                                                 AutorouteEngine* autorouteDatabase,
                                                 AutorouteControl* ctrl) {
-  MazeSearchEngine* newInstance = new MazeSearchEngine(autorouteDatabase, ctrl);
+  MazeSearchEngine* newInstance = new (jrt::kOp) MazeSearchEngine(autorouteDatabase, ctrl);
   MazeSearchEngine* result;
   if (newInstance->init(startItems, destinationItems)) {
     result = newInstance;
@@ -168,7 +168,7 @@ FloatLine* MazeSearchEngine::segmentProjection(FloatLine* fromSegment, FloatLine
     } else {
       resultB = secondProjection->b;
     }
-    result = new FloatLine(resultA, resultB);
+    result = new (jrt::kGeom) FloatLine(resultA, resultB);
   } else if (firstProjection != nullptr) {
     result = firstProjection;
   } else {
@@ -247,7 +247,7 @@ MazeSearchEngine_Result* MazeSearchEngine::findConnection() {
   if (this->destinationDoor == nullptr) {
     return nullptr;
   }
-  return new MazeSearchEngine_Result(this->destinationDoor, this->sectionNoOfDestinationDoor);
+  return new (jrt::kOp) MazeSearchEngine_Result(this->destinationDoor, this->sectionNoOfDestinationDoor);
 }
 
 bool MazeSearchEngine::occupyNextElement() {
@@ -342,7 +342,7 @@ bool MazeSearchEngine::fanoutMayStopAt(MazeListElement* listElement) {
     return true;
   }
   ItemSelectionFilter* filter =
-      new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::CONDUCTION);
+      new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::CONDUCTION);
   for (Item* item : *autorouteEngine->board->pickItems(drill->location, layer, filter)) {
     if (item->containsNet(ctrl->netNumber)) {
       return true;
@@ -486,7 +486,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
       // check for drill to a foreign conduction area on split plane.
       Point* drillLocation = drill->location;
       ItemSelectionFilter* filter =
-          new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::CONDUCTION);
+          new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::CONDUCTION);
       jrt::Set<Item*>* pickedItems =
           autorouteEngine->board->pickItems(drillLocation, layerIndex, filter);
       for (Item* currentItem : *pickedItems) {
@@ -537,7 +537,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
             if (ripupCosts > 0) {
               // delay the occupation by ripup to allow shoving the room by another door
               // sections.
-              MazeListElement* newElement = new MazeListElement(
+              MazeListElement* newElement = new (jrt::kOp) MazeListElement(
                   listElement->door, listElement->sectionNoOfDoor, listElement->backtrackDoor,
                   listElement->sectionNoOfBacktrackDoor, listElement->expansionValue + ripupCosts,
                   listElement->sortingValue + ripupCosts, listElement->nextRoom,
@@ -556,7 +556,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
   }
 
   jrt::List<ExpansionDoor*>* roomDoorsSnapshot =
-      new jrt::LinkedList<ExpansionDoor*>(listElement->nextRoom->getDoors());
+      new (jrt::kOp) jrt::LinkedList<ExpansionDoor*>(listElement->nextRoom->getDoors());
   if (FRLogger::isTraceEnabled()) {
     FRLogger::trace("ROOM_DOOR context from_section=" + jrt::str(listElement->sectionNoOfDoor) +
                     ", backtrack_section=" + jrt::str(listElement->sectionNoOfBacktrackDoor) +
@@ -656,15 +656,15 @@ bool MazeSearchEngine::expandToTargetDoors(MazeListElement* listElement, bool ne
     FloatPoint* connectionPoint = safeTargetShape->nearestPointApprox(shapeEntryMiddle);
     if (!nextRoomIsThick) {
       // check the line from shapeEntryMiddle to the nearest point.
-      jrt::Array<int32_t>* currentNetNumbers = new jrt::Array<int32_t>(1);
+      jrt::Array<int32_t>* currentNetNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
       (*currentNetNumbers)[0] = this->ctrl->netNumber;
       int32_t currentLayer = listElement->nextRoom->getLayer();
       // Java: IntPoint[] passed to Polyline(Point[]).
-      jrt::Array<Point*>* checkPoints = new jrt::Array<Point*>(2);
+      jrt::Array<Point*>* checkPoints = new (jrt::kGeom) jrt::Array<Point*>(2);
       (*checkPoints)[0] = shapeEntryMiddle->round();
       (*checkPoints)[1] = connectionPoint->round();
       if (!(*checkPoints)[0]->equals((*checkPoints)[1])) {
-        Polyline* checkPolyline = new Polyline(checkPoints);
+        Polyline* checkPolyline = new (jrt::kGeom) Polyline(checkPoints);
         bool checkOk = autorouteEngine->board->checkForcedTracePolyline(
             checkPolyline, (*ctrl->traceHalfWidth)[currentLayer], currentLayer, currentNetNumbers,
             ctrl->traceClearanceClassIndex, ctrl->maxShoveTraceRecursionDepth,
@@ -675,7 +675,7 @@ bool MazeSearchEngine::expandToTargetDoors(MazeListElement* listElement, bool ne
       }
     }
 
-    FloatLine* newShapeEntry = new FloatLine(connectionPoint, connectionPoint);
+    FloatLine* newShapeEntry = new (jrt::kGeom) FloatLine(connectionPoint, connectionPoint);
 
     if (expandToDoorSection(toDoor, 0, newShapeEntry, listElement, 0,
                             MazeSearchElement_Adjustment::NONE)) {
@@ -836,7 +836,7 @@ bool MazeSearchEngine::expandToDoorSection(ExpandableObject* door, int32_t secti
                     (fromElement->alreadyChecked && fromElement->roomRipped);
 
   MazeListElement* newElement =
-      new MazeListElement(door, sectionIndex, fromElement->door, fromElement->sectionNoOfDoor,
+      new (jrt::kOp) MazeListElement(door, sectionIndex, fromElement->door, fromElement->sectionNoOfDoor,
                           expansionValue, sortingValue, nextRoom, shapeEntry, roomRipped,
                           adjustment, false);
   // Store the direct ripup cost on this element (non-zero only when this specific door
@@ -932,7 +932,7 @@ bool MazeSearchEngine::init(jrt::Set<Item*>* startItems, jrt::Set<Item*>* destin
   }
   // process the start items
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* startRooms =
-      new jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   for (Item* currentItem : *startItems) {
     if (this->autorouteEngine->isStopRequested()) {
       return false;
@@ -952,7 +952,7 @@ bool MazeSearchEngine::init(jrt::Set<Item*>* startItems, jrt::Set<Item*>* destin
 
   // complete the start rooms
   jrt::Collection<CompleteFreeSpaceExpansionRoom*>* completedStartRooms =
-      new jrt::LinkedList<CompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::LinkedList<CompleteFreeSpaceExpansionRoom*>();
 
   if (this->autorouteEngine->maintainDatabase) {
     // add the completed start rooms carried over from the last autoroute to the
@@ -992,11 +992,11 @@ bool MazeSearchEngine::init(jrt::Set<Item*>* startItems, jrt::Set<Item*>* destin
         continue;
       }
       FloatPoint* currentCenter = safeConnectionShape->centreOfGravity();
-      FloatLine* shapeEntry = new FloatLine(currentCenter, currentCenter);
+      FloatLine* shapeEntry = new (jrt::kGeom) FloatLine(currentCenter, currentCenter);
       double sortingValue =
           this->destinationDistance->calculate(currentCenter, currentRoom->getLayer());
       MazeListElement* newListElement =
-          new MazeListElement(currentDoor, 0, nullptr, 0, 0, sortingValue, currentRoom, shapeEntry,
+          new (jrt::kOp) MazeListElement(currentDoor, 0, nullptr, 0, 0, sortingValue, currentRoom, shapeEntry,
                               false, MazeSearchElement_Adjustment::NONE, false);
       mazeExpansionList->add(newListElement);
       startOk = true;
@@ -1046,7 +1046,7 @@ bool MazeSearchEngine::shoveTraceRoom(MazeListElement* listElement,
   bool result = false;
   if (listElement->adjustment != MazeSearchElement_Adjustment::RIGHT) {
     jrt::Collection<MazeTraceShover_DoorSection*>* leftToDoorSectionList =
-        new jrt::LinkedList<MazeTraceShover_DoorSection*>();
+        new (jrt::kOp) jrt::LinkedList<MazeTraceShover_DoorSection*>();
 
     if (MazeTraceShover::checkShoveTraceLine(listElement, obstacleRoom,
                                              this->autorouteEngine->board, this->ctrl, false,
@@ -1070,7 +1070,7 @@ bool MazeSearchEngine::shoveTraceRoom(MazeListElement* listElement,
 
   if (listElement->adjustment != MazeSearchElement_Adjustment::LEFT) {
     jrt::Collection<MazeTraceShover_DoorSection*>* rightToDoorSectionList =
-        new jrt::LinkedList<MazeTraceShover_DoorSection*>();
+        new (jrt::kOp) jrt::LinkedList<MazeTraceShover_DoorSection*>();
 
     if (MazeTraceShover::checkShoveTraceLine(listElement, obstacleRoom,
                                              this->autorouteEngine->board, this->ctrl, true,

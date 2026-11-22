@@ -16,18 +16,18 @@ IntVector* Vector::toIntegerExact() {
     return integer;
   }
   IntPoint* integer = Point::ZERO()->translateBy(this)->toIntegerExact();
-  return new IntVector(integer->x, integer->y);
+  return new (jrt::kGeom) IntVector(integer->x, integer->y);
 }
 
 IntVector* Vector::ZERO() {
-  static IntVector* v = new IntVector(0, 0);
+  static IntVector* v = new (jrt::kGeom) IntVector(0, 0);
   return v;
 }
 
 Vector* Vector::getInstance(int32_t x, int32_t y) {
-  IntVector* result = new IntVector(x, y);
+  IntVector* result = new (jrt::kGeom) IntVector(x, y);
   if (jrt::Math::abs(x) > Limits::CRIT_INT || jrt::Math::abs(y) > Limits::CRIT_INT) {
-    return new RationalVector(result);
+    return new (jrt::kGeom) RationalVector(result);
   }
   return result;
 }
@@ -50,10 +50,10 @@ Vector* Vector::getInstance(const jrt::BigInteger& px, const jrt::BigInteger& py
   if (z.equals(jrt::BigInteger::ONE())) {
     if (x.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0 &&
         y.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0) {
-      return new IntVector(x.intValue(), y.intValue());
+      return new (jrt::kGeom) IntVector(x.intValue(), y.intValue());
     }
   }
-  return new RationalVector(x, y, z);
+  return new (jrt::kGeom) RationalVector(x, y, z);
 }
 
 bool Vector::isMultipleOf45Degree() { return isOrthogonal() || isDiagonal(); }
@@ -75,7 +75,7 @@ double Vector::angleApprox(Vector* other) {
 }
 
 double Vector::angleApprox() {
-  Vector* other = new IntVector(1, 0);
+  Vector* other = new (jrt::kGeom) IntVector(1, 0);
   return other->angleApprox(this);
 }
 

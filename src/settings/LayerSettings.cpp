@@ -17,7 +17,7 @@ bool doubleEquals(const std::optional<double>& a, const std::optional<double>& b
 }  // namespace
 
 LayerSettings* LayerSettings::clone() {
-  auto* copy = new LayerSettings();
+  auto* copy = new (jrt::kBoard) LayerSettings();
   copy->routable = this->routable;
   copy->preferredDirectionHorizontal = this->preferredDirectionHorizontal;
   copy->bendCost = this->bendCost;

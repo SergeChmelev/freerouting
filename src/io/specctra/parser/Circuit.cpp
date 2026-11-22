@@ -31,9 +31,9 @@ Circuit_ReadScopeResult* Circuit::readScope(IJFlexScanner* scanner) {
   jrt::Object* nextToken = nullptr;
   double minTraceLength = 0;
   double maxTraceLength = 0;
-  jrt::Collection<std::string>* useVia = new jrt::LinkedList<std::string>();
-  jrt::Collection<std::string>* useLayer = new jrt::LinkedList<std::string>();
-  auto* meanderBuilder = new Circuit_MeanderDescriptorBuilder();
+  jrt::Collection<std::string>* useVia = new (jrt::kOp) jrt::LinkedList<std::string>();
+  jrt::Collection<std::string>* useLayer = new (jrt::kOp) jrt::LinkedList<std::string>();
+  auto* meanderBuilder = new (jrt::kOp) Circuit_MeanderDescriptorBuilder();
 
   for (;;) {
     jrt::Object* prevToken = nextToken;
@@ -74,7 +74,7 @@ Circuit_ReadScopeResult* Circuit::readScope(IJFlexScanner* scanner) {
       }
     }
   }
-  return new Circuit_ReadScopeResult(
+  return new (jrt::kOp) Circuit_ReadScopeResult(
       maxTraceLength, minTraceLength, useVia, useLayer, meanderBuilder->minAmplitude,
       meanderBuilder->maxAmplitude, meanderBuilder->spacing, meanderBuilder->cornerStyle,
       meanderBuilder->radiusPercentage, meanderBuilder->singleSided, meanderBuilder->patternType);
@@ -135,7 +135,7 @@ Circuit_LengthMatchingRule* Circuit::readLengthScope(IJFlexScanner* scanner) {
       ScopeKeyword::skipScope(scanner);
     }
   }
-  return new Circuit_LengthMatchingRule(maxLength, minLength);
+  return new (jrt::kOp) Circuit_LengthMatchingRule(maxLength, minLength);
 }
 
 std::optional<double> Circuit::parseDouble(jrt::Object* token) {
@@ -204,7 +204,7 @@ Circuit_AmplitudeRule* Circuit::readLengthAmplitudeScope(IJFlexScanner* scanner)
     minAmp = maxAmp;
     maxAmp = temp;
   }
-  return new Circuit_AmplitudeRule(maxAmp, minAmp);
+  return new (jrt::kOp) Circuit_AmplitudeRule(maxAmp, minAmp);
 }
 
 std::optional<double> Circuit::readNumberScope(IJFlexScanner* scanner) {
@@ -344,7 +344,7 @@ bool Circuit_MeanderDescriptorBuilder::readDescriptor(jrt::Object* token,
 }
 
 Rule_MeanderRule* Circuit_MeanderDescriptorBuilder::toMeanderRule() {
-  return new Rule_MeanderRule(minAmplitude, maxAmplitude, spacing, cornerStyle, radiusPercentage,
+  return new (jrt::kOp) Rule_MeanderRule(minAmplitude, maxAmplitude, spacing, cornerStyle, radiusPercentage,
                               singleSided, patternType);
 }
 

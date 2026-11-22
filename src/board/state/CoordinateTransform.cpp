@@ -30,7 +30,7 @@ double CoordinateTransform::boardToUser(double value) {
 }
 
 FloatPoint* CoordinateTransform::boardToUser(FloatPoint* point) {
-  return new FloatPoint(boardToUser(point->x), boardToUser(point->y));
+  return new (jrt::kGeom) FloatPoint(boardToUser(point->x), boardToUser(point->y));
 }
 
 PrintableShape* CoordinateTransform::boardToUser(Shape* shape, const std::string& locale) {
@@ -50,24 +50,24 @@ PrintableShape* CoordinateTransform::boardToUser(Shape* shape, const std::string
 
 PrintableShape_Circle* CoordinateTransform::boardToUser(Circle* circle,
                                                         const std::string& locale) {
-  return new PrintableShape_Circle(boardToUser(circle->center->toFloat()),
+  return new (jrt::kBoard) PrintableShape_Circle(boardToUser(circle->center->toFloat()),
                                    boardToUser(static_cast<double>(circle->radius)), locale);
 }
 
 PrintableShape_Rectangle* CoordinateTransform::boardToUser(IntBox* box,
                                                            const std::string& locale) {
-  return new PrintableShape_Rectangle(boardToUser(box->ll->toFloat()),
+  return new (jrt::kBoard) PrintableShape_Rectangle(boardToUser(box->ll->toFloat()),
                                       boardToUser(box->ur->toFloat()), locale);
 }
 
 PrintableShape_Polygon* CoordinateTransform::boardToUser(PolylineShape* shape,
                                                          const std::string& locale) {
   jrt::Array<FloatPoint*>* corners = shape->cornerApproxArr();
-  auto* transformedCorners = new jrt::Array<FloatPoint*>(corners->length);
+  auto* transformedCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*transformedCorners)[i] = boardToUser((*corners)[i]);
   }
-  return new PrintableShape_Polygon(transformedCorners, locale);
+  return new (jrt::kBoard) PrintableShape_Polygon(transformedCorners, locale);
 }
 
 double CoordinateTransform::userToBoard(double value) {
@@ -75,7 +75,7 @@ double CoordinateTransform::userToBoard(double value) {
 }
 
 FloatPoint* CoordinateTransform::userToBoard(FloatPoint* point) {
-  return new FloatPoint(userToBoard(point->x), userToBoard(point->y));
+  return new (jrt::kGeom) FloatPoint(userToBoard(point->x), userToBoard(point->y));
 }
 
 }  // namespace fr

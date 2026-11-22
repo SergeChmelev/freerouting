@@ -23,7 +23,7 @@ class BatchFanout_FanoutProgressListener : public virtual jrt::Object {
       std::function<void(BatchFanout_FanoutPassStatus*)> f;
       void onProgress(BatchFanout_FanoutPassStatus* status) override { f(status); }
     };
-    auto* adapter = new Adapter();
+    auto* adapter = new (jrt::kOp) Adapter();
     adapter->f = std::move(fn);
     return adapter;
   }
@@ -230,9 +230,9 @@ class BatchFanout : public virtual jrt::Object {
   std::optional<int64_t> deadlineMs;
   bool isTimedOut = false;
   /** Pin id to the component generation observed when that pin failed. */
-  jrt::Map<int32_t, int32_t>* failedPinGeneration = new jrt::HashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* failedPinGeneration = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
   /** Successful escapes in a component. A change allows a previously failed pin to be retried. */
-  jrt::Map<int32_t, int32_t>* componentGeneration = new jrt::HashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* componentGeneration = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
 
   BatchFanout(RoutingBoard* board, RouterSettings* settings, StoppableThread* thread);
   BatchFanout(

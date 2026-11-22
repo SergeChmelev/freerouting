@@ -292,7 +292,7 @@ std::string resourceUsageJson(RouterJobResourceUsage* r, int indent) {
 RoutingResultManifest_PhaseSnapshot* RoutingResultManifest_PhaseSnapshot::fromBoardStatistics(
     BoardStatistics* statistics, RouterSettings* settings,
     const std::optional<std::string>& scoreSource) {
-  auto* snapshot = new RoutingResultManifest_PhaseSnapshot();
+  auto* snapshot = new (jrt::kBoard) RoutingResultManifest_PhaseSnapshot();
   snapshot->boardStatistics = statistics;
   snapshot->scoreSource = scoreSource;
   if (statistics != nullptr && settings != nullptr) {
@@ -311,11 +311,11 @@ RoutingResultManifest* RoutingResultManifest::fromJob(
 RoutingResultManifest* RoutingResultManifest::fromJob(
     RoutingJob* job, const std::optional<std::string>& inputFilePath, bool outputWritten,
     int32_t exitCode, std::optional<int32_t> cpuScore) {
-  auto* manifest = new RoutingResultManifest();
+  auto* manifest = new (jrt::kBoard) RoutingResultManifest();
   manifest->generatedAt = instantNowString();
   manifest->appVersion = std::string(FREEROUTING_VERSION);
   manifest->gitSha = resolveGitSha();
-  manifest->fixture = new RoutingResultManifest_FixtureInfo();
+  manifest->fixture = new (jrt::kBoard) RoutingResultManifest_FixtureInfo();
   if (inputFilePath.has_value()) {
     manifest->fixture->filename = std::filesystem::path(*inputFilePath).filename().string();
     manifest->fixture->sha256 = sha256Hex(*inputFilePath);
@@ -331,7 +331,7 @@ RoutingResultManifest* RoutingResultManifest::fromJob(
   manifest->cpuScore = cpuScore;
 
   if (job->board != nullptr) {
-    manifest->boardStatistics = new BoardStatistics(static_cast<BasicBoard*>(job->board));
+    manifest->boardStatistics = new (jrt::kOp) BoardStatistics(static_cast<BasicBoard*>(job->board));
     manifest->bounds = manifest->boardStatistics->bounds;
     if (job->routerSettings != nullptr && job->routerSettings->scoring != nullptr) {
       manifest->normalizedScore = manifest->boardStatistics->getRouterScore(job->routerSettings);

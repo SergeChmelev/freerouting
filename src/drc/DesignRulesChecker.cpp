@@ -39,8 +39,8 @@
 namespace fr {
 
 jrt::Collection<ClearanceViolation*>* DesignRulesChecker::getAllClearanceViolations() {
-  auto* allViolations = new jrt::ArrayList<ClearanceViolation*>();
-  auto* seenViolations = new jrt::HashSet<std::string>();
+  auto* allViolations = new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>();
+  auto* seenViolations = new (jrt::kOp) jrt::HashSet<std::string>();
 
   // Iterate through all items on the board
   jrt::Collection<Item*>* items = board->getItems();
@@ -72,16 +72,16 @@ jrt::Collection<ClearanceViolation*>* DesignRulesChecker::getAllClearanceViolati
 }
 
 jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems() {
-  auto* unconnectedItems = new jrt::ArrayList<UnconnectedItems*>();
+  auto* unconnectedItems = new (jrt::kOp) jrt::ArrayList<UnconnectedItems*>();
 
   // Group items by net
-  auto* itemsByNet = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
+  auto* itemsByNet = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
   for (Item* item : *board->getItems()) {
     if (jrt::fast_cast<Connectable>(item) != nullptr && item->netCount() > 0) {
       int32_t netNumber = item->getNetNumber(0);
       itemsByNet
           ->computeIfAbsent(netNumber,
-                            [](int32_t) -> jrt::List<Item*>* { return new jrt::ArrayList<Item*>(); })
+                            [](int32_t) -> jrt::List<Item*>* { return new (jrt::kOp) jrt::ArrayList<Item*>(); })
           ->add(item);
     }
   }
@@ -96,8 +96,8 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
     }
 
     // Get all connected sets for this net
-    auto* connectedSets = new jrt::ArrayList<jrt::Set<Item*>*>();
-    auto* processedItems = new jrt::HashSet<Item*>();
+    auto* connectedSets = new (jrt::kOp) jrt::ArrayList<jrt::Set<Item*>*>();
+    auto* processedItems = new (jrt::kOp) jrt::HashSet<Item*>();
 
     for (Item* item : *netItems) {
       if (processedItems->contains(item)) {
@@ -106,7 +106,7 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
 
       // Get the connected set for this item
       jrt::Collection<Item*>* connectedSet = item->getConnectedSet(netNumber);
-      jrt::Set<Item*>* setItems = new jrt::HashSet<Item*>(connectedSet);
+      jrt::Set<Item*>* setItems = new (jrt::kOp) jrt::HashSet<Item*>(connectedSet);
 
       // Only add items that are actually in this net
       setItems->retainAll(netItems);
@@ -126,10 +126,10 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
 
       if (item1 != nullptr && item2 != nullptr) {
         // Include only items from the two disconnected groups for investigation
-        auto* unconnectedGroupItems = new jrt::ArrayList<Item*>();
+        auto* unconnectedGroupItems = new (jrt::kOp) jrt::ArrayList<Item*>();
         unconnectedGroupItems->addAll(connectedSets->get(0));
         unconnectedGroupItems->addAll(connectedSets->get(1));
-        unconnectedItems->add(new UnconnectedItems(item1, item2, unconnectedGroupItems));
+        unconnectedItems->add(new (jrt::kOp) UnconnectedItems(item1, item2, unconnectedGroupItems));
       }
     }
   }
@@ -151,7 +151,7 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
           }
         }
         if (!anyMatch) {
-          unconnectedItems->add(new UnconnectedItems(trace, nullptr, std::string("track_dangling")));
+          unconnectedItems->add(new (jrt::kOp) UnconnectedItems(trace, nullptr, std::string("track_dangling")));
         }
       }
     }
@@ -162,7 +162,7 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
     if (auto* via = jrt::fast_cast<Via>(item)) {
       // Use the isTail() method which checks if via has contacts on at most 1 layer
       if (via->isTail()) {
-        unconnectedItems->add(new UnconnectedItems(via, nullptr, std::string("via_dangling")));
+        unconnectedItems->add(new (jrt::kOp) UnconnectedItems(via, nullptr, std::string("via_dangling")));
       }
     }
   }
@@ -171,7 +171,7 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
 }
 
 jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolations() {
-  auto* violations = new jrt::ArrayList<ZoneIslandViolation*>();
+  auto* violations = new (jrt::kOp) jrt::ArrayList<ZoneIslandViolation*>();
   jrt::Collection<ConductionArea*>* conductionAreas = board->getConductionAreas();
   if (conductionAreas == nullptr || conductionAreas->isEmpty()) {
     return violations;
@@ -195,7 +195,7 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
     int32_t layer = ca->getLayer();
 
     // Find all connectable items belonging to this net on this layer
-    auto* sameNetItemsOnLayer = new jrt::ArrayList<Item*>();
+    auto* sameNetItemsOnLayer = new (jrt::kOp) jrt::ArrayList<Item*>();
     for (Item* item : *board->getItems()) {
       if (item != static_cast<Item*>(ca) && jrt::fast_cast<Connectable>(item) != nullptr &&
           item->sharesNet(ca) && item->sharesLayer(ca)) {
@@ -204,9 +204,9 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
     }
 
     // Map items to each island
-    auto* islandItems = new jrt::ArrayList<jrt::List<Item*>*>();
+    auto* islandItems = new (jrt::kOp) jrt::ArrayList<jrt::List<Item*>*>();
     for (PlanarArea* island : *islands) {
-      auto* contained = new jrt::ArrayList<Item*>();
+      auto* contained = new (jrt::kOp) jrt::ArrayList<Item*>();
       for (Item* item : *sameNetItemsOnLayer) {
         Point* center = nullptr;
         if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
@@ -259,7 +259,7 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
           }
 
           if (!connectedToPrimary) {
-            violations->add(new ZoneIslandViolation(ca, island, layer, netNumber,
+            violations->add(new (jrt::kOp) ZoneIslandViolation(ca, island, layer, netNumber,
                                                     "isolated_island_unconnected", items));
           }
         }
@@ -267,9 +267,9 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
         // Island with zero contact items: check if it exceeds minimum dead copper threshold
         double approxArea = island->getArea();
         if (approxArea >= minDeadCopperArea) {
-          violations->add(new ZoneIslandViolation(ca, island, layer, netNumber,
+          violations->add(new (jrt::kOp) ZoneIslandViolation(ca, island, layer, netNumber,
                                                   "isolated_island_dead_copper",
-                                                  new jrt::ArrayList<Item*>()));
+                                                  new (jrt::kOp) jrt::ArrayList<Item*>()));
         }
       }
     }
@@ -392,9 +392,9 @@ double DesignRulesChecker::convertCoordinate(double boardCoordinate,
 void DesignRulesChecker::calculateAllIncompletes() {
   int32_t maxNetNo = board->rules->nets->maxNetNumber();
   // Create the net item lists at once for performance reasons.
-  auto* netItemLists = new jrt::ArrayList<jrt::Collection<Item*>*>();
+  auto* netItemLists = new (jrt::kOp) jrt::ArrayList<jrt::Collection<Item*>*>();
   for (int32_t i = 0; i < maxNetNo; i++) {
-    netItemLists->add(new jrt::LinkedList<Item*>());
+    netItemLists->add(new (jrt::kOp) jrt::LinkedList<Item*>());
   }
   auto* it = board->itemList->startReadObject();
   for (;;) {
@@ -434,7 +434,7 @@ void DesignRulesChecker::calculateAllIncompletes() {
                       ", total_items=" + jrt::str(totalItems) +
                       ", netCount=" + jrt::str(netItemLists->size()) +
                       " (formula: total_items - netCount)",
-                  "Incomplete Count", new jrt::Array<Point*>(0));
+                  "Incomplete Count", new (jrt::kGeom) jrt::Array<Point*>(0));
 
   auto* focusNets = jrt::Array<int32_t>::of({98, 99});
   for (int32_t netNumber : *focusNets) {
@@ -446,7 +446,7 @@ void DesignRulesChecker::calculateAllIncompletes() {
                       "Net item count: net=" + jrt::str(netNumber) + ", name=" + netName +
                           ", items=" + jrt::str(netItemsCount),
                       "Net #" + jrt::str(netNumber) + " (" + netName + ")",
-                      new jrt::Array<Point*>(0));
+                      new (jrt::kGeom) jrt::Array<Point*>(0));
 
       // Let's validate all the polyline traces for this net
       jrt::Collection<Item*>* netItems = netItemLists->get(netNumber - 1);
@@ -458,11 +458,11 @@ void DesignRulesChecker::calculateAllIncompletes() {
     }
   }
 
-  this->netIncompletes = new jrt::Array<NetIncompletes*>(maxNetNo);
+  this->netIncompletes = new (jrt::kOp) jrt::Array<NetIncompletes*>(maxNetNo);
   for (int32_t i = 0; i < netIncompletes->length; i++) {
     // netNumber is 1-based, index is 0-based
     int32_t netNumber = i + 1;
-    (*netIncompletes)[i] = new NetIncompletes(netNumber, netItemLists->get(i), board);
+    (*netIncompletes)[i] = new (jrt::kOp) NetIncompletes(netNumber, netItemLists->get(i), board);
   }
 }
 
@@ -473,7 +473,7 @@ void DesignRulesChecker::recalculateNetIncompletes(int32_t netNumber) {
   }
   if (netNumber >= 1 && netNumber <= netIncompletes->length) {
     jrt::Collection<Item*>* itemList = board->getConnectableItems(netNumber);
-    (*netIncompletes)[netNumber - 1] = new NetIncompletes(netNumber, itemList, board);
+    (*netIncompletes)[netNumber - 1] = new (jrt::kOp) NetIncompletes(netNumber, itemList, board);
   }
 }
 
@@ -484,8 +484,8 @@ void DesignRulesChecker::recalculateNetIncompletes(int32_t netNumber,
   }
   if (netNumber >= 1 && netNumber <= netIncompletes->length) {
     // copy itemList, because it will be changed inside the constructor of NetIncompletes
-    jrt::Collection<Item*>* items = new jrt::LinkedList<Item*>(itemList);
-    (*netIncompletes)[netNumber - 1] = new NetIncompletes(netNumber, items, board);
+    jrt::Collection<Item*>* items = new (jrt::kOp) jrt::LinkedList<Item*>(itemList);
+    (*netIncompletes)[netNumber - 1] = new (jrt::kOp) NetIncompletes(netNumber, items, board);
   }
 }
 
@@ -516,7 +516,7 @@ int32_t DesignRulesChecker::getIncompleteCount() {
                   "Total incomplete count: " + jrt::str(result) +
                       ", nets_with_incompletes=" + jrt::str(netsWithIncompletes) +
                       ", first_few_nets=" + detailsBuilder,
-                  "Incomplete Count", new jrt::Array<Point*>(0));
+                  "Incomplete Count", new (jrt::kGeom) jrt::Array<Point*>(0));
 
   return result;
 }
@@ -525,7 +525,7 @@ jrt::Set<int32_t>* DesignRulesChecker::incompleteNetNumbers() {
   if (netIncompletes == nullptr) {
     calculateAllIncompletes();
   }
-  jrt::Set<int32_t>* result = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* result = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (int32_t i = 0; i < netIncompletes->length; i++) {
     if ((*this->netIncompletes)[i]->count() > 0) {
       result->add(i + 1);
@@ -550,7 +550,7 @@ int32_t DesignRulesChecker::getIncompleteCount(int32_t netNumber) {
                   "Net incomplete count: net=" + jrt::str(netNumber) + ", name=" + netName +
                       ", incompleteCount=" + jrt::str(result),
                   "Net #" + jrt::str(netNumber) + " (" + netName + ")",
-                  new jrt::Array<Point*>(0));
+                  new (jrt::kGeom) jrt::Array<Point*>(0));
 
   return result;
 }
@@ -597,7 +597,7 @@ jrt::Array<AirLine*>* DesignRulesChecker::getAllAirlines() {
     calculateAllIncompletes();
   }
   int32_t count = getIncompleteCount();
-  auto* result = new jrt::Array<AirLine*>(count);
+  auto* result = new (jrt::kOp) jrt::Array<AirLine*>(count);
   int32_t currentIndex = 0;
   for (int32_t i = 0; i < netIncompletes->length; i++) {
     jrt::Collection<AirLine*>* currentList = (*netIncompletes)[i]->incompletes;
@@ -620,13 +620,13 @@ NetIncompletes* DesignRulesChecker::getNetIncompletes(int32_t netNumber) {
 }
 
 DrcSummaryResponse* DesignRulesChecker::generateSummary() {
-  DrcSummaryResponse* summary = new DrcSummaryResponse();
+  DrcSummaryResponse* summary = new (jrt::kOp) DrcSummaryResponse();
 
   jrt::Collection<ClearanceViolation*>* violations = getAllClearanceViolations();
   summary->clearanceViolationsCount = violations->size();
 
   jrt::Collection<UnconnectedItems*>* unconnecteds = getAllUnconnectedItems();
-  jrt::Set<int32_t>* unconnectedNetNumbers = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* unconnectedNetNumbers = new (jrt::kOp) jrt::HashSet<int32_t>();
   int32_t danglingStubsCount = 0;
   for (UnconnectedItems* u : *unconnecteds) {
     if (u->type == "track_dangling" || u->type == "via_dangling") {
@@ -658,10 +658,10 @@ DrcSummaryResponse* DesignRulesChecker::generateSummary() {
         item1Desc.c_str(), item2Desc.c_str(), layerName.c_str(), expectedMm, actualMm,
         shortfallMm);
 
-    auto* items = new jrt::ArrayList<std::string>();
+    auto* items = new (jrt::kOp) jrt::ArrayList<std::string>();
     items->add(item1Desc);
     items->add(item2Desc);
-    summary->violations->add(new DrcSummaryResponse_DiagnosticViolation(
+    summary->violations->add(new (jrt::kOp) DrcSummaryResponse_DiagnosticViolation(
         "clearance", "error", layerName, explanation, expectedMm, actualMm, shortfallMm, items));
   }
 
@@ -693,7 +693,7 @@ DrcSummaryResponse* DesignRulesChecker::generateSummary() {
       explanation = "Unconnected item on net [" + netName + "]: " + item1Desc + ".";
     }
 
-    auto* items = new jrt::ArrayList<std::string>();
+    auto* items = new (jrt::kOp) jrt::ArrayList<std::string>();
     if (u->firstItem != nullptr) {
       items->add(item1Desc);
     }
@@ -701,7 +701,7 @@ DrcSummaryResponse* DesignRulesChecker::generateSummary() {
       items->add(*item2Desc);
     }
 
-    summary->violations->add(new DrcSummaryResponse_DiagnosticViolation(
+    summary->violations->add(new (jrt::kOp) DrcSummaryResponse_DiagnosticViolation(
         u->type, "warning", "all", explanation, std::nullopt, std::nullopt, std::nullopt, items));
   }
 
@@ -714,7 +714,7 @@ DrcSummaryResponse* DesignRulesChecker::generateSummary() {
     Net* net = board->rules->nets->get(zv->netNumber);
     std::string netName = (net != nullptr) ? net->name : ("Net " + jrt::str(zv->netNumber));
 
-    auto* items = new jrt::ArrayList<std::string>();
+    auto* items = new (jrt::kOp) jrt::ArrayList<std::string>();
     items->add("Zone on " + layerName + " [" + netName + "]");
     for (Item* it : *zv->itemsInIsland) {
       items->add(formatItemWithContext(it));
@@ -743,7 +743,7 @@ DrcSummaryResponse* DesignRulesChecker::generateSummary() {
           layerName.c_str(), netName.c_str(), areaMm2);
     }
 
-    summary->violations->add(new DrcSummaryResponse_DiagnosticViolation(
+    summary->violations->add(new (jrt::kOp) DrcSummaryResponse_DiagnosticViolation(
         zv->type, severity, layerName, explanation, std::nullopt, std::nullopt, std::nullopt,
         items));
   }
@@ -799,21 +799,21 @@ std::string DesignRulesChecker::formatItemWithContext(Item* item) {
 
 jrt::List<DrcSummaryResponse_CongestionZone*>* DesignRulesChecker::detectCongestionZones(
     jrt::Collection<ClearanceViolation*>* violations) {
-  auto* zones = new jrt::ArrayList<DrcSummaryResponse_CongestionZone*>();
+  auto* zones = new (jrt::kOp) jrt::ArrayList<DrcSummaryResponse_CongestionZone*>();
   if (violations->isEmpty()) {
     return zones;
   }
 
   // Simple centroid clustering with a 5.0 mm neighborhood threshold
   const double clusterRadiusMm = 5.0;
-  auto* points = new jrt::ArrayList<Point*>();
+  auto* points = new (jrt::kOp) jrt::ArrayList<Point*>();
   for (ClearanceViolation* v : *violations) {
     if (v->shape != nullptr) {
       points->add(v->shape->centreOfGravity()->round());
     }
   }
 
-  auto* visited = new jrt::Array<bool>(points->size());
+  auto* visited = new (jrt::kOp) jrt::Array<bool>(points->size());
   for (int32_t i = 0; i < points->size(); i++) {
     if ((*visited)[i]) {
       continue;
@@ -847,7 +847,7 @@ jrt::List<DrcSummaryResponse_CongestionZone*>* DesignRulesChecker::detectCongest
     if (clusterCount >= 2) {
       double avgX = sumX / clusterCount;
       double avgY = sumY / clusterCount;
-      zones->add(new DrcSummaryResponse_CongestionZone(
+      zones->add(new (jrt::kOp) DrcSummaryResponse_CongestionZone(
           avgX, avgY, clusterRadiusMm, clusterCount,
           jrt::format("High bottleneck concentration: %d violations within %.1f mm of (%.2f, "
                       "%.2f) mm.",
@@ -861,7 +861,7 @@ jrt::List<std::string>* DesignRulesChecker::generateActionableHints(
     jrt::Collection<ClearanceViolation*>* violations,
     jrt::Collection<UnconnectedItems*>* unconnecteds,
     jrt::List<DrcSummaryResponse_CongestionZone*>* zones) {
-  auto* hints = new jrt::ArrayList<std::string>();
+  auto* hints = new (jrt::kOp) jrt::ArrayList<std::string>();
 
   if (!violations->isEmpty()) {
     double maxShortfall = 0.0;

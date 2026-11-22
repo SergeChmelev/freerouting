@@ -83,18 +83,18 @@ class RoutingResultManifest_FallbackDetail : public virtual jrt::Object {
   std::optional<std::string> chosen;
   // "attempts"
   jrt::List<RoutingResultManifest_FallbackAttempt*>* attempts =
-      new jrt::ArrayList<RoutingResultManifest_FallbackAttempt*>();
+      new (jrt::kBoard) jrt::ArrayList<RoutingResultManifest_FallbackAttempt*>();
 };
 
 /** Per-stage duration and pass counts. */
 class RoutingResultManifest_PhaseMetrics : public virtual jrt::Object {
  public:
   // "fanout"
-  RoutingResultManifest_PhaseDetail* fanout = new RoutingResultManifest_PhaseDetail();
+  RoutingResultManifest_PhaseDetail* fanout = new (jrt::kBoard) RoutingResultManifest_PhaseDetail();
   // "autorouter"
-  RoutingResultManifest_PhaseDetail* autorouter = new RoutingResultManifest_PhaseDetail();
+  RoutingResultManifest_PhaseDetail* autorouter = new (jrt::kBoard) RoutingResultManifest_PhaseDetail();
   // "optimizer"
-  RoutingResultManifest_PhaseDetail* optimizer = new RoutingResultManifest_PhaseDetail();
+  RoutingResultManifest_PhaseDetail* optimizer = new (jrt::kBoard) RoutingResultManifest_PhaseDetail();
   // "fallback"
   RoutingResultManifest_FallbackDetail* fallback = nullptr;
 };
@@ -129,7 +129,7 @@ class RoutingResultManifest final : public virtual jrt::Object {
   // "settings_snapshot"
   RouterSettings* settingsSnapshot = nullptr;
   // "phases"
-  RoutingResultManifest_PhaseMetrics* phases = new RoutingResultManifest_PhaseMetrics();
+  RoutingResultManifest_PhaseMetrics* phases = new (jrt::kBoard) RoutingResultManifest_PhaseMetrics();
   // "board_statistics"
   BoardStatistics* boardStatistics = nullptr;
   // "bounds"

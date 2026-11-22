@@ -22,7 +22,7 @@ ComponentOutline::ComponentOutline(Area* area, bool isFront, Vector* translation
                                    double rotationInDegree, int32_t id, int32_t componentId,
                                    bool isCourtyard, bool isFabrication, bool isClosed,
                                    FixedState fixedState, BasicBoard* board)
-    : Item(new jrt::Array<int32_t>(0), 0, id, componentId, fixedState, board),
+    : Item(new (jrt::kBoard) jrt::Array<int32_t>(0), 0, id, componentId, fixedState, board),
       relativeArea(area) {
   this->isFront_ = isFront;
   this->translation = translation;
@@ -35,7 +35,7 @@ ComponentOutline::ComponentOutline(Area* area, bool isFront, Vector* translation
 Item* ComponentOutline::copy(int32_t id) {
   // PORT NOTE (deep copy): like Java, the copy resets clearanceClassIndex to 0 and netNumbers to
   // empty (both are only ever changed through setClearanceClassIndex / assignNetNo).
-  return new ComponentOutline(this->relativeArea, this->isFront_, this->translation,
+  return new (jrt::kBoard) ComponentOutline(this->relativeArea, this->isFront_, this->translation,
                               this->rotationInDegree, id, this->getComponentId(),
                               this->isCourtyard_, this->isFabrication_, this->isClosed_,
                               this->getFixedState(), this->board);

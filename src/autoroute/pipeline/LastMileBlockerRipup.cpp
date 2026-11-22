@@ -19,12 +19,12 @@ namespace fr {
 int32_t LastMileBlockerRipup::ripBlockers(RoutingBoard* board) { return ripBlockers(board, nullptr); }
 
 int32_t LastMileBlockerRipup::ripBlockers(RoutingBoard* board, RipupMemory* memory) {
-  DesignRulesChecker* drc = new DesignRulesChecker(board, nullptr);
+  DesignRulesChecker* drc = new (jrt::kOp) DesignRulesChecker(board, nullptr);
   jrt::Array<AirLine*>* airlines = drc->getAllAirlines();
   if (airlines->length == 0) {
     return 0;
   }
-  jrt::Set<Item*>* blockers = new jrt::LinkedHashSet<Item*>();
+  jrt::Set<Item*>* blockers = new (jrt::kOp) jrt::LinkedHashSet<Item*>();
   for (AirLine* airline : *airlines) {
     if (airline == nullptr || airline->net == nullptr) {
       continue;
@@ -50,7 +50,7 @@ int32_t LastMileBlockerRipup::ripBlockers(RoutingBoard* board, RipupMemory* memo
   if (blockers->isEmpty()) {
     return 0;
   }
-  jrt::List<Item*>* toRemove = new jrt::ArrayList<Item*>(blockers);
+  jrt::List<Item*>* toRemove = new (jrt::kOp) jrt::ArrayList<Item*>(blockers);
   board->removeItems(toRemove);
   return toRemove->size();
 }
@@ -105,7 +105,7 @@ IntBox* LastMileBlockerRipup::corridor(FloatPoint* from, FloatPoint* to) {
   int32_t maxY = jrt::Math::max(y1, y2);
   int32_t span = jrt::Math::max(maxX - minX, maxY - minY);
   int32_t margin = jrt::Math::max(span / 4, 1);
-  return new IntBox(minX - margin, minY - margin, maxX + margin, maxY + margin);
+  return new (jrt::kGeom) IntBox(minX - margin, minY - margin, maxX + margin, maxY + margin);
 }
 
 }  // namespace fr

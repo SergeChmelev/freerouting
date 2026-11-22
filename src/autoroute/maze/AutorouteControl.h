@@ -44,7 +44,7 @@ class AutorouteControl_ViaCost final : public virtual jrt::Object {
 
   // PORT NOTE: private in Java (only AutorouteControl constructs it); public here.
   explicit AutorouteControl_ViaCost(int32_t layerCount)
-      : toLayer(new jrt::Array<int32_t>(layerCount)) {}
+      : toLayer(new (jrt::kOp) jrt::Array<int32_t>(layerCount)) {}
 };
 
 /** Via mask from a layer range (Java: package-private static class). */

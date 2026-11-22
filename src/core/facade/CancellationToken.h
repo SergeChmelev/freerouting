@@ -36,7 +36,7 @@ class LambdaCancellationToken : public CancellationToken {
 }  // namespace detail
 
 inline CancellationToken* CancellationToken::of(std::function<bool()> f) {
-  return new detail::LambdaCancellationToken(std::move(f));
+  return new (jrt::kOp) detail::LambdaCancellationToken(std::move(f));
 }
 
 inline CancellationToken* CancellationToken::none() {

@@ -64,9 +64,9 @@ class PropertyChangeSupport : public virtual jrt::Object {
  private:
   jrt::Object* sourceBean;
   jrt::ArrayList<PropertyChangeListener*>* listeners =
-      new jrt::ArrayList<PropertyChangeListener*>();
+      new (jrt::kBoard) jrt::ArrayList<PropertyChangeListener*>();
   jrt::ConcurrentHashMap<std::string, jrt::ArrayList<PropertyChangeListener*>*>* namedListeners =
-      new jrt::ConcurrentHashMap<std::string, jrt::ArrayList<PropertyChangeListener*>*>();
+      new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, jrt::ArrayList<PropertyChangeListener*>*>();
 };
 
 }  // namespace fr

@@ -48,7 +48,7 @@ SesTracePath* SesTracePath::from(fr::PolylineTrace* wire, fr::io::CoordinateTran
     }
   }
   // Point copper intentionally retains two coincident endpoints for KiCad's path importer.
-  return new SesTracePath(encoded);
+  return new (jrt::kOp) SesTracePath(encoded);
 }
 
 bool SesTracePath::collapsesSegment(jrt::Array<jrt::BigFraction>* coordinates,
@@ -79,7 +79,7 @@ jrt::Array<jrt::BigFraction>* SesTracePath::encode(jrt::Array<fr::Point*>* corne
   jrt::Array<double>* origin = transform->boardToDsn(fr::Point::ZERO()->toFloat());
   jrt::BigFraction baseX = SesNumbers::fromDouble((*origin)[0]);
   jrt::BigFraction baseY = SesNumbers::fromDouble((*origin)[1]);
-  auto* encoded = new jrt::Array<jrt::BigFraction>(corners->length * 2);
+  auto* encoded = new (jrt::kOp) jrt::Array<jrt::BigFraction>(corners->length * 2);
   for (int32_t index = 0; index < corners->length; index++) {
     fr::BigIntAux_RationalCoordinates* point = (*corners)[index]->exactCoordinates();
     if (point->z().signum() == 0) {

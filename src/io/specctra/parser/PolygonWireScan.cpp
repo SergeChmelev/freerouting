@@ -7,8 +7,8 @@ namespace fr::dsn {
 
 jrt::Map<std::string, jrt::Set<std::string>*>* PolygonWireScan::netsByLayer(std::istream& dsn) {
   jrt::Map<std::string, jrt::Set<std::string>*>* result =
-      new jrt::LinkedHashMap<std::string, jrt::Set<std::string>*>();
-  SpecctraDsnStreamReader* scanner = new SpecctraDsnStreamReader(dsn);
+      new (jrt::kOp) jrt::LinkedHashMap<std::string, jrt::Set<std::string>*>();
+  SpecctraDsnStreamReader* scanner = new (jrt::kOp) SpecctraDsnStreamReader(dsn);
   int32_t depth = 0;
   int32_t wireDepth = -1;
   std::optional<std::string> wireLayer;
@@ -27,7 +27,7 @@ jrt::Map<std::string, jrt::Set<std::string>*>* PolygonWireScan::netsByLayer(std:
           if (wireLayer.has_value()) {
             jrt::Set<std::string>* nets = result->computeIfAbsent(
                 *wireLayer, [](const std::string&) -> jrt::Set<std::string>* {
-                  return new jrt::LinkedHashSet<std::string>();
+                  return new (jrt::kOp) jrt::LinkedHashSet<std::string>();
                 });
             if (wireNet.has_value()) {
               nets->add(*wireNet);
@@ -55,9 +55,9 @@ jrt::Map<std::string, jrt::Set<std::string>*>* PolygonWireScan::netsByLayer(std:
       prevToken = token;
     }
   } catch (const jrt::IOException&) {
-    return new jrt::HashMap<std::string, jrt::Set<std::string>*>();
+    return new (jrt::kOp) jrt::HashMap<std::string, jrt::Set<std::string>*>();
   } catch (const jrt::RuntimeException&) {
-    return new jrt::HashMap<std::string, jrt::Set<std::string>*>();
+    return new (jrt::kOp) jrt::HashMap<std::string, jrt::Set<std::string>*>();
   }
   return result;
 }

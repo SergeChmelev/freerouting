@@ -17,7 +17,7 @@ WriteScopeParameter::WriteScopeParameter(fr::BasicBoard* board,
       compatMode(compatMode) {
   jrt::Array<std::string>* reservedChars =
       jrt::Array<std::string>::of({"(", ")", " ", ";", "-", "_"});
-  identifierType = new fr::IdentifierType(reservedChars, stringQuote);
+  identifierType = new (jrt::kOp) fr::IdentifierType(reservedChars, stringQuote);
 }
 
 }  // namespace fr::dsn

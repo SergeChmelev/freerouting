@@ -32,7 +32,7 @@ class LambdaBoardSnapshotEventListener : public BoardSnapshotEventListener {
 
 inline BoardSnapshotEventListener* BoardSnapshotEventListener::of(
     std::function<void(BoardSnapshotEvent*)> f) {
-  return new detail::LambdaBoardSnapshotEventListener(std::move(f));
+  return new (jrt::kOp) detail::LambdaBoardSnapshotEventListener(std::move(f));
 }
 
 }  // namespace fr

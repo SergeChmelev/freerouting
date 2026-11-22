@@ -22,7 +22,7 @@ TargetItemExpansionDoor::TargetItemExpansionDoor(Item* item, int32_t treeEntryNo
     TileShape* itemShape = item->getTreeShape(searchTree, treeEntryNo);
     this->shape = itemShape->intersection(room->getShape());
   }
-  mazeSearchInfo = new MazeSearchElement();
+  mazeSearchInfo = new (jrt::kOp) MazeSearchElement();
 }
 
 bool TargetItemExpansionDoor::isDestinationDoor() {

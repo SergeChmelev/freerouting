@@ -74,7 +74,7 @@ int32_t Package::getPinIndex(const std::string& name) {
 }
 
 void Package::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("app.freerouting.core.library.Package", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("app.freerouting.core.library.Package", locale);
 
   printer->appendBold(tm->getText("package") + " ");
   printer->appendBold(this->name);

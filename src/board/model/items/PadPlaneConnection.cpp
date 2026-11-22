@@ -59,10 +59,10 @@ jrt::Array<PadPlaneConnection_Spoke*>* PadPlaneConnection::spokes(double planeGa
   }
   width = jrt::Math::min(width, 2 * jrt::Math::min(this->halfWidth_, this->halfHeight_));
   if (width < minWidth || width <= 0) {
-    return new jrt::Array<PadPlaneConnection_Spoke*>(0);
+    return new (jrt::kOp) jrt::Array<PadPlaneConnection_Spoke*>(0);
   }
   double reach = gapOn(planeGap) + minWidth / 2.0 + endSlack;
-  auto* result = new jrt::Array<PadPlaneConnection_Spoke*>(4);
+  auto* result = new (jrt::kOp) jrt::Array<PadPlaneConnection_Spoke*>(4);
   for (int32_t i = 0; i < 4; i++) {
     double inPad = jrt::Math::toRadians(this->spokeAngleDeg_ + 90.0 * i);
     double cos = jrt::Math::cos(inPad);
@@ -79,7 +79,7 @@ jrt::Array<PadPlaneConnection_Spoke*>* PadPlaneConnection::spokes(double planeGa
     double onBoard = jrt::Math::toRadians(this->orientationDeg_ + this->spokeAngleDeg_ + 90.0 * i);
     double dx = jrt::Math::cos(onBoard);
     double dy = jrt::Math::sin(onBoard);
-    (*result)[i] = new PadPlaneConnection_Spoke(
+    (*result)[i] = new (jrt::kBoard) PadPlaneConnection_Spoke(
         this->centerX_ + dx * start, this->centerY_ + dy * start, this->centerX_ + dx * end,
         this->centerY_ + dy * end, width / 2.0);
   }

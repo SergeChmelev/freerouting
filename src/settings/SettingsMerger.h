@@ -51,7 +51,7 @@ class SettingsMerger : public virtual jrt::Object {
   virtual SettingsMerger* clone();
 
  private:
-  jrt::List<SettingsSource*>* sources = new jrt::ArrayList<SettingsSource*>();
+  jrt::List<SettingsSource*>* sources = new (jrt::kBoard) jrt::ArrayList<SettingsSource*>();
 };
 
 }  // namespace fr

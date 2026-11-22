@@ -42,13 +42,13 @@ bool IntPoint::equals(jrt::Object* other) {
 
 int32_t IntPoint::hashCode() { return 31 * x + y; }
 
-IntBox* IntPoint::surroundingBox() { return new IntBox(this, this); }
+IntBox* IntPoint::surroundingBox() { return new (jrt::kGeom) IntBox(this, this); }
 
 IntOctagon* IntPoint::surroundingOctagon() {
   int32_t tmp1 = x - y;
   int32_t tmp2 = x + y;
 
-  return new IntOctagon(x, y, x, y, tmp1, tmp1, tmp2, tmp2);
+  return new (jrt::kGeom) IntOctagon(x, y, x, y, tmp1, tmp1, tmp2, tmp2);
 }
 
 bool IntPoint::isContainedIn(IntBox* box) {
@@ -63,7 +63,7 @@ Point* IntPoint::translateBy(Vector* vector) {
 }
 
 Point* IntPoint::translateBy(IntVector* vector) {
-  return new IntPoint(x + vector->x, y + vector->y);
+  return new (jrt::kGeom) IntPoint(x + vector->x, y + vector->y);
 }
 
 Point* IntPoint::translateBy(RationalVector* vector) { return vector->addTo(this); }
@@ -79,7 +79,7 @@ Vector* IntPoint::differenceBy(RationalPoint* other) {
 }
 
 IntVector* IntPoint::differenceBy(IntPoint* other) {
-  return new IntVector(x - other->x, y - other->y);
+  return new (jrt::kGeom) IntVector(x - other->x, y - other->y);
 }
 
 Side* IntPoint::sideOf(Line* line) {
@@ -88,7 +88,7 @@ Side* IntPoint::sideOf(Line* line) {
   return v1->sideOf(v2);
 }
 
-FloatPoint* IntPoint::toFloat() { return new FloatPoint(x, y); }
+FloatPoint* IntPoint::toFloat() { return new (jrt::kGeom) FloatPoint(x, y); }
 
 int32_t IntPoint::getId() { return 31 * x + y; }
 
@@ -132,10 +132,10 @@ Point* IntPoint::perpendicularProjection(Line* line) {
     if (projX.mod(denominator).signum() == 0 && projY.mod(denominator).signum() == 0) {
       projX = projX.divide(denominator);
       projY = projY.divide(denominator);
-      return new IntPoint(projX.intValue(), projY.intValue());
+      return new (jrt::kGeom) IntPoint(projX.intValue(), projY.intValue());
     }
   }
-  return new RationalPoint(projX, projY, denominator);
+  return new (jrt::kGeom) RationalPoint(projX, projY, denominator);
 }
 
 double IntPoint::signedArea(IntPoint* p1, IntPoint* p2) {
@@ -158,10 +158,10 @@ IntPoint* IntPoint::orthogonalProjection(IntPoint* other) {
   int32_t verticalDistance = jrt::Math::abs(this->y - other->y);
   if (horizontalDistance <= verticalDistance) {
     // projection onto the vertical line through other
-    result = new IntPoint(other->x, this->y);
+    result = new (jrt::kGeom) IntPoint(other->x, this->y);
   } else {
     // projection onto the horizontal line through other
-    result = new IntPoint(this->x, other->y);
+    result = new (jrt::kGeom) IntPoint(this->x, other->y);
   }
   return result;
 }
@@ -169,7 +169,7 @@ IntPoint* IntPoint::orthogonalProjection(IntPoint* other) {
 IntPoint* IntPoint::fortyfiveDegreeProjection(IntPoint* other) {
   int32_t dx = this->x - other->x;
   int32_t dy = this->y - other->y;
-  auto* distArr = new jrt::Array<double>(4);
+  auto* distArr = new (jrt::kOp) jrt::Array<double>(4);
   (*distArr)[0] = jrt::Math::abs(dx);
   (*distArr)[1] = jrt::Math::abs(dy);
   double diagonal1 = (static_cast<double>(dy) - static_cast<double>(dx)) / 2;
@@ -185,18 +185,18 @@ IntPoint* IntPoint::fortyfiveDegreeProjection(IntPoint* other) {
   IntPoint* result;
   if (minDist == (*distArr)[0]) {
     // projection onto the vertical line through other
-    result = new IntPoint(other->x, this->y);
+    result = new (jrt::kGeom) IntPoint(other->x, this->y);
   } else if (minDist == (*distArr)[1]) {
     // projection onto the horizontal line through other
-    result = new IntPoint(this->x, other->y);
+    result = new (jrt::kGeom) IntPoint(this->x, other->y);
   } else if (minDist == (*distArr)[2]) {
     // projection onto the right diagonal line through other
     int32_t diagonalValue = jrt::d2i(diagonal2);
-    result = new IntPoint(other->x + diagonalValue, other->y + diagonalValue);
+    result = new (jrt::kGeom) IntPoint(other->x + diagonalValue, other->y + diagonalValue);
   } else {
     // projection onto the left diagonal line through other
     int32_t diagonalValue = jrt::d2i(diagonal1);
-    result = new IntPoint(other->x - diagonalValue, other->y + diagonalValue);
+    result = new (jrt::kGeom) IntPoint(other->x - diagonalValue, other->y + diagonalValue);
   }
   return result;
 }
@@ -210,51 +210,51 @@ IntPoint* IntPoint::fortyfiveDegreeCorner(IntPoint* toPoint, bool leftTurn) {
 
   if (dy > 0 && dy < dx) {
     if (leftTurn) {
-      result = new IntPoint(toPoint->x - dy, this->y);
+      result = new (jrt::kGeom) IntPoint(toPoint->x - dy, this->y);
     } else {
-      result = new IntPoint(this->x + dy, toPoint->y);
+      result = new (jrt::kGeom) IntPoint(this->x + dy, toPoint->y);
     }
   } else if (dx > 0 && dy > dx) {
     if (leftTurn) {
-      result = new IntPoint(toPoint->x, this->y + dx);
+      result = new (jrt::kGeom) IntPoint(toPoint->x, this->y + dx);
     } else {
-      result = new IntPoint(this->x, toPoint->y - dx);
+      result = new (jrt::kGeom) IntPoint(this->x, toPoint->y - dx);
     }
   } else if (dx < 0 && dy > -dx) {
     if (leftTurn) {
-      result = new IntPoint(this->x, toPoint->y + dx);
+      result = new (jrt::kGeom) IntPoint(this->x, toPoint->y + dx);
     } else {
-      result = new IntPoint(toPoint->x, this->y - dx);
+      result = new (jrt::kGeom) IntPoint(toPoint->x, this->y - dx);
     }
   } else if (dy > 0 && dy < -dx) {
     if (leftTurn) {
-      result = new IntPoint(this->x - dy, toPoint->y);
+      result = new (jrt::kGeom) IntPoint(this->x - dy, toPoint->y);
     } else {
-      result = new IntPoint(toPoint->x + dy, this->y);
+      result = new (jrt::kGeom) IntPoint(toPoint->x + dy, this->y);
     }
   } else if (dy < 0 && dy > dx) {
     if (leftTurn) {
-      result = new IntPoint(toPoint->x - dy, this->y);
+      result = new (jrt::kGeom) IntPoint(toPoint->x - dy, this->y);
     } else {
-      result = new IntPoint(this->x + dy, toPoint->y);
+      result = new (jrt::kGeom) IntPoint(this->x + dy, toPoint->y);
     }
   } else if (dx < 0 && dy < dx) {
     if (leftTurn) {
-      result = new IntPoint(toPoint->x, this->y + dx);
+      result = new (jrt::kGeom) IntPoint(toPoint->x, this->y + dx);
     } else {
-      result = new IntPoint(this->x, toPoint->y - dx);
+      result = new (jrt::kGeom) IntPoint(this->x, toPoint->y - dx);
     }
   } else if (dx > 0 && dy < -dx) {
     if (leftTurn) {
-      result = new IntPoint(this->x, toPoint->y + dx);
+      result = new (jrt::kGeom) IntPoint(this->x, toPoint->y + dx);
     } else {
-      result = new IntPoint(toPoint->x, this->y - dx);
+      result = new (jrt::kGeom) IntPoint(toPoint->x, this->y - dx);
     }
   } else if (dy < 0 && dy > -dx) {
     if (leftTurn) {
-      result = new IntPoint(this->x - dy, toPoint->y);
+      result = new (jrt::kGeom) IntPoint(this->x - dy, toPoint->y);
     } else {
-      result = new IntPoint(toPoint->x + dy, this->y);
+      result = new (jrt::kGeom) IntPoint(toPoint->x + dy, this->y);
     }
   } else {
     // the line from this point to toPoint is already a multiple of 45 degree
@@ -272,15 +272,15 @@ IntPoint* IntPoint::ninetyDegreeCorner(IntPoint* toPoint, bool leftTurn) {
 
   if ((dx > 0 && dy > 0) || (dx < 0 && dy < 0)) {
     if (leftTurn) {
-      result = new IntPoint(toPoint->x, this->y);
+      result = new (jrt::kGeom) IntPoint(toPoint->x, this->y);
     } else {
-      result = new IntPoint(this->x, toPoint->y);
+      result = new (jrt::kGeom) IntPoint(this->x, toPoint->y);
     }
   } else if ((dx < 0 && dy > 0) || (dx > 0 && dy < 0)) {
     if (leftTurn) {
-      result = new IntPoint(this->x, toPoint->y);
+      result = new (jrt::kGeom) IntPoint(this->x, toPoint->y);
     } else {
-      result = new IntPoint(toPoint->x, this->y);
+      result = new (jrt::kGeom) IntPoint(toPoint->x, this->y);
     }
   } else {
     // the line from this point to toPoint is already orthogonal

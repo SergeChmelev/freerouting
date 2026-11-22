@@ -51,8 +51,8 @@ void PolygonPath::writeScopeInt(fr::IndentFileWriter* file, fr::IdentifierType* 
 
 fr::Shape* PolygonPath::transformToBoard(fr::io::CoordinateTransform* coordinateTransform) {
   jrt::Array<fr::FloatPoint*>* corners =
-      new jrt::Array<fr::FloatPoint*>(this->coordinateArr->length / 2);
-  jrt::Array<double>* currentPoint = new jrt::Array<double>(2);
+      new (jrt::kGeom) jrt::Array<fr::FloatPoint*>(this->coordinateArr->length / 2);
+  jrt::Array<double>* currentPoint = new (jrt::kOp) jrt::Array<double>(2);
   for (int32_t i = 0; i < corners->length; i++) {
     (*currentPoint)[0] = (*this->coordinateArr)[2 * i];
     (*currentPoint)[1] = (*this->coordinateArr)[2 * i + 1];
@@ -64,11 +64,11 @@ fr::Shape* PolygonPath::transformToBoard(fr::io::CoordinateTransform* coordinate
     return boundingOct->enlarge(offset);
   }
   // PORT NOTE: Java IntPoint[] passed as Point[] -> Array<Point*>.
-  jrt::Array<fr::Point*>* roundedCornerArr = new jrt::Array<fr::Point*>(corners->length);
+  jrt::Array<fr::Point*>* roundedCornerArr = new (jrt::kGeom) jrt::Array<fr::Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*roundedCornerArr)[i] = (*corners)[i]->round();
   }
-  fr::Shape* result = new fr::PolygonShape(roundedCornerArr);
+  fr::Shape* result = new (jrt::kGeom) fr::PolygonShape(roundedCornerArr);
   if (offset > 0) {
     result = result->boundingTile()->enlarge(offset);
   }
@@ -86,13 +86,13 @@ fr::PadOval* PolygonPath::padOvalRel(fr::io::CoordinateTransform* coordinateTran
   fr::FloatPoint* end = coordinateTransform->dsnToBoardRel(
       jrt::Array<double>::of({(*this->coordinateArr)[2 * cornerCount - 2],
                               (*this->coordinateArr)[2 * cornerCount - 1]}));
-  return new fr::PadOval(start, end, radius);
+  return new (jrt::kBoard) fr::PadOval(start, end, radius);
 }
 
 fr::Shape* PolygonPath::transformToBoardRel(fr::io::CoordinateTransform* coordinateTransform) {
   jrt::Array<fr::FloatPoint*>* corners =
-      new jrt::Array<fr::FloatPoint*>(this->coordinateArr->length / 2);
-  jrt::Array<double>* currentPoint = new jrt::Array<double>(2);
+      new (jrt::kGeom) jrt::Array<fr::FloatPoint*>(this->coordinateArr->length / 2);
+  jrt::Array<double>* currentPoint = new (jrt::kOp) jrt::Array<double>(2);
   for (int32_t i = 0; i < corners->length; i++) {
     (*currentPoint)[0] = (*this->coordinateArr)[2 * i];
     (*currentPoint)[1] = (*this->coordinateArr)[2 * i + 1];
@@ -103,11 +103,11 @@ fr::Shape* PolygonPath::transformToBoardRel(fr::io::CoordinateTransform* coordin
     fr::IntOctagon* boundingOct = fr::FloatPoint::boundingOctagon(corners);
     return boundingOct->enlarge(offset);
   }
-  jrt::Array<fr::Point*>* roundedCornerArr = new jrt::Array<fr::Point*>(corners->length);
+  jrt::Array<fr::Point*>* roundedCornerArr = new (jrt::kGeom) jrt::Array<fr::Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*roundedCornerArr)[i] = (*corners)[i]->round();
   }
-  fr::Shape* result = new fr::PolygonShape(roundedCornerArr);
+  fr::Shape* result = new (jrt::kGeom) fr::PolygonShape(roundedCornerArr);
   if (offset > 0) {
     result = result->boundingTile()->enlarge(offset);
   }
@@ -116,7 +116,7 @@ fr::Shape* PolygonPath::transformToBoardRel(fr::io::CoordinateTransform* coordin
 
 Rectangle* PolygonPath::boundingBox() {
   const double offset = this->width / 2;
-  jrt::Array<double>* bounds = new jrt::Array<double>(4);
+  jrt::Array<double>* bounds = new (jrt::kOp) jrt::Array<double>(4);
   (*bounds)[0] = jrt::Integer::MAX_VALUE;
   (*bounds)[1] = jrt::Integer::MAX_VALUE;
   (*bounds)[2] = jrt::Integer::MIN_VALUE;
@@ -132,7 +132,7 @@ Rectangle* PolygonPath::boundingBox() {
       (*bounds)[3] = jrt::Math::max((*bounds)[3], (*coordinateArr)[i] + offset);
     }
   }
-  return new Rectangle(layer, bounds);
+  return new (jrt::kOp) Rectangle(layer, bounds);
 }
 
 }  // namespace fr::dsn

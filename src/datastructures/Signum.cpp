@@ -4,17 +4,17 @@
 namespace fr {
 
 Signum* Signum::POSITIVE() {
-  static Signum* v = new Signum("positive");
+  static Signum* v = new (jrt::kBoard) Signum("positive");
   return v;
 }
 
 Signum* Signum::NEGATIVE() {
-  static Signum* v = new Signum("negative");
+  static Signum* v = new (jrt::kBoard) Signum("negative");
   return v;
 }
 
 Signum* Signum::ZERO() {
-  static Signum* v = new Signum("zero");
+  static Signum* v = new (jrt::kBoard) Signum("zero");
   return v;
 }
 

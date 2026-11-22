@@ -21,7 +21,7 @@ inline std::string TaskState_name(TaskState e) {
 }
 inline std::string TaskState_toString(TaskState e) { return TaskState_name(e); }
 inline jrt::Array<TaskState>* TaskState_values() {
-  auto* a = new jrt::Array<TaskState>(6);
+  auto* a = new (jrt::kOp) jrt::Array<TaskState>(6);
   for (int32_t i = 0; i < 6; ++i) (*a)[i] = static_cast<TaskState>(i);
   return a;
 }

@@ -32,7 +32,7 @@ class LambdaRoutingJobUpdatedEventListener : public RoutingJobUpdatedEventListen
 
 inline RoutingJobUpdatedEventListener* RoutingJobUpdatedEventListener::of(
     std::function<void(RoutingJobUpdatedEvent*)> f) {
-  return new detail::LambdaRoutingJobUpdatedEventListener(std::move(f));
+  return new (jrt::kOp) detail::LambdaRoutingJobUpdatedEventListener(std::move(f));
 }
 
 }  // namespace fr

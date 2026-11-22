@@ -22,18 +22,18 @@ namespace fr {
 FloatPoint* PlacementTransform::direction(FloatPoint* point) {
   FloatPoint* result = point;
   if (mirrored && !rotateFirst) {
-    result = new FloatPoint(-result->x, result->y);
+    result = new (jrt::kGeom) FloatPoint(-result->x, result->y);
   }
   result = rotate(result, rotation);
   if (mirrored && rotateFirst) {
-    result = new FloatPoint(-result->x, result->y);
+    result = new (jrt::kGeom) FloatPoint(-result->x, result->y);
   }
   return result;
 }
 
 FloatPoint* PlacementTransform::point(FloatPoint* point) {
   FloatPoint* offset = direction(point);
-  return new FloatPoint(location->x + offset->x, location->y + offset->y);
+  return new (jrt::kGeom) FloatPoint(location->x + offset->x, location->y + offset->y);
 }
 
 FloatPoint* PlacementTransform::rotate(FloatPoint* point, double degrees) {
@@ -49,11 +49,11 @@ Shape* PlacementTransform::shape(Shape* shape, FloatPoint* offset, double pinRot
     return shape;
   }
   if (auto* circle = jrt::fast_cast<Circle>(shape)) {
-    return new Circle(padPoint(circle->center->toFloat(), offset, pinRotation)->round(),
+    return new (jrt::kOp) Circle(padPoint(circle->center->toFloat(), offset, pinRotation)->round(),
                       circle->radius);
   }
   jrt::Array<FloatPoint*>* corners = shape->cornerApproxArr();
-  auto* placed = new jrt::Array<Point*>(corners->length);
+  auto* placed = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*placed)[mirrored ? corners->length - 1 - i : i] =
         padPoint((*corners)[i], offset, pinRotation)->round();
@@ -73,22 +73,22 @@ Shape* PlacementTransform::shape(Shape* shape, FloatPoint* offset, double pinRot
         uniqueVec.push_back(p);
       }
     }
-    auto* unique = new jrt::Array<Point*>(uniqueVec);
-    jrt::Array<Point*>* normalized = unique->length < 3 ? unique : (new PolygonShape(unique))->corners;
+    auto* unique = new (jrt::kGeom) jrt::Array<Point*>(uniqueVec);
+    jrt::Array<Point*>* normalized = unique->length < 3 ? unique : (new (jrt::kGeom) PolygonShape(unique))->corners;
     switch (normalized->length) {
       case 0: return IntBox::EMPTY();
       case 1: return TileShape::getInstance((*normalized)[0]);
-      case 2: return (new LineSegment(new Polyline(normalized), 1))->toSimplex();
+      case 2: return (new (jrt::kGeom) LineSegment(new (jrt::kGeom) Polyline(normalized), 1))->toSimplex();
       default: return TileShape::getInstance(normalized);
     }
   }
-  return new PolygonShape(placed);
+  return new (jrt::kGeom) PolygonShape(placed);
 }
 
 FloatPoint* PlacementTransform::padPoint(FloatPoint* point, FloatPoint* offset,
                                          double pinRotation) {
   FloatPoint* rotated = rotate(point, pinRotation);
-  return this->point(new FloatPoint(offset->x + rotated->x, offset->y + rotated->y));
+  return this->point(new (jrt::kGeom) FloatPoint(offset->x + rotated->x, offset->y + rotated->y));
 }
 
 Area* PlacementTransform::area(Area* area) {
@@ -97,11 +97,11 @@ Area* PlacementTransform::area(Area* area) {
   if (holes->length == 0) {
     return border;
   }
-  auto* placedHoles = new jrt::Array<PolylineShape*>(holes->length);
+  auto* placedHoles = new (jrt::kGeom) jrt::Array<PolylineShape*>(holes->length);
   for (int32_t i = 0; i < holes->length; i++) {
     (*placedHoles)[i] = jrt::fast_cast<PolylineShape>(shape((*holes)[i], FloatPoint::ZERO(), 0));
   }
-  return new PolylineArea(jrt::fast_cast<PolylineShape>(border), placedHoles);
+  return new (jrt::kGeom) PolylineArea(jrt::fast_cast<PolylineShape>(border), placedHoles);
 }
 
 }  // namespace fr

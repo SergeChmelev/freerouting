@@ -30,9 +30,9 @@ Sorted45DegreeRoomNeighbours::Sorted45DegreeRoomNeighbours(ExpansionRoom* fromRo
   this->fromRoom = fromRoom;
   this->completedRoom = completedRoom;
   roomShape = completedRoom->getShape()->boundingOctagon();
-  sortedNeighbours = new jrt::TreeSet<Sorted45DegreeRoomNeighbours_SortedRoomNeighbour*>();
+  sortedNeighbours = new (jrt::kOp) jrt::TreeSet<Sorted45DegreeRoomNeighbours_SortedRoomNeighbour*>();
 
-  edgeInteriorTouchesObstacle = new jrt::Array<bool>(8);
+  edgeInteriorTouchesObstacle = new (jrt::kOp) jrt::Array<bool>(8);
   for (int32_t i = 0; i < 8; i++) {
     (*edgeInteriorTouchesObstacle)[i] = false;
   }
@@ -75,7 +75,7 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
   TileShape* roomShape = room->getShape();
   CompleteExpansionRoom* completedRoom;
   if (jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(room) != nullptr) {
-    completedRoom = new CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
+    completedRoom = new (jrt::kOp) CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
   } else if (auto* obstacleRoom = jrt::fast_cast<ObstacleExpansionRoom>(room)) {
     completedRoom = obstacleRoom;
   } else {
@@ -83,8 +83,8 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
     return nullptr;
   }
   IntOctagon* roomOct = roomShape->boundingOctagon();
-  Sorted45DegreeRoomNeighbours* result = new Sorted45DegreeRoomNeighbours(room, completedRoom);
-  jrt::ArrayList<ShapeTree_TreeEntry*>* overlappingObjects = new jrt::ArrayList<ShapeTree_TreeEntry*>();
+  Sorted45DegreeRoomNeighbours* result = new (jrt::kOp) Sorted45DegreeRoomNeighbours(room, completedRoom);
+  jrt::ArrayList<ShapeTree_TreeEntry*>* overlappingObjects = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
   autorouteSearchTree->overlappingTreeEntries(roomShape, room->getLayer(), overlappingObjects);
 
   // Sort the overlapping objects deterministically to ensure parity with v1.9.
@@ -145,7 +145,7 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
       }
       if (neighbourRoom != nullptr) {
         if (SortedRoomNeighbours::insertDoorOk(completedRoom, neighbourRoom, intersection)) {
-          ExpansionDoor* newDoor = new ExpansionDoor(completedRoom, neighbourRoom);
+          ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(completedRoom, neighbourRoom);
           neighbourRoom->addDoor(newDoor);
           completedRoom->addDoor(newDoor);
         }
@@ -213,7 +213,7 @@ IntOctagon* Sorted45DegreeRoomNeighbours::removeNotTouchingBorderLines(IntOctago
     upperRightDiagonalX = Limits::CRIT_INT;
   }
 
-  IntOctagon* result = new IntOctagon(leftX, bottomY, rightX, topY, upperLeftDiagonalX, lowerRightDiagonalX,
+  IntOctagon* result = new (jrt::kGeom) IntOctagon(leftX, bottomY, rightX, topY, upperLeftDiagonalX, lowerRightDiagonalX,
                                       lowerLeftDiagonalX, upperRightDiagonalX);
   return result->normalize();
 }
@@ -221,7 +221,7 @@ IntOctagon* Sorted45DegreeRoomNeighbours::removeNotTouchingBorderLines(IntOctago
 void Sorted45DegreeRoomNeighbours::addSortedNeighbour(SearchTreeObject* searchTreeObject, IntOctagon* neighbourShape,
                                                       IntOctagon* intersection) {
   Sorted45DegreeRoomNeighbours_SortedRoomNeighbour* newNeighbour =
-      new Sorted45DegreeRoomNeighbours_SortedRoomNeighbour(this, searchTreeObject, neighbourShape, intersection);
+      new (jrt::kOp) Sorted45DegreeRoomNeighbours_SortedRoomNeighbour(this, searchTreeObject, neighbourShape, intersection);
   if (newNeighbour->lastTouchingSide >= 0) {
     sortedNeighbours->add(newNeighbour);
   }
@@ -362,7 +362,7 @@ bool Sorted45DegreeRoomNeighbours::tryRemoveEdgeLine(int32_t netNumber, ShapeSea
         }
       }
     }
-    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
         enlargedOct, currentIncompleteRoom->getLayer(), currentIncompleteRoom->getContainedShape());
     jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRooms =
         autorouteSearchTree->completeShape(enlargedRoom, netNumber, ignoreObject, ignoreShape);
@@ -399,7 +399,7 @@ void Sorted45DegreeRoomNeighbours::insertIncompleteRoom(AutorouteEngine* autorou
                                                         int32_t bottomY, int32_t rightX, int32_t topY,
                                                         int32_t upperLeftDiagonalX, int32_t lowerRightDiagonalX,
                                                         int32_t lowerLeftDiagonalX, int32_t upperRightDiagonalX) {
-  IntOctagon* newIncompleteRoomShape = new IntOctagon(leftX, bottomY, rightX, topY, upperLeftDiagonalX,
+  IntOctagon* newIncompleteRoomShape = new (jrt::kGeom) IntOctagon(leftX, bottomY, rightX, topY, upperLeftDiagonalX,
                                                       lowerRightDiagonalX, lowerLeftDiagonalX, upperRightDiagonalX);
   newIncompleteRoomShape = newIncompleteRoomShape->normalize();
   if (newIncompleteRoomShape->dimension() == 2) {
@@ -409,7 +409,7 @@ void Sorted45DegreeRoomNeighbours::insertIncompleteRoom(AutorouteEngine* autorou
       if (doorDimension > 0) {
         FreeSpaceExpansionRoom* newRoom = autorouteEngine->addIncompleteExpansionRoom(
             newIncompleteRoomShape, this->fromRoom->getLayer(), newContainedShape);
-        ExpansionDoor* newDoor = new ExpansionDoor(this->completedRoom, newRoom, doorDimension);
+        ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(this->completedRoom, newRoom, doorDimension);
         this->completedRoom->addDoor(newDoor);
         newRoom->addDoor(newDoor);
       }

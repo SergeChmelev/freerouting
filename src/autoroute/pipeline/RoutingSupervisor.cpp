@@ -35,7 +35,7 @@ std::optional<std::string> RoutingSupervisor::explorationFallback(RouterSettings
   if (!keep.has_value() || jrt::strip(*keep).empty()) {
     return jobSettings->autorouter != nullptr ? jobSettings->autorouter->fallbackStrategies : std::nullopt;
   }
-  jrt::List<std::string>* names = new jrt::ArrayList<std::string>();
+  jrt::List<std::string>* names = new (jrt::kOp) jrt::ArrayList<std::string>();
   for (const std::string& raw : jrt::split(*keep, ',')) {
     std::string name = jrt::trim(raw);
     if (!name.empty()) {
@@ -83,10 +83,10 @@ RoutingSupervisor_Attempt* RoutingSupervisor::nextAttempt(int32_t round, RouterS
     }
   }
   std::string choiceStr = choice.value_or("null");
-  int32_t attempt = this->attemptStats->getOrDefault(choiceStr, new RoutingSupervisor_Stats(0, 0))->tries_ + 1;
+  int32_t attempt = this->attemptStats->getOrDefault(choiceStr, new (jrt::kOp) RoutingSupervisor_Stats(0, 0))->tries_ + 1;
   std::string name =
       choiceStr + " (seed " + jrt::str(round) + (attempt > 1 ? ", try " + jrt::str(attempt) : std::string("")) + ")";
-  return new RoutingSupervisor_Attempt(choiceStr, name, round, attempt);
+  return new (jrt::kOp) RoutingSupervisor_Attempt(choiceStr, name, round, attempt);
 }
 
 void RoutingSupervisor::apply(RoutingSupervisor_Attempt* attempt, RouterSettings* jobSettings,
@@ -117,9 +117,9 @@ void RoutingSupervisor::apply(RoutingSupervisor_Attempt* attempt, RouterSettings
 
 void RoutingSupervisor::attemptDone(RoutingSupervisor_Attempt* attempt, int32_t openBefore, int32_t openAfter,
                                     bool kept) {
-  RoutingSupervisor_Stats* stats = this->attemptStats->getOrDefault(attempt->kind(), new RoutingSupervisor_Stats(0, 0));
+  RoutingSupervisor_Stats* stats = this->attemptStats->getOrDefault(attempt->kind(), new (jrt::kOp) RoutingSupervisor_Stats(0, 0));
   int32_t gain = kept ? jrt::Math::max(0, openBefore - openAfter) : 0;
-  this->attemptStats->put(attempt->kind(), new RoutingSupervisor_Stats(stats->tries_ + 1, stats->closed_ + gain));
+  this->attemptStats->put(attempt->kind(), new (jrt::kOp) RoutingSupervisor_Stats(stats->tries_ + 1, stats->closed_ + gain));
   this->attemptsWithoutGain = gain > 0 ? 0 : this->attemptsWithoutGain + 1;
 }
 
@@ -131,7 +131,7 @@ bool RoutingSupervisor::residual(RouterSettings* settings, int32_t open) {
 }
 
 jrt::List<std::string>* RoutingSupervisor::applicableKinds(RouterSettings* jobSettings, BasicBoard* board) {
-  jrt::List<std::string>* kinds = new jrt::ArrayList<std::string>();
+  jrt::List<std::string>* kinds = new (jrt::kOp) jrt::ArrayList<std::string>();
   kinds->add("seed");
   kinds->add("retry-plan");
   kinds->add("neighbourhood");

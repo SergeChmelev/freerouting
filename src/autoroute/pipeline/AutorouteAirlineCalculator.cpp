@@ -34,7 +34,7 @@ FloatLine* AutorouteAirlineCalculator::calculateAirline(jrt::Collection<Item*>* 
       }
     }
   }
-  return new FloatLine(fromCorner, toCorner);
+  return new (jrt::kGeom) FloatLine(fromCorner, toCorner);
 }
 
 FloatPoint* AutorouteAirlineCalculator::nearestPointOnTrace(PolylineTrace* trace, FloatPoint* point) {
@@ -60,7 +60,7 @@ FloatPoint* AutorouteAirlineCalculator::nearestPointOnTrace(PolylineTrace* trace
   for (int32_t i = 0; i < trace->cornerCount() - 1; i++) {
     FloatPoint* segmentStart = trace->polyline()->cornerApprox(i);
     FloatPoint* segmentEnd = trace->polyline()->cornerApprox(i + 1);
-    FloatLine* segment = new FloatLine(segmentStart, segmentEnd);
+    FloatLine* segment = new (jrt::kGeom) FloatLine(segmentStart, segmentEnd);
 
     FloatPoint* projection = segment->perpendicularProjection(point);
     if (projection->isContainedInBox(segmentStart, segmentEnd, 0.01)) {
@@ -78,7 +78,7 @@ FloatPoint* AutorouteAirlineCalculator::nearestPointOnTrace(PolylineTrace* trace
 jrt::Array<FloatPoint*>* AutorouteAirlineCalculator::findClosestPointsBetweenTraces(
     PolylineTrace* firstTrace, PolylineTrace* secondTrace) {
   double minDistance = jrt::Double::MAX_VALUE;
-  auto* result = new jrt::Array<FloatPoint*>(2);
+  auto* result = new (jrt::kGeom) jrt::Array<FloatPoint*>(2);
 
   FloatPoint* firstTraceStart = firstTrace->firstCorner()->toFloat();
   FloatPoint* firstTraceEnd = firstTrace->lastCorner()->toFloat();
@@ -116,12 +116,12 @@ jrt::Array<FloatPoint*>* AutorouteAirlineCalculator::findClosestPointsBetweenTra
   for (int32_t i = 0; i < firstTrace->cornerCount() - 1; i++) {
     FloatPoint* firstSegmentStart = firstTrace->polyline()->cornerApprox(i);
     FloatPoint* firstSegmentEnd = firstTrace->polyline()->cornerApprox(i + 1);
-    FloatLine* firstSegment = new FloatLine(firstSegmentStart, firstSegmentEnd);
+    FloatLine* firstSegment = new (jrt::kGeom) FloatLine(firstSegmentStart, firstSegmentEnd);
 
     for (int32_t j = 0; j < secondTrace->cornerCount() - 1; j++) {
       FloatPoint* secondSegmentStart = secondTrace->polyline()->cornerApprox(j);
       FloatPoint* secondSegmentEnd = secondTrace->polyline()->cornerApprox(j + 1);
-      FloatLine* secondSegment = new FloatLine(secondSegmentStart, secondSegmentEnd);
+      FloatLine* secondSegment = new (jrt::kGeom) FloatLine(secondSegmentStart, secondSegmentEnd);
 
       FloatPoint* pointOnFirst = firstSegment->nearestSegmentPoint(secondSegmentStart);
       FloatPoint* pointOnSecond = secondSegment->perpendicularProjection(pointOnFirst);
@@ -160,7 +160,7 @@ double AutorouteAirlineCalculator::calculateItemDistance(Item* item) {
   }
 
   return calculateMinDistance(
-      connectedSet->isEmpty() ? static_cast<jrt::Collection<Item*>*>(new jrt::HashSet<Item*>({item}))
+      connectedSet->isEmpty() ? static_cast<jrt::Collection<Item*>*>(new (jrt::kOp) jrt::HashSet<Item*>({item}))
                               : static_cast<jrt::Collection<Item*>*>(connectedSet),
       unconnectedSet);
 }
@@ -197,7 +197,7 @@ FloatPoint* AutorouteAirlineCalculator::getItemReferencePoint(Item* item) {
   } else if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
     FloatPoint* first = trace->firstCorner()->toFloat();
     FloatPoint* last = trace->lastCorner()->toFloat();
-    return new FloatPoint((first->x + last->x) / 2, (first->y + last->y) / 2);
+    return new (jrt::kGeom) FloatPoint((first->x + last->x) / 2, (first->y + last->y) / 2);
   }
   return nullptr;
 }

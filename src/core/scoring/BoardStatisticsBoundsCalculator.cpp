@@ -88,7 +88,7 @@ void BoardStatisticsBoundsCalculator_LayerGroups::addLayers(jrt::Collection<int3
 int32_t BoardStatisticsBoundsCalculator_LayerGroups::count() { return roots()->size(); }
 
 jrt::Set<int32_t>* BoardStatisticsBoundsCalculator_LayerGroups::roots() {
-  jrt::Set<int32_t>* roots = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* roots = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (int32_t layer : *parent->keySet()) {
     roots->add(find(layer));
   }
@@ -97,7 +97,7 @@ jrt::Set<int32_t>* BoardStatisticsBoundsCalculator_LayerGroups::roots() {
 
 jrt::Set<int32_t>* BoardStatisticsBoundsCalculator_LayerGroups::groupsCoveredBy(
     BoardStatisticsBoundsCalculator_ViaSpan* span) {
-  jrt::Set<int32_t>* result = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* result = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (int32_t layer : *parent->keySet()) {
     if (layer >= span->firstLayer() && layer <= span->lastLayer()) {
       result->add(find(layer));
@@ -128,7 +128,7 @@ void BoardStatisticsBoundsCalculator_LayerGroups::union_(int32_t firstLayer, int
 jrt::Map<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>*
 BoardStatisticsBoundsCalculator::CACHE() {
   static jrt::Map<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>* v =
-      new jrt::HashMap<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>();
+      new (jrt::kBoard) jrt::HashMap<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>();
   return v;
 }
 
@@ -139,13 +139,13 @@ BoardStatisticsBounds* BoardStatisticsBoundsCalculator::calculate(BasicBoard* bo
     return cached->bounds();
   }
   BoardStatisticsBounds* result = calculateUncached(board, angleRestriction);
-  CACHE()->put(board, new BoardStatisticsBoundsCalculator_CachedBounds(angleRestriction, result));
+  CACHE()->put(board, new (jrt::kOp) BoardStatisticsBoundsCalculator_CachedBounds(angleRestriction, result));
   return result;
 }
 
 BoardStatisticsBounds* BoardStatisticsBoundsCalculator::calculateUncached(
     BasicBoard* board, AngleRestriction angleRestriction) {
-  BoardStatisticsBounds* result = new BoardStatisticsBounds();
+  BoardStatisticsBounds* result = new (jrt::kOp) BoardStatisticsBounds();
   double minTraceLength = 0.0;
   int32_t minViaCount = 0;
   int32_t minBendCount = 0;
@@ -179,7 +179,7 @@ BoardStatisticsBounds* BoardStatisticsBoundsCalculator::calculateUncached(
 jrt::List<BoardStatisticsBoundsCalculator_Terminal*>* BoardStatisticsBoundsCalculator::getTerminals(
     BasicBoard* board, Net* net) {
   jrt::List<BoardStatisticsBoundsCalculator_Terminal*>* result =
-      new jrt::ArrayList<BoardStatisticsBoundsCalculator_Terminal*>();
+      new (jrt::kOp) jrt::ArrayList<BoardStatisticsBoundsCalculator_Terminal*>();
   for (Item* item : *net->getTerminalItems()) {
     BoardStatisticsBoundsCalculator_Terminal* terminal = toTerminal(board, item);
     if (terminal != nullptr && !terminal->signalLayers()->isEmpty()) {
@@ -193,7 +193,7 @@ BoardStatisticsBoundsCalculator_Terminal* BoardStatisticsBoundsCalculator::toTer
     BasicBoard* board, Item* item) {
   double x;
   double y;
-  jrt::Set<int32_t>* signalLayers = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* signalLayers = new (jrt::kOp) jrt::HashSet<int32_t>();
 
   if (auto* pin = jrt::fast_cast<Pin>(item)) {
     FloatPoint* center = pin->getCenter()->toFloat();
@@ -209,12 +209,12 @@ BoardStatisticsBoundsCalculator_Terminal* BoardStatisticsBoundsCalculator::toTer
     x = center->x;
     y = center->y;
     addSignalLayer(board, area->getLayer(), signalLayers);
-    return new BoardStatisticsBoundsCalculator_Terminal(x, y, signalLayers, area->getArea());
+    return new (jrt::kOp) BoardStatisticsBoundsCalculator_Terminal(x, y, signalLayers, area->getArea());
   } else {
     return nullptr;
   }
 
-  return new BoardStatisticsBoundsCalculator_Terminal(x, y, signalLayers, nullptr);
+  return new (jrt::kOp) BoardStatisticsBoundsCalculator_Terminal(x, y, signalLayers, nullptr);
 }
 
 void BoardStatisticsBoundsCalculator::addSignalLayer(BasicBoard* board, int32_t layer,
@@ -229,8 +229,8 @@ BoardStatisticsBoundsCalculator_MstResult* BoardStatisticsBoundsCalculator::calc
     jrt::List<BoardStatisticsBoundsCalculator_Terminal*>* terminals,
     AngleRestriction angleRestriction) {
   jrt::List<BoardStatisticsBoundsCalculator_Terminal*>* pins =
-      new jrt::ArrayList<BoardStatisticsBoundsCalculator_Terminal*>();
-  jrt::List<Area*>* areas = new jrt::ArrayList<Area*>();
+      new (jrt::kOp) jrt::ArrayList<BoardStatisticsBoundsCalculator_Terminal*>();
+  jrt::List<Area*>* areas = new (jrt::kOp) jrt::ArrayList<Area*>();
   for (BoardStatisticsBoundsCalculator_Terminal* terminal : *terminals) {
     if (terminal->area() == nullptr) {
       pins->add(terminal);
@@ -240,9 +240,9 @@ BoardStatisticsBoundsCalculator_MstResult* BoardStatisticsBoundsCalculator::calc
   }
   // Node indexes: 0 .. pins.size() - 1 are the pins, pins.size() is the plane, if any.
   int32_t nodeCount = pins->size() + (areas->isEmpty() ? 0 : 1);
-  jrt::Array<bool>* used = new jrt::Array<bool>(nodeCount);
-  jrt::Array<double>* distances = new jrt::Array<double>(nodeCount);
-  jrt::Array<int32_t>* parents = new jrt::Array<int32_t>(nodeCount);
+  jrt::Array<bool>* used = new (jrt::kOp) jrt::Array<bool>(nodeCount);
+  jrt::Array<double>* distances = new (jrt::kOp) jrt::Array<double>(nodeCount);
+  jrt::Array<int32_t>* parents = new (jrt::kOp) jrt::Array<int32_t>(nodeCount);
   jrt::Arrays::fill(distances, jrt::Double::POSITIVE_INFINITY);
   jrt::Arrays::fill(parents, -1);
   (*distances)[0] = 0.0;
@@ -288,7 +288,7 @@ BoardStatisticsBoundsCalculator_MstResult* BoardStatisticsBoundsCalculator::calc
       }
     }
   }
-  return new BoardStatisticsBoundsCalculator_MstResult(length, bendCount);
+  return new (jrt::kOp) BoardStatisticsBoundsCalculator_MstResult(length, bendCount);
 }
 
 double BoardStatisticsBoundsCalculator::distance(BoardStatisticsBoundsCalculator_Terminal* first,
@@ -308,7 +308,7 @@ double BoardStatisticsBoundsCalculator::distance(BoardStatisticsBoundsCalculator
 
 double BoardStatisticsBoundsCalculator::distanceToAreas(
     BoardStatisticsBoundsCalculator_Terminal* pin, jrt::List<Area*>* areas) {
-  FloatPoint* point = new FloatPoint(pin->x(), pin->y());
+  FloatPoint* point = new (jrt::kGeom) FloatPoint(pin->x(), pin->y());
   double result = jrt::Double::POSITIVE_INFINITY;
   for (Area* area : *areas) {
     if (area->contains(point)) {
@@ -331,7 +331,7 @@ double BoardStatisticsBoundsCalculator::distanceToAreas(
 int32_t BoardStatisticsBoundsCalculator::calculateMinimumViaCount(
     Net* net, jrt::List<BoardStatisticsBoundsCalculator_Terminal*>* terminals) {
   BoardStatisticsBoundsCalculator_LayerGroups* groups =
-      new BoardStatisticsBoundsCalculator_LayerGroups();
+      new (jrt::kOp) BoardStatisticsBoundsCalculator_LayerGroups();
   for (BoardStatisticsBoundsCalculator_Terminal* terminal : *terminals) {
     groups->addLayers(terminal->signalLayers());
   }
@@ -346,12 +346,12 @@ int32_t BoardStatisticsBoundsCalculator::calculateMinimumViaCount(
 
   jrt::Set<int32_t>* remainingGroups = groups->roots();
   jrt::List<BoardStatisticsBoundsCalculator_ViaSpan*>* spans =
-      new jrt::ArrayList<BoardStatisticsBoundsCalculator_ViaSpan*>();
+      new (jrt::kOp) jrt::ArrayList<BoardStatisticsBoundsCalculator_ViaSpan*>();
   for (int32_t index = 0; index < viaRule->viaCount(); index++) {
     ViaInfo* viaInfo = viaRule->getVia(index);
     int32_t firstLayer = viaInfo->getPadstack()->fromLayer();
     int32_t lastLayer = viaInfo->getPadstack()->toLayer();
-    spans->add(new BoardStatisticsBoundsCalculator_ViaSpan(jrt::Math::min(firstLayer, lastLayer),
+    spans->add(new (jrt::kOp) BoardStatisticsBoundsCalculator_ViaSpan(jrt::Math::min(firstLayer, lastLayer),
                                                            jrt::Math::max(firstLayer, lastLayer)));
   }
 
@@ -359,7 +359,7 @@ int32_t BoardStatisticsBoundsCalculator::calculateMinimumViaCount(
   while (!remainingGroups->isEmpty()) {
     BoardStatisticsBoundsCalculator_ViaSpan* bestSpan = nullptr;
     // PORT NOTE: Java Set.of() (immutable empty set) -> an empty HashSet; it is never modified.
-    jrt::Set<int32_t>* bestCoveredGroups = new jrt::HashSet<int32_t>();
+    jrt::Set<int32_t>* bestCoveredGroups = new (jrt::kOp) jrt::HashSet<int32_t>();
     for (BoardStatisticsBoundsCalculator_ViaSpan* span : *spans) {
       jrt::Set<int32_t>* coveredGroups = groups->groupsCoveredBy(span);
       coveredGroups->retainAll(remainingGroups);

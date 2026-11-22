@@ -18,7 +18,7 @@ ObstacleExpansionRoom::ObstacleExpansionRoom(Item* item, int32_t indexInItem, Sh
   this->item = item;
   this->indexInItem = indexInItem;
   this->shape = item->getTreeShape(shapeTree, indexInItem);
-  this->doors = new jrt::ArrayList<ExpansionDoor*>();
+  this->doors = new (jrt::kOp) jrt::ArrayList<ExpansionDoor*>();
 }
 
 int32_t ObstacleExpansionRoom::getLayer() { return this->item->shapeLayer(this->indexInItem); }
@@ -60,7 +60,7 @@ bool ObstacleExpansionRoom::createOverlapDoor(ObstacleExpansionRoom* other) {
   if (this->item != other->item && meetOnPin(this->item, other->item)) {
     return false;
   }
-  ExpansionDoor* newDoor = new ExpansionDoor(this, other, 2);
+  ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(this, other, 2);
   this->addDoor(newDoor);
   other->addDoor(newDoor);
   return true;
@@ -74,7 +74,7 @@ bool ObstacleExpansionRoom::meetOnPin(Item* first, Item* second) {
   }
   for (Point* end : *jrt::Array<Point*>::of({a->firstCorner(), a->lastCorner()})) {
     if (end->equals(b->firstCorner()) || end->equals(b->lastCorner())) {
-      ItemSelectionFilter* pinFilter = new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::PINS);
+      ItemSelectionFilter* pinFilter = new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::PINS);
       jrt::Set<Item*>* pins = a->board->pickItems(end, a->getLayer(), pinFilter);
       if (!pins->isEmpty()) {
         return true;
@@ -84,7 +84,7 @@ bool ObstacleExpansionRoom::meetOnPin(Item* first, Item* second) {
   return false;
 }
 
-void ObstacleExpansionRoom::clearDoors() { this->doors = new jrt::ArrayList<ExpansionDoor*>(); }
+void ObstacleExpansionRoom::clearDoors() { this->doors = new (jrt::kOp) jrt::ArrayList<ExpansionDoor*>(); }
 
 void ObstacleExpansionRoom::resetDoors() {
   for (ExpandableObject* currentDoor : *this->doors) {
@@ -93,7 +93,7 @@ void ObstacleExpansionRoom::resetDoors() {
 }
 
 jrt::Collection<TargetItemExpansionDoor*>* ObstacleExpansionRoom::getTargetDoors() {
-  return new jrt::ArrayList<TargetItemExpansionDoor*>();
+  return new (jrt::kOp) jrt::ArrayList<TargetItemExpansionDoor*>();
 }
 
 SearchTreeObject* ObstacleExpansionRoom::getObject() { return this->item; }
@@ -109,7 +109,7 @@ bool ObstacleExpansionRoom::removeDoor(ExpandableObject* door) {
 
 void ObstacleExpansionRoom::emitDiagnostic(AutorouteDiagnostic_Sink* sink, double intensity) {
   if (sink != nullptr && intensity > 0) {
-    sink->accept(new AutorouteDiagnostic(AutorouteDiagnostic_Kind::OBSTACLE_ROOM, this->getShape(), this->getLayer(),
+    sink->accept(new (jrt::kOp) AutorouteDiagnostic(AutorouteDiagnostic_Kind::OBSTACLE_ROOM, this->getShape(), this->getLayer(),
                                          intensity));
   }
 }

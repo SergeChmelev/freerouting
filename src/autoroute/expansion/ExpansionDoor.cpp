@@ -71,7 +71,7 @@ jrt::Array<FloatLine*>* ExpansionDoor::getSectionSegments(double offsetParam) {
   }
   double offset = offsetParam + AutorouteEngine::TRACE_WIDTH_TOLERANCE;
   if (doorShape->isEmpty()) {
-    return new jrt::Array<FloatLine*>(0);
+    return new (jrt::kGeom) jrt::Array<FloatLine*>(0);
   }
   FloatLine* doorLineSegment;
   FloatLine* shrinkedLineSegment;
@@ -85,16 +85,16 @@ jrt::Array<FloatLine*>* ExpansionDoor::getSectionSegments(double offsetParam) {
     doorLineSegment = calcDoorLineSegment(doorShape);
     if (doorLineSegment == nullptr) {
       // CompleteFreeSpaceExpansionRoom inside other room
-      return new jrt::Array<FloatLine*>(0);
+      return new (jrt::kGeom) jrt::Array<FloatLine*>(0);
     }
     if (doorLineSegment->b->distanceSquare(doorLineSegment->a) < 4 * offset * offset) {
       // door is small, 2 dimensional small doors are not yet expanded.
-      return new jrt::Array<FloatLine*>(0);
+      return new (jrt::kGeom) jrt::Array<FloatLine*>(0);
     }
     shrinkedLineSegment = doorLineSegment->shrinkSegment(offset);
   } else {
     FloatPoint* gravityPoint = doorShape->centreOfGravity();
-    doorLineSegment = new FloatLine(gravityPoint, gravityPoint);
+    doorLineSegment = new (jrt::kGeom) FloatLine(gravityPoint, gravityPoint);
     shrinkedLineSegment = doorLineSegment;
   }
   const double maxDoorSectionWidth = 10 * offset;
@@ -129,7 +129,7 @@ FloatLine* ExpansionDoor::calcDoorLineSegment(TileShape* doorShape) {
   if (firstCorner == nullptr || secondCorner == nullptr) {
     return nullptr;
   }
-  return new FloatLine(firstCorner->toFloat(), secondCorner->toFloat());
+  return new (jrt::kGeom) FloatLine(firstCorner->toFloat(), secondCorner->toFloat());
 }
 
 void ExpansionDoor::reset() {
@@ -151,9 +151,9 @@ void ExpansionDoor::allocateSections(int32_t sectionCount) {
   if (sectionArr != nullptr && sectionArr->length == sectionCount) {
     return;  // already allocated
   }
-  sectionArr = new jrt::Array<MazeSearchElement*>(sectionCount);
+  sectionArr = new (jrt::kOp) jrt::Array<MazeSearchElement*>(sectionCount);
   for (int32_t i = 0; i < sectionArr->length; i++) {
-    (*sectionArr)[i] = new MazeSearchElement();
+    (*sectionArr)[i] = new (jrt::kOp) MazeSearchElement();
   }
 }
 

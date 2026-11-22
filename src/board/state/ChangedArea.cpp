@@ -12,17 +12,17 @@ IntOctagon* ChangedArea_MutableOctagon::toInt() {
   if (rx < lx || uy < ly || lrx < ulx || urx < llx) {
     return IntOctagon::EMPTY();
   }
-  return new IntOctagon(jrt::d2i(jrt::Math::floor(lx)), jrt::d2i(jrt::Math::floor(ly)),
+  return new (jrt::kGeom) IntOctagon(jrt::d2i(jrt::Math::floor(lx)), jrt::d2i(jrt::Math::floor(ly)),
                         jrt::d2i(jrt::Math::ceil(rx)), jrt::d2i(jrt::Math::ceil(uy)),
                         jrt::d2i(jrt::Math::floor(ulx)), jrt::d2i(jrt::Math::ceil(lrx)),
                         jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::ceil(urx)));
 }
 
 ChangedArea::ChangedArea(int32_t layerCount) : layerCount(layerCount) {
-  arr = new jrt::Array<ChangedArea_MutableOctagon*>(layerCount);
+  arr = new (jrt::kOp) jrt::Array<ChangedArea_MutableOctagon*>(layerCount);
   // initialise all octagons to empty
   for (int32_t i = 0; i < layerCount; i++) {
-    (*arr)[i] = new ChangedArea_MutableOctagon();
+    (*arr)[i] = new (jrt::kOp) ChangedArea_MutableOctagon();
     (*arr)[i]->setEmpty();
   }
 }
@@ -70,7 +70,7 @@ IntBox* ChangedArea::surroundingBox() {
   if (llx > urx || lly > ury) {
     return IntBox::EMPTY();
   }
-  return new IntBox(llx, lly, urx, ury);
+  return new (jrt::kGeom) IntBox(llx, lly, urx, ury);
 }
 
 }  // namespace fr

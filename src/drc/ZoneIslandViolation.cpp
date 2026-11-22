@@ -17,8 +17,8 @@ ZoneIslandViolation::ZoneIslandViolation(ConductionArea* conductionArea, PlanarA
       netNumber(netNumber),
       type(type) {
   // Java: unmodifiableList(new ArrayList<>(itemsInIsland)) or emptyList()
-  this->itemsInIsland = itemsInIsland != nullptr ? new jrt::ArrayList<Item*>(itemsInIsland)
-                                                 : new jrt::ArrayList<Item*>();
+  this->itemsInIsland = itemsInIsland != nullptr ? new (jrt::kOp) jrt::ArrayList<Item*>(itemsInIsland)
+                                                 : new (jrt::kOp) jrt::ArrayList<Item*>();
 }
 
 jrt::Array<double>* ZoneIslandViolation::getCenter() {

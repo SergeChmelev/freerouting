@@ -17,7 +17,7 @@ namespace fr::dsn {
 
 fr::RouterSettings* AutorouteSettings::readScope(IJFlexScanner* scanner,
                                                  LayerStructure* layerStructure) {
-  fr::RouterSettings* result = new fr::RouterSettings();
+  fr::RouterSettings* result = new (jrt::kBoard) fr::RouterSettings();
   result->setLayerCount(layerStructure->layers->length);
   bool withAutoroute = true;
   bool withPostroute = true;

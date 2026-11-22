@@ -17,7 +17,7 @@ inline std::string NamedAlgorithmType_name(NamedAlgorithmType e) {
 }
 inline std::string NamedAlgorithmType_toString(NamedAlgorithmType e) { return NamedAlgorithmType_name(e); }
 inline jrt::Array<NamedAlgorithmType>* NamedAlgorithmType_values() {
-  auto* a = new jrt::Array<NamedAlgorithmType>(2);
+  auto* a = new (jrt::kOp) jrt::Array<NamedAlgorithmType>(2);
   for (int32_t i = 0; i < 2; ++i) (*a)[i] = static_cast<NamedAlgorithmType>(i);
   return a;
 }

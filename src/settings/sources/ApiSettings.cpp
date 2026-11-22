@@ -5,6 +5,6 @@
 namespace fr {
 
 ApiSettings::ApiSettings(RouterSettings* settings)
-    : settings(settings != nullptr ? settings : new RouterSettings()) {}
+    : settings(settings != nullptr ? settings : new (jrt::kBoard) RouterSettings()) {}
 
 }  // namespace fr

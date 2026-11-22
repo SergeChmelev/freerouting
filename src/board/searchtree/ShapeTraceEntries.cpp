@@ -42,7 +42,7 @@ ShapeTraceEntries::ShapeTraceEntries(TileShape* shape, int32_t layer,
   listAnchor = nullptr;
   tracePieceCount = 0;
   maxStackLevel = 0;
-  shoveViaList = new jrt::LinkedList<Via*>();
+  shoveViaList = new (jrt::kOp) jrt::LinkedList<Via*>();
 }
 
 void ShapeTraceEntries::cutoutTrace(PolylineTrace* trace, ConvexShape* shape,
@@ -94,14 +94,14 @@ void ShapeTraceEntries::fastCutoutTrace(PolylineTrace* trace, Polyline* startPie
   board->additionalUpdateAfterChange(trace);
   board->itemList->saveForUndo(trace);
   PolylineTrace* startTrace =
-      new PolylineTrace(startPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
+      new (jrt::kBoard) PolylineTrace(startPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
                         trace->clearanceClassIndex(), 0, 0, FixedState::UNFIXED, board);
   startTrace->board = board;
   board->itemList->insert(startTrace);
   startTrace->setOnTheBoard(true);
 
   PolylineTrace* endTrace =
-      new PolylineTrace(endPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
+      new (jrt::kBoard) PolylineTrace(endPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
                         trace->clearanceClassIndex(), 0, 0, FixedState::UNFIXED, board);
   endTrace->board = board;
   board->itemList->insert(endTrace);
@@ -242,7 +242,7 @@ PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece() {
 
   // calculate the polyline of the substitute trace
 
-  auto* pieceLines = new jrt::Array<Line*>(edgeDiff + 3);
+  auto* pieceLines = new (jrt::kGeom) jrt::Array<Line*>(edgeDiff + 3);
   // start with the intersecting line of the trace at the start entry.
   (*pieceLines)[0] = (*(*entries)[0]->trace->polyline()->lines)[(*entries)[0]->traceLineNo];
   // end with the intersecting line of the trace at the end entry
@@ -259,12 +259,12 @@ PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece() {
       ++currentEdgeNo;
     }
   }
-  Polyline* piecePolyline = new Polyline(pieceLines);
+  Polyline* piecePolyline = new (jrt::kGeom) Polyline(pieceLines);
   if (piecePolyline->isEmpty()) {
     // no valid trace piece, return the next one
     return nextSubstituteTracePiece();
   }
-  return new PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(),
+  return new (jrt::kBoard) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(),
                            currentTrace->netNumbers, currentTrace->clearanceClassIndex(), 0, 0,
                            FixedState::UNFIXED, this->board);
 }
@@ -428,7 +428,7 @@ void ShapeTraceEntries::searchFromSide() {
     }
     currentNode = currentNode->next;
   }
-  this->fromSide = new ShapeEntrySide(currentFromsideNo, currentEntryApprox);
+  this->fromSide = new (jrt::kBoard) ShapeEntrySide(currentFromsideNo, currentEntryApprox);
 }
 
 void ShapeTraceEntries::resort() {
@@ -453,7 +453,7 @@ void ShapeTraceEntries::resort() {
         fromSide->borderIntersection->projectionApprox(shape->borderLine(fromSide->no));
     fromPointDist = fromPointProjection->distanceSquare(compareCorner1);
     if (fromPointDist >= compareCorner1->distanceSquare(compareCorner2)) {
-      fromSide = new ShapeEntrySide(fromSide->no, nullptr);
+      fromSide = new (jrt::kBoard) ShapeEntrySide(fromSide->no, nullptr);
     }
   }
   // search the first intersection point between the side middle
@@ -504,7 +504,7 @@ void ShapeTraceEntries::resort() {
     next = current->next;
   } else {
     next = nullptr;
-    currentNetNumbers = new jrt::Array<int32_t>(0);
+    currentNetNumbers = new (jrt::kOp) jrt::Array<int32_t>(0);
   }
   ShapeTraceEntries_EntryPoint* beforePrev = nullptr;
   while (next != nullptr) {
@@ -652,7 +652,7 @@ jrt::Array<ShapeTraceEntries_EntryPoint*>* ShapeTraceEntries::popPiece() {
     FRLogger::warn("ShapeTraceEntries: maxStackLevel not found");
     return nullptr;
   }
-  auto* result = new jrt::Array<ShapeTraceEntries_EntryPoint*>(2);
+  auto* result = new (jrt::kOp) jrt::Array<ShapeTraceEntries_EntryPoint*>(2);
   (*result)[0] = first;
   ShapeTraceEntries_EntryPoint* last = first;
   ShapeTraceEntries_EntryPoint* afterLast = first->next;
@@ -691,7 +691,7 @@ jrt::Array<ShapeTraceEntries_EntryPoint*>* ShapeTraceEntries::popPiece() {
 
 void ShapeTraceEntries::insertEntryPoint(PolylineTrace* trace, int32_t traceLineNo,
                                          int32_t edgeIndex, FloatPoint* entryApprox) {
-  auto* newEntry = new ShapeTraceEntries_EntryPoint(trace, traceLineNo, edgeIndex, entryApprox);
+  auto* newEntry = new (jrt::kOp) ShapeTraceEntries_EntryPoint(trace, traceLineNo, edgeIndex, entryApprox);
   ShapeTraceEntries_EntryPoint* currentPrev = nullptr;
   ShapeTraceEntries_EntryPoint* currentNext = listAnchor;
   // insert the new entry into the sorted list

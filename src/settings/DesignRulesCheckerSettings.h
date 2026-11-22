@@ -23,7 +23,7 @@ class DesignRulesCheckerSettings : public virtual jrt::Object {
 
   /** Creates a copy of this design-rule-checker configuration. */
   virtual DesignRulesCheckerSettings* clone() {
-    auto* clone = new DesignRulesCheckerSettings();
+    auto* clone = new (jrt::kBoard) DesignRulesCheckerSettings();
     clone->enabled = this->enabled;
     clone->includeWarnings = this->includeWarnings;
     clone->includeErrors = this->includeErrors;

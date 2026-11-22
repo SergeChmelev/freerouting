@@ -94,11 +94,11 @@ Padstack* Pin::getPadstack() {
 }
 
 Item* Pin::copy(int32_t id) {
-  auto* currentNetNumbers = new jrt::Array<int32_t>(this->netCount());
+  auto* currentNetNumbers = new (jrt::kOp) jrt::Array<int32_t>(this->netCount());
   for (int32_t i = 0; i < currentNetNumbers->length; i++) {
     (*currentNetNumbers)[i] = getNetNumber(i);
   }
-  Pin* copiedPin = new Pin(getComponentId(), this->pinIndex, currentNetNumbers,
+  Pin* copiedPin = new (jrt::kBoard) Pin(getComponentId(), this->pinIndex, currentNetNumbers,
                            clearanceClassIndex(), id, getFixedState(), board);
   copiedPin->netTieClusterId = this->netTieClusterId;
   copiedPin->planeConnection = this->planeConnection;
@@ -132,7 +132,7 @@ Shape* Pin::getShape(int32_t index) {
     // all shapes have to be calculated  at once, because otherwise calculation
     // of fromLayer and toLayer may not be correct
     int32_t shapeCount = jrt::Math::max(0, padstack->toLayer() - padstack->fromLayer() + 1);
-    this->precalculatedShapes = new jrt::Array<Shape*>(shapeCount);
+    this->precalculatedShapes = new (jrt::kBoard) jrt::Array<Shape*>(shapeCount);
 
     Component* component = board->components->get(this->getComponentId());
     if (component == nullptr) {
@@ -210,7 +210,7 @@ PadOval* Pin::getPlacedOval(int32_t index) {
   PlacementTransform* placement =
       component->placementTransform(board->components->getFlipStyleRotateFirst());
   FloatPoint* offset = packagePin->getExactRelativeLocation();
-  return new PadOval(placement->padPoint(oval->start(), offset, packagePin->rotationInDegree),
+  return new (jrt::kBoard) PadOval(placement->padPoint(oval->start(), offset, packagePin->rotationInDegree),
                      placement->padPoint(oval->end(), offset, packagePin->rotationInDegree),
                      oval->radius());
 }
@@ -229,7 +229,7 @@ int32_t Pin::getPadstackLayer(int32_t index) {
 
 jrt::Collection<Pin_TraceExitRestriction*>* Pin::getTraceExitRestrictions(int32_t layer) {
   jrt::Collection<Pin_TraceExitRestriction*>* result =
-      new jrt::LinkedList<Pin_TraceExitRestriction*>();
+      new (jrt::kOp) jrt::LinkedList<Pin_TraceExitRestriction*>();
   int32_t padstackLayer = this->getPadstackLayer(layer - this->firstLayer());
   double padXyFactor = 1.5;
   // setting 1.5 to a higher factor may hinder the shove algorithm of the autorouter between
@@ -282,10 +282,10 @@ jrt::Collection<Pin_TraceExitRestriction*>* Pin::getTraceExitRestrictions(int32_
       FRLogger::warn("Pin.get_trace_exit_restrictions: border line not found");
       continue;
     }
-    Line* currentExitLine = new Line(pinCenter, currentExitDirection);
+    Line* currentExitLine = new (jrt::kGeom) Line(pinCenter, currentExitDirection);
     FloatPoint* nearestBorderPoint =
         currentExitLine->intersectionApprox(padShape->borderLine(intersectingBorderLineNo));
-    auto* currentExitRestriction = new Pin_TraceExitRestriction(
+    auto* currentExitRestriction = new (jrt::kBoard) Pin_TraceExitRestriction(
         currentExitDirection, centerApprox->distance(nearestBorderPoint));
     result->add(currentExitRestriction);
   }
@@ -429,7 +429,7 @@ void Pin::clearDerivedData() {
 }
 
 jrt::Set<Pin*>* Pin::getSwappablePins() {
-  jrt::Set<Pin*>* result = new jrt::TreeSet<Pin*>();
+  jrt::Set<Pin*>* result = new (jrt::kOp) jrt::TreeSet<Pin*>();
   Component* component = this->board->components->get(this->getComponentId());
   if (component == nullptr) {
     return result;
@@ -546,7 +546,7 @@ double Pin::getMaxWidth(int32_t layer) {
 }
 
 void Pin::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->appendBold(tm->getText("pin") + ": ");
   printer->append(tm->getText("component_2") + " ");
@@ -564,7 +564,7 @@ void Pin::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
 }
 
 std::string Pin::getHoverInfo(const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   Component* component = board->components->get(this->getComponentId());
   Padstack* padstack = this->getPadstack();
@@ -610,7 +610,7 @@ Direction* Pin::calcNearestExitRestrictionDirection(Polyline* tracePolyline,
   for (Pin_TraceExitRestriction* currentExitRestriction : *traceExitRestrictions) {
     int32_t currentIntersectingBorderLineNo =
         offsetPinShape->intersectingBorderLineNo(pinCenter, currentExitRestriction->direction);
-    Line* currentPinExitRay = new Line(pinCenter, currentExitRestriction->direction);
+    Line* currentPinExitRay = new (jrt::kGeom) Line(pinCenter, currentExitRestriction->direction);
     FloatPoint* currentExitCorner = currentPinExitRay->intersectionApprox(
         offsetPinShape->borderLine(currentIntersectingBorderLineNo));
     double currentExitCornerDistance = currentExitCorner->distanceSquare(traceEntryLocationApprox);
@@ -665,7 +665,7 @@ FloatPoint* Pin::nearestTraceExitCorner(FloatPoint* fromPoint, int32_t traceHalf
   for (Pin_TraceExitRestriction* currentExitRestriction : *traceExitRestrictions) {
     int32_t currentIntersectingBorderLineNo =
         offsetPinShape->intersectingBorderLineNo(pinCenter, currentExitRestriction->direction);
-    Line* currentPinExitRay = new Line(pinCenter, currentExitRestriction->direction);
+    Line* currentPinExitRay = new (jrt::kGeom) Line(pinCenter, currentExitRestriction->direction);
     FloatPoint* currentExitCorner = currentPinExitRay->intersectionApprox(
         offsetPinShape->borderLine(currentIntersectingBorderLineNo));
     double currentExitCornerDistance = currentExitCorner->distanceSquare(fromPoint);
@@ -707,7 +707,7 @@ jrt::Set<Item*>* Pin::getNormalContacts() {
 }
 
 jrt::List<Pin*>* Pin::copperOverlappingPins(std::function<bool(Pin*)> accept) {
-  jrt::List<Pin*>* result = new jrt::LinkedList<Pin*>();
+  jrt::List<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
   if (board == nullptr) {
     return result;
   }

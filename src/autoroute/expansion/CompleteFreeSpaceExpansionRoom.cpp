@@ -15,7 +15,7 @@ namespace fr {
 
 CompleteFreeSpaceExpansionRoom::CompleteFreeSpaceExpansionRoom(TileShape* shape, int32_t layer, int32_t id)
     : FreeSpaceExpansionRoom(shape, layer) {
-  targetDoors = new jrt::LinkedList<TargetItemExpansionDoor*>();
+  targetDoors = new (jrt::kOp) jrt::LinkedList<TargetItemExpansionDoor*>();
   this->id = id;
 }
 
@@ -59,7 +59,7 @@ void CompleteFreeSpaceExpansionRoom::calculateTargetDoors(ShapeTree_TreeEntry* o
       if (currentConnectionShape != nullptr && this->getShape()->intersects(currentConnectionShape)) {
         Item* currentItem = jrt::fast_cast<Item>(currentObject);
         TargetItemExpansionDoor* newTargetDoor =
-            new TargetItemExpansionDoor(currentItem, ownNetObject->shapeIndexInObject, this, autorouteSearchTree);
+            new (jrt::kOp) TargetItemExpansionDoor(currentItem, ownNetObject->shapeIndexInObject, this, autorouteSearchTree);
         this->addTargetDoor(newTargetDoor);
       }
     }
@@ -68,15 +68,15 @@ void CompleteFreeSpaceExpansionRoom::calculateTargetDoors(ShapeTree_TreeEntry* o
 
 void CompleteFreeSpaceExpansionRoom::emitDiagnostic(AutorouteDiagnostic_Sink* sink, double intensity) {
   if (sink != nullptr && intensity > 0) {
-    sink->accept(new AutorouteDiagnostic(AutorouteDiagnostic_Kind::FREE_SPACE_ROOM, this->getShape(),
+    sink->accept(new (jrt::kOp) AutorouteDiagnostic(AutorouteDiagnostic_Kind::FREE_SPACE_ROOM, this->getShape(),
                                          this->getLayer(), intensity));
   }
 }
 
 bool CompleteFreeSpaceExpansionRoom::validate(AutorouteEngine* autorouteEngine) {
   bool result = true;
-  jrt::Collection<ShapeTree_TreeEntry*>* overlappingObjects = new jrt::LinkedList<ShapeTree_TreeEntry*>();
-  jrt::Array<int32_t>* netNumbers = new jrt::Array<int32_t>(1);
+  jrt::Collection<ShapeTree_TreeEntry*>* overlappingObjects = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::Array<int32_t>* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*netNumbers)[0] = autorouteEngine->getNetNumber();
   autorouteEngine->autorouteSearchTree->overlappingTreeEntries(this->getShape(), this->getLayer(), netNumbers,
                                                                overlappingObjects);
@@ -104,7 +104,7 @@ bool CompleteFreeSpaceExpansionRoom::validate(AutorouteEngine* autorouteEngine) 
 
 void CompleteFreeSpaceExpansionRoom::clearDoors() {
   FreeSpaceExpansionRoom::clearDoors();
-  this->targetDoors = new jrt::LinkedList<TargetItemExpansionDoor*>();
+  this->targetDoors = new (jrt::kOp) jrt::LinkedList<TargetItemExpansionDoor*>();
 }
 
 void CompleteFreeSpaceExpansionRoom::resetDoors() {

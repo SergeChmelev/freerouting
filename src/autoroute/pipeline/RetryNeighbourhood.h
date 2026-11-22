@@ -71,9 +71,9 @@ class RetryNeighbourhood : public virtual jrt::Object {
 
 inline RetryNeighbourhood_Reach* RetryNeighbourhood_Reach::of(int32_t attempt) {
   if (attempt <= 1) {
-    return new RetryNeighbourhood_Reach(RetryNeighbourhood::RADIUS_MM, RetryNeighbourhood::MAX_CONTENDERS, false);
+    return new (jrt::kOp) RetryNeighbourhood_Reach(RetryNeighbourhood::RADIUS_MM, RetryNeighbourhood::MAX_CONTENDERS, false);
   }
-  return new RetryNeighbourhood_Reach(
+  return new (jrt::kOp) RetryNeighbourhood_Reach(
       jrt::Math::min(RetryNeighbourhood::RADIUS_MM * attempt, RetryNeighbourhood::MAX_RADIUS_MM),
       jrt::Math::min(RetryNeighbourhood::MAX_CONTENDERS * attempt, RetryNeighbourhood::MAX_WIDE_CONTENDERS),
       true);

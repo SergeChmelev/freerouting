@@ -6,7 +6,7 @@
 namespace fr {
 
 ItemIdGenerator* ItemIdGenerator::copy() {
-  auto* c = new ItemIdGenerator();
+  auto* c = new (jrt::kBoard) ItemIdGenerator();
   c->lastGeneratedId = lastGeneratedId;
   c->wrapAroundCount = wrapAroundCount;
   return c;

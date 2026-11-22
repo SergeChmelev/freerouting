@@ -77,7 +77,7 @@ bool FoundConnectionLocator45Degree::calcHorizontalFirstFromDoor(ExpandableObjec
 }
 
 jrt::Collection<FloatPoint*>* FoundConnectionLocator45Degree::calculateNextTraceCorners() {
-  jrt::Collection<FloatPoint*>* result = new jrt::LinkedList<FloatPoint*>();
+  jrt::Collection<FloatPoint*>* result = new (jrt::kOp) jrt::LinkedList<FloatPoint*>();
 
   if (this->currentToDoorIndex > this->currentTargetDoorIndex) {
     if (this->ctrl->netNumber == 33 || this->ctrl->netNumber == 66 || this->ctrl->netNumber == 67) {

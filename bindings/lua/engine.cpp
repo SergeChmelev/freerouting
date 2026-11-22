@@ -101,7 +101,7 @@ void appendLoop(std::string& out, jrt::Array<fr::FloatPoint*>* c, Bounds& b) {
 }
 
 Snapshot* buildSnapshot(fr::BasicBoard* board, bool withAirlines, const Snapshot* previous) {
-  auto* snap = new Snapshot();
+  auto* snap = new (jrt::kOp) Snapshot();
   Bounds bounds;
   snap->unit = fr::Unit_toString(board->communication->unit);
   snap->resolution = board->communication->resolution;
@@ -154,7 +154,7 @@ Snapshot* buildSnapshot(fr::BasicBoard* board, bool withAirlines, const Snapshot
   }
 
   if (withAirlines) {
-    jrt::Array<fr::AirLine*>* airlines = (new fr::DesignRulesChecker(board, nullptr))->getAllAirlines();
+    jrt::Array<fr::AirLine*>* airlines = (new (jrt::kOp) fr::DesignRulesChecker(board, nullptr))->getAllAirlines();
     if (airlines != nullptr) {
       snap->incompletes = airlines->length;
       for (fr::AirLine* a : *airlines) {
@@ -357,7 +357,7 @@ void Engine::doLoad(const std::string& path) {
   std::ifstream in(path, std::ios::binary);
   if (!in) throw jrt::IOException("cannot read '" + path + "'");
   std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  auto* bytes = new jrt::Array<int8_t>(static_cast<int32_t>(data.size()));
+  auto* bytes = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(data.size()));
   std::memcpy(bytes->data(), data.data(), data.size());
   std::string name = baseName(path);
 
@@ -405,7 +405,7 @@ void Engine::doRoute(const RouteOptions& o) {
 
   fr::RouterSettings* settings = nullptr;
   if (o.maxPasses || o.optimize || o.vias || o.timeout) {
-    settings = new fr::RouterSettings();
+    settings = new (jrt::kBoard) fr::RouterSettings();
     if (o.maxPasses) settings->setMaxPasses(o.maxPasses);
     if (o.optimize) settings->setOptimizerEnabled(o.optimize);
     if (o.vias) settings->setViasAllowed(o.vias);
@@ -522,7 +522,7 @@ void Engine::doEdit(const EditEvent& e, bool morePending) {
   fr::RoutingBoard* board = routingBoard();
   if (board == nullptr) return;
   if (session_ == nullptr || session_->board() != board) {
-    auto* s = new fr::InteractiveSession(board);
+    auto* s = new (jrt::kBoard) fr::InteractiveSession(board);
     // keep the mode and layer chosen in the UI across board replacements
     Status st = status();
     s->changeLayer(st.editLayer);

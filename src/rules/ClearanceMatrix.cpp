@@ -36,19 +36,19 @@ ClearanceMatrix::ClearanceMatrix(int32_t classCount, LayerStructure* layerStruct
                                  jrt::Array<std::string>* names) {
   this->classCount = jrt::Math::max(classCount, 1);
   this->layerStructure = layerStructure;
-  row = new jrt::Array<ClearanceMatrix_Row*>(this->classCount);
+  row = new (jrt::kBoard) jrt::Array<ClearanceMatrix_Row*>(this->classCount);
   for (int32_t i = 0; i < this->classCount; i++) {
-    (*row)[i] = new ClearanceMatrix_Row(this, (*names)[i]);
+    (*row)[i] = new (jrt::kBoard) ClearanceMatrix_Row(this, (*names)[i]);
   }
-  this->maxValueOnLayer = new jrt::Array<int32_t>(layerStructure->layers->length);
+  this->maxValueOnLayer = new (jrt::kBoard) jrt::Array<int32_t>(layerStructure->layers->length);
 }
 
 ClearanceMatrix* ClearanceMatrix::getDefaultInstance(LayerStructure* layerStructure,
                                                      int32_t defaultValue) {
-  auto* names = new jrt::Array<std::string>(2);
+  auto* names = new (jrt::kOp) jrt::Array<std::string>(2);
   (*names)[0] = "null";
   (*names)[1] = "default";
-  ClearanceMatrix* result = new ClearanceMatrix(2, layerStructure, names);
+  ClearanceMatrix* result = new (jrt::kBoard) ClearanceMatrix(2, layerStructure, names);
   result->setDefaultValue(defaultValue);
   return result;
 }
@@ -127,7 +127,7 @@ int32_t ClearanceMatrix::getValue(int32_t classI, int32_t classJ, int32_t layer,
                           ")" + ", layer=" + jrt::str(layer) +
                           " (max=" + jrt::str(layerStructure->layers->length - 1) + ")" +
                           ", returning 0",
-                      "Clearance Check", new jrt::Array<Point*>(0));
+                      "Clearance Check", new (jrt::kGeom) jrt::Array<Point*>(0));
     }
     return 0;
   }
@@ -151,7 +151,7 @@ int32_t ClearanceMatrix::getValue(int32_t classI, int32_t classJ, int32_t layer,
             jrt::str(addSafetyMargin ? clearance_safety_margin : 0) +
             ", finalValue=" + jrt::str(finalValue) + " (" + jrt::str(finalValue / 10000.0) +
             "mm)",
-        "Clearance Check", new jrt::Array<Point*>(0));
+        "Clearance Check", new (jrt::kGeom) jrt::Array<Point*>(0));
   }
 
   return finalValue;
@@ -211,22 +211,22 @@ bool ClearanceMatrix::appendClass(const std::string& className) {
   int32_t oldClassCount = this->classCount;
   ++this->classCount;
 
-  auto* newRow = new jrt::Array<ClearanceMatrix_Row*>(this->classCount);
+  auto* newRow = new (jrt::kOp) jrt::Array<ClearanceMatrix_Row*>(this->classCount);
 
   // append a matrix entry to each old row
   for (int32_t i = 0; i < oldClassCount; i++) {
     ClearanceMatrix_Row* currentOldRow = (*this->row)[i];
-    (*newRow)[i] = new ClearanceMatrix_Row(this, currentOldRow->name);
+    (*newRow)[i] = new (jrt::kBoard) ClearanceMatrix_Row(this, currentOldRow->name);
     ClearanceMatrix_Row* currentNewRow = (*newRow)[i];
     currentNewRow->maxValue = currentOldRow->maxValue;
     jrt::arraycopy(currentOldRow->column, 0, currentNewRow->column, 0, oldClassCount);
 
-    (*currentNewRow->column)[oldClassCount] = new ClearanceMatrix_MatrixEntry(this);
+    (*currentNewRow->column)[oldClassCount] = new (jrt::kBoard) ClearanceMatrix_MatrixEntry(this);
   }
 
   // append the new row
 
-  (*newRow)[oldClassCount] = new ClearanceMatrix_Row(this, className);
+  (*newRow)[oldClassCount] = new (jrt::kBoard) ClearanceMatrix_Row(this, className);
 
   this->row = newRow;
 
@@ -251,7 +251,7 @@ void ClearanceMatrix::removeClass(int32_t index) {
   int32_t oldClassCount = this->classCount;
   --this->classCount;
 
-  auto* newRow = new jrt::Array<ClearanceMatrix_Row*>(this->classCount);
+  auto* newRow = new (jrt::kOp) jrt::Array<ClearanceMatrix_Row*>(this->classCount);
 
   // Remove the matrix entry with the given index from each old row.
   int32_t newRowIndex = 0;
@@ -260,7 +260,7 @@ void ClearanceMatrix::removeClass(int32_t index) {
       continue;
     }
     ClearanceMatrix_Row* currentOldRow = (*this->row)[i];
-    (*newRow)[newRowIndex] = new ClearanceMatrix_Row(this, currentOldRow->name);
+    (*newRow)[newRowIndex] = new (jrt::kBoard) ClearanceMatrix_Row(this, currentOldRow->name);
     ClearanceMatrix_Row* currentNewRow = (*newRow)[newRowIndex];
 
     int32_t newColumnIndex = 0;
@@ -311,13 +311,13 @@ bool ClearanceMatrix::isEqual(int32_t first, int32_t second) {
 ClearanceMatrix* ClearanceMatrix::deepCopy() {
   // PORT NOTE: replacement for Java serialization of the matrix. Object identities inside the
   // matrix (rows, entries, int arrays shared between rows by appendClass) are preserved.
-  auto* copy = new ClearanceMatrix();
+  auto* copy = new (jrt::kBoard) ClearanceMatrix();
   copy->layerStructure = this->layerStructure;  // shared (see RoutingBoardUndoFacade.h)
   copy->classCount = this->classCount;
   copy->maxValueOnLayer = this->maxValueOnLayer->clone();
   auto* entryMap =
-      new IdMap<ClearanceMatrix_MatrixEntry*, ClearanceMatrix_MatrixEntry*>();
-  auto* arrayMap = new IdMap<jrt::Array<int32_t>*, jrt::Array<int32_t>*>();
+      new (jrt::kOp) IdMap<ClearanceMatrix_MatrixEntry*, ClearanceMatrix_MatrixEntry*>();
+  auto* arrayMap = new (jrt::kOp) IdMap<jrt::Array<int32_t>*, jrt::Array<int32_t>*>();
   auto mapArray = [arrayMap](jrt::Array<int32_t>* a) -> jrt::Array<int32_t>* {
     if (a == nullptr) {
       return nullptr;
@@ -329,13 +329,13 @@ ClearanceMatrix* ClearanceMatrix::deepCopy() {
     }
     return result;
   };
-  copy->row = new jrt::Array<ClearanceMatrix_Row*>(this->row->length);
+  copy->row = new (jrt::kOp) jrt::Array<ClearanceMatrix_Row*>(this->row->length);
   for (int32_t i = 0; i < this->row->length; i++) {
     ClearanceMatrix_Row* srcRow = (*this->row)[i];
     if (srcRow == nullptr) {
       continue;
     }
-    auto* newRow = new ClearanceMatrix_Row(copy, srcRow->name, srcRow->column->length);
+    auto* newRow = new (jrt::kBoard) ClearanceMatrix_Row(copy, srcRow->name, srcRow->column->length);
     for (int32_t j = 0; j < srcRow->column->length; j++) {
       ClearanceMatrix_MatrixEntry* srcEntry = (*srcRow->column)[j];
       if (srcEntry == nullptr) {
@@ -343,7 +343,7 @@ ClearanceMatrix* ClearanceMatrix::deepCopy() {
       }
       ClearanceMatrix_MatrixEntry* newEntry = entryMap->get(srcEntry);
       if (newEntry == nullptr) {
-        newEntry = new ClearanceMatrix_MatrixEntry(copy, mapArray(srcEntry->layer));
+        newEntry = new (jrt::kBoard) ClearanceMatrix_MatrixEntry(copy, mapArray(srcEntry->layer));
         entryMap->put(srcEntry, newEntry);
       }
       (*newRow->column)[j] = newEntry;
@@ -360,22 +360,22 @@ ClearanceMatrix* ClearanceMatrix::deepCopy() {
 
 ClearanceMatrix_Row::ClearanceMatrix_Row(ClearanceMatrix* outer, const std::string& name)
     : outer(outer), name(name) {
-  column = new jrt::Array<ClearanceMatrix_MatrixEntry*>(outer->classCount);
+  column = new (jrt::kBoard) jrt::Array<ClearanceMatrix_MatrixEntry*>(outer->classCount);
   for (int32_t i = 0; i < outer->classCount; i++) {
-    (*column)[i] = new ClearanceMatrix_MatrixEntry(outer);
+    (*column)[i] = new (jrt::kBoard) ClearanceMatrix_MatrixEntry(outer);
   }
-  maxValue = new jrt::Array<int32_t>(outer->layerStructure->layers->length);
+  maxValue = new (jrt::kBoard) jrt::Array<int32_t>(outer->layerStructure->layers->length);
 }
 
 ClearanceMatrix_Row::ClearanceMatrix_Row(ClearanceMatrix* outer, const std::string& name,
                                          int32_t columnCount)
     : outer(outer), name(name) {
-  column = new jrt::Array<ClearanceMatrix_MatrixEntry*>(columnCount);
+  column = new (jrt::kBoard) jrt::Array<ClearanceMatrix_MatrixEntry*>(columnCount);
   maxValue = nullptr;
 }
 
 void ClearanceMatrix_Row::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("ClearanceMatrix$Row", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("ClearanceMatrix$Row", locale);
 
   printer->appendBold(tm->getText("spacing_from_clearance_class") + " ");
   printer->appendBold(this->name);
@@ -407,7 +407,7 @@ void ClearanceMatrix_Row::printInfo(ItemInfoPrinter* printer, const std::string&
 // ---------------------------------------------------------------------------------------------
 
 ClearanceMatrix_MatrixEntry::ClearanceMatrix_MatrixEntry(ClearanceMatrix* outer) : outer(outer) {
-  layer = new jrt::Array<int32_t>(outer->layerStructure->layers->length);
+  layer = new (jrt::kBoard) jrt::Array<int32_t>(outer->layerStructure->layers->length);
   for (int32_t i = 0; i < outer->layerStructure->layers->length; i++) {
     (*layer)[i] = 0;
   }

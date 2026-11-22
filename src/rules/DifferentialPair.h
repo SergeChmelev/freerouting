@@ -54,12 +54,12 @@ class DifferentialPair : public virtual jrt::Object {
 
   /** Returns a copy of this differential pair with updated coupled spacing. */
   DifferentialPair* withCoupledSpacing(double newSpacing) {
-    return new DifferentialPair(positiveNet_, negativeNet_, baseName_, newSpacing, maxSkew_);
+    return new (jrt::kBoard) DifferentialPair(positiveNet_, negativeNet_, baseName_, newSpacing, maxSkew_);
   }
 
   /** Returns a copy of this differential pair with updated maximum skew. */
   DifferentialPair* withMaxSkew(double newMaxSkew) {
-    return new DifferentialPair(positiveNet_, negativeNet_, baseName_, coupledSpacing_,
+    return new (jrt::kBoard) DifferentialPair(positiveNet_, negativeNet_, baseName_, coupledSpacing_,
                                 newMaxSkew);
   }
 

@@ -12,7 +12,7 @@
 namespace fr {
 
 std::optional<std::string> DanglingCopper::remove(RoutingBoard* board, const std::string& where) {
-  jrt::List<Item*>* tails = new jrt::ArrayList<Item*>();
+  jrt::List<Item*>* tails = new (jrt::kOp) jrt::ArrayList<Item*>();
   for (Item* item : *board->getItems()) {
     if (item->isRoutable() && item->netCount() == 1 && item->isTail()) {
       tails->add(item);
@@ -28,7 +28,7 @@ std::optional<std::string> DanglingCopper::remove(RoutingBoard* board, const std
   }
   std::sort(netVec.begin(), netVec.end());
   netVec.erase(std::unique(netVec.begin(), netVec.end()), netVec.end());
-  auto* nets = new jrt::Array<int32_t>(static_cast<int32_t>(netVec.size()));
+  auto* nets = new (jrt::kOp) jrt::Array<int32_t>(static_cast<int32_t>(netVec.size()));
   for (int32_t i = 0; i < nets->length; i++) {
     (*nets)[i] = netVec[i];
   }
@@ -59,7 +59,7 @@ int32_t DanglingCopper::open(RoutingBoard* board, jrt::Array<int32_t>* nets) {
   int32_t count = 0;
   for (int32_t i = 0; i < nets->length; i++) {
     int32_t net = (*nets)[i];
-    count += (new NetIncompletes(net, board->getConnectableItems(net), board))->count();
+    count += (new (jrt::kOp) NetIncompletes(net, board->getConnectableItems(net), board))->count();
   }
   return count;
 }

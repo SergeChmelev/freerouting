@@ -551,7 +551,7 @@ jrt::Array<int32_t>* SpecctraDsnStreamReader::ZZ_ATTRIBUTE() {
 // --- constructors ------------------------------------------------------------------------------
 
 SpecctraDsnStreamReader::SpecctraDsnStreamReader(std::istream& in)
-    : zzReader(&in), zzBuffer(new jrt::Array<char16_t>(ZZ_BUFFERSIZE)) {}
+    : zzReader(&in), zzBuffer(new (jrt::kOp) jrt::Array<char16_t>(ZZ_BUFFERSIZE)) {}
 
 SpecctraDsnStreamReader::SpecctraDsnStreamReader(std::istream& in, bool exactNumbers)
     : SpecctraDsnStreamReader(in) {
@@ -561,7 +561,7 @@ SpecctraDsnStreamReader::SpecctraDsnStreamReader(std::istream& in, bool exactNum
 // --- table unpacking ---------------------------------------------------------------------------
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::zzUnpackAction() {
-  auto* result = new jrt::Array<int32_t>(712);
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(712);
   int32_t offset = 0;
   offset = zzUnpackAction(packed(ZZ_ACTION_PACKED_0), offset, result);
   assert(offset == 712);
@@ -584,7 +584,7 @@ int32_t SpecctraDsnStreamReader::zzUnpackAction(std::u16string_view packed, int3
 }
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::zzUnpackRowMap() {
-  auto* result = new jrt::Array<int32_t>(712);
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(712);
   int32_t offset = 0;
   offset = zzUnpackRowMap(packed(ZZ_ROWMAP_PACKED_0), offset, result);
   assert(offset == 712);
@@ -604,7 +604,7 @@ int32_t SpecctraDsnStreamReader::zzUnpackRowMap(std::u16string_view packed, int3
 }
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::zzUnpackTrans() {
-  auto* result = new jrt::Array<int32_t>(27450);
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(27450);
   int32_t offset = 0;
   offset = zzUnpackTrans(packed(ZZ_TRANS_PACKED_0), offset, result);
   assert(offset == 27450);
@@ -628,7 +628,7 @@ int32_t SpecctraDsnStreamReader::zzUnpackTrans(std::u16string_view packed, int32
 }
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::zzUnpackAttribute() {
-  auto* result = new jrt::Array<int32_t>(712);
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(712);
   int32_t offset = 0;
   offset = zzUnpackAttribute(packed(ZZ_ATTRIBUTE_PACKED_0), offset, result);
   assert(offset == 712);
@@ -651,7 +651,7 @@ int32_t SpecctraDsnStreamReader::zzUnpackAttribute(std::u16string_view packed, i
 }
 
 jrt::Array<char16_t>* SpecctraDsnStreamReader::zzUnpackCMap(std::u16string_view packed) {
-  auto* map = new jrt::Array<char16_t>(0x10000);
+  auto* map = new (jrt::kOp) jrt::Array<char16_t>(0x10000);
   int32_t i = 0; /* index in packed string  */
   int32_t j = 0; /* index in unpacked array */
   while (i < 274) {
@@ -887,7 +887,7 @@ bool SpecctraDsnStreamReader::zzRefill() {
   /* is the buffer big enough? */
   if (zzCurrentPos >= zzBuffer->length) {
     /* if not: blow it up */
-    auto* newBuffer = new jrt::Array<char16_t>(zzCurrentPos * 2);
+    auto* newBuffer = new (jrt::kOp) jrt::Array<char16_t>(zzCurrentPos * 2);
     jrt::arraycopy(zzBuffer, 0, newBuffer, 0, zzBuffer->length);
     zzBuffer = newBuffer;
   }
@@ -1341,7 +1341,7 @@ jrt::Object* SpecctraDsnStreamReader::nextToken() {
           break;
         case 4:
           {
-            return new JString(yytext());
+            return new (jrt::kOp) JString(yytext());
           }
         case 172:
           break;
@@ -1473,7 +1473,7 @@ jrt::Object* SpecctraDsnStreamReader::nextToken() {
         case 1:
           {
             yybegin(YYINITIAL);
-            return new JString(yytext());
+            return new (jrt::kOp) JString(yytext());
           }
         case 192:
           break;
@@ -1830,9 +1830,9 @@ JNumber* SpecctraDsnStreamReader::readFloatingToken() {
   }
   std::string literal = utf16ToUtf8(zzBuffer->data() + zzStartRead, zzMarkedPos - zzStartRead);
   if (exactNumbers) {
-    return new JBigDecimal(jrt::BigDecimal(literal));
+    return new (jrt::kOp) JBigDecimal(jrt::BigDecimal(literal));
   }
-  return new JDouble(jrt::Double::parseDouble(literal));
+  return new (jrt::kOp) JDouble(jrt::Double::parseDouble(literal));
 }
 
 bool SpecctraDsnStreamReader::hasStringChar(int32_t offset) {

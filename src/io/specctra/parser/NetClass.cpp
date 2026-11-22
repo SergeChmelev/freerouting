@@ -30,7 +30,7 @@ NetClass* NetClass::readScope(IJFlexScanner* scanner) {
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     std::string className = scanner->nextString();
 
-    jrt::Collection<std::string>* netList = new jrt::LinkedList<std::string>();
+    jrt::Collection<std::string>* netList = new (jrt::kOp) jrt::LinkedList<std::string>();
     bool rulesMissing = false;
     // read the nets belonging to the class
     jrt::Array<std::string>* netsInTheClass = scanner->nextStringList();
@@ -38,10 +38,10 @@ NetClass* NetClass::readScope(IJFlexScanner* scanner) {
       netList->add(netName);
     }
 
-    jrt::Collection<Rule*>* rules = new jrt::LinkedList<Rule*>();
-    jrt::Collection<Rule_LayerRule*>* layerRules = new jrt::LinkedList<Rule_LayerRule*>();
-    jrt::Collection<std::string>* useVia = new jrt::LinkedList<std::string>();
-    jrt::Collection<std::string>* useLayer = new jrt::LinkedList<std::string>();
+    jrt::Collection<Rule*>* rules = new (jrt::kOp) jrt::LinkedList<Rule*>();
+    jrt::Collection<Rule_LayerRule*>* layerRules = new (jrt::kOp) jrt::LinkedList<Rule_LayerRule*>();
+    jrt::Collection<std::string>* useVia = new (jrt::kOp) jrt::LinkedList<std::string>();
+    jrt::Collection<std::string>* useLayer = new (jrt::kOp) jrt::LinkedList<std::string>();
     std::optional<std::string> viaRule;
     std::optional<std::string> traceClearanceClass;
     bool pullTight = true;
@@ -52,7 +52,7 @@ NetClass* NetClass::readScope(IJFlexScanner* scanner) {
 
     jrt::Object* nextToken = scanner->nextToken();
     if (nextToken == Keyword::CLOSED_BRACKET()) {
-      return new NetClass(className, traceClearanceClass, netList, rules, layerRules, useVia,
+      return new (jrt::kBoard) NetClass(className, traceClearanceClass, netList, rules, layerRules, useVia,
                           useLayer, viaRule, shoveFixed, pullTight, minTraceLength,
                           maxTraceLength);
     }
@@ -101,7 +101,7 @@ NetClass* NetClass::readScope(IJFlexScanner* scanner) {
         prevToken = nextToken;
       }
     }
-    return new NetClass(className, traceClearanceClass, netList, rules, layerRules, useVia,
+    return new (jrt::kBoard) NetClass(className, traceClearanceClass, netList, rules, layerRules, useVia,
                         useLayer, viaRule, shoveFixed, pullTight, minTraceLength, maxTraceLength,
                         circuit);
   } catch (const jrt::IOException& e) {
@@ -112,9 +112,9 @@ NetClass* NetClass::readScope(IJFlexScanner* scanner) {
 
 NetClass_ClassClass* NetClass::readClassClassScope(IJFlexScanner* scanner) {
   try {
-    jrt::Collection<std::string>* classes = new jrt::LinkedList<std::string>();
-    jrt::Collection<Rule*>* rules = new jrt::LinkedList<Rule*>();
-    jrt::Collection<Rule_LayerRule*>* layerRules = new jrt::LinkedList<Rule_LayerRule*>();
+    jrt::Collection<std::string>* classes = new (jrt::kOp) jrt::LinkedList<std::string>();
+    jrt::Collection<Rule*>* rules = new (jrt::kOp) jrt::LinkedList<Rule*>();
+    jrt::Collection<Rule_LayerRule*>* layerRules = new (jrt::kOp) jrt::LinkedList<Rule_LayerRule*>();
     jrt::Object* prevToken = nullptr;
     for (;;) {
       jrt::Object* nextToken = scanner->nextToken();
@@ -144,7 +144,7 @@ NetClass_ClassClass* NetClass::readClassClassScope(IJFlexScanner* scanner) {
       }
       prevToken = nextToken;
     }
-    return new NetClass_ClassClass(classes, rules, layerRules);
+    return new (jrt::kOp) NetClass_ClassClass(classes, rules, layerRules);
   } catch (const jrt::IOException& e) {
     FRLogger::error("NetClass.read_scope: IO error while scanning file", &e);
     return nullptr;

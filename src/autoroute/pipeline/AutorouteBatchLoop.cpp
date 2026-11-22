@@ -57,12 +57,12 @@ bool AutorouteBatchLoop::run() {
   if (!anyRoutable) {
     FRLogger::warn("Cannot start autorouter: all layers are disabled.");
     router->fireTaskStateChangedEvent(
-        new TaskStateChangedEvent(router, TaskState::CANCELLED, 0, router->board->getHash()));
+        new (jrt::kOp) TaskStateChangedEvent(router, TaskState::CANCELLED, 0, router->board->getHash()));
     throw jrt::IllegalArgumentException("Cannot start autorouter: all layers are disabled.");
   }
 
   router->fireTaskStateChangedEvent(
-      new TaskStateChangedEvent(router, TaskState::STARTED, 0, router->board->getHash()));
+      new (jrt::kOp) TaskStateChangedEvent(router, TaskState::STARTED, 0, router->board->getHash()));
 
   int32_t optimizerThreads = settings->getOptimizerMaxThreads();
   job->logInfo(
@@ -75,13 +75,13 @@ bool AutorouteBatchLoop::run() {
   router->resetAntiOscillationState();
   router->lastStopReason = std::nullopt;
 
-  BoardHistory* bh = new BoardHistory(job->routerSettings);
+  BoardHistory* bh = new (jrt::kBoard) BoardHistory(job->routerSettings);
 
   // Record configuration for profiler
   if (router->settings->getLayerCount() > 0) {
     int32_t layerCount = router->settings->getLayerCount();
-    auto* prefCosts = new jrt::Array<double>(layerCount);
-    auto* againstCosts = new jrt::Array<double>(layerCount);
+    auto* prefCosts = new (jrt::kOp) jrt::Array<double>(layerCount);
+    auto* againstCosts = new (jrt::kOp) jrt::Array<double>(layerCount);
     for (int32_t i = 0; i < layerCount; i++) {
       (*prefCosts)[i] = router->settings->getPreferredDirectionTraceCosts(i);
       (*againstCosts)[i] = router->settings->getAgainstPreferredDirectionTraceCosts(i);
@@ -101,7 +101,7 @@ bool AutorouteBatchLoop::run() {
   if (router->settings->isFanoutEnabled()) {
     fanoutStageStart = jrt::System::currentTimeMillis();
     fanoutStageCpuStart = AutorouteRuntimeMetrics::currentThreadCpuSeconds();
-    fanoutBeforeStats = new BoardStatistics(router->board);
+    fanoutBeforeStats = new (jrt::kOp) BoardStatistics(router->board);
   }
   // Run SMD fanout pre-pass when the board has SMD pins and fanout is enabled
   if (router->settings->isFanoutEnabled()) {
@@ -111,7 +111,7 @@ bool AutorouteBatchLoop::run() {
       const float fanoutCpuSecondsStart = AutorouteRuntimeMetrics::currentThreadCpuSeconds();
       const float fanoutAllocatedMbStart = AutorouteRuntimeMetrics::currentThreadAllocatedMb();
       float fanoutPeakHeapMbAtStart = AutorouteRuntimeMetrics::currentHeapUsageMb();
-      auto* fanoutPeakHeapMbObserved = new jrt::Array<float>(1);
+      auto* fanoutPeakHeapMbObserved = new (jrt::kOp) jrt::Array<float>(1);
       (*fanoutPeakHeapMbObserved)[0] = fanoutPeakHeapMbAtStart;
       // Count pins that actually need fanout. BatchFanout only processes SMD pins that
       // belong to an active (non-ignored) net, so exclude netless and ignored pins from the
@@ -148,7 +148,7 @@ bool AutorouteBatchLoop::run() {
               [r, job, fanoutPeakHeapMbObserved](BatchFanout_FanoutPassStatus* status) {
                 (*fanoutPeakHeapMbObserved)[0] = jrt::Math::max(
                     (*fanoutPeakHeapMbObserved)[0], AutorouteRuntimeMetrics::currentHeapUsageMb());
-                RouterCounters* fanoutCounters = new RouterCounters();
+                RouterCounters* fanoutCounters = new (jrt::kBoard) RouterCounters();
                 fanoutCounters->phase = std::string("fanout");
                 fanoutCounters->passCount = status->passNo();
                 fanoutCounters->queuedToBeRoutedCount = status->pinsToGo();
@@ -248,12 +248,12 @@ bool AutorouteBatchLoop::run() {
   }
 
   if (fanoutBeforeStats != nullptr) {
-    BoardStatistics* fanoutAfterStats = new BoardStatistics(router->board);
+    BoardStatistics* fanoutAfterStats = new (jrt::kOp) BoardStatistics(router->board);
     RoutingResultManifest_PhaseDetail* phase = job->resultPhaseMetrics->fanout;
-    phase->before = new RoutingResultManifest_PhaseSnapshot();
+    phase->before = new (jrt::kBoard) RoutingResultManifest_PhaseSnapshot();
     phase->before->boardStatistics = fanoutBeforeStats;
     phase->before->scoreSource = std::string("not_applicable");
-    phase->after = new RoutingResultManifest_PhaseSnapshot();
+    phase->after = new (jrt::kBoard) RoutingResultManifest_PhaseSnapshot();
     phase->after->boardStatistics = fanoutAfterStats;
     phase->after->scoreSource = std::string("not_applicable");
     phase->durationSeconds =
@@ -278,9 +278,9 @@ bool AutorouteBatchLoop::run() {
     autorouterStageStart = jrt::System::currentTimeMillis();
     autorouterCpuStart = AutorouteRuntimeMetrics::currentThreadCpuSeconds();
     autorouterAllocatedStart = AutorouteRuntimeMetrics::currentThreadAllocatedMb();
-    autorouterBeforeStats = new BoardStatistics(router->board);
+    autorouterBeforeStats = new (jrt::kOp) BoardStatistics(router->board);
     float routerScoreBefore =
-        (new BoardStatistics(router->board))->getRouterScore(job->routerSettings);
+        (new (jrt::kOp) BoardStatistics(router->board))->getRouterScore(job->routerSettings);
     job->logInfo(jrt::format(
         "Auto-routing stage started on board '%s' with baseline score %.2f for %d "
         "unrouted item%s.",
@@ -315,7 +315,7 @@ bool AutorouteBatchLoop::run() {
           ? *router->settings->autorouter->stagnationPassLimit
           : BatchAutorouter::STAGNATION_PASS_LIMIT;
   // Track board hashes that have already been routed (same-hash stop currently disabled).
-  jrt::Set<std::string>* alreadyRoutedBoardHashes = new jrt::HashSet<std::string>();
+  jrt::Set<std::string>* alreadyRoutedBoardHashes = new (jrt::kOp) jrt::HashSet<std::string>();
   while (continueAutorouting && !router->thread->isStopAutoRouterRequested()) {
     if (job->state == RoutingJobState::TIMED_OUT) {
       stopFor(BatchAutorouter_StopReason::TIMED_OUT);
@@ -336,7 +336,7 @@ bool AutorouteBatchLoop::run() {
     job->setCurrentPass(currentPass);
 
     router->fireTaskStateChangedEvent(
-        new TaskStateChangedEvent(router, TaskState::RUNNING, currentPass, currentBoardHash));
+        new (jrt::kOp) TaskStateChangedEvent(router, TaskState::RUNNING, currentPass, currentBoardHash));
 
     bh->add(router->board);
 
@@ -346,7 +346,7 @@ bool AutorouteBatchLoop::run() {
 
     continueAutorouting = autoroutePass(currentPass);
 
-    BoardStatistics* boardStatisticsAfter = new BoardStatistics(router->board);
+    BoardStatistics* boardStatisticsAfter = new (jrt::kOp) BoardStatistics(router->board);
     float boardScoreAfter = boardStatisticsAfter->getRouterScore(job->routerSettings);
 
     if ((bh->size() >= BatchAutorouter::STOP_AT_PASS_MINIMUM) ||
@@ -423,7 +423,7 @@ bool AutorouteBatchLoop::run() {
       job->logInfo(passCompletedMessage);
     }
 
-    DesignRulesChecker* tempDrc = new DesignRulesChecker(router->board, nullptr);
+    DesignRulesChecker* tempDrc = new (jrt::kOp) DesignRulesChecker(router->board, nullptr);
     tempDrc->calculateAllIncompletes();
     std::string perNetBreakdown;
     for (int32_t netNumber = 1; netNumber <= router->board->rules->nets->maxNetNumber();
@@ -435,7 +435,7 @@ bool AutorouteBatchLoop::run() {
                         "pass=" + jrt::str(currentPass) + ", net=" + jrt::str(netNumber) +
                             ", incomplete=" + jrt::str(netIncomplete),
                         "Net #" + jrt::str(netNumber),
-                        new jrt::Array<Point*>(0));
+                        new (jrt::kGeom) jrt::Array<Point*>(0));
         if (!perNetBreakdown.empty()) {
           perNetBreakdown += ',';
         }
@@ -449,7 +449,7 @@ bool AutorouteBatchLoop::run() {
                     "pass=" + jrt::str(currentPass) + ", total=" +
                         jrt::str(tempDrc->getIncompleteCount()) + ", breakdown=" + perNetBreakdown,
                     "",
-                    new jrt::Array<Point*>(0));
+                    new (jrt::kGeom) jrt::Array<Point*>(0));
 
     if (router->settings->autorouter->saveIntermediateStages.has_value() &&
         *router->settings->autorouter->saveIntermediateStages) {
@@ -475,7 +475,7 @@ bool AutorouteBatchLoop::run() {
           const int32_t incompletesBeforeRecovery =
               boardStatisticsAfter->connections->incompleteCount.value();
           removeTails(Item_StopConnectionOption::NONE);
-          boardStatisticsAfter = new BoardStatistics(router->board);
+          boardStatisticsAfter = new (jrt::kOp) BoardStatistics(router->board);
           boardScoreAfter = boardStatisticsAfter->getRouterScore(job->routerSettings);
           lastBestScore = boardScoreAfter;
           consecutiveNoImprovementPasses = 0;
@@ -496,7 +496,7 @@ bool AutorouteBatchLoop::run() {
           int32_t removed = LastMileBlockerRipup::ripBlockers(router->board, router->ripupMemory);
           lastMileAttempts++;
           if (removed > 0) {
-            boardStatisticsAfter = new BoardStatistics(router->board);
+            boardStatisticsAfter = new (jrt::kOp) BoardStatistics(router->board);
             boardScoreAfter = boardStatisticsAfter->getRouterScore(job->routerSettings);
             lastBestScore = boardScoreAfter;
             consecutiveNoImprovementPasses = 0;
@@ -564,14 +564,14 @@ bool AutorouteBatchLoop::run() {
 
   // Ensure we finish with the best board ever seen during this routing session.
   float currentFinalScore =
-      (new BoardStatistics(router->board))->getRouterScore(job->routerSettings);
+      (new (jrt::kOp) BoardStatistics(router->board))->getRouterScore(job->routerSettings);
   float bestHistoryScore = bh->getMaxScore();
   if (bestHistoryScore > currentFinalScore) {
     RoutingBoard* bestBoard = bh->restoreBestBoard();
     if (bestBoard != nullptr) {
-      BoardStatistics* currentStats = new BoardStatistics(router->board);
+      BoardStatistics* currentStats = new (jrt::kOp) BoardStatistics(router->board);
       router->board = bestBoard;
-      BoardStatistics* bestStats = new BoardStatistics(router->board);
+      BoardStatistics* bestStats = new (jrt::kOp) BoardStatistics(router->board);
       job->logDebug(
           "The final board state (score " +
           FRLogger::formatScore(currentFinalScore,
@@ -609,7 +609,7 @@ bool AutorouteBatchLoop::run() {
   }
 
   if (isRouterEnabled && autorouterBeforeStats != nullptr) {
-    BoardStatistics* autorouterAfterStats = new BoardStatistics(router->board);
+    BoardStatistics* autorouterAfterStats = new (jrt::kOp) BoardStatistics(router->board);
     RoutingResultManifest_PhaseDetail* phase = job->resultPhaseMetrics->autorouter;
     phase->before = RoutingResultManifest_PhaseSnapshot::fromBoardStatistics(
         autorouterBeforeStats, job->routerSettings, std::string("current"));
@@ -645,13 +645,13 @@ bool AutorouteBatchLoop::run() {
   PerformanceProfiler::reset();
 
   if (!router->thread->isStopAutoRouterRequested()) {
-    router->fireTaskStateChangedEvent(new TaskStateChangedEvent(
+    router->fireTaskStateChangedEvent(new (jrt::kOp) TaskStateChangedEvent(
         router, TaskState::FINISHED, currentPass, router->board->getHash()));
   } else {
     // Distinguish between a user-requested cancellation and a job timeout so that
     // API consumers can tell the two apart via TaskStateChangedEvent.
     bool isTimedOut = job->state == RoutingJobState::TIMED_OUT;
-    router->fireTaskStateChangedEvent(new TaskStateChangedEvent(
+    router->fireTaskStateChangedEvent(new (jrt::kOp) TaskStateChangedEvent(
         router, isTimedOut ? TaskState::TIMED_OUT : TaskState::CANCELLED, currentPass,
         router->board->getHash()));
   }

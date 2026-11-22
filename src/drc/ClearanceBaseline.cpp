@@ -26,14 +26,14 @@ int32_t ClearanceBaseline::countNewOrChanged(jrt::Collection<ClearanceViolation*
 
 jrt::List<ClearanceViolation*>* ClearanceBaseline::getNewOrChanged(
     jrt::Collection<ClearanceViolation*>* violations) {
-  auto* result = new jrt::ArrayList<ClearanceViolation*>();
+  auto* result = new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>();
   if (this->entries->length == 0) {
     result->addAll(violations);
     return result;
   }
   std::vector<ClearanceViolation*> currentViolations = violations->toVector();
   jrt::Array<ClearanceBaseline_Entry*>* currentEntries = capture(violations);
-  auto* used = new jrt::Array<bool>(this->entries->length);
+  auto* used = new (jrt::kOp) jrt::Array<bool>(this->entries->length);
   for (int32_t n = 0; n < currentEntries->length; n++) {
     ClearanceBaseline_Entry* current = (*currentEntries)[n];
     int32_t match = -1;
@@ -54,22 +54,22 @@ jrt::List<ClearanceViolation*>* ClearanceBaseline::getNewOrChanged(
 
 jrt::Array<ClearanceBaseline_Entry*>* ClearanceBaseline::capture(
     jrt::Collection<ClearanceViolation*>* violations) {
-  auto* cache = new jrt::HashMap<Item*, ClearanceBaseline_ItemGeometry*>();
-  auto* result = new jrt::Array<ClearanceBaseline_Entry*>(violations->size());
+  auto* cache = new (jrt::kOp) jrt::HashMap<Item*, ClearanceBaseline_ItemGeometry*>();
+  auto* result = new (jrt::kOp) jrt::Array<ClearanceBaseline_Entry*>(violations->size());
   int32_t idx = 0;
   for (ClearanceViolation* v : *violations) {
     ClearanceBaseline_ItemGeometry* first =
         v->firstItem != nullptr
             ? cache->computeIfAbsent(
-                  v->firstItem, [](Item* item) { return new ClearanceBaseline_ItemGeometry(item); })
+                  v->firstItem, [](Item* item) { return new (jrt::kOp) ClearanceBaseline_ItemGeometry(item); })
             : nullptr;
     ClearanceBaseline_ItemGeometry* second =
         v->secondItem != nullptr
             ? cache->computeIfAbsent(
                   v->secondItem,
-                  [](Item* item) { return new ClearanceBaseline_ItemGeometry(item); })
+                  [](Item* item) { return new (jrt::kOp) ClearanceBaseline_ItemGeometry(item); })
             : nullptr;
-    (*result)[idx++] = new ClearanceBaseline_Entry(first, second, v->layer, v->expectedClearance,
+    (*result)[idx++] = new (jrt::kOp) ClearanceBaseline_Entry(first, second, v->layer, v->expectedClearance,
                                                    v->actualClearance);
   }
   return result;
@@ -106,14 +106,14 @@ bool ClearanceBaseline_Entry::matchesItems(ClearanceBaseline_ItemGeometry* a,
 ClearanceBaseline_ItemGeometry::ClearanceBaseline_ItemGeometry(Item* item) {
   // PORT NOTE: Java getClass().getName() -> jrt::className (only compared for equality).
   this->type = jrt::className(item);
-  this->nets = new jrt::Array<int32_t>(item->netCount());
+  this->nets = new (jrt::kOp) jrt::Array<int32_t>(item->netCount());
   for (int32_t i = 0; i < this->nets->length; i++) {
     (*this->nets)[i] = item->getNetNumber(i);
   }
   jrt::Arrays::sort(this->nets);
-  this->shapes = new jrt::Array<ClearanceBaseline_ShapeGeometry*>(item->tileShapeCount());
+  this->shapes = new (jrt::kOp) jrt::Array<ClearanceBaseline_ShapeGeometry*>(item->tileShapeCount());
   for (int32_t i = 0; i < this->shapes->length; i++) {
-    (*this->shapes)[i] = new ClearanceBaseline_ShapeGeometry(item->shapeLayer(i), item->getTileShape(i));
+    (*this->shapes)[i] = new (jrt::kOp) ClearanceBaseline_ShapeGeometry(item->shapeLayer(i), item->getTileShape(i));
   }
 }
 
@@ -145,7 +145,7 @@ ClearanceBaseline_ShapeGeometry::ClearanceBaseline_ShapeGeometry(int32_t layer, 
     this->corners = nullptr;
   } else {
     int32_t count = shape->borderLineCount();
-    this->corners = new jrt::Array<Point*>(count * 2);
+    this->corners = new (jrt::kGeom) jrt::Array<Point*>(count * 2);
     for (int32_t i = 0; i < count; i++) {
       Line* border = shape->borderLine(i);
       (*this->corners)[i * 2] = border->a;

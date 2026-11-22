@@ -10,7 +10,7 @@ namespace fr::dsn {
 std::regex* KiCadRoundRectPad::NAME() {
   // PORT NOTE: the unescaped ']' outside a character class of the Java pattern is written '\]'
   // (same meaning; std::regex ECMAScript is stricter).
-  static std::regex* v = new std::regex(
+  static std::regex* v = new (jrt::kOp) std::regex(
       "RoundRect\\[[^\\]]*\\](?:\\[[^\\]]*\\])?Pad_"
       "(\\d+(?:\\.\\d*)?)x(\\d+(?:\\.\\d*)?)_(\\d+(?:\\.\\d*)?)_um_"
       "(\\d+(?:\\.\\d*)?)_([0-9A-Fa-f]+)",
@@ -86,7 +86,7 @@ Shape* KiCadRoundRectPad::correct(const std::string& padstackName, Shape* shape,
   double top = outwards(centreY + halfHeight, 1, coordinateTransform);
   int32_t n = segmentsPerQuarter(radiusUm);
   double margin = coordinateTransform->boardToDsn(1);
-  return new Polygon(polygon->layer, corners(left, bottom, right, top, radius, n, margin));
+  return new (jrt::kOp) Polygon(polygon->layer, corners(left, bottom, right, top, radius, n, margin));
 }
 
 double KiCadRoundRectPad::outwards(double dsn, int32_t sign,
@@ -116,8 +116,8 @@ bool KiCadRoundRectPad::isOnOutlineOnceAround(jrt::Array<double>* coor, double c
                                               double halfHeight, double radius,
                                               double tolerance) {
   int32_t count = coor->length / 2;
-  jrt::Array<double>* x = new jrt::Array<double>(count);
-  jrt::Array<double>* y = new jrt::Array<double>(count);
+  jrt::Array<double>* x = new (jrt::kOp) jrt::Array<double>(count);
+  jrt::Array<double>* y = new (jrt::kOp) jrt::Array<double>(count);
   int32_t distinct = 0;
   for (int32_t i = 0; i < count; i++) {
     double px = (*coor)[2 * i];
@@ -175,7 +175,7 @@ jrt::Array<double>* KiCadRoundRectPad::corners(double left, double bottom, doubl
   jrt::Array<double>* edgeY = jrt::Array<double>::of({top, top, bottom, bottom});
   jrt::Array<double>* signX = jrt::Array<double>::of({1, -1, -1, 1});
   jrt::Array<double>* signY = jrt::Array<double>::of({1, 1, -1, -1});
-  jrt::Array<double>* coor = new jrt::Array<double>(8 * n);
+  jrt::Array<double>* coor = new (jrt::kOp) jrt::Array<double>(8 * n);
   int32_t index = 0;
   for (int32_t quarter = 0; quarter < 4; quarter++) {
     double arcCentreX = (*edgeX)[quarter] - (*signX)[quarter] * radius;

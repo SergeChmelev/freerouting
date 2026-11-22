@@ -28,15 +28,15 @@ bool DesignBlocks::isRuleBlocked(Pin* pin) {
 }
 
 jrt::List<Item*>* DesignBlocks::blockingItems(Pin* pin) {
-  jrt::Set<int32_t>* pinLayers = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* pinLayers = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (int32_t i = 0; i < pin->tileShapeCount(); i++) {
     pinLayers->add(pin->shapeLayer(i));
   }
   if (pinLayers->isEmpty()) {
     return nullptr;
   }
-  jrt::Set<int32_t>* blockedLayers = new jrt::HashSet<int32_t>();
-  jrt::List<Item*>* blockers = new jrt::ArrayList<Item*>();
+  jrt::Set<int32_t>* blockedLayers = new (jrt::kOp) jrt::HashSet<int32_t>();
+  jrt::List<Item*>* blockers = new (jrt::kOp) jrt::ArrayList<Item*>();
   for (ClearanceViolation* v : *pin->clearanceViolations()) {
     Item* other = (v->firstItem == static_cast<Item*>(pin)) ? v->secondItem : v->firstItem;
     if (v->actualClearance > 0 || other->isRoutable() || !isCopper(other) || other->sharesNet(pin) ||
@@ -69,7 +69,7 @@ bool DesignBlocks::connectionsBlocked(BasicBoard* board, Item* item, int32_t net
   if (isBlockedSet(ownSet)) {
     return true;
   }
-  jrt::Set<Item*>* seen = new jrt::HashSet<Item*>(ownSet);
+  jrt::Set<Item*>* seen = new (jrt::kOp) jrt::HashSet<Item*>(ownSet);
   bool sawOtherSet = false;
   for (Item* netItem : *board->getConnectableItems(netNumber)) {
     if (seen->contains(netItem)) {
@@ -86,7 +86,7 @@ bool DesignBlocks::connectionsBlocked(BasicBoard* board, Item* item, int32_t net
 }
 
 jrt::List<AirLine*>* DesignBlocks::blockedAirlines(jrt::Collection<AirLine*>* airlines) {
-  jrt::List<AirLine*>* result = new jrt::ArrayList<AirLine*>();
+  jrt::List<AirLine*>* result = new (jrt::kOp) jrt::ArrayList<AirLine*>();
   for (AirLine* a : *airlines) {
     if (a != nullptr && a->net != nullptr &&
         (endBlocked(a->fromItem, a->net->netNumber) || endBlocked(a->toItem, a->net->netNumber))) {

@@ -11,16 +11,16 @@
 namespace fr::dsn {
 
 Rectangle* Rectangle::union_(Rectangle* other) {
-  auto* resultCoor = new jrt::Array<double>(4);
+  auto* resultCoor = new (jrt::kOp) jrt::Array<double>(4);
   (*resultCoor)[0] = jrt::Math::min((*this->coor)[0], (*other->coor)[0]);
   (*resultCoor)[1] = jrt::Math::min((*this->coor)[1], (*other->coor)[1]);
   (*resultCoor)[2] = jrt::Math::max((*this->coor)[2], (*other->coor)[2]);
   (*resultCoor)[3] = jrt::Math::max((*this->coor)[3], (*other->coor)[3]);
-  return new Rectangle(this->layer, resultCoor);
+  return new (jrt::kOp) Rectangle(this->layer, resultCoor);
 }
 
 fr::Shape* Rectangle::transformToBoardRel(fr::io::CoordinateTransform* coordinateTransform) {
-  auto* boxCoor = new jrt::Array<int32_t>(4);
+  auto* boxCoor = new (jrt::kOp) jrt::Array<int32_t>(4);
   for (int32_t i = 0; i < 4; i++) {
     (*boxCoor)[i] =
         static_cast<int32_t>(jrt::Math::round(coordinateTransform->dsnToBoard((*this->coor)[i])));
@@ -29,23 +29,23 @@ fr::Shape* Rectangle::transformToBoardRel(fr::io::CoordinateTransform* coordinat
   fr::IntBox* result;
   if ((*boxCoor)[1] <= (*boxCoor)[3]) {
     // boxCoor describe lower left and upper right corner
-    result = new fr::IntBox((*boxCoor)[0], (*boxCoor)[1], (*boxCoor)[2], (*boxCoor)[3]);
+    result = new (jrt::kGeom) fr::IntBox((*boxCoor)[0], (*boxCoor)[1], (*boxCoor)[2], (*boxCoor)[3]);
   } else {
     // boxCoor describe upper left and lower right corner
-    result = new fr::IntBox((*boxCoor)[0], (*boxCoor)[3], (*boxCoor)[2], (*boxCoor)[1]);
+    result = new (jrt::kGeom) fr::IntBox((*boxCoor)[0], (*boxCoor)[3], (*boxCoor)[2], (*boxCoor)[1]);
   }
   return result;
 }
 
 fr::Shape* Rectangle::transformToBoard(fr::io::CoordinateTransform* coordinateTransform) {
-  auto* currentPoint = new jrt::Array<double>(2);
+  auto* currentPoint = new (jrt::kOp) jrt::Array<double>(2);
   (*currentPoint)[0] = jrt::Math::min((*coor)[0], (*coor)[2]);
   (*currentPoint)[1] = jrt::Math::min((*coor)[1], (*coor)[3]);
   fr::FloatPoint* lowerLeft = coordinateTransform->dsnToBoard(currentPoint);
   (*currentPoint)[0] = jrt::Math::max((*coor)[0], (*coor)[2]);
   (*currentPoint)[1] = jrt::Math::max((*coor)[1], (*coor)[3]);
   fr::FloatPoint* upperRight = coordinateTransform->dsnToBoard(currentPoint);
-  return new fr::IntBox(lowerLeft->round(), upperRight->round());
+  return new (jrt::kGeom) fr::IntBox(lowerLeft->round(), upperRight->round());
 }
 
 void Rectangle::writeScope(fr::IndentFileWriter* file, fr::IdentifierType* identifier) {

@@ -177,7 +177,7 @@ int32_t Padstack::toLayer() {
 }
 
 jrt::Collection<Direction*>* Padstack::getTraceExitDirections(int32_t layer, double factor) {
-  jrt::Collection<Direction*>* result = new jrt::LinkedList<Direction*>();
+  jrt::Collection<Direction*>* result = new (jrt::kOp) jrt::LinkedList<Direction*>();
   if (layer < 0 || layer >= shapes->length) {
     return result;
   }
@@ -206,7 +206,7 @@ jrt::Collection<Direction*>* Padstack::getTraceExitDirections(int32_t layer, dou
 }
 
 void Padstack::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("app.freerouting.core.library.Padstack", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("app.freerouting.core.library.Padstack", locale);
 
   printer->appendBold(tm->getText("padstack") + " ");
   printer->appendBold(this->name);

@@ -31,9 +31,9 @@ namespace fr {
 DrillPage::DrillPage(IntBox* shape, RoutingBoard* board) {
   this->shape = shape;
   this->board = board;
-  mazeSearchElements = new jrt::Array<MazeSearchElement*>(board->getLayerCount());
+  mazeSearchElements = new (jrt::kOp) jrt::Array<MazeSearchElement*>(board->getLayerCount());
   for (int32_t i = 0; i < mazeSearchElements->length; i++) {
-    (*mazeSearchElements)[i] = new MazeSearchElement();
+    (*mazeSearchElements)[i] = new (jrt::kOp) MazeSearchElement();
   }
 }
 
@@ -73,7 +73,7 @@ void DrillPage::addPlanePinCandidates(AutorouteEngine* autorouteEngine, TileShap
     if (!drillShape->contains(location)) {
       continue;
     }
-    ExpansionDrill* drill = new ExpansionDrill(drillShape, location, 0, this->board->getLayerCount() - 1);
+    ExpansionDrill* drill = new (jrt::kOp) ExpansionDrill(drillShape, location, 0, this->board->getLayerCount() - 1);
     if (drill->calculateExpansionRooms(autorouteEngine)) {
       this->drills->add(drill);
     }
@@ -91,16 +91,16 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
     this->netNumber = autorouteEngine->getNetNumber();
     this->attachSmdCached = attachSmd;
     this->centreOfGravityCandidateCached = centreOfGravityCandidate;
-    this->drills = new jrt::LinkedList<ExpansionDrill*>();
+    this->drills = new (jrt::kOp) jrt::LinkedList<ExpansionDrill*>();
     ShapeSearchTree* searchTree = autorouteEngine->autorouteSearchTree;
-    jrt::Collection<ShapeTree_TreeEntry*>* overlaps = new jrt::LinkedList<ShapeTree_TreeEntry*>();
+    jrt::Collection<ShapeTree_TreeEntry*>* overlaps = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
     searchTree->overlappingTreeEntries(this->shape, -1, overlaps);
-    jrt::Collection<TileShape*>* cutoutShapes = new jrt::LinkedList<TileShape*>();
+    jrt::Collection<TileShape*>* cutoutShapes = new (jrt::kOp) jrt::LinkedList<TileShape*>();
     // drills on top of existing vias are used in the ripup algorithm
     TileShape* prevObstacleShape = IntBox::EMPTY();
     Net* net = this->board->rules->nets->get(this->netNumber);
     bool planeNet = net != nullptr && net->containsPlane();
-    jrt::Collection<Pin*>* planePins = new jrt::LinkedList<Pin*>();
+    jrt::Collection<Pin*>* planePins = new (jrt::kOp) jrt::LinkedList<Pin*>();
     for (ShapeTree_TreeEntry* currentEntry : *overlaps) {
       Item* currentItem = jrt::fast_cast<Item>(currentEntry->object);
       if (currentItem == nullptr) {
@@ -133,12 +133,12 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
       prevObstacleShape = currentObstacleShape;
     }
     // PORT NOTE: Java passes the TileShape[] covariantly as PolylineShape[].
-    jrt::Array<PolylineShape*>* holes = new jrt::Array<PolylineShape*>(cutoutShapes->size());
+    jrt::Array<PolylineShape*>* holes = new (jrt::kGeom) jrt::Array<PolylineShape*>(cutoutShapes->size());
     jrt::Iterator<TileShape*>* it = cutoutShapes->iterator();
     for (int32_t i = 0; i < holes->length; i++) {
       (*holes)[i] = it->next();
     }
-    PolylineArea* shapeWithHoles = new PolylineArea(this->shape, holes);
+    PolylineArea* shapeWithHoles = new (jrt::kGeom) PolylineArea(this->shape, holes);
     jrt::Array<TileShape*>* drillShapes = shapeWithHoles->splitToConvex(autorouteEngine->stoppableThread);
     if (drillShapes == nullptr) {
       return this->drills;
@@ -161,7 +161,7 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
         currentDrillLocation = currentDrillShape->centreOfGravity()->round();
       }
       ExpansionDrill* newDrill =
-          new ExpansionDrill(currentDrillShape, currentDrillLocation, drillFirstLayer, drillLastLayer);
+          new (jrt::kOp) ExpansionDrill(currentDrillShape, currentDrillLocation, drillFirstLayer, drillLastLayer);
       if (newDrill->calculateExpansionRooms(autorouteEngine)) {
         this->drills->add(newDrill);
       }
@@ -170,7 +170,7 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
         Point* centreOfGravity = currentDrillShape->centreOfGravity()->round();
         if (!centreOfGravity->equals(pinCenter)) {
           ExpansionDrill* cogDrill =
-              new ExpansionDrill(currentDrillShape, centreOfGravity, drillFirstLayer, drillLastLayer);
+              new (jrt::kOp) ExpansionDrill(currentDrillShape, centreOfGravity, drillFirstLayer, drillLastLayer);
           if (cogDrill->calculateExpansionRooms(autorouteEngine)) {
             this->drills->add(cogDrill);
           }

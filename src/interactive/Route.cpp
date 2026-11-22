@@ -89,7 +89,7 @@ bool Route::nextCorner(FloatPoint* corner) {
   Item* endRoutingItem = board->pickNearestRoutingItem(prevCorner, this->layer, nullptr);
   nearestTargetItem = board->pickNearestRoutingItem(currentCorner, this->layer, endRoutingItem);
   TimeLimit* checkForcedTraceTimeLimit =
-      isStitchMode ? nullptr : new TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
+      isStitchMode ? nullptr : new (jrt::kOp) TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
   Point* okPoint = board->insertForcedTraceSegment(
       prevCorner, currentCorner, (*penHalfWidthArr)[layer], layer, netNumbers, clearanceClass,
       maxShoveTraceRecursionDepth, maxShoveViaRecursionDepth, maxSpringOverRecursionDepth,
@@ -116,7 +116,7 @@ bool Route::nextCorner(FloatPoint* corner) {
     tidyClipShape = okPoint->surroundingOctagon()->enlarge(traceTidyWidth);
   }
   jrt::Array<int32_t>* optNetNoArr =
-      maxShoveTraceRecursionDepth <= 0 ? netNumbers : new jrt::Array<int32_t>(0);
+      maxShoveTraceRecursionDepth <= 0 ? netNumbers : new (jrt::kOp) jrt::Array<int32_t>(0);
   if (routeCompleted) {
     this->board->reduceNetsOfRouteItems();
     for (int32_t currentNetNumber : *this->netNumbers) this->board->combineTraces(currentNetNumber);
@@ -165,7 +165,7 @@ bool Route::changeLayer(int32_t toLayer) {
 }
 
 bool Route::snapToSmdCenter(int32_t layerIndex) {
-  auto* selectionFilter = new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::PINS);
+  auto* selectionFilter = new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::PINS);
   jrt::Set<Item*>* pickedItems = board->pickItems(this->prevCorner, layerIndex, selectionFilter);
   Pin* foundSmdPin = nullptr;
   for (Item* currentItem : *pickedItems) {
@@ -208,7 +208,7 @@ bool Route::connect(Point* fromPoint, IntPoint* toPoint) {
   for (int32_t i = 1; i < corners->length; i++) {
     Point* fromCorner = (*corners)[i - 1];
     Point* toCorner = (*corners)[i];
-    auto* timeLimit = new TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
+    auto* timeLimit = new (jrt::kOp) TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
     while (!fromCorner->equals(toCorner)) {
       Point* currentOkPoint = board->insertForcedTraceSegment(
           fromCorner, toCorner, (*penHalfWidthArr)[layer], this->layer, netNumbers, clearanceClass,
@@ -254,7 +254,7 @@ jrt::Array<Point*>* Route::angledConnection(Point* fromPoint, Point* toPoint) {
   }
   int32_t newCornerCount = 2;
   if (addCorner != nullptr) ++newCornerCount;
-  auto* result = new jrt::Array<Point*>(newCornerCount);
+  auto* result = new (jrt::kGeom) jrt::Array<Point*>(newCornerCount);
   (*result)[0] = fromPoint;
   if (addCorner != nullptr) (*result)[1] = addCorner;
   (*result)[result->length - 1] = toPoint;
@@ -262,13 +262,13 @@ jrt::Array<Point*>* Route::angledConnection(Point* fromPoint, Point* toPoint) {
 }
 
 void Route::calculateTargetPointsAndAreas() {
-  targetPoints = new jrt::LinkedList<Route_TargetPoint*>();
-  targetTracesAndAreas = new jrt::LinkedList<Item*>();
+  targetPoints = new (jrt::kOp) jrt::LinkedList<Route_TargetPoint*>();
+  targetTracesAndAreas = new (jrt::kOp) jrt::LinkedList<Item*>();
   if (targetSet == nullptr) return;
   for (Item* currentObject : *targetSet) {
     if (auto* item = jrt::fast_cast<DrillItem>(currentObject)) {
       Point* currentPoint = item->getCenter();
-      targetPoints->add(new Route_TargetPoint(currentPoint->toFloat(), currentObject));
+      targetPoints->add(new (jrt::kOp) Route_TargetPoint(currentPoint->toFloat(), currentObject));
     } else if (jrt::fast_cast<Trace>(currentObject) != nullptr ||
                jrt::fast_cast<ConductionArea>(currentObject) != nullptr) {
       targetTracesAndAreas->add(currentObject);
@@ -347,7 +347,7 @@ Point* Route::tryNeckdownAtStart(IntPoint* toCorner) {
       if (trace->getHalfWidth() > neckDownHalfwidth) return this->prevCorner;
     }
   }
-  auto* timeLimit = new TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
+  auto* timeLimit = new (jrt::kOp) TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
   return board->insertForcedTraceSegment(prevCorner, toCorner, neckDownHalfwidth, layer, netNumbers,
                                          clearanceClass, maxShoveTraceRecursionDepth,
                                          maxShoveViaRecursionDepth, maxSpringOverRecursionDepth,
@@ -365,7 +365,7 @@ Point* Route::tryNeckdownAtEnd(Point* fromCorner, Point* toCorner) {
   if (pinCenter->distance(fromCorner->toFloat()) >= pinNeckDownDistance) return fromCorner;
   int32_t neckDownHalfwidth = targetPin->getTraceNeckdownHalfwidth(this->layer);
   if (neckDownHalfwidth >= (*this->penHalfWidthArr)[this->layer]) return fromCorner;
-  auto* timeLimit = new TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
+  auto* timeLimit = new (jrt::kOp) TimeLimit(CHECK_FORCED_TRACE_TIME_LIMIT);
   return board->insertForcedTraceSegment(fromCorner, toCorner, neckDownHalfwidth, layer, netNumbers,
                                          clearanceClass, maxShoveTraceRecursionDepth,
                                          maxShoveViaRecursionDepth, maxSpringOverRecursionDepth,

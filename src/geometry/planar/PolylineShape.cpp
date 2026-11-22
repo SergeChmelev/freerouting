@@ -12,13 +12,13 @@ namespace fr {
 
 jrt::Array<Point*>* PolylineShape::boundedCorners() {
   int32_t cornerCount = this->borderLineCount();
-  jrt::Collection<Point*>* resultList = new jrt::LinkedList<Point*>();
+  jrt::Collection<Point*>* resultList = new (jrt::kOp) jrt::LinkedList<Point*>();
   for (int32_t i = 0; i < cornerCount; i++) {
     if (this->cornerIsBounded(i)) {
       resultList->add(this->corner(i));
     }
   }
-  auto* result = new jrt::Array<Point*>(resultList->size());
+  auto* result = new (jrt::kGeom) jrt::Array<Point*>(resultList->size());
   jrt::Iterator<Point*>* it = resultList->iterator();
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = it->next();
@@ -30,7 +30,7 @@ FloatPoint* PolylineShape::cornerApprox(int32_t no) { return corner(no)->toFloat
 
 jrt::Array<FloatPoint*>* PolylineShape::cornerApproxArr() {
   int32_t cornerCount = this->borderLineCount();
-  auto* result = new jrt::Array<FloatPoint*>(cornerCount);
+  auto* result = new (jrt::kGeom) jrt::Array<FloatPoint*>(cornerCount);
   for (int32_t i = 0; i < cornerCount; i++) {
     (*result)[i] = this->cornerApprox(i);
   }
@@ -72,7 +72,7 @@ FloatPoint* PolylineShape::centreOfGravity() {
   }
   x /= cornerCount;
   y /= cornerCount;
-  return new FloatPoint(x, y);
+  return new (jrt::kGeom) FloatPoint(x, y);
 }
 
 bool PolylineShape::isContainedIn(IntBox* box) { return box->contains(boundingBox()); }
@@ -122,7 +122,7 @@ FloatLine* PolylineShape::polarLineSegment(FloatPoint* fromPoint) {
       leftMostCorner = currentCorner;
     }
   }
-  return new FloatLine(leftMostCorner, rightMostCorner);
+  return new (jrt::kGeom) FloatLine(leftMostCorner, rightMostCorner);
 }
 
 int32_t PolylineShape::prevNo(int32_t no) {
@@ -137,7 +137,7 @@ int32_t PolylineShape::prevNo(int32_t no) {
 
 int32_t PolylineShape::nextNo(int32_t no) { return (no + 1) % borderLineCount(); }
 
-jrt::Array<Shape*>* PolylineShape::getHoles() { return new jrt::Array<Shape*>(0); }
+jrt::Array<Shape*>* PolylineShape::getHoles() { return new (jrt::kOp) jrt::Array<Shape*>(0); }
 
 bool PolylineShape::intersects(Line* line) {
   Side* sideOfFirstCorner = line->sideOf(corner(0));

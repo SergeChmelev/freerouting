@@ -10,13 +10,13 @@
 namespace fr {
 
 BallFields::BallFields(jrt::List<BallFields_Field*>* fields, double cost)
-    : fields(new jrt::ArrayList<BallFields_Field*>(fields)), cost(cost) {}
+    : fields(new (jrt::kOp) jrt::ArrayList<BallFields_Field*>(fields)), cost(cost) {}
 
 BallFields* BallFields::of(BasicBoard* board, double cost) {
   if (!(cost > 0)) {
     return nullptr;
   }
-  jrt::List<BallFields_Field*>* found = new jrt::ArrayList<BallFields_Field*>();
+  jrt::List<BallFields_Field*>* found = new (jrt::kOp) jrt::ArrayList<BallFields_Field*>();
   for (int32_t id = 1; id <= board->components->count(); id++) {
     jrt::Collection<Pin*>* pins = board->getComponentPins(id);
     BallFields_Field* field = fieldOf(pins);
@@ -24,16 +24,16 @@ BallFields* BallFields::of(BasicBoard* board, double cost) {
       found->add(field);
     }
   }
-  return found->isEmpty() ? nullptr : new BallFields(found, cost);
+  return found->isEmpty() ? nullptr : new (jrt::kOp) BallFields(found, cost);
 }
 
 BallFields_Field* BallFields::fieldOf(jrt::Collection<Pin*>* pinCollection) {
   if (pinCollection == nullptr || pinCollection->size() < MIN_BALLS) {
     return nullptr;
   }
-  jrt::List<Pin*>* pins = new jrt::ArrayList<Pin*>(pinCollection);
+  jrt::List<Pin*>* pins = new (jrt::kOp) jrt::ArrayList<Pin*>(pinCollection);
   int32_t layer = pins->get(0)->firstLayer();
-  jrt::List<FloatPoint*>* centres = new jrt::ArrayList<FloatPoint*>(pins->size());
+  jrt::List<FloatPoint*>* centres = new (jrt::kOp) jrt::ArrayList<FloatPoint*>(pins->size());
   for (Pin* pin : *pins) {
     if (pin->firstLayer() != layer || pin->lastLayer() != layer) {
       return nullptr;
@@ -60,8 +60,8 @@ BallFields_Field* BallFields::fieldOf(jrt::List<FloatPoint*>* centres, int32_t l
   if (pitch == jrt::Double::MAX_VALUE) {
     return nullptr;
   }
-  jrt::List<double>* ys = new jrt::ArrayList<double>(centres->size());
-  jrt::List<double>* xs = new jrt::ArrayList<double>(centres->size());
+  jrt::List<double>* ys = new (jrt::kOp) jrt::ArrayList<double>(centres->size());
+  jrt::List<double>* xs = new (jrt::kOp) jrt::ArrayList<double>(centres->size());
   double minX = jrt::Double::MAX_VALUE;
   double maxX = -jrt::Double::MAX_VALUE;
   double minY = jrt::Double::MAX_VALUE;
@@ -87,13 +87,13 @@ BallFields_Field* BallFields::fieldOf(jrt::List<FloatPoint*>* centres, int32_t l
   if (rows < 3 || columns < 3 || centres->size() * 2 < rows * columns) {
     return nullptr;
   }
-  return new BallFields_Field(layer, minX - pitch, minY - pitch, maxX + pitch, maxY + pitch);
+  return new (jrt::kOp) BallFields_Field(layer, minX - pitch, minY - pitch, maxX + pitch, maxY + pitch);
 }
 
 int32_t BallFields::distinct(jrt::List<double>* values, double tolerance) {
   int32_t count = 0;
   double last = jrt::Double::NEGATIVE_INFINITY;
-  jrt::List<double>* sorted = new jrt::ArrayList<double>(values);
+  jrt::List<double>* sorted = new (jrt::kOp) jrt::ArrayList<double>(values);
   sorted->sort([](double a, double b) { return jrt::Double::compare(a, b); });
   for (double v : *sorted) {
     if (v - last > tolerance) {

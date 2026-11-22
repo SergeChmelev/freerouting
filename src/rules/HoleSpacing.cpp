@@ -46,10 +46,10 @@ jrt::List<HoleSpacing_TooCloseItem*>* HoleSpacing::tooClose(BasicBoard* board, F
                                                             double radius, int32_t fromLayer,
                                                             int32_t toLayer, double minimum,
                                                             Item* self) {
-  auto* result = new jrt::ArrayList<HoleSpacing_TooCloseItem*>();
+  auto* result = new (jrt::kOp) jrt::ArrayList<HoleSpacing_TooCloseItem*>();
   visit(board, center, radius, fromLayer, toLayer, minimum, self, nullptr,
         [result](DrillItem* item, double gap) {
-          result->add(new HoleSpacing_TooCloseItem(item, gap));
+          result->add(new (jrt::kBoard) HoleSpacing_TooCloseItem(item, gap));
           return true;
         });
   return result;
@@ -77,8 +77,8 @@ void HoleSpacing::visit(BasicBoard* board, FloatPoint* center, double radius, in
           : 0.0;
   int32_t reach = jrt::d2i(jrt::Math::ceil(radius + minimum + maxOtherDrill)) + 1;
   IntPoint* c = center->round();
-  IntBox* box = new IntBox(c->x - reach, c->y - reach, c->x + reach, c->y + reach);
-  auto* entries = new jrt::ArrayList<ShapeTree_TreeEntry*>();
+  IntBox* box = new (jrt::kGeom) IntBox(c->x - reach, c->y - reach, c->x + reach, c->y + reach);
+  auto* entries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
   board->searchTreeManager->getDefaultTree()->overlappingTreeEntries(box, -1, entries);
   jrt::Set<DrillItem*>* reported = nullptr;
   for (ShapeTree_TreeEntry* entry : *entries) {
@@ -103,7 +103,7 @@ void HoleSpacing::visit(BasicBoard* board, FloatPoint* center, double radius, in
       continue;
     }
     if (reported == nullptr) {
-      reported = new jrt::HashSet<DrillItem*>();
+      reported = new (jrt::kOp) jrt::HashSet<DrillItem*>();
     }
     reported->add(other);
     if (!report(other, gap)) {

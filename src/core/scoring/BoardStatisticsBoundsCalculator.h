@@ -133,7 +133,7 @@ class BoardStatisticsBoundsCalculator_LayerGroups : public virtual jrt::Object {
 
   void union_(int32_t firstLayer, int32_t secondLayer);
 
-  jrt::Map<int32_t, int32_t>* parent = new jrt::HashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* parent = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
 };
 
 /** Computes board-only lower bounds for optimizer scoring. */

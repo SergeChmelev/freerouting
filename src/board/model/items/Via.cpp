@@ -44,7 +44,7 @@ Via::Via(Padstack* padstack, Point* center, jrt::Array<int32_t>* netNumbers,
 }
 
 Item* Via::copy(int32_t id) {
-  Via* copy = new Via(padstack, getCenter(), netNumbers, clearanceClassIndex(), id,
+  Via* copy = new (jrt::kBoard) Via(padstack, getCenter(), netNumbers, clearanceClassIndex(), id,
                       getComponentId(), getFixedState(), attachAllowed, board);
   copy->isEscapeVia = this->isEscapeVia;
   copy->escapeViaSmdLayer = this->escapeViaSmdLayer;
@@ -58,7 +58,7 @@ jrt::Collection<ClearanceViolation*>* Via::clearanceViolations() {
     return rawViolations;
   }
   jrt::Collection<ClearanceViolation*>* filteredViolations =
-      new jrt::LinkedList<ClearanceViolation*>();
+      new (jrt::kOp) jrt::LinkedList<ClearanceViolation*>();
   for (ClearanceViolation* violation : *rawViolations) {
     if (violation->layer == this->escapeViaSmdLayer) {
       Item* other = nullptr;
@@ -100,8 +100,8 @@ void Via::addHoleToHoleViolations(jrt::Collection<ClearanceViolation*>* violatio
     double gap = tooClose->gap;
     IntPoint* c = center->round();
     int32_t r = jrt::d2i(jrt::Math::ceil(radius));
-    violations->add(new ClearanceViolation(
-        this, other, new IntBox(c->x - r, c->y - r, c->x + r, c->y + r),
+    violations->add(new (jrt::kOp) ClearanceViolation(
+        this, other, new (jrt::kGeom) IntBox(c->x - r, c->y - r, c->x + r, c->y + r),
         jrt::Math::max(firstLayer(), other->firstLayer()), minimum, jrt::Math::max(0.0, gap),
         true));
   }
@@ -114,7 +114,7 @@ Shape* Via::getShape(int32_t index) {
   }
   if (this->precalculatedShapes == nullptr) {
     int32_t shapeCount = jrt::Math::max(0, padstack->toLayer() - padstack->fromLayer() + 1);
-    this->precalculatedShapes = new jrt::Array<Shape*>(shapeCount);
+    this->precalculatedShapes = new (jrt::kBoard) jrt::Array<Shape*>(shapeCount);
     for (int32_t i = 0; i < this->precalculatedShapes->length; i++) {
       int32_t padstackLayer = i + this->firstLayer();
       Vector* translateVector = getCenter()->differenceBy(Point::ZERO());
@@ -171,7 +171,7 @@ bool Via::holeInPad(Pin* pin) {
   if (drillRadius <= 0 || center == nullptr) {
     return false;
   }
-  Circle* hole = new Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius)));
+  Circle* hole = new (jrt::kOp) Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius)));
   int32_t fromLayer = jrt::Math::max(this->firstLayer(), pin->firstLayer());
   int32_t toLayer = jrt::Math::min(this->lastLayer(), pin->lastLayer());
   for (int32_t layer = fromLayer; layer <= toLayer; layer++) {
@@ -219,7 +219,7 @@ ExpansionDrill* Via::getAutorouteDrillInfo(ShapeSearchTree* autorouteTree) {
   if (this->autorouteDrillInfo == nullptr) {
     ItemAutorouteInfo* viaAutorouteInfo = this->getAutorouteInfo();
     TileShape* currentDrillShape = TileShape::getInstance(this->getCenter());
-    this->autorouteDrillInfo = new ExpansionDrill(currentDrillShape, this->getCenter(),
+    this->autorouteDrillInfo = new (jrt::kBoard) ExpansionDrill(currentDrillShape, this->getCenter(),
                                                   this->firstLayer(), this->lastLayer());
     int32_t viaLayerCount = this->lastLayer() - this->firstLayer() + 1;
     for (int32_t i = 0; i < viaLayerCount; i++) {
@@ -248,7 +248,7 @@ bool Via::isSelectedByFilter(ItemSelectionFilter* filter) {
 }
 
 void Via::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->appendBold(tm->getText("via"));
   printer->append(" " + tm->getText("at") + " ");
@@ -260,7 +260,7 @@ void Via::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
 }
 
 std::string Via::getHoverInfo(const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   std::string fromLayer = (*this->board->layerStructure->layers)[this->firstLayer()]->name;
   std::string toLayer = (*this->board->layerStructure->layers)[this->lastLayer()]->name;

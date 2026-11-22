@@ -45,8 +45,8 @@ void AutorouteConnectionRouter::addSharablePads(Item* item, int32_t netNo, jrt::
   int32_t resolution = jrt::Math::max(1, router->board->communication->resolution);
   double maxGap = Unit_scale(shareGapUm * resolution, Unit::UM, router->board->communication->unit);
   IntBox* box = pin->boundingBox();
-  jrt::Set<Item*>* inPlane = new jrt::TreeSet<Item*>();
-  for (Item* plane : *(new jrt::ArrayList<Item*>(destinations))) {
+  jrt::Set<Item*>* inPlane = new (jrt::kOp) jrt::TreeSet<Item*>();
+  for (Item* plane : *(new (jrt::kOp) jrt::ArrayList<Item*>(destinations))) {
     inPlane->addAll(plane->getConnectedSet(netNo));
   }
   for (Item* other : *inPlane) {
@@ -59,7 +59,7 @@ void AutorouteConnectionRouter::addSharablePads(Item* item, int32_t netNo, jrt::
 }
 
 jrt::Set<Item*>* AutorouteConnectionRouter::withoutFracturedAreas(jrt::Set<Item*>* items) {
-  jrt::Set<Item*>* filtered = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* filtered = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (Item* it : *items) {
     ConductionArea* ca = jrt::fast_cast<ConductionArea>(it);
     if (!(ca != nullptr && ca->isFractured())) {
@@ -111,7 +111,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::route(Item* item, int32_t rou
         containsPlane ? jrt::Math::min(router->settings->getPlaneViaCosts(), signalViaCosts) : signalViaCosts;
 
     AutorouteControl* autorouteControl =
-        new AutorouteControl(router->board, routeNetNo, router->settings, currentViaCosts, router->getTraceCosts());
+        new (jrt::kOp) AutorouteControl(router->board, routeNetNo, router->settings, currentViaCosts, router->getTraceCosts());
     autorouteControl->ripupAllowed = true;
     autorouteControl->ripupCosts = router->getStartRipupCosts() * ripupPassNo;
     autorouteControl->netsNotToRip =
@@ -120,7 +120,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::route(Item* item, int32_t rou
 
     jrt::Set<Item*>* unconnectedSet = item->getUnconnectedSet(routeNetNo);
     if (unconnectedSet->isEmpty()) {
-      return new AutorouteAttemptResult(AutorouteAttemptState::NO_UNCONNECTED_NETS);
+      return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::NO_UNCONNECTED_NETS);
     }
 
     jrt::Set<Item*>* connectedSet = item->getConnectedSet(routeNetNo);
@@ -129,7 +129,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::route(Item* item, int32_t rou
     jrt::Set<Item*>* planeEscapeObstacles = jrt::Collections::emptySet<Item*>();
     if (containsPlane) {
       if (ConductionArea::coversAllPlanesOfNet(connectedSet, unconnectedSet, routeNetNo)) {
-        return new AutorouteAttemptResult(AutorouteAttemptState::CONNECTED_TO_PLANE);
+        return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::CONNECTED_TO_PLANE);
       }
       routeStartSet = connectedSet;
       routeDestSet = unconnectedSet;
@@ -159,7 +159,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::route(Item* item, int32_t rou
 
     double maxMilliseconds = 100000 * jrt::Math::pow(2, ripupPassNo - 1);
     maxMilliseconds = jrt::Math::min(maxMilliseconds, static_cast<double>(jrt::Integer::MAX_VALUE));
-    TimeLimit* timeLimit = new TimeLimit(jrt::d2i(maxMilliseconds));
+    TimeLimit* timeLimit = new (jrt::kOp) TimeLimit(jrt::d2i(maxMilliseconds));
 
     bool strictDrc = router->settings->isStrictDrc();
     // The obstacles of a plane escape are set around the class-width search below only. A necked
@@ -229,7 +229,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::route(Item* item, int32_t rou
       FRLogger::trace("compare_trace_opt_changed_area_before net=" + jrt::str(routeNetNo) +
                       ", maxItemId=" + jrt::str(maxItemIdBeforeOpt));
       int64_t pullTightStart = BatchAutorouter::isBenchmarkProfileEnabled() ? jrt::System::nanoTime() : 0;
-      router->board->optChangedArea(new jrt::Array<int32_t>(0), nullptr, router->getTracePullTightAccuracy(),
+      router->board->optChangedArea(new (jrt::kOp) jrt::Array<int32_t>(0), nullptr, router->getTracePullTightAccuracy(),
                                     autorouteControl->traceCosts, router->thread);
       if (BatchAutorouter::isBenchmarkProfileEnabled()) {
         router->addProfileOptChangedAreaNanos(jrt::System::nanoTime() - pullTightStart);
@@ -269,7 +269,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::route(Item* item, int32_t rou
     return autorouteResult;
   } catch (const jrt::Exception& e) {
     FRLogger::error("Error during routing passes", &e);
-    return new AutorouteAttemptResult(AutorouteAttemptState::FAILED);
+    return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::FAILED);
   }
 }
 
@@ -290,7 +290,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::retryConnectionNecked(
   }
 
   AutorouteControl* neckControl =
-      new AutorouteControl(router->board, routeNetNo, router->settings, viaCosts, router->getTraceCosts());
+      new (jrt::kOp) AutorouteControl(router->board, routeNetNo, router->settings, viaCosts, router->getTraceCosts());
   neckControl->ripupAllowed = true;
   neckControl->ripupCosts = router->getStartRipupCosts() * ripupPassNo;
   neckControl->netsNotToRip = originalControl->netsNotToRip;
@@ -318,7 +318,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::retryConnectionNecked(
   router->neckedRouteNets->add(routeNetNo);
 
   int64_t neckPullTightStart = BatchAutorouter::isBenchmarkProfileEnabled() ? jrt::System::nanoTime() : 0;
-  router->board->optChangedArea(new jrt::Array<int32_t>(0), nullptr, router->getTracePullTightAccuracy(),
+  router->board->optChangedArea(new (jrt::kOp) jrt::Array<int32_t>(0), nullptr, router->getTracePullTightAccuracy(),
                                 neckControl->traceCosts, router->thread);
   if (BatchAutorouter::isBenchmarkProfileEnabled()) {
     router->addProfileOptChangedAreaNanos(jrt::System::nanoTime() - neckPullTightStart);

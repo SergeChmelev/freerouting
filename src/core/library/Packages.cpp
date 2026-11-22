@@ -43,7 +43,7 @@ std::string removeSuffix(const std::string& name) {
 }  // namespace
 
 Packages::Packages(Padstacks* padstackList)
-    : padstackList(padstackList), packages(new jrt::ArrayList<Package*>()) {}
+    : padstackList(padstackList), packages(new (jrt::kBoard) jrt::ArrayList<Package*>()) {}
 
 Package* Packages::get(const std::string& name, bool isFront) {
   Package* otherSidePackage = nullptr;
@@ -107,7 +107,7 @@ Package* Packages::add(const std::string& name, jrt::Array<Package_Pin*>* pins,
                        jrt::Array<bool>* outlineIsClosed, jrt::Array<Package_Keepout*>* keepouts,
                        jrt::Array<Package_Keepout*>* viaKeepouts,
                        jrt::Array<Package_Keepout*>* placeKeepoutArr, bool isFront) {
-  auto* newPackage = new Package(name, packages->size() + 1, pins, outline, outlineWidths,
+  auto* newPackage = new (jrt::kOp) Package(name, packages->size() + 1, pins, outline, outlineWidths,
                                  outlineIsClosed, keepouts, viaKeepouts, placeKeepoutArr, isFront,
                                  this);
   packages->add(newPackage);
@@ -117,8 +117,8 @@ Package* Packages::add(const std::string& name, jrt::Array<Package_Pin*>* pins,
 Package* Packages::add(jrt::Array<Package_Pin*>* pins) {
   std::string packageName = "Package#" + jrt::str(packages->size() + 1);
 
-  return add(packageName, pins, nullptr, nullptr, nullptr, new jrt::Array<Package_Keepout*>(0),
-             new jrt::Array<Package_Keepout*>(0), new jrt::Array<Package_Keepout*>(0), true);
+  return add(packageName, pins, nullptr, nullptr, nullptr, new (jrt::kOp) jrt::Array<Package_Keepout*>(0),
+             new (jrt::kOp) jrt::Array<Package_Keepout*>(0), new (jrt::kOp) jrt::Array<Package_Keepout*>(0), true);
 }
 
 }  // namespace fr

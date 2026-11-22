@@ -96,19 +96,19 @@ FloatPoint* LineSegment::endPointApprox() {
 }
 
 LineSegment* LineSegment::opposite() {
-  return new LineSegment(end->opposite(), middle->opposite(), start->opposite());
+  return new (jrt::kGeom) LineSegment(end->opposite(), middle->opposite(), start->opposite());
 }
 
 Polyline* LineSegment::toPolyline() {
-  auto* lines = new jrt::Array<Line*>(3);
+  auto* lines = new (jrt::kGeom) jrt::Array<Line*>(3);
   (*lines)[0] = start;
   (*lines)[1] = middle;
   (*lines)[2] = end;
-  return new Polyline(lines);
+  return new (jrt::kGeom) Polyline(lines);
 }
 
 Simplex* LineSegment::toSimplex() {
-  auto* lines = new jrt::Array<Line*>(4);
+  auto* lines = new (jrt::kGeom) jrt::Array<Line*>(4);
   if (this->endPoint()->sideOf(this->start) == Side::ON_THE_RIGHT()) {
     (*lines)[0] = this->start->opposite();
   } else {
@@ -129,7 +129,7 @@ Line* LineSegment::splitLine(Point* point) {
     return nullptr;
   }
   if (jrt::fast_cast<IntPoint>(point) != nullptr) {
-    return new Line(point, middle->direction()->turn45Degree(2));
+    return new (jrt::kGeom) Line(point, middle->direction()->turn45Degree(2));
   }
   if (start->sideOf(point) == Side::COLLINEAR()) {
     return start;
@@ -164,7 +164,7 @@ Line* LineSegment::splitLine(Point* point) {
       if (!withinIntegerBounds(bx) || !withinIntegerBounds(by)) {
         continue;
       }
-      Line* cap = new Line(ax.intValueExact(), ay.intValueExact(), bx.intValueExact(),
+      Line* cap = new (jrt::kGeom) Line(ax.intValueExact(), ay.intValueExact(), bx.intValueExact(),
                            by.intValueExact());
       if (!middle->isParallel(cap) && middle->intersection(cap)->equals(point)) {
         return cap;
@@ -199,10 +199,10 @@ IntBox* LineSegment::boundingBox() {
   double urx = jrt::Math::max(startCorner->x, endCorner->x);
   double ury = jrt::Math::max(startCorner->y, endCorner->y);
   IntPoint* lowerLeft =
-      new IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
+      new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
   IntPoint* upperRight =
-      new IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
-  return new IntBox(lowerLeft, upperRight);
+      new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
+  return new (jrt::kGeom) IntBox(lowerLeft, upperRight);
 }
 
 IntOctagon* LineSegment::boundingOctagon() {
@@ -221,7 +221,7 @@ IntOctagon* LineSegment::boundingOctagon() {
   double llx = jrt::Math::floor(jrt::Math::min(startXplusY, endXplusY));
   double urx = jrt::Math::ceil(jrt::Math::max(startXplusY, endXplusY));
   IntOctagon* result =
-      new IntOctagon(jrt::d2i(lx), jrt::d2i(ly), jrt::d2i(rx), jrt::d2i(uy), jrt::d2i(ulx),
+      new (jrt::kGeom) IntOctagon(jrt::d2i(lx), jrt::d2i(ly), jrt::d2i(rx), jrt::d2i(uy), jrt::d2i(ulx),
                      jrt::d2i(lrx), jrt::d2i(llx), jrt::d2i(urx));
   return result->normalize();
 }
@@ -229,13 +229,13 @@ IntOctagon* LineSegment::boundingOctagon() {
 LineSegment* LineSegment::changeLengthApprox(double newLength) {
   FloatPoint* newEndPoint = startPointApprox()->changeLength(endPointApprox(), newLength);
   Direction* perpendicularDirection = this->middle->direction()->turn45Degree(2);
-  Line* newEndLine = new Line(newEndPoint->round(), perpendicularDirection);
-  return new LineSegment(this->start, this->middle, newEndLine);
+  Line* newEndLine = new (jrt::kGeom) Line(newEndPoint->round(), perpendicularDirection);
+  return new (jrt::kGeom) LineSegment(this->start, this->middle, newEndLine);
 }
 
 jrt::Array<Line*>* LineSegment::intersection(LineSegment* other) {
   if (!this->boundingBox()->intersects(other->boundingBox())) {
-    return new jrt::Array<Line*>(0);
+    return new (jrt::kGeom) jrt::Array<Line*>(0);
   }
   Side* startPointSide = startPoint()->sideOf(other->middle);
   Side* endPointSide = endPoint()->sideOf(other->middle);
@@ -255,16 +255,16 @@ jrt::Array<Line*>* LineSegment::intersection(LineSegment* other) {
     int32_t cmp = leftLine->endPoint()->compareXY(rightLine->startPoint());
     if (cmp < 0) {
       // end point of the left line is to the left of the start point of the right line
-      return new jrt::Array<Line*>(0);
+      return new (jrt::kGeom) jrt::Array<Line*>(0);
     }
     if (cmp == 0) {
       // end point of the left line is equal to the start point of the right line
-      auto* result = new jrt::Array<Line*>(1);
+      auto* result = new (jrt::kGeom) jrt::Array<Line*>(1);
       (*result)[0] = leftLine->end;
       return result;
     }
     // now there is a real overlap
-    auto* result = new jrt::Array<Line*>(2);
+    auto* result = new (jrt::kGeom) jrt::Array<Line*>(2);
     (*result)[0] = rightLine->start;
     if (rightLine->endPoint()->compareXY(leftLine->endPoint()) >= 0) {
       (*result)[1] = leftLine->end;
@@ -275,11 +275,11 @@ jrt::Array<Line*>* LineSegment::intersection(LineSegment* other) {
   }
   if (startPointSide == endPointSide ||
       other->startPoint()->sideOf(this->middle) == other->endPoint()->sideOf(this->middle)) {
-    return new jrt::Array<Line*>(0);  // no intersection possible
+    return new (jrt::kGeom) jrt::Array<Line*>(0);  // no intersection possible
   }
   // now both start points and both end points are on different sides of the middle
   // line of the other segment.
-  auto* result = new jrt::Array<Line*>(1);
+  auto* result = new (jrt::kGeom) jrt::Array<Line*>(1);
   (*result)[0] = other->middle;
   return result;
 }
@@ -298,11 +298,11 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation(double width, bool toTheR
   IntPoint* startPoint = this->startPoint()->toFloat()->round();
   IntPoint* endPoint = this->endPoint()->toFloat()->round();
   if (startPoint->equals(endPoint)) {
-    return new jrt::Array<IntPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<IntPoint*>(0);
   }
 
   if (startPoint->x == endPoint->x || startPoint->y == endPoint->y) {
-    auto* result = new jrt::Array<IntPoint*>(2);
+    auto* result = new (jrt::kGeom) jrt::Array<IntPoint*>(2);
     (*result)[0] = startPoint;
     (*result)[1] = endPoint;
     return result;
@@ -335,7 +335,7 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation(double width, bool toTheR
       stairWidth = -stairWidth;
     }
   }
-  auto* result = new jrt::Array<IntPoint*>(2 * stairCount + 1);
+  auto* result = new (jrt::kGeom) jrt::Array<IntPoint*>(2 * stairCount + 1);
 
   (*result)[0] = startPoint;
   double det = static_cast<double>(dx) * static_cast<double>(dy);
@@ -358,20 +358,20 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation(double width, bool toTheR
     }
     ++currentIndex;
     if (changeXfirst) {
-      (*result)[currentIndex] = new IntPoint(currentLinePointX, prevLinePointY);
+      (*result)[currentIndex] = new (jrt::kGeom) IntPoint(currentLinePointX, prevLinePointY);
     } else {
-      (*result)[currentIndex] = new IntPoint(prevLinePointX, currentLinePointY);
+      (*result)[currentIndex] = new (jrt::kGeom) IntPoint(prevLinePointX, currentLinePointY);
     }
     ++currentIndex;
-    (*result)[currentIndex] = new IntPoint(currentLinePointX, currentLinePointY);
+    (*result)[currentIndex] = new (jrt::kGeom) IntPoint(currentLinePointX, currentLinePointY);
     prevLinePointX = currentLinePointX;
     prevLinePointY = currentLinePointY;
   }
   ++currentIndex;
   if (changeXfirst) {
-    (*result)[currentIndex] = new IntPoint(endPoint->x, prevLinePointY);
+    (*result)[currentIndex] = new (jrt::kGeom) IntPoint(endPoint->x, prevLinePointY);
   } else {
-    (*result)[currentIndex] = new IntPoint(prevLinePointX, endPoint->y);
+    (*result)[currentIndex] = new (jrt::kGeom) IntPoint(prevLinePointX, endPoint->y);
   }
   ++currentIndex;
   (*result)[currentIndex] = endPoint;
@@ -382,16 +382,16 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation45(double width, bool toTh
   IntPoint* startPoint = this->startPoint()->toFloat()->round();
   IntPoint* endPoint = this->endPoint()->toFloat()->round();
   if (startPoint->equals(endPoint)) {
-    return new jrt::Array<IntPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<IntPoint*>(0);
   }
   IntVector* delta = endPoint->differenceBy(startPoint);
   if (delta->isMultipleOf45Degree()) {
-    auto* result = new jrt::Array<IntPoint*>(2);
+    auto* result = new (jrt::kGeom) jrt::Array<IntPoint*>(2);
     (*result)[0] = startPoint;
     (*result)[1] = endPoint;
     return result;
   }
-  IntVector* absDelta = new IntVector(jrt::Math::abs(delta->x), jrt::Math::abs(delta->y));
+  IntVector* absDelta = new (jrt::kGeom) IntVector(jrt::Math::abs(delta->x), jrt::Math::abs(delta->y));
   bool functionOfX = absDelta->x >= absDelta->y;
   // use otherwise function of y for better numerical  stability
   double det = static_cast<double>(delta->x) * static_cast<double>(delta->y);
@@ -414,7 +414,7 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation45(double width, bool toTh
       stairWidth = -stairWidth;
     }
   }
-  auto* result = new jrt::Array<IntPoint*>(2 * stairCount + 1);
+  auto* result = new (jrt::kGeom) jrt::Array<IntPoint*>(2 * stairCount + 1);
   (*result)[0] = startPoint;
   IntPoint* prevLinePoint = startPoint;
   int32_t currentIndex = 0;
@@ -432,7 +432,7 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation45(double width, bool toTh
         currentY = startPoint->y + i * stairWidth;
         currentX = jrt::l2i(jrt::Math::round(this->getLine()->functionInYValueApprox(currentY)));
       }
-      currentLinePoint = new IntPoint(currentX, currentY);
+      currentLinePoint = new (jrt::kGeom) IntPoint(currentX, currentY);
     }
     if (functionOfX) {
       bool diagonalFirst = (toTheRight && det < 0) || (!toTheRight && det > 0);
@@ -466,7 +466,7 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation45(double width, bool toTh
       }
     }
     ++currentIndex;
-    (*result)[currentIndex] = new IntPoint(currentX, currentY);
+    (*result)[currentIndex] = new (jrt::kGeom) IntPoint(currentX, currentY);
     ++currentIndex;
     (*result)[currentIndex] = currentLinePoint;
     prevLinePoint = currentLinePoint;
@@ -475,7 +475,7 @@ jrt::Array<IntPoint*>* LineSegment::stairApproximation45(double width, bool toTh
 }
 
 jrt::Array<int32_t>* LineSegment::borderIntersections(TileShape* shape) {
-  auto* emptyResult = new jrt::Array<int32_t>(0);
+  auto* emptyResult = new (jrt::kOp) jrt::Array<int32_t>(0);
   if (!this->boundingBox()->intersects(shape->boundingBox())) {
     return emptyResult;
   }
@@ -483,8 +483,8 @@ jrt::Array<int32_t>* LineSegment::borderIntersections(TileShape* shape) {
   int32_t edgeCount = shape->borderLineCount();
   Line* prevLine = shape->borderLine(edgeCount - 1);
   Line* currentLine = shape->borderLine(0);
-  auto* result = new jrt::Array<int32_t>(2);
-  auto* intersection = new jrt::Array<Point*>(2);
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(2);
+  auto* intersection = new (jrt::kGeom) jrt::Array<Point*>(2);
   int32_t intersectionCount = 0;
   Point* lineStart = this->startPoint();
   Point* lineEnd = this->endPoint();
@@ -629,7 +629,7 @@ jrt::Array<int32_t>* LineSegment::borderIntersections(TileShape* shape) {
     FRLogger::warn("LineSegment.border_intersections: intersectionCount 1 expected");
   }
 
-  auto* normalisedResult = new jrt::Array<int32_t>(1);
+  auto* normalisedResult = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*normalisedResult)[0] = (*result)[0];
   return normalisedResult;
 }
@@ -639,7 +639,7 @@ LineSegment* LineSegment::sortEndpointsInXY() {
   LineSegment* result;
 
   if (swapEndlines) {
-    result = new LineSegment(this->end, this->middle, this->start);
+    result = new (jrt::kGeom) LineSegment(this->end, this->middle, this->start);
     result->precalculatedStartPoint = this->precalculatedEndPoint;
     result->precalculatedEndPoint = this->precalculatedStartPoint;
   } else {

@@ -128,10 +128,10 @@ jrt::List<BgaEscapeSolver_PinEscapeProposal*>* BgaEscapeSolver::executeDetermini
   double centerV = (bga->minY() + bga->maxY()) / 2.0;
 
   jrt::List<BgaEscapeSolver_PinEscapeProposal*>* proposals =
-      new jrt::ArrayList<BgaEscapeSolver_PinEscapeProposal*>();
+      new (jrt::kOp) jrt::ArrayList<BgaEscapeSolver_PinEscapeProposal*>();
 
   // Track occupied dogbone target sites (quantized cell key -> winning pin index)
-  jrt::Map<int64_t, int32_t>* cellWinners = new jrt::HashMap<int64_t, int32_t>();
+  jrt::Map<int64_t, int32_t>* cellWinners = new (jrt::kOp) jrt::HashMap<int64_t, int32_t>();
 
   // Process concentric rings from outer perimeter (ring 0) inward (ring maxRing)
   for (int32_t r = 0; r <= maxRing; r++) {
@@ -146,7 +146,7 @@ jrt::List<BgaEscapeSolver_PinEscapeProposal*>* BgaEscapeSolver::executeDetermini
       if (pd->targetLayer() == pinLayer &&
           pd->disposition() == BgaEscapeDescriptor_PinDisposition::SIGNAL_ESCAPE) {
         proposals->add(
-            new BgaEscapeSolver_PinEscapeProposal(pd, nullptr, pd->targetLayer(), 0, true));
+            new (jrt::kOp) BgaEscapeSolver_PinEscapeProposal(pd, nullptr, pd->targetLayer(), 0, true));
         continue;
       }
 
@@ -196,7 +196,7 @@ jrt::List<BgaEscapeSolver_PinEscapeProposal*>* BgaEscapeSolver::executeDetermini
         if (!cellWinners->containsKey(cellKey)) {
           if (scost < bestCost) {
             bestCost = scost;
-            bestVia = new IntPoint(vx, vy);
+            bestVia = new (jrt::kGeom) IntPoint(vx, vy);
             bestCell = cellKey;
           }
         }
@@ -205,10 +205,10 @@ jrt::List<BgaEscapeSolver_PinEscapeProposal*>* BgaEscapeSolver::executeDetermini
       if (bestVia != nullptr && bestCell != -1) {
         cellWinners->put(bestCell, i);
         proposals->add(
-            new BgaEscapeSolver_PinEscapeProposal(pd, bestVia, pd->targetLayer(), bestCost, true));
+            new (jrt::kOp) BgaEscapeSolver_PinEscapeProposal(pd, bestVia, pd->targetLayer(), bestCost, true));
       } else {
         proposals->add(
-            new BgaEscapeSolver_PinEscapeProposal(pd, nullptr, pd->targetLayer(), 999999, false));
+            new (jrt::kOp) BgaEscapeSolver_PinEscapeProposal(pd, nullptr, pd->targetLayer(), 999999, false));
       }
     }
   }

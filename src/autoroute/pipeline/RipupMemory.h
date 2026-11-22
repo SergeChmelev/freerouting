@@ -28,7 +28,7 @@ inline std::string RipupMemory_Outcome_name(RipupMemory_Outcome e) {
 }
 inline std::string RipupMemory_Outcome_toString(RipupMemory_Outcome e) { return RipupMemory_Outcome_name(e); }
 inline jrt::Array<RipupMemory_Outcome>* RipupMemory_Outcome_values() {
-  auto* a = new jrt::Array<RipupMemory_Outcome>(4);
+  auto* a = new (jrt::kOp) jrt::Array<RipupMemory_Outcome>(4);
   for (int32_t i = 0; i < 4; ++i) (*a)[i] = static_cast<RipupMemory_Outcome>(i);
   return a;
 }
@@ -72,13 +72,13 @@ class RipupMemory : public virtual jrt::Object {
  private:
   /** Active relations: kept-away net -> kept-from net -> entry . */
   jrt::Map<int32_t, jrt::Map<int32_t, RipupMemory_Entry*>*>* active =
-      new jrt::TreeMap<int32_t, jrt::Map<int32_t, RipupMemory_Entry*>*>();
+      new (jrt::kOp) jrt::TreeMap<int32_t, jrt::Map<int32_t, RipupMemory_Entry*>*>();
   /** Rip-ups seen so far, active or not: ripper net -> ripped net -> pass of the last one. */
-  jrt::Map<int32_t, jrt::Map<int32_t, int32_t>*>* seen = new jrt::TreeMap<int32_t, jrt::Map<int32_t, int32_t>*>();
+  jrt::Map<int32_t, jrt::Map<int32_t, int32_t>*>* seen = new (jrt::kOp) jrt::TreeMap<int32_t, jrt::Map<int32_t, int32_t>*>();
   /** Unordered pairs (lower net number first) whose relation has flipped once already. */
-  jrt::Set<int64_t>* flippedPairs = new jrt::TreeSet<int64_t>();
+  jrt::Set<int64_t>* flippedPairs = new (jrt::kOp) jrt::TreeSet<int64_t>();
   /** Unordered pairs that may not be restricted again. */
-  jrt::Set<int64_t>* retiredPairs = new jrt::TreeSet<int64_t>();
+  jrt::Set<int64_t>* retiredPairs = new (jrt::kOp) jrt::TreeSet<int64_t>();
 
  public:
   RipupMemory() = default;

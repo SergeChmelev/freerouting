@@ -17,7 +17,7 @@ namespace fr {
 class BoardFileDetails : public virtual jrt::Object {
  protected:
   jrt::List<BoardFileDetailsUpdatedEventListener*>* updatedEventListeners =
-      new jrt::ArrayList<BoardFileDetailsUpdatedEventListener*>();
+      new (jrt::kBoard) jrt::ArrayList<BoardFileDetailsUpdatedEventListener*>();
 
  public:
   // "size": the size of the file in bytes
@@ -34,7 +34,7 @@ class BoardFileDetails : public virtual jrt::Object {
   std::string filename = "";
   // "path": the absolute path to the directory of the file
   std::string directoryPath = "";
-  jrt::Array<int8_t>* dataBytes = new jrt::Array<int8_t>(0);
+  jrt::Array<int8_t>* dataBytes = new (jrt::kBoard) jrt::Array<int8_t>(0);
 
  public:
   /** Creates empty file details. */

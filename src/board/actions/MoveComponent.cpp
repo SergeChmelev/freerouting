@@ -31,7 +31,7 @@ MoveComponent::MoveComponent(Item* item, Vector* translateVector, int32_t maxRec
     : translateVector(translateVector),
       maxRecursionDepth(maxRecursionDepth),
       maxViaRecursionDepth(maxViaRecursionDepth) {
-  itemsToShove = new jrt::HashSet<Item*>();
+  itemsToShove = new (jrt::kOp) jrt::HashSet<Item*>();
   if (auto* routingBoard = jrt::fast_cast<RoutingBoard>(item->board)) {
     board = routingBoard;
   } else {
@@ -44,10 +44,10 @@ MoveComponent::MoveComponent(Item* item, Vector* translateVector, int32_t maxRec
     itemGroupList = board->getComponentItems(componentId);
     this->component = board->components->get(componentId);
   } else {
-    itemGroupList = new jrt::LinkedList<Item*>();
+    itemGroupList = new (jrt::kOp) jrt::LinkedList<Item*>();
     itemGroupList->add(item);
   }
-  auto* itemCenters = new jrt::LinkedList<FloatPoint*>();
+  auto* itemCenters = new (jrt::kOp) jrt::LinkedList<FloatPoint*>();
   for (Item* currentItem : *itemGroupList) {
     bool currentItemMovable = !currentItem->isUserFixed() &&
                               (jrt::fast_cast<DrillItem>(currentItem) != nullptr ||
@@ -55,15 +55,15 @@ MoveComponent::MoveComponent(Item* item, Vector* translateVector, int32_t maxRec
                                jrt::fast_cast<ComponentOutline>(currentItem) != nullptr);
     if (!currentItemMovable) {
       allItemsMovable = false;
-      itemGroupArr = new jrt::Array<MoveComponent_SortedItem*>(0);
-      itemGroupSet = new jrt::HashSet<Item*>();  // Java Set.of()
+      itemGroupArr = new (jrt::kOp) jrt::Array<MoveComponent_SortedItem*>(0);
+      itemGroupSet = new (jrt::kOp) jrt::HashSet<Item*>();  // Java Set.of()
       return;
     }
     if (auto* drillItem = jrt::fast_cast<DrillItem>(currentItem)) {
       itemCenters->add(drillItem->getCenter()->toFloat());
     }
   }
-  this->itemGroupSet = new jrt::HashSet<Item*>(itemGroupList);
+  this->itemGroupSet = new (jrt::kOp) jrt::HashSet<Item*>(itemGroupList);
   if (itemCenters->isEmpty()) {
     if (this->component != nullptr) {
       itemCenters->add(this->component->getLocation()->toFloat());
@@ -83,8 +83,8 @@ MoveComponent::MoveComponent(Item* item, Vector* translateVector, int32_t maxRec
     gravityX /= itemCenters->size();
     gravityY /= itemCenters->size();
   }
-  Point* gravityPoint = new IntPoint(jrt::l2i(jrt::Math::round(gravityX)), jrt::l2i(jrt::Math::round(gravityY)));
-  itemGroupArr = new jrt::Array<MoveComponent_SortedItem*>(itemGroupList->size());
+  Point* gravityPoint = new (jrt::kGeom) IntPoint(jrt::l2i(jrt::Math::round(gravityX)), jrt::l2i(jrt::Math::round(gravityY)));
+  itemGroupArr = new (jrt::kOp) jrt::Array<MoveComponent_SortedItem*>(itemGroupList->size());
   auto it = itemGroupList->iterator();
   for (int32_t i = 0; i < itemGroupArr->length; i++) {
     Item* currentItem = it->next();
@@ -96,7 +96,7 @@ MoveComponent::MoveComponent(Item* item, Vector* translateVector, int32_t maxRec
     }
     Vector* compareVector = gravityPoint->differenceBy(itemCenter);
     double currentProjection = compareVector->scalarProduct(translateVector);
-    (*itemGroupArr)[i] = new MoveComponent_SortedItem(currentItem, currentProjection);
+    (*itemGroupArr)[i] = new (jrt::kOp) MoveComponent_SortedItem(currentItem, currentProjection);
   }
   jrt::Arrays::sort<MoveComponent_SortedItem*>(itemGroupArr);
 }
@@ -127,8 +127,8 @@ double MoveComponent::getMinDrillItemWidthWithTraces() {
 bool MoveComponent::check() {
   if (!allItemsMovable) return false;
   itemsToShove->clear();
-  auto* timeLimit = new TimeLimit(CHECK_TIME_LIMIT);
-  jrt::Set<Item*>* ignoreItems = new jrt::HashSet<Item*>(static_cast<jrt::Collection<Item*>*>(this->itemGroupSet));
+  auto* timeLimit = new (jrt::kOp) TimeLimit(CHECK_TIME_LIMIT);
+  jrt::Set<Item*>* ignoreItems = new (jrt::kOp) jrt::HashSet<Item*>(static_cast<jrt::Collection<Item*>*>(this->itemGroupSet));
   for (int32_t i = 0; i < itemGroupArr->length; i++) {
     bool moveOk;
     Item* groupItem = (*itemGroupArr)[i]->item();

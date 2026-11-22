@@ -75,7 +75,7 @@ bool Trace::isConnectionPoint(Point* point) {
 }
 
 jrt::List<Point*>* Trace::interiorJunctions() {
-  jrt::List<Point*>* result = new jrt::ArrayList<Point*>();
+  jrt::List<Point*>* result = new (jrt::kOp) jrt::ArrayList<Point*>();
   for (Item* contact : *getNormalContacts()) {
     Point* point = normalContactPoint(contact);
     if (point != nullptr && !point->equals(firstCorner()) && !point->equals(lastCorner()) &&
@@ -87,7 +87,7 @@ jrt::List<Point*>* Trace::interiorJunctions() {
 }
 
 void Trace::splitAt(jrt::List<Point*>* points) {
-  jrt::List<Trace*>* pieces = new jrt::ArrayList<Trace*>();
+  jrt::List<Trace*>* pieces = new (jrt::kOp) jrt::ArrayList<Trace*>();
   pieces->add(this);
   for (Point* point : *points) {
     int32_t index = -1;
@@ -167,7 +167,7 @@ Point* Trace::normalContactPoint(Trace* other) {
 }
 
 jrt::Set<Item*>* Trace::getNormalContacts() {
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   Point* startCorner = this->firstCorner();
   if (startCorner != nullptr) {
     result->addAll(getNormalContacts(startCorner, false));
@@ -215,11 +215,11 @@ jrt::Set<Item*>* Trace::getNormalContacts() {
 jrt::Set<Item*>* Trace::getNormalContacts(Point* point, bool ignoreNet) {
   if (point == nullptr ||
       !(point->equals(this->firstCorner()) || point->equals(this->lastCorner()))) {
-    return new jrt::TreeSet<Item*>();
+    return new (jrt::kOp) jrt::TreeSet<Item*>();
   }
   TileShape* searchShape = TileShape::getInstance(point);
   jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(searchShape, this->layer);
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
     auto* currentItem = jrt::fast_cast<Item>(currentObject);
     if (currentItem == nullptr) {
@@ -359,7 +359,7 @@ bool Trace::isCycle() {
   // make sure, that all direct neighbours are
   // expanded from here, to block coming back to
   // this trace via a start contact.
-  jrt::Set<Item*>* visitedItems = new jrt::TreeSet<Item*>(startContacts);
+  jrt::Set<Item*>* visitedItems = new (jrt::kOp) jrt::TreeSet<Item*>(startContacts);
   bool ignoreAreas = false;
   if (this->netNumbers->length > 0) {
     Net* currentNet = this->board->rules->nets->get((*this->netNumbers)[0]);
@@ -397,7 +397,7 @@ jrt::Array<Point*>* Trace::getRatsnestCorners() {
     ++stubCount;
     stubAtEnd = true;
   }
-  auto* result = new jrt::Array<Point*>(stubCount);
+  auto* result = new (jrt::kGeom) jrt::Array<Point*>(stubCount);
   int32_t stubNo = 0;
   if (stubAtStart) {
     (*result)[stubNo] = firstCorner();
@@ -408,7 +408,7 @@ jrt::Array<Point*>* Trace::getRatsnestCorners() {
   }
   for (int32_t i = 0; i < result->length; i++) {
     if ((*result)[i] == nullptr) {
-      return new jrt::Array<Point*>(0);  // Trace is inconsistent
+      return new (jrt::kGeom) jrt::Array<Point*>(0);  // Trace is inconsistent
     }
   }
   return result;
@@ -422,7 +422,7 @@ bool Trace::isSelectedByFilter(ItemSelectionFilter* filter) {
 }
 
 jrt::Set<Pin*>* Trace::touchingPinsAtEndCorners() {
-  jrt::Set<Pin*>* result = new jrt::TreeSet<Pin*>();
+  jrt::Set<Pin*>* result = new (jrt::kOp) jrt::TreeSet<Pin*>();
   if (this->board == nullptr) {
     return result;
   }
@@ -432,7 +432,7 @@ jrt::Set<Pin*>* Trace::touchingPinsAtEndCorners() {
     currentOct = currentOct->enlarge(
         getCompensatedHalfWidth(this->board->searchTreeManager->getDefaultTree()));
     jrt::Set<Item*>* currentOverlaps = this->board->overlappingItemsWithClearance(
-        currentOct, this->layer, new jrt::Array<int32_t>(0), this->clearanceClassIndex());
+        currentOct, this->layer, new (jrt::kOp) jrt::Array<int32_t>(0), this->clearanceClassIndex());
     for (Item* currentItem : *currentOverlaps) {
       auto* pin = jrt::fast_cast<Pin>(currentItem);
       if (pin != nullptr && currentItem->sharesNet(this)) {
@@ -445,7 +445,7 @@ jrt::Set<Pin*>* Trace::touchingPinsAtEndCorners() {
 }
 
 void Trace::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->appendBold(tm->getText("trace"));
   printer->append(" " + tm->getText("from") + " ");
@@ -463,7 +463,7 @@ void Trace::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
 }
 
 std::string Trace::getHoverInfo(const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   double mmResolution = this->board->communication->getResolution(Unit::MM);
   double widthInMm = (2 * this->halfWidth) / mmResolution;

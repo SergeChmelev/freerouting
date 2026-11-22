@@ -11,7 +11,7 @@ Net* NetList::addNet(Net_Id* netId) {
   if (nets->containsKey(netId)) {
     result = nullptr;
   } else {
-    result = new Net(netId);
+    result = new (jrt::kBoard) Net(netId);
     nets->put(netId, result);
   }
   return result;
@@ -21,8 +21,8 @@ Net* NetList::getNet(Net_Id* netId) { return nets->get(netId); }
 
 jrt::Collection<Net*>* NetList::getNets(const std::string& componentName,
                                         const std::string& pinName) {
-  jrt::Collection<Net*>* result = new jrt::LinkedList<Net*>();
-  auto* searchPin = new Net_Pin(componentName, pinName);
+  jrt::Collection<Net*>* result = new (jrt::kOp) jrt::LinkedList<Net*>();
+  auto* searchPin = new (jrt::kOp) Net_Pin(componentName, pinName);
   jrt::Collection<Net*>* netList = nets->values();
   for (Net* currentNet : *netList) {
     jrt::Set<Net_Pin*>* netPins = currentNet->getPins();

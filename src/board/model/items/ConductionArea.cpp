@@ -135,11 +135,11 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
     IntBox* bbox = this->boundingBox();
     double spokeWidth = 400.0 * this->board->communication->getResolution(Unit::UM);
     int32_t maxCl = static_cast<int32_t>(jrt::Math::round(maxClearanceLookupBoard));
-    IntBox* inflatedBbox = new IntBox(new IntPoint(bbox->ll->x - maxCl, bbox->ll->y - maxCl),
-                                      new IntPoint(bbox->ur->x + maxCl, bbox->ur->y + maxCl));
+    IntBox* inflatedBbox = new (jrt::kGeom) IntBox(new (jrt::kGeom) IntPoint(bbox->ll->x - maxCl, bbox->ll->y - maxCl),
+                                      new (jrt::kGeom) IntPoint(bbox->ur->x + maxCl, bbox->ur->y + maxCl));
 
-    jrt::List<PlanarArea*>* foreignClearances = new jrt::ArrayList<PlanarArea*>();
-    jrt::List<PlanarArea*>* sameNetClearances = new jrt::ArrayList<PlanarArea*>();
+    jrt::List<PlanarArea*>* foreignClearances = new (jrt::kOp) jrt::ArrayList<PlanarArea*>();
+    jrt::List<PlanarArea*>* sameNetClearances = new (jrt::kOp) jrt::ArrayList<PlanarArea*>();
 
     jrt::Set<SearchTreeObject*>* overlaps = this->board->overlappingObjects(inflatedBbox, layerIndex);
     for (SearchTreeObject* ob : *overlaps) {
@@ -230,7 +230,7 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
 
 Item* ConductionArea::copy(int32_t id) {
   ConductionArea* result =
-      new ConductionArea(getRelativeArea(), getLayer(), getTranslation(), getRotationInDegree(),
+      new (jrt::kBoard) ConductionArea(getRelativeArea(), getLayer(), getTranslation(), getRotationInDegree(),
                          getSideChanged(), netNumbers, clearanceClassIndex(), id, getComponentId(),
                          this->name, isObstacle_, getFixedState(), board);
   result->fillClearance = this->fillClearance;
@@ -261,7 +261,7 @@ jrt::Set<Item*>* ConductionArea::getNormalContacts() {
   jrt::Set<SearchTreeObject*>* overlaps = defaultTree->overlappingObjectsWithPointIn(
       this, getLayer(), [this](SearchTreeObject* object) { return this->contactPoints(object); },
       [this](SearchTreeObject* object) { return this->isPinCandidate(object); });
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (overlaps == nullptr) {
     // Not in the tree: query tile by tile.
     for (int32_t i = 0; i < tileShapeCount(); i++) {
@@ -335,7 +335,7 @@ bool ConductionArea::overlapsCopperOf(DrillItem* drillItem) {
     }
     return false;
   }
-  jrt::Collection<ShapeTree_TreeEntry*>* entries = new jrt::ArrayList<ShapeTree_TreeEntry*>();
+  jrt::Collection<ShapeTree_TreeEntry*>* entries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
   defaultTree->overlappingTreeEntries(drillShape, getLayer(), entries);
   for (ShapeTree_TreeEntry* entry : *entries) {
     if (static_cast<jrt::Object*>(entry->object) == static_cast<jrt::Object*>(this) &&
@@ -486,10 +486,10 @@ FastPlaneConnectivityGrid_PlaneFractureResult* ConductionArea::getFractureResult
   }
   FastPlaneConnectivityGrid_FractureMemo* memo = this->fractureMemo;
   if (memo == nullptr) {
-    memo = new FastPlaneConnectivityGrid_FractureMemo();
+    memo = new (jrt::kOp) FastPlaneConnectivityGrid_FractureMemo();
     this->fractureMemo = memo;
   }
-  FastPlaneConnectivityGrid* connectivityGrid = new FastPlaneConnectivityGrid();
+  FastPlaneConnectivityGrid* connectivityGrid = new (jrt::kOp) FastPlaneConnectivityGrid();
   jrt::Collection<Item*>* contacts = getNormalContacts();
   this->cachedFractureResult = connectivityGrid->evaluateFracture(this, this->board, contacts, memo);
   this->cachedFractureRevision = currentRevision;
@@ -512,7 +512,7 @@ void ConductionArea::getConnectedSetRecu(jrt::Set<Item*>* result, int32_t netNum
 
   // Determine which islands have already been contacted by items in result. A trace whose ends
   // touch two islands is in both.
-  jrt::Set<int32_t>* reachedIslands = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* reachedIslands = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (Item* resItem : *result) {
     if (resItem != this && resItem->sharesNet(this) && resItem->sharesLayer(this)) {
       for (auto* entry : *fractureResult->islandItems->entrySet()) {
@@ -577,7 +577,7 @@ void ConductionArea::addLaterReachedIslands(jrt::Set<Item*>* result, int32_t net
   bool changed = true;
   while (changed) {
     changed = false;
-    jrt::List<ConductionArea*>* fractured = new jrt::ArrayList<ConductionArea*>();
+    jrt::List<ConductionArea*>* fractured = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
     for (Item* item : *result) {
       auto* ca = jrt::fast_cast<ConductionArea>(item);
       if (ca != nullptr && ca->board != nullptr && ca->isFractured()) {
@@ -629,7 +629,7 @@ bool ConductionArea::isCycleRecu(jrt::Set<Item*>* visitedItems, Item* searchItem
     jrt::Array<int32_t>* startIslands =
         comeFromItem == searchItem ? fractureResult->endIslands(comeFromItem, true) : nullptr;
     if (startIslands != nullptr) {
-      fromIslands = new jrt::HashSet<int32_t>();
+      fromIslands = new (jrt::kOp) jrt::HashSet<int32_t>();
       for (int32_t island : *startIslands) {
         fromIslands->add(island);
       }
@@ -642,7 +642,7 @@ bool ConductionArea::isCycleRecu(jrt::Set<Item*>* visitedItems, Item* searchItem
       for (auto* entry : *fractureResult->islandItems->entrySet()) {
         if (entry->getValue()->contains(comeFromItem)) {
           if (fromIslands == nullptr) {
-            fromIslands = new jrt::HashSet<int32_t>();
+            fromIslands = new (jrt::kOp) jrt::HashSet<int32_t>();
           }
           fromIslands->add(entry->getKey());
         }
@@ -698,7 +698,7 @@ TileShape* ConductionArea::getTraceConnectionShape(ShapeSearchTree* searchTree, 
 jrt::Array<Point*>* ConductionArea::getRatsnestCorners() {
   jrt::Array<Point*>* result;
   jrt::Array<FloatPoint*>* corners = this->getArea()->cornerApproxArr();
-  result = new jrt::Array<Point*>(corners->length);
+  result = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*result)[i] = (*corners)[i]->round();
   }
@@ -728,7 +728,7 @@ bool ConductionArea::isSelectedByFilter(ItemSelectionFilter* filter) {
 }
 
 void ConductionArea::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->appendBold(tm->getText("conductionArea"));
   this->printShapeInfo(printer, locale);

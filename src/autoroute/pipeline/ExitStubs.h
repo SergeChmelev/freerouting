@@ -64,7 +64,7 @@ class ExitStubs_Stub : public virtual jrt::Object {
   virtual jrt::Array<Point*>* corners(IntPoint* centre);
   /** The stub through the mirror's bend and end, or nullptr without a mirror. */
   virtual ExitStubs_Stub* mirrored() {
-    return mirror_ != nullptr ? new ExitStubs_Stub(pin_, mirror_->end(), halfWidth_, inward_, slack_, mirror_->bend(), nullptr)
+    return mirror_ != nullptr ? new (jrt::kOp) ExitStubs_Stub(pin_, mirror_->end(), halfWidth_, inward_, slack_, mirror_->bend(), nullptr)
                               : nullptr;
   }
 

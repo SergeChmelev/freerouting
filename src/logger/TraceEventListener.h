@@ -24,7 +24,7 @@ class TraceEventListener : public virtual jrt::Object {
      private:
       std::function<void(TraceEvent*)> f_;
     };
-    return new Fn(std::move(f));
+    return new (jrt::kOp) Fn(std::move(f));
   }
 };
 

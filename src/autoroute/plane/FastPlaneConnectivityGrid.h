@@ -164,8 +164,8 @@ class FastPlaneConnectivityGrid : public virtual jrt::Object {
    * The obstacles at FINE times the resolution of the cells, when the fill rules of the design
    * are known: a cell is then free of fill only if all its sample points are.
    */
-  jrt::Array<int64_t>* fineMask = new jrt::Array<int64_t>(0);
-  jrt::Array<bool>* partialCell = new jrt::Array<bool>(0);
+  jrt::Array<int64_t>* fineMask = new (jrt::kOp) jrt::Array<int64_t>(0);
+  jrt::Array<bool>* partialCell = new (jrt::kOp) jrt::Array<bool>(0);
   int32_t fineCols = 0;
   int32_t fineRows = 0;
   int32_t fineWordsPerRow = 0;
@@ -173,11 +173,11 @@ class FastPlaneConnectivityGrid : public virtual jrt::Object {
  public:
   /** Creates a new uninitialized connectivity grid (all masks empty). */
   FastPlaneConnectivityGrid()
-      : copperMask(new jrt::Array<int64_t>(0)),
-        obstacleMask(new jrt::Array<int64_t>(0)),
-        visitedMask(new jrt::Array<int64_t>(0)),
-        cellIslandMap(new jrt::Array<int16_t>(0)),
-        queue(new jrt::Array<int32_t>(0)) {}
+      : copperMask(new (jrt::kOp) jrt::Array<int64_t>(0)),
+        obstacleMask(new (jrt::kOp) jrt::Array<int64_t>(0)),
+        visitedMask(new (jrt::kOp) jrt::Array<int64_t>(0)),
+        cellIslandMap(new (jrt::kOp) jrt::Array<int16_t>(0)),
+        queue(new (jrt::kOp) jrt::Array<int32_t>(0)) {}
 
   /** Initializes the grid geometry for the given bounding box and desired cell size. */
   virtual void init(IntBox* bbox, int32_t requestedCellSize);

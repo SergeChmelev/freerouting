@@ -74,12 +74,12 @@ DifferentialPairDetector_ExtractedNetInfo* DifferentialPairDetector::extract(
   std::string localUpper = (lastSlash >= 0) ? jrt::substring(upper, lastSlash + 1) : upper;
   if (localUpper == "D+") {
     std::string base = jrt::substring(trimmed, 0, static_cast<int32_t>(trimmed.length()) - 1);
-    return new DifferentialPairDetector_ExtractedNetInfo(
+    return new (jrt::kBoard) DifferentialPairDetector_ExtractedNetInfo(
         base, DifferentialPairDetector_Polarity::POSITIVE,
         DifferentialPairDetector_SuffixStyle::BARE_D_PLUS_MINUS);
   } else if (localUpper == "D-") {
     std::string base = jrt::substring(trimmed, 0, static_cast<int32_t>(trimmed.length()) - 1);
-    return new DifferentialPairDetector_ExtractedNetInfo(
+    return new (jrt::kBoard) DifferentialPairDetector_ExtractedNetInfo(
         base, DifferentialPairDetector_Polarity::NEGATIVE,
         DifferentialPairDetector_SuffixStyle::BARE_D_PLUS_MINUS);
   }
@@ -104,7 +104,7 @@ DifferentialPairDetector_ExtractedNetInfo* DifferentialPairDetector::extractUnde
       isExcludedNet(base)) {
     return nullptr;
   }
-  return new DifferentialPairDetector_ExtractedNetInfo(
+  return new (jrt::kBoard) DifferentialPairDetector_ExtractedNetInfo(
       base,
       jrt::endsWith(upper, "P") ? DifferentialPairDetector_Polarity::POSITIVE
                                 : DifferentialPairDetector_Polarity::NEGATIVE,
@@ -116,11 +116,11 @@ DifferentialPairDetector::DELIMITED_PATTERNS() {
   using S = DifferentialPairDetector_SuffixStyle;
   using P = DifferentialPairDetector_SuffixTokenPattern;
   static jrt::Array<P*>* v = jrt::Array<P*>::of({
-      new P("POS", "NEG", S::POS_NEG),
-      new P("DP", "DM", S::DP_DM),
-      new P("D+", "D-", S::D_PLUS_MINUS),
-      new P("P", "N", S::P_N),
-      new P("+", "-", S::PLUS_MINUS),
+      new (jrt::kOp) P("POS", "NEG", S::POS_NEG),
+      new (jrt::kOp) P("DP", "DM", S::DP_DM),
+      new (jrt::kOp) P("D+", "D-", S::D_PLUS_MINUS),
+      new (jrt::kOp) P("P", "N", S::P_N),
+      new (jrt::kOp) P("+", "-", S::PLUS_MINUS),
   });
   return v;
 }
@@ -146,7 +146,7 @@ DifferentialPairDetector_ExtractedNetInfo* DifferentialPairDetector::tryExtractD
     if (delim == '_' || delim == '.') {
       std::string base = jrt::substring(trimmed, 0, delimIndex);
       if (!base.empty() && !isExcludedNet(base)) {
-        return new DifferentialPairDetector_ExtractedNetInfo(base, polarity, style);
+        return new (jrt::kBoard) DifferentialPairDetector_ExtractedNetInfo(base, polarity, style);
       }
     }
   }
@@ -156,10 +156,10 @@ DifferentialPairDetector_ExtractedNetInfo* DifferentialPairDetector::tryExtractD
 jrt::List<DifferentialPair*>* DifferentialPairDetector::detect(BoardRules* boardRules) {
   if (boardRules == nullptr || boardRules->nets == nullptr ||
       boardRules->differentialPairs == nullptr) {
-    return new jrt::ArrayList<DifferentialPair*>();
+    return new (jrt::kOp) jrt::ArrayList<DifferentialPair*>();
   }
 
-  auto* candidates = new jrt::LinkedHashMap<DifferentialPairDetector_CandidateKey*,
+  auto* candidates = new (jrt::kOp) jrt::LinkedHashMap<DifferentialPairDetector_CandidateKey*,
                                             DifferentialPairDetector_CandidateEntry*>();
   int32_t maxNetNumber = boardRules->nets->maxNetNumber();
 
@@ -182,11 +182,11 @@ jrt::List<DifferentialPair*>* DifferentialPairDetector::detect(BoardRules* board
       continue;
     }
 
-    auto* key = new DifferentialPairDetector_CandidateKey(jrt::toLowerCase(info->baseName()),
+    auto* key = new (jrt::kBoard) DifferentialPairDetector_CandidateKey(jrt::toLowerCase(info->baseName()),
                                                          info->style());
     DifferentialPairDetector_CandidateEntry* entry =
         candidates->computeIfAbsent(key, [info](DifferentialPairDetector_CandidateKey*) {
-          return new DifferentialPairDetector_CandidateEntry(info->baseName(), info->style());
+          return new (jrt::kBoard) DifferentialPairDetector_CandidateEntry(info->baseName(), info->style());
         });
 
     if (info->polarity() == DifferentialPairDetector_Polarity::POSITIVE) {
@@ -210,7 +210,7 @@ jrt::List<DifferentialPair*>* DifferentialPairDetector::detect(BoardRules* board
     }
   }
 
-  auto* bestByBase = new jrt::LinkedHashMap<std::string, DifferentialPairDetector_CandidateEntry*>();
+  auto* bestByBase = new (jrt::kOp) jrt::LinkedHashMap<std::string, DifferentialPairDetector_CandidateEntry*>();
   for (DifferentialPairDetector_CandidateEntry* entry : *candidates->values()) {
     if (!entry->ambiguous && entry->positiveNet != nullptr && entry->negativeNet != nullptr) {
       std::string baseKey = jrt::toLowerCase(entry->baseName);
@@ -222,8 +222,8 @@ jrt::List<DifferentialPair*>* DifferentialPairDetector::detect(BoardRules* board
     }
   }
 
-  auto* result = new jrt::ArrayList<DifferentialPair*>();
-  auto* takenNets = new jrt::HashSet<Net*>();
+  auto* result = new (jrt::kOp) jrt::ArrayList<DifferentialPair*>();
+  auto* takenNets = new (jrt::kOp) jrt::HashSet<Net*>();
   for (DifferentialPairDetector_CandidateEntry* entry : *bestByBase->values()) {
     if (takenNets->contains(entry->positiveNet) || takenNets->contains(entry->negativeNet)) {
       continue;
@@ -231,7 +231,7 @@ jrt::List<DifferentialPair*>* DifferentialPairDetector::detect(BoardRules* board
     if (boardRules->differentialPairs->findForNet(entry->positiveNet) == nullptr &&
         boardRules->differentialPairs->findForNet(entry->negativeNet) == nullptr &&
         boardRules->differentialPairs->get(entry->baseName) == nullptr) {
-      result->add(new DifferentialPair(entry->positiveNet, entry->negativeNet, entry->baseName));
+      result->add(new (jrt::kBoard) DifferentialPair(entry->positiveNet, entry->negativeNet, entry->baseName));
       takenNets->add(entry->positiveNet);
       takenNets->add(entry->negativeNet);
     }
@@ -242,7 +242,7 @@ jrt::List<DifferentialPair*>* DifferentialPairDetector::detect(BoardRules* board
 
 jrt::List<DifferentialPair*>* DifferentialPairDetector::detectAndRegister(BoardRules* boardRules) {
   if (boardRules == nullptr || boardRules->differentialPairs == nullptr) {
-    return new jrt::ArrayList<DifferentialPair*>();
+    return new (jrt::kOp) jrt::ArrayList<DifferentialPair*>();
   }
 
   jrt::List<DifferentialPair*>* detected = detect(boardRules);

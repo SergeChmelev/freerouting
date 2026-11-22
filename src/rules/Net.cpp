@@ -64,7 +64,7 @@ double Net::getMinimumTraceLength() {
 
 void Net::setMinimumTraceLength(double value) {
   double currentMax = (this->lengthConstraint != nullptr) ? this->lengthConstraint->maxLength() : 0.0;
-  this->lengthConstraint = new NetLengthConstraint(value, currentMax);
+  this->lengthConstraint = new (jrt::kBoard) NetLengthConstraint(value, currentMax);
 }
 
 double Net::getMaximumTraceLength() {
@@ -76,11 +76,11 @@ double Net::getMaximumTraceLength() {
 
 void Net::setMaximumTraceLength(double value) {
   double currentMin = (this->lengthConstraint != nullptr) ? this->lengthConstraint->minLength() : 0.0;
-  this->lengthConstraint = new NetLengthConstraint(currentMin, value);
+  this->lengthConstraint = new (jrt::kBoard) NetLengthConstraint(currentMin, value);
 }
 
 NetLengthConstraint* Net::getLengthConstraint() {
-  return new NetLengthConstraint(getMinimumTraceLength(), getMaximumTraceLength());
+  return new (jrt::kBoard) NetLengthConstraint(getMinimumTraceLength(), getMaximumTraceLength());
 }
 
 bool Net::hasExplicitLengthConstraint() {
@@ -106,7 +106,7 @@ bool Net::hasExplicitMeanderConstraint() {
 }
 
 jrt::Collection<Item*>* Net::getTerminalItems() {
-  jrt::Collection<Item*>* result = new jrt::LinkedList<Item*>();
+  jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
   BasicBoard* board = this->netList->getBoard();
   auto* it = board->itemList->startReadObject();
   for (;;) {
@@ -124,7 +124,7 @@ jrt::Collection<Item*>* Net::getTerminalItems() {
 }
 
 jrt::Collection<Pin*>* Net::getPins() {
-  jrt::Collection<Pin*>* result = new jrt::LinkedList<Pin*>();
+  jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
   BasicBoard* board = this->netList->getBoard();
   auto* it = board->itemList->startReadObject();
   for (;;) {
@@ -142,7 +142,7 @@ jrt::Collection<Pin*>* Net::getPins() {
 }
 
 jrt::Collection<Item*>* Net::getItems() {
-  jrt::Collection<Item*>* result = new jrt::LinkedList<Item*>();
+  jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
   BasicBoard* board = this->netList->getBoard();
   auto* it = board->itemList->startReadObject();
   for (;;) {
@@ -183,13 +183,13 @@ void Net::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
   int32_t viaCount = this->getViaCount();
   double cumulativeTraceLength = this->getTraceLength();
   jrt::Collection<Item*>* terminalItems = this->getTerminalItems();
-  auto* terminals = new jrt::LinkedList<ItemInfoPrinter_Printable*>();
+  auto* terminals = new (jrt::kOp) jrt::LinkedList<ItemInfoPrinter_Printable*>();
   for (Item* item : *terminalItems) {
     terminals->add(item);
   }
   int32_t terminalItemCount = terminals->size();
 
-  TextManager* tm = new TextManager("Net", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("Net", locale);
 
   printer->appendBold(tm->getText("net") + " ");
   printer->appendBold(this->name);

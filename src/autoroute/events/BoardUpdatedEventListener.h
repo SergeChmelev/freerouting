@@ -44,12 +44,12 @@ class LambdaBoardUpdatedEventListener : public BoardUpdatedEventListener {
 
 inline BoardUpdatedEventListener* BoardUpdatedEventListener::ignoringStatistics(
     std::function<void(BoardUpdatedEvent*)> handler) {
-  return new detail::LambdaBoardUpdatedEventListener(std::move(handler), false);
+  return new (jrt::kOp) detail::LambdaBoardUpdatedEventListener(std::move(handler), false);
 }
 
 inline BoardUpdatedEventListener* BoardUpdatedEventListener::of(
     std::function<void(BoardUpdatedEvent*)> f) {
-  return new detail::LambdaBoardUpdatedEventListener(std::move(f), true);
+  return new (jrt::kOp) detail::LambdaBoardUpdatedEventListener(std::move(f), true);
 }
 
 }  // namespace fr

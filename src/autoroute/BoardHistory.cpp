@@ -29,7 +29,7 @@ void BoardHistory::add(RoutingBoard* board) {
   if (boards->size() >= maxHistorySize) {
     // Compute the new board's score before the expensive serialisation so we can
     // skip adding boards that would not improve the history.
-    float newScore = (new BoardStatistics(board))->getRouterScore(routerSettings);
+    float newScore = (new (jrt::kOp) BoardStatistics(board))->getRouterScore(routerSettings);
 
     // Find the worst-scoring entry via a linear scan (O(n), n <= MAX_HISTORY_SIZE).
     int32_t worstIndex = 0;
@@ -48,11 +48,11 @@ void BoardHistory::add(RoutingBoard* board) {
     boards->removeAt(worstIndex);
   }
 
-  boards->add(new BoardHistory_BoardHistoryEntry(board, routerSettings));
+  boards->add(new (jrt::kOp) BoardHistory_BoardHistoryEntry(board, routerSettings));
 }
 
 RouterSettings* BoardHistory::createLegacyRouterSettings(RoutingCostSettings* scoringSettings) {
-  RouterSettings* settings = new RouterSettings();
+  RouterSettings* settings = new (jrt::kBoard) RouterSettings();
   settings->scoring = scoringSettings;
   return settings;
 }
@@ -129,7 +129,7 @@ BoardHistory_BoardHistoryEntry::BoardHistory_BoardHistoryEntry(RoutingBoard* boa
                                                                RouterSettings* routerSettings) {
   this->board = board->serialize(false);
   this->hash = board->getHash();
-  this->score = (new BoardStatistics(board))->getRouterScore(routerSettings);
+  this->score = (new (jrt::kOp) BoardStatistics(board))->getRouterScore(routerSettings);
   // Read after the statistics, which wait for the post-load DRC that builds the baseline.
   this->clearanceBaseline = board->clearanceBaseline;
   this->restoreCount = 0;

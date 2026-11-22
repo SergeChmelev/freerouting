@@ -20,7 +20,7 @@ class FallbackRuntimeTelemetryProvider : public RuntimeTelemetryProvider {
 }  // namespace
 
 RuntimeTelemetryProvider* RuntimeTelemetryProvider::FALLBACK() {
-  static RuntimeTelemetryProvider* v = new FallbackRuntimeTelemetryProvider();
+  static RuntimeTelemetryProvider* v = new (jrt::kBoard) FallbackRuntimeTelemetryProvider();
   return v;
 }
 

@@ -49,7 +49,7 @@ GEOSGeometry* checked(GEOSGeometry* g, const char* what) {
   return g;
 }
 
-PlanarAreaGeometry* wrap(GEOSGeometry* g) { return new PlanarAreaGeometry(g); }
+PlanarAreaGeometry* wrap(GEOSGeometry* g) { return new (jrt::kOp) PlanarAreaGeometry(g); }
 
 // GEOMETRY_FACTORY.createPolygon()
 GEOSGeometry* createEmptyPolygon() {
@@ -139,19 +139,19 @@ GEOSGeometry* unaryUnion(const std::vector<GEOSGeometry*>& geoms) {
 jrt::List<FloatPoint*>* ringToPoints(const GEOSGeometry* ring) {
   GEOSContextHandle_t ctx = geosContext();
   if (ring == nullptr || GEOSisEmpty_r(ctx, ring) == 1) {
-    return new jrt::ArrayList<FloatPoint*>();
+    return new (jrt::kOp) jrt::ArrayList<FloatPoint*>();
   }
   const GEOSCoordSequence* seq = GEOSGeom_getCoordSeq_r(ctx, ring);
   unsigned int size = 0;
   if (seq == nullptr || GEOSCoordSeq_getSize_r(ctx, seq, &size) == 0) {
     throw GeosException("getCoordinates failed");
   }
-  auto* points = new jrt::ArrayList<FloatPoint*>();
+  auto* points = new (jrt::kOp) jrt::ArrayList<FloatPoint*>();
   for (unsigned int i = 0; i < size; i++) {
     double x = 0.0;
     double y = 0.0;
     GEOSCoordSeq_getXY_r(ctx, seq, i, &x, &y);
-    points->add(new FloatPoint(x, y));
+    points->add(new (jrt::kGeom) FloatPoint(x, y));
   }
   return points;
 }
@@ -159,7 +159,7 @@ jrt::List<FloatPoint*>* ringToPoints(const GEOSGeometry* ring) {
 }  // namespace
 
 PlanarArea* PlanarArea::EMPTY() {
-  static PlanarArea* v = new PlanarArea(wrap(createEmptyPolygon()));
+  static PlanarArea* v = new (jrt::kGeom) PlanarArea(wrap(createEmptyPolygon()));
   return v;
 }
 
@@ -180,7 +180,7 @@ PlanarArea* PlanarArea::fromBox(IntBox* box) {
       {static_cast<double>(box->ur->x), static_cast<double>(box->ur->y)},
       {static_cast<double>(box->ll->x), static_cast<double>(box->ur->y)},
       {static_cast<double>(box->ll->x), static_cast<double>(box->ll->y)}};
-  return new PlanarArea(wrap(createPolygon(createLinearRing(coords))));
+  return new (jrt::kGeom) PlanarArea(wrap(createPolygon(createLinearRing(coords))));
 }
 
 PlanarArea* PlanarArea::fromCircle(Circle* circle, int32_t numPoints) {
@@ -221,7 +221,7 @@ PlanarArea* PlanarArea::fromCircle(Circle* circle, int32_t numPoints) {
     pts[iPt++] = Coord{x, y};
   }
   pts[iPt] = pts[0];
-  return new PlanarArea(wrap(createPolygon(createLinearRing(pts))));
+  return new (jrt::kGeom) PlanarArea(wrap(createPolygon(createLinearRing(pts))));
 }
 
 PlanarArea* PlanarArea::fromPolylineShape(PolylineShape* poly) {
@@ -240,7 +240,7 @@ PlanarArea* PlanarArea::fromPolylineShape(PolylineShape* poly) {
   coords[count] = Coord{coords[0].x, coords[0].y};
   try {
     GEOSGeometry* shell = createLinearRing(coords);
-    return new PlanarArea(wrap(createPolygon(shell)));
+    return new (jrt::kGeom) PlanarArea(wrap(createPolygon(shell)));
   } catch (const jrt::Exception&) {
     return empty();
   }
@@ -277,7 +277,7 @@ PlanarArea* PlanarArea::fromArea(Area* area) {
   PlanarArea* result = fromPolylineShape(border);
   jrt::Array<Shape*>* holes = area->getHoles();
   if (holes != nullptr && holes->length > 0) {
-    jrt::List<PlanarArea*>* holeAreas = new jrt::ArrayList<PlanarArea*>();
+    jrt::List<PlanarArea*>* holeAreas = new (jrt::kOp) jrt::ArrayList<PlanarArea*>();
     for (Shape* hole : *holes) {
       PlanarArea* ha = fromShape(hole);
       if (ha != nullptr && !ha->isEmpty()) {
@@ -310,7 +310,7 @@ PlanarArea* PlanarArea::createRotatedSpoke(double centerX, double centerY, doubl
 
   try {
     GEOSGeometry* shell = createLinearRing(coords);
-    return new PlanarArea(wrap(createPolygon(shell)));
+    return new (jrt::kGeom) PlanarArea(wrap(createPolygon(shell)));
   } catch (const jrt::Exception&) {
     return empty();
   }
@@ -337,12 +337,12 @@ PlanarArea* PlanarArea::difference(PlanarArea* other) {
     return this;
   }
   try {
-    return new PlanarArea(wrap(geomDifference(this->geometry->g, other->geometry->g)));
+    return new (jrt::kGeom) PlanarArea(wrap(geomDifference(this->geometry->g, other->geometry->g)));
   } catch (const jrt::Exception& ex) {
     try {
       PlanarAreaGeometry* fixedThis = repairTopology(this->geometry);
       PlanarAreaGeometry* fixedOther = repairTopology(other->geometry);
-      return new PlanarArea(wrap(geomDifference(fixedThis->g, fixedOther->g)));
+      return new (jrt::kGeom) PlanarArea(wrap(geomDifference(fixedThis->g, fixedOther->g)));
     } catch (const jrt::Exception& retryEx) {
       throw jrt::IllegalStateException("Failed to compute planar geometry difference");
     }
@@ -357,12 +357,12 @@ PlanarArea* PlanarArea::union_(PlanarArea* other) {
     return this;
   }
   try {
-    return new PlanarArea(wrap(geomUnion(this->geometry->g, other->geometry->g)));
+    return new (jrt::kGeom) PlanarArea(wrap(geomUnion(this->geometry->g, other->geometry->g)));
   } catch (const jrt::Exception& ex) {
     try {
       PlanarAreaGeometry* fixedThis = repairTopology(this->geometry);
       PlanarAreaGeometry* fixedOther = repairTopology(other->geometry);
-      return new PlanarArea(wrap(geomUnion(fixedThis->g, fixedOther->g)));
+      return new (jrt::kGeom) PlanarArea(wrap(geomUnion(fixedThis->g, fixedOther->g)));
     } catch (const jrt::Exception& retryEx) {
       throw jrt::IllegalStateException("Failed to compute planar geometry union");
     }
@@ -374,12 +374,12 @@ PlanarArea* PlanarArea::intersection(PlanarArea* other) {
     return empty();
   }
   try {
-    return new PlanarArea(wrap(geomIntersection(this->geometry->g, other->geometry->g)));
+    return new (jrt::kGeom) PlanarArea(wrap(geomIntersection(this->geometry->g, other->geometry->g)));
   } catch (const jrt::Exception& ex) {
     try {
       PlanarAreaGeometry* fixedThis = repairTopology(this->geometry);
       PlanarAreaGeometry* fixedOther = repairTopology(other->geometry);
-      return new PlanarArea(wrap(geomIntersection(fixedThis->g, fixedOther->g)));
+      return new (jrt::kGeom) PlanarArea(wrap(geomIntersection(fixedThis->g, fixedOther->g)));
     } catch (const jrt::Exception& retryEx) {
       throw jrt::IllegalStateException("Failed to compute planar geometry intersection");
     }
@@ -401,7 +401,7 @@ PlanarArea* PlanarArea::unionAll(jrt::List<PlanarArea*>* areas) {
     return empty();
   }
   try {
-    return new PlanarArea(wrap(unaryUnion(geoms)));
+    return new (jrt::kGeom) PlanarArea(wrap(unaryUnion(geoms)));
   } catch (const jrt::Exception& ex) {
     try {
       std::vector<GEOSGeometry*> sanitized;
@@ -409,7 +409,7 @@ PlanarArea* PlanarArea::unionAll(jrt::List<PlanarArea*>* areas) {
       for (GEOSGeometry* g : geoms) {
         sanitized.push_back(repairTopology(wrap(g))->g);
       }
-      return new PlanarArea(wrap(unaryUnion(sanitized)));
+      return new (jrt::kGeom) PlanarArea(wrap(unaryUnion(sanitized)));
     } catch (const jrt::Exception& retryEx) {
       PlanarAreaGeometry* result = repairTopology(wrap(geoms[0]));
       for (int32_t i = 1; i < static_cast<int32_t>(geoms.size()); i++) {
@@ -420,7 +420,7 @@ PlanarArea* PlanarArea::unionAll(jrt::List<PlanarArea*>* areas) {
               "Failed to compute planar geometry unionAll at index " + jrt::str(i));
         }
       }
-      return new PlanarArea(result);
+      return new (jrt::kGeom) PlanarArea(result);
     }
   }
 }
@@ -436,9 +436,9 @@ PlanarArea* PlanarArea::subtractAll(jrt::List<PlanarArea*>* cutouts) {
 jrt::List<PlanarArea*>* PlanarArea::decomposeIntoIslands() {
   if (isEmpty()) {
     // PORT NOTE: Collections.emptyList() -> new empty list.
-    return new jrt::ArrayList<PlanarArea*>();
+    return new (jrt::kOp) jrt::ArrayList<PlanarArea*>();
   }
-  jrt::List<PlanarArea*>* islands = new jrt::ArrayList<PlanarArea*>();
+  jrt::List<PlanarArea*>* islands = new (jrt::kOp) jrt::ArrayList<PlanarArea*>();
   collectPolygons(this->geometry, islands);
   return islands;
 }
@@ -451,7 +451,7 @@ void PlanarArea::collectPolygons(PlanarAreaGeometry* geom, jrt::List<PlanarArea*
   int typeId = GEOSGeomTypeId_r(ctx, geom->g);
   if (typeId == GEOS_POLYGON) {
     if (!geomIsEmpty(geom->g) && geomArea(geom->g) > 0.0) {
-      list->add(new PlanarArea(geom));
+      list->add(new (jrt::kGeom) PlanarArea(geom));
     }
   } else if (typeId == GEOS_MULTIPOINT || typeId == GEOS_MULTILINESTRING ||
              typeId == GEOS_MULTIPOLYGON || typeId == GEOS_GEOMETRYCOLLECTION) {
@@ -513,20 +513,20 @@ jrt::Array<double>* PlanarArea::getBoundingBox() {
 jrt::List<PlanarArea_Contour*>* PlanarArea::toContours() {
   if (isEmpty()) {
     // PORT NOTE: Collections.emptyList() -> new empty list.
-    return new jrt::ArrayList<PlanarArea_Contour*>();
+    return new (jrt::kOp) jrt::ArrayList<PlanarArea_Contour*>();
   }
   GEOSContextHandle_t ctx = geosContext();
-  jrt::List<PlanarArea_Contour*>* contours = new jrt::ArrayList<PlanarArea_Contour*>();
+  jrt::List<PlanarArea_Contour*>* contours = new (jrt::kOp) jrt::ArrayList<PlanarArea_Contour*>();
   for (PlanarArea* island : *decomposeIntoIslands()) {
     if (GEOSGeomTypeId_r(ctx, island->geometry->g) == GEOS_POLYGON) {
       GEOSGeometry* poly = island->geometry->g;
       jrt::List<FloatPoint*>* outer = ringToPoints(GEOSGetExteriorRing_r(ctx, poly));
-      jrt::List<jrt::List<FloatPoint*>*>* holes = new jrt::ArrayList<jrt::List<FloatPoint*>*>();
+      jrt::List<jrt::List<FloatPoint*>*>* holes = new (jrt::kOp) jrt::ArrayList<jrt::List<FloatPoint*>*>();
       int numInteriorRings = GEOSGetNumInteriorRings_r(ctx, poly);
       for (int i = 0; i < numInteriorRings; i++) {
         holes->add(ringToPoints(GEOSGetInteriorRingN_r(ctx, poly, i)));
       }
-      contours->add(new PlanarArea_Contour(outer, holes));
+      contours->add(new (jrt::kGeom) PlanarArea_Contour(outer, holes));
     }
   }
   return contours;

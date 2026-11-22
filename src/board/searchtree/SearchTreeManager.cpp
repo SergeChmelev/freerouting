@@ -22,8 +22,8 @@ namespace fr {
 
 SearchTreeManager::SearchTreeManager(BasicBoard* board) {
   this->board = board;
-  compensatedSearchTrees = new jrt::LinkedList<ShapeSearchTree*>();
-  defaultTree = new ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), board, 0);
+  compensatedSearchTrees = new (jrt::kBoard) jrt::LinkedList<ShapeSearchTree*>();
+  defaultTree = new (jrt::kBoard) ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), board, 0);
   compensatedSearchTrees->add(defaultTree);
   this->clearanceCompensationUsed = false;
 }
@@ -60,7 +60,7 @@ ShapeSearchTree* SearchTreeManager::getUncompensatedTree() {
     }
   }
   ShapeSearchTree* tree =
-      new ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), board, 0);
+      new (jrt::kBoard) ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), board, 0);
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
   for (Item* item = jrt::fast_cast<Item>(board->itemList->readObject(it)); item != nullptr;
        item = jrt::fast_cast<Item>(board->itemList->readObject(it))) {
@@ -94,7 +94,7 @@ void SearchTreeManager::setClearanceCompensationUsed(bool value) {
   } else {
     compensatedClearanceClassNo = 0;
   }
-  defaultTree = new ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), this->board,
+  defaultTree = new (jrt::kBoard) ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), this->board,
                                     compensatedClearanceClassNo);
   this->compensatedSearchTrees->add(defaultTree);
   insertAllBoardItems();
@@ -137,14 +137,14 @@ ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex
   ShapeSearchTree* currentAutorouteTree;
   if (this->board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
     // fast algorithm with 90 degree restriction
-    currentAutorouteTree = new ShapeSearchTree90Degree(this->board, clearanceClassIndex);
+    currentAutorouteTree = new (jrt::kBoard) ShapeSearchTree90Degree(this->board, clearanceClassIndex);
   } else if (this->board->rules->getTraceAngleRestriction() ==
              AngleRestriction::FORTYFIVE_DEGREE) {
     // fast algorithm with 45 degree restriction
-    currentAutorouteTree = new ShapeSearchTree45Degree(this->board, clearanceClassIndex);
+    currentAutorouteTree = new (jrt::kBoard) ShapeSearchTree45Degree(this->board, clearanceClassIndex);
   } else {
     // slow algorithm or no angle restriction
-    currentAutorouteTree = new ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(),
+    currentAutorouteTree = new (jrt::kBoard) ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(),
                                                this->board, clearanceClassIndex);
   }
   this->compensatedSearchTrees->add(currentAutorouteTree);

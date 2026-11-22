@@ -17,7 +17,7 @@ namespace fr {
 jrt::Set<std::string>* TwoLayerBga::MODES() {
   static jrt::Set<std::string>* v = [] {
     // PORT NOTE: Java Set.of (immutable, unordered); only contains() is used.
-    auto* s = new jrt::HashSet<std::string>();
+    auto* s = new (jrt::kOp) jrt::HashSet<std::string>();
     s->add("off");
     s->add("no_fanout");
     s->add("direct_first");
@@ -57,7 +57,7 @@ bool TwoLayerBga::isBallGrid(jrt::Collection<Pin*>* pins) {
 }
 
 jrt::List<std::string>* TwoLayerBga::ballGridParts(BasicBoard* board) {
-  jrt::List<std::string>* parts = new jrt::ArrayList<std::string>();
+  jrt::List<std::string>* parts = new (jrt::kOp) jrt::ArrayList<std::string>();
   for (int32_t id = 1; id <= board->components->count(); id++) {
     if (isBallGrid(board->getComponentPins(id))) {
       std::string name =

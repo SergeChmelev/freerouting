@@ -33,12 +33,12 @@ void Plane::writeScope(WriteScopeParameter* scopeParameter, fr::ConductionArea* 
   fr::Area* currentArea = conduction->getArea();
   int32_t layerIndex = conduction->getLayer();
   fr::Layer* boardLayer = (*scopeParameter->board->layerStructure->layers)[layerIndex];
-  Layer* planeLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
+  Layer* planeLayer = new (jrt::kOp) Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
   if (auto* shape = jrt::fast_cast<fr::Shape>(currentArea)) {
     boundaryShape = shape;
-    holes = new jrt::Array<fr::Shape*>(0);
+    holes = new (jrt::kOp) jrt::Array<fr::Shape*>(0);
   } else {
     boundaryShape = currentArea->getBorder();
     holes = currentArea->getHoles();
@@ -81,7 +81,7 @@ bool Plane::readScope(ReadScopeParameter* scopeParameter) {
     FRLogger::error("Plane.read_scope: IO error scanning file", &e);
     return false;
   }
-  auto* planeInfo = new ReadScopeParameter_PlaneInfo(conductionArea, netName);
+  auto* planeInfo = new (jrt::kOp) ReadScopeParameter_PlaneInfo(conductionArea, netName);
   scopeParameter->planeList->add(planeInfo);
   return true;
 }

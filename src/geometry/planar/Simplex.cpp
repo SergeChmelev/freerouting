@@ -28,7 +28,7 @@ void sortLines(jrt::Array<Line*>* lines) {
 }  // namespace
 
 Simplex* Simplex::EMPTY() {
-  static Simplex* v = new Simplex(new jrt::Array<Line*>(0));
+  static Simplex* v = new (jrt::kGeom) Simplex(new (jrt::kGeom) jrt::Array<Line*>(0));
   return v;
 }
 
@@ -36,11 +36,11 @@ Simplex* Simplex::getInstance(jrt::Array<Line*>* lines) {
   if (lines->length == 0) {
     return Simplex::EMPTY();
   }
-  auto* currentArr = new jrt::Array<Line*>(lines->length);
+  auto* currentArr = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   jrt::arraycopy(lines, 0, currentArr, 0, lines->length);
   // sort the lines in ascending direction
   sortLines(currentArr);
-  Simplex* currentSimplex = new Simplex(currentArr);
+  Simplex* currentSimplex = new (jrt::kGeom) Simplex(currentArr);
   return currentSimplex->removeRedundantLines();
 }
 
@@ -121,7 +121,7 @@ Point* Simplex::corner(int32_t cornerIndex) {
   }
   if (precalculatedCorners == nullptr) {
     // corner array is not yet allocated
-    precalculatedCorners = new jrt::Array<Point*>(lines->length);
+    precalculatedCorners = new (jrt::kGeom) jrt::Array<Point*>(lines->length);
   }
   if ((*precalculatedCorners)[no] == nullptr) {
     // corner is not yet calculated
@@ -152,7 +152,7 @@ FloatPoint* Simplex::cornerApprox(int32_t cornerIndex) {
   }
   if (precalculatedFloatCorners == nullptr) {
     // corner array is not yet allocated
-    precalculatedFloatCorners = new jrt::Array<FloatPoint*>(lines->length);
+    precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length);
   }
   if ((*precalculatedFloatCorners)[no] == nullptr) {
     // corner is not yet calculated
@@ -170,7 +170,7 @@ FloatPoint* Simplex::cornerApprox(int32_t cornerIndex) {
 jrt::Array<FloatPoint*>* Simplex::cornerApproxArr() {
   if (precalculatedFloatCorners == nullptr) {
     // corner array is not yet allocated
-    precalculatedFloatCorners = new jrt::Array<FloatPoint*>(lines->length);
+    precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length);
   }
   for (int32_t i = 0; i < precalculatedFloatCorners->length; i++) {
     if ((*precalculatedFloatCorners)[i] == nullptr) {
@@ -392,7 +392,7 @@ IntOctagon* Simplex::toIntOctagon() {
       }
     }
   }
-  IntOctagon* result = new IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
+  IntOctagon* result = new (jrt::kGeom) IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
   return result->normalize();
 }
 
@@ -400,11 +400,11 @@ Simplex* Simplex::translateBy(Vector* vector) {
   if (vector->equals(Vector::ZERO())) {
     return this;
   }
-  auto* newArray = new jrt::Array<Line*>(lines->length);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   for (int32_t i = 0; i < lines->length; i++) {
     (*newArray)[i] = (*lines)[i]->translateBy(vector);
   }
-  return new Simplex(newArray);
+  return new (jrt::kGeom) Simplex(newArray);
 }
 
 IntBox* Simplex::boundingBox() {
@@ -424,10 +424,10 @@ IntBox* Simplex::boundingBox() {
       ury = jrt::Math::max(ury, current->y);
     }
     IntPoint* lowerLeft =
-        new IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
+        new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
     IntPoint* upperRight =
-        new IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
-    precalculatedBoundingBox = new IntBox(lowerLeft, upperRight);
+        new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
+    precalculatedBoundingBox = new (jrt::kGeom) IntBox(lowerLeft, upperRight);
   }
   return precalculatedBoundingBox;
 }
@@ -463,7 +463,7 @@ IntOctagon* Simplex::boundingOctagon() {
       // result is not bounded
       return nullptr;
     }
-    precalculatedBoundingOctagon = new IntOctagon(
+    precalculatedBoundingOctagon = new (jrt::kGeom) IntOctagon(
         jrt::d2i(jrt::Math::floor(lx)), jrt::d2i(jrt::Math::floor(ly)),
         jrt::d2i(jrt::Math::ceil(rx)), jrt::d2i(jrt::Math::ceil(uy)),
         jrt::d2i(jrt::Math::floor(ulx)), jrt::d2i(jrt::Math::ceil(lrx)),
@@ -480,11 +480,11 @@ Simplex* Simplex::offset(double width) {
   if (width == 0) {
     return this;
   }
-  auto* newArray = new jrt::Array<Line*>(lines->length);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(lines->length);
   for (int32_t i = 0; i < lines->length; i++) {
     (*newArray)[i] = (*lines)[i]->translate(-width);
   }
-  Simplex* offsetSimplex = new Simplex(newArray);
+  Simplex* offsetSimplex = new (jrt::kGeom) Simplex(newArray);
   if (width < 0) {
     offsetSimplex = offsetSimplex->removeRedundantLines();
   }
@@ -526,11 +526,11 @@ Simplex* Simplex::intersection(Simplex* other) {
   if (this->isEmpty() || other->isEmpty()) {
     return EMPTY();
   }
-  auto* newArray = new jrt::Array<Line*>(lines->length + other->lines->length);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(lines->length + other->lines->length);
   jrt::arraycopy(this->lines, 0, newArray, 0, lines->length);
   jrt::arraycopy(other->lines, 0, newArray, lines->length, other->lines->length);
   sortLines(newArray);
-  Simplex* result = new Simplex(newArray);
+  Simplex* result = new (jrt::kGeom) Simplex(newArray);
   return result->removeRedundantLines();
 }
 
@@ -562,10 +562,10 @@ Simplex* Simplex::removeBorderLine(int32_t no) {
   if (no < 0 || no >= lines->length) {
     return this;
   }
-  auto* newArray = new jrt::Array<Line*>(this->lines->length - 1);
+  auto* newArray = new (jrt::kGeom) jrt::Array<Line*>(this->lines->length - 1);
   jrt::arraycopy(this->lines, 0, newArray, 0, no);
   jrt::arraycopy(this->lines, no + 1, newArray, no, newArray->length - no);
-  return new Simplex(newArray);
+  return new (jrt::kGeom) Simplex(newArray);
 }
 
 jrt::Array<TileShape*>* Simplex::cutout(TileShape* shape) { return shape->cutoutFrom(this); }
@@ -578,17 +578,17 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
   Simplex* innerSimplex = this->intersection(outerSimplex);
   if (innerSimplex->dimension() < 2) {
     // nothing to cutout from outerSimplex
-    auto* result = new jrt::Array<TileShape*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(1);
     (*result)[0] = outerSimplex;
     return result;
   }
   int32_t innerCornerCount = innerSimplex->lines->length;
-  auto* divisionLineArr = new jrt::Array<jrt::Array<Line*>*>(innerCornerCount);
+  auto* divisionLineArr = new (jrt::kGeom) jrt::Array<jrt::Array<Line*>*>(innerCornerCount);
   for (int32_t innerCornerNo = 0; innerCornerNo < innerCornerCount; innerCornerNo++) {
     (*divisionLineArr)[innerCornerNo] = innerSimplex->calcDivisionLines(innerCornerNo, outerSimplex);
     if ((*divisionLineArr)[innerCornerNo] == nullptr) {
       FRLogger::warn("Simplex.cutout_from: division line is null");
-      auto* result = new jrt::Array<TileShape*>(1);
+      auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(1);
       (*result)[0] = outerSimplex;
       return result;
     }
@@ -597,7 +597,7 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
   Line* prevDivisionLine = nullptr;
   Line* firstDivisionLine = (*(*divisionLineArr)[0])[0];
   IntDirection* firstDirection = jrt::fast_cast<IntDirection>(firstDivisionLine->direction());
-  jrt::Collection<Simplex*>* resultList = new jrt::LinkedList<Simplex*>();
+  jrt::Collection<Simplex*>* resultList = new (jrt::kOp) jrt::LinkedList<Simplex*>();
 
   for (int32_t innerCornerNo = 0; innerCornerNo < innerCornerCount; innerCornerNo++) {
     int32_t nextCornerNo = (innerCornerNo + 1) % innerCornerCount;
@@ -641,8 +641,8 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
       if (mergeFirstDivisionLine) {
         ++pieceLineCount;
       }
-      auto* pieceLines = new jrt::Array<Line*>(pieceLineCount);
-      (*pieceLines)[0] = new Line((*currentDivisionLines)[1]->b, (*currentDivisionLines)[1]->a);
+      auto* pieceLines = new (jrt::kGeom) jrt::Array<Line*>(pieceLineCount);
+      (*pieceLines)[0] = new (jrt::kGeom) Line((*currentDivisionLines)[1]->b, (*currentDivisionLines)[1]->a);
       (*pieceLines)[1] = (*currentDivisionLines)[0];
       int32_t currentLineNo = 1;
       if (mergePrevDivisionLine) {
@@ -651,9 +651,9 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
       }
       if (mergeFirstDivisionLine) {
         ++currentLineNo;
-        (*pieceLines)[currentLineNo] = new Line(firstDivisionLine->b, firstDivisionLine->a);
+        (*pieceLines)[currentLineNo] = new (jrt::kGeom) Line(firstDivisionLine->b, firstDivisionLine->a);
       }
-      Simplex* currentPiece = new Simplex(pieceLines);
+      Simplex* currentPiece = new (jrt::kGeom) Simplex(pieceLines);
       resultList->add(currentPiece->intersection(outerSimplex));
     }
     // construct an unbounded simplex from nextDivisionLine,
@@ -701,13 +701,13 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
     if (mergeFirstDivisionLine) {
       ++pieceLineCount;
     }
-    auto* pieceLines = new jrt::Array<Line*>(pieceLineCount);
+    auto* pieceLines = new (jrt::kGeom) jrt::Array<Line*>(pieceLineCount);
     Line* currentLine = (*innerSimplex->lines)[innerCornerNo];
-    (*pieceLines)[0] = new Line(currentLine->b, currentLine->a);
+    (*pieceLines)[0] = new (jrt::kGeom) Line(currentLine->b, currentLine->a);
     int32_t currentLineNo = 0;
     if (mergeNextDivisionLine) {
       ++currentLineNo;
-      (*pieceLines)[currentLineNo] = new Line(nextDivisionLine->b, nextDivisionLine->a);
+      (*pieceLines)[currentLineNo] = new (jrt::kGeom) Line(nextDivisionLine->b, nextDivisionLine->a);
     }
     if (mergeLastCurrDivisionLine) {
       ++currentLineNo;
@@ -719,13 +719,13 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
     }
     if (mergeFirstDivisionLine) {
       ++currentLineNo;
-      (*pieceLines)[currentLineNo] = new Line(firstDivisionLine->b, firstDivisionLine->a);
+      (*pieceLines)[currentLineNo] = new (jrt::kGeom) Line(firstDivisionLine->b, firstDivisionLine->a);
     }
-    Simplex* currentPiece = new Simplex(pieceLines);
+    Simplex* currentPiece = new (jrt::kGeom) Simplex(pieceLines);
     resultList->add(currentPiece->intersection(outerSimplex));
     nextDivisionLine = prevDivisionLine;  // (sic: Java assigns the local, not prevDivisionLine)
   }
-  auto* result = new jrt::Array<TileShape*>(resultList->size());
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(resultList->size());
   jrt::Iterator<Simplex*>* it = resultList->iterator();
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = it->next();
@@ -740,7 +740,7 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(IntOctagon* oct) {
 jrt::Array<TileShape*>* Simplex::cutoutFrom(IntBox* box) { return cutoutFrom(box->toSimplex()); }
 
 Simplex* Simplex::removeRedundantLines() {
-  auto* lines = new jrt::Array<Line*>(this->lines->length);
+  auto* lines = new (jrt::kGeom) jrt::Array<Line*>(this->lines->length);
   // copy the sorted lines of arr into lines while skipping
   // multiple lines
   int32_t newLength = 1;
@@ -754,7 +754,7 @@ Simplex* Simplex::removeRedundantLines() {
     }
   }
 
-  auto* intersectionSides = new jrt::Array<Side*>(newLength);
+  auto* intersectionSides = new (jrt::kGeom) jrt::Array<Side*>(newLength);
   // precalculated array , on which side of this line the previous and the
   // next line do intersect
 
@@ -872,9 +872,9 @@ Simplex* Simplex::removeRedundantLines() {
   if (newLength == 0) {
     return Simplex::EMPTY();
   }
-  auto* result = new jrt::Array<Line*>(newLength);
+  auto* result = new (jrt::kGeom) jrt::Array<Line*>(newLength);
   jrt::arraycopy(lines, 0, result, 0, newLength);
-  return new Simplex(result);
+  return new (jrt::kGeom) Simplex(result);
 }
 
 jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* outerSimplex) {
@@ -901,7 +901,7 @@ jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* ou
     // the inner simplex with the outer simplex.
     // Because these corners lie on the border of the outer simplex,
     // no division is necessary
-    auto* result = new jrt::Array<Line*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<Line*>(1);
     (*result)[0] = prevInnerLine;
     return result;
   }
@@ -922,8 +922,8 @@ jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* ou
     IntDirection* currentProjectionDir =
         jrt::fast_cast<IntDirection>(innerCorner->perpendicularDirection(outerLine));
     if (currentProjectionDir == Direction::NULL_()) {
-      auto* result = new jrt::Array<Line*>(1);
-      (*result)[0] = new Line(innerCorner, innerCorner);
+      auto* result = new (jrt::kGeom) jrt::Array<Line*>(1);
+      (*result)[0] = new (jrt::kGeom) Line(innerCorner, innerCorner);
       return result;
     }
     bool projectionVisible = prevInnerDir->determinant(currentProjectionDir) >= 0;
@@ -950,8 +950,8 @@ jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* ou
 
           if (currentSecondProjectionDir == Direction::NULL_()) {
             // inner corner is on outerLine
-            auto* result = new jrt::Array<Line*>(1);
-            (*result)[0] = new Line(innerCorner, innerCorner);
+            auto* result = new (jrt::kGeom) jrt::Array<Line*>(1);
+            (*result)[0] = new (jrt::kGeom) Line(innerCorner, innerCorner);
             return result;
           }
           if (currentProjectionDir->determinant(currentSecondProjectionDir) < 0) {
@@ -986,12 +986,12 @@ jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* ou
   }
   jrt::Array<Line*>* result;
   if (firstProjectionDir->equals(secondProjectionDir)) {
-    result = new jrt::Array<Line*>(1);
-    (*result)[0] = new Line(innerCorner, firstProjectionDir);
+    result = new (jrt::kGeom) jrt::Array<Line*>(1);
+    (*result)[0] = new (jrt::kGeom) Line(innerCorner, firstProjectionDir);
   } else {
-    result = new jrt::Array<Line*>(2);
-    (*result)[0] = new Line(innerCorner, firstProjectionDir);
-    (*result)[1] = new Line(innerCorner, secondProjectionDir);
+    result = new (jrt::kGeom) jrt::Array<Line*>(2);
+    (*result)[0] = new (jrt::kGeom) Line(innerCorner, firstProjectionDir);
+    (*result)[1] = new (jrt::kGeom) Line(innerCorner, secondProjectionDir);
   }
   return result;
 }

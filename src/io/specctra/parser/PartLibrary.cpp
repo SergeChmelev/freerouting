@@ -145,7 +145,7 @@ PartLibrary_LogicalPartMapping* PartLibrary::readLogicalPartMapping(IJFlexScanne
           scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    jrt::TreeSet<std::string>* result = new jrt::TreeSet<std::string>();
+    jrt::TreeSet<std::string>* result = new (jrt::kOp) jrt::TreeSet<std::string>();
     for (;;) {
       scanner->yybegin(SpecctraDsnStreamReader::NAME);
       nextToken = scanner->nextToken();
@@ -166,7 +166,7 @@ PartLibrary_LogicalPartMapping* PartLibrary::readLogicalPartMapping(IJFlexScanne
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    return new PartLibrary_LogicalPartMapping(name->value, result);
+    return new (jrt::kOp) PartLibrary_LogicalPartMapping(name->value, result);
   } catch (const jrt::IOException& e) {
     FRLogger::error("PartLibrary.read_logical_part_mapping: IO error scanning file", &e);
     return nullptr;
@@ -175,7 +175,7 @@ PartLibrary_LogicalPartMapping* PartLibrary::readLogicalPartMapping(IJFlexScanne
 
 PartLibrary_LogicalPart* PartLibrary::readLogicalPart(IJFlexScanner* scanner) {
   jrt::Collection<PartLibrary_PartPin*>* const partPins =
-      new jrt::LinkedList<PartLibrary_PartPin*>();
+      new (jrt::kOp) jrt::LinkedList<PartLibrary_PartPin*>();
   jrt::Object* nextToken;
   try {
     nextToken = scanner->nextToken();
@@ -223,7 +223,7 @@ PartLibrary_LogicalPart* PartLibrary::readLogicalPart(IJFlexScanner* scanner) {
       return nullptr;
     }
   }
-  return new PartLibrary_LogicalPart(partName->value, partPins);
+  return new (jrt::kOp) PartLibrary_LogicalPart(partName->value, partPins);
 }
 
 PartLibrary_PartPin* PartLibrary::readPartPin(IJFlexScanner* scanner) {
@@ -279,7 +279,7 @@ PartLibrary_PartPin* PartLibrary::readPartPin(IJFlexScanner* scanner) {
     do {
       nextToken = scanner->nextToken();
     } while (nextToken != CLOSED_BRACKET() && nextToken != nullptr);
-    return new PartLibrary_PartPin(pinName->value, gateName->value, gateSwapCode,
+    return new (jrt::kOp) PartLibrary_PartPin(pinName->value, gateName->value, gateSwapCode,
                                    gatePinName->value, gatePinSwapCode);
   } catch (const jrt::IOException& e) {
     FRLogger::error("PartLibrary.read_part_pin: IO error scanning file", &e);

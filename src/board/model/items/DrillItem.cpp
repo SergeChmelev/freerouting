@@ -66,12 +66,12 @@ void DrillItem::moveBy(Vector* vector) {
   // Item.moveBy removes the tree entry before translating; reject unsupported moves first.
   oldCenter->translateBy(vector)->toIntegerExact();
   // remember the contact situation of this drillitem to traces on each layer
-  jrt::Set<DrillItem_TraceInfo*>* contactTraceInfo = new jrt::TreeSet<DrillItem_TraceInfo*>();
+  jrt::Set<DrillItem_TraceInfo*>* contactTraceInfo = new (jrt::kOp) jrt::TreeSet<DrillItem_TraceInfo*>();
   jrt::Collection<Item*>* contacts = this->getNormalContacts();
   for (Item* currentContact : *contacts) {
     if (auto* currentTrace = jrt::fast_cast<Trace>(currentContact)) {
       auto* currentTraceInfo =
-          new DrillItem_TraceInfo(currentTrace->getLayer(), currentTrace->getHalfWidth(),
+          new (jrt::kBoard) DrillItem_TraceInfo(currentTrace->getLayer(), currentTrace->getHalfWidth(),
                                   currentTrace->clearanceClassIndex());
       contactTraceInfo->add(currentTraceInfo);
     }
@@ -80,7 +80,7 @@ void DrillItem::moveBy(Vector* vector) {
 
   // Insert a Trace from the old center to the new center, on all layers, where
   // this DrillItem was connected to a Trace.
-  jrt::Collection<Point*>* connectPointList = new jrt::LinkedList<Point*>();
+  jrt::Collection<Point*>* connectPointList = new (jrt::kOp) jrt::LinkedList<Point*>();
   connectPointList->add(oldCenter);
   Point* newCenter = this->getCenter();
   IntPoint* addCorner = nullptr;
@@ -98,7 +98,7 @@ void DrillItem::moveBy(Vector* vector) {
     connectPointList->add(addCorner);
   }
   connectPointList->add(newCenter);
-  auto* connectPoints = new jrt::Array<Point*>(connectPointList->size());
+  auto* connectPoints = new (jrt::kGeom) jrt::Array<Point*>(connectPointList->size());
   jrt::Iterator<Point*>* it3 = connectPointList->iterator();
   for (int32_t i = 0; i < connectPoints->length; i++) {
     (*connectPoints)[i] = it3->next();
@@ -222,7 +222,7 @@ jrt::Set<Item*>* DrillItem::getNormalContacts() {
   Point* drillCenter = this->getCenter();
   TileShape* searchShape = TileShape::getInstance(drillCenter);
   jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(searchShape, -1);
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   // A plane is a contact where it overlaps the copper of a pin, its centre lying in the plane or
   // not: look up the planes on each layer by the shape of the pin there.
   for (int32_t layer = firstLayer(); jrt::fast_cast<Pin>(this) != nullptr && layer <= lastLayer();
@@ -305,7 +305,7 @@ Point* DrillItem::normalContactPoint(Trace* trace) {
 }
 
 jrt::Array<Point*>* DrillItem::getRatsnestCorners() {
-  auto* result = new jrt::Array<Point*>(1);
+  auto* result = new (jrt::kGeom) jrt::Array<Point*>(1);
   (*result)[0] = this->getCenter();
   return result;
 }

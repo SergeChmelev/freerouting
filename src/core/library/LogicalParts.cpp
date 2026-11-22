@@ -6,12 +6,12 @@
 
 namespace fr {
 
-LogicalParts::LogicalParts() : partArr(new jrt::ArrayList<LogicalPart*>()) {}
+LogicalParts::LogicalParts() : partArr(new (jrt::kBoard) jrt::ArrayList<LogicalPart*>()) {}
 
 LogicalPart* LogicalParts::add(const std::string& name,
                                jrt::Array<LogicalPart_PartPin*>* partPinArr) {
   jrt::Arrays::sort<LogicalPart_PartPin*>(partPinArr);
-  auto* newPart = new LogicalPart(name, partArr->size() + 1, partPinArr);
+  auto* newPart = new (jrt::kBoard) LogicalPart(name, partArr->size() + 1, partPinArr);
   partArr->add(newPart);
   return newPart;
 }

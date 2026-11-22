@@ -36,9 +36,9 @@ double unboxDouble(const std::optional<double>& v) {
 }  // namespace
 
 jrt::Collection<Rule*>* Rule::readScope(IJFlexScanner* scanner) {
-  jrt::Collection<Rule*>* result = new jrt::LinkedList<Rule*>();
+  jrt::Collection<Rule*>* result = new (jrt::kOp) jrt::LinkedList<Rule*>();
   jrt::Object* currentToken = nullptr;
-  auto* meanderBuilder = new Circuit_MeanderDescriptorBuilder();
+  auto* meanderBuilder = new (jrt::kOp) Circuit_MeanderDescriptorBuilder();
   for (;;) {
     jrt::Object* prevToken = currentToken;
     try {
@@ -72,7 +72,7 @@ jrt::Collection<Rule*>* Rule::readScope(IJFlexScanner* scanner) {
         // this is a "(length" rule
         Circuit_LengthMatchingRule* lengthResult = Circuit::readLengthScope(scanner);
         if (lengthResult != nullptr) {
-          currentRule = new Rule_LengthRule(lengthResult->maxLength, lengthResult->minLength);
+          currentRule = new (jrt::kOp) Rule_LengthRule(lengthResult->maxLength, lengthResult->minLength);
         }
       } else {
         ScopeKeyword::skipScope(scanner);
@@ -91,8 +91,8 @@ jrt::Collection<Rule*>* Rule::readScope(IJFlexScanner* scanner) {
 
 Rule_LayerRule* Rule::readLayerRuleScope(IJFlexScanner* scanner) {
   try {
-    jrt::Collection<std::string>* layerNames = new jrt::LinkedList<std::string>();
-    jrt::Collection<Rule*>* ruleList = new jrt::LinkedList<Rule*>();
+    jrt::Collection<std::string>* layerNames = new (jrt::kOp) jrt::LinkedList<std::string>();
+    jrt::Collection<Rule*>* ruleList = new (jrt::kOp) jrt::LinkedList<Rule*>();
     for (;;) {
       scanner->yybegin(SpecctraDsnStreamReader::LAYER_NAME);
       jrt::Object* nextToken = scanner->nextToken();
@@ -126,7 +126,7 @@ Rule_LayerRule* Rule::readLayerRuleScope(IJFlexScanner* scanner) {
       }
       ruleList->addAll(readRules);
     }
-    return new Rule_LayerRule(layerNames, ruleList);
+    return new (jrt::kOp) Rule_LayerRule(layerNames, ruleList);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Rule.read_layer_rule_scope: IO error scanning file", &e);
     return nullptr;
@@ -140,7 +140,7 @@ Rule_WidthRule* Rule::readWidthRule(IJFlexScanner* scanner) {
     return nullptr;
   }
 
-  return new Rule_WidthRule(value);
+  return new (jrt::kOp) Rule_WidthRule(value);
 }
 
 void Rule::writeScope(fr::NetClass* netClass, WriteScopeParameter* scopeParameter) {
@@ -274,7 +274,7 @@ Rule_ClearanceRule* Rule::readClearanceRule(IJFlexScanner* scanner) {
   try {
     double value = unboxDouble(scanner->nextDouble());
 
-    jrt::Collection<std::string>* classPairs = new jrt::LinkedList<std::string>();
+    jrt::Collection<std::string>* classPairs = new (jrt::kOp) jrt::LinkedList<std::string>();
     jrt::Object* nextToken = scanner->nextToken();
     if (nextToken != Keyword::CLOSED_BRACKET()) {
       // look for "(type"
@@ -310,7 +310,7 @@ Rule_ClearanceRule* Rule::readClearanceRule(IJFlexScanner* scanner) {
       }
     }
 
-    return new Rule_ClearanceRule(value, classPairs);
+    return new (jrt::kOp) Rule_ClearanceRule(value, classPairs);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Rule.read_clearance_rule: IO error scanning file", &e);
     return nullptr;

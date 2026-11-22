@@ -75,10 +75,10 @@ FoundConnectionInserter* FoundConnectionInserter::getInstance(FoundConnectionLoc
     return nullptr;
   }
   auto* segments =
-      new jrt::Array<PlannedConnection_Segment*>(connection->connectionItems->size());
+      new (jrt::kOp) jrt::Array<PlannedConnection_Segment*>(connection->connectionItems->size());
   int32_t segmentIndex = 0;
   for (FoundConnectionLocator_ResultItem* item : *connection->connectionItems) {
-    (*segments)[segmentIndex++] = new PlannedConnection_Segment(item->corners, item->layer);
+    (*segments)[segmentIndex++] = new (jrt::kOp) PlannedConnection_Segment(item->corners, item->layer);
   }
   return insertSegments(board, ctrl, connection->startItem, connection->targetItem,
                         connection->startLayer, connection->targetLayer, segments);
@@ -92,7 +92,7 @@ FoundConnectionInserter* FoundConnectionInserter::insertSegments(
       || targetLayer >= board->getLayerCount()) {
     return nullptr;
   }
-  auto* newInstance = new FoundConnectionInserter(board, ctrl);
+  auto* newInstance = new (jrt::kOp) FoundConnectionInserter(board, ctrl);
   PlannedConnection_Segment* lastSegment = (*segments)[segments->length - 1];
   FoundConnectionInserter_TerminalAnchor* startAnchor = newInstance->captureTerminal(
       startItem, (*lastSegment->corners)[lastSegment->corners->length - 1], startLayer, false);
@@ -186,7 +186,7 @@ bool FoundConnectionInserter::insertTrace(PlannedConnection_Segment* trace) {
   Pin* startPin = nullptr;
   Pin* endPin = nullptr;
   if (ctrl->withNeckdown) {
-    auto* itemFilter = new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::PINS);
+    auto* itemFilter = new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::PINS);
     Point* currentEndCorner = (*trace->corners)[0];
     for (int32_t i = 0; i < 2; i++) {
       jrt::Set<Item*>* pickedItems = this->board->pickItems(currentEndCorner, trace->layer, itemFilter);
@@ -204,18 +204,18 @@ bool FoundConnectionInserter::insertTrace(PlannedConnection_Segment* trace) {
       currentEndCorner = (*trace->corners)[trace->corners->length - 1];
     }
   }
-  auto* netNumbers = new jrt::Array<int32_t>(1);
+  auto* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*netNumbers)[0] = ctrl->netNumber;
 
   int32_t fromCornerNo = 0;
   bool result = true;
   for (int32_t i = 1; i < trace->corners->length; i++) {
     // Arrays.copyOfRange(trace.corners, fromCornerNo, i + 1)
-    auto* currentCornerArr = new jrt::Array<Point*>(i + 1 - fromCornerNo);
+    auto* currentCornerArr = new (jrt::kGeom) jrt::Array<Point*>(i + 1 - fromCornerNo);
     for (int32_t k = 0; k < currentCornerArr->length; k++) {
       (*currentCornerArr)[k] = (*trace->corners)[fromCornerNo + k];
     }
-    Polyline* insertPolyline = new Polyline(currentCornerArr);
+    Polyline* insertPolyline = new (jrt::kGeom) Polyline(currentCornerArr);
     int32_t maxItemIdBeforeSeg = board->communication->idGenerator->maxGeneratedId();
     Point* okPoint = board->insertForcedTracePolyline(
         insertPolyline, (*ctrl->traceHalfWidth)[trace->layer], trace->layer, netNumbers,
@@ -260,7 +260,7 @@ bool FoundConnectionInserter::insertTrace(PlannedConnection_Segment* trace) {
                             + ", okPoint=" + jrt::str(okPoint)
                             + ", first=" + jrt::str(insertPolyline->firstCorner())
                             + ", last=" + jrt::str(insertPolyline->lastCorner()),
-                        "Net #" + jrt::str(ctrl->netNumber), new jrt::Array<Point*>(0));
+                        "Net #" + jrt::str(ctrl->netNumber), new (jrt::kGeom) jrt::Array<Point*>(0));
       }
     } else if (okPoint == insertPolyline->firstCorner() && i != trace->corners->length - 1) {
       // if okPoint == insertPolyline.firstCorner() the spring over may have failed.
@@ -292,7 +292,7 @@ bool FoundConnectionInserter::insertTrace(PlannedConnection_Segment* trace) {
                             + jrt::str(neckdownInserted) + ", okPoint=" + jrt::str(okPoint)
                             + ", first=" + jrt::str(insertPolyline->firstCorner())
                             + ", last=" + jrt::str(insertPolyline->lastCorner()),
-                        "Net #" + jrt::str(ctrl->netNumber), new jrt::Array<Point*>(0));
+                        "Net #" + jrt::str(ctrl->netNumber), new (jrt::kGeom) jrt::Array<Point*>(0));
       }
     } else {
       FRLogger::debug("FoundConnectionInserter: insert trace failed for net #"
@@ -332,7 +332,7 @@ bool FoundConnectionInserter::insertTrace(PlannedConnection_Segment* trace) {
                             + ", okPoint=" + jrt::str(okPoint)
                             + ", first=" + jrt::str(insertPolyline->firstCorner())
                             + ", last=" + jrt::str(insertPolyline->lastCorner()),
-                        "Net #" + jrt::str(ctrl->netNumber), new jrt::Array<Point*>(0));
+                        "Net #" + jrt::str(ctrl->netNumber), new (jrt::kGeom) jrt::Array<Point*>(0));
       }
       result = false;
       break;
@@ -369,7 +369,7 @@ void FoundConnectionInserter::removeTraceStubs(PlannedConnection_Segment* trace)
                   "net=" + jrt::str(ctrl->netNumber) + ", layer=" + jrt::str(trace->layer)
                       + ", removed_stubs=" + jrt::str(removedTraceStubs)
                       + ", trace_enabled=" + jrt::str(FRLogger::isTraceEnabled()),
-                  "Net #" + jrt::str(ctrl->netNumber), new jrt::Array<Point*>(0));
+                  "Net #" + jrt::str(ctrl->netNumber), new (jrt::kGeom) jrt::Array<Point*>(0));
 }
 
 bool FoundConnectionInserter::isContinuousPlan(jrt::Array<PlannedConnection_Segment*>* segments,
@@ -402,7 +402,7 @@ FoundConnectionInserter_TerminalAnchor* FoundConnectionInserter::captureTerminal
                                                                                 bool fanoutEnd) {
   if (item == nullptr) {
     // PORT NOTE: Java Set.of() (immutable empty set) -> an empty HashSet that is never modified.
-    return fanoutEnd ? new FoundConnectionInserter_TerminalAnchor(new jrt::HashSet<Item*>(),
+    return fanoutEnd ? new (jrt::kOp) FoundConnectionInserter_TerminalAnchor(new (jrt::kOp) jrt::HashSet<Item*>(),
                                                                   endpoint, layer, true)
                      : nullptr;
   }
@@ -423,12 +423,12 @@ FoundConnectionInserter_TerminalAnchor* FoundConnectionInserter::captureTerminal
   // Even a fixed terminal can have mutable branches. Preserve reachability of every surviving
   // member, while allowing trace splitting, combining and legitimate via movement.
   jrt::Set<Item*>* component = terminalComponent(item);
-  return new FoundConnectionInserter_TerminalAnchor(component, anchor, layer, false);
+  return new (jrt::kOp) FoundConnectionInserter_TerminalAnchor(component, anchor, layer, false);
 }
 
 jrt::Set<Item*>* FoundConnectionInserter::resolveTerminal(
     FoundConnectionInserter_TerminalAnchor* anchor) {
-  jrt::Set<Item*>* live = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* live = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (Item* item : *anchor->component()) {
     if (item->isOnTheBoard() && item->containsNet(ctrl->netNumber)) {
       live->add(item);
@@ -476,8 +476,8 @@ bool FoundConnectionInserter::connectsTerminals(FoundConnectionInserter_Terminal
 }
 
 jrt::Set<Item*>* FoundConnectionInserter::terminalComponent(Item* start) {
-  jrt::Set<Item*>* visited = new jrt::HashSet<Item*>();
-  auto* pending = new jrt::ArrayDeque<Item*>();
+  jrt::Set<Item*>* visited = new (jrt::kOp) jrt::HashSet<Item*>();
+  auto* pending = new (jrt::kOp) jrt::ArrayDeque<Item*>();
   pending->add(start);
   visited->add(start);
   while (!pending->isEmpty()) {
@@ -511,7 +511,7 @@ bool FoundConnectionInserter::insertFanoutMicroNeckdown(Point* okPoint, Point* t
     return false;
   }
   int32_t baseHalfWidth = (*ctrl->traceHalfWidth)[layer];
-  auto* candidateHalfWidths = new jrt::LinkedHashSet<int32_t>();
+  auto* candidateHalfWidths = new (jrt::kOp) jrt::LinkedHashSet<int32_t>();
   if (startPin != nullptr && startPin->isOnLayer(layer)) {
     candidateHalfWidths->add(startPin->getTraceNeckdownHalfwidth(layer));
   }
@@ -617,7 +617,7 @@ Point* FoundConnectionInserter::tryNeckDown(Point* fromCorner, Point* toCorner, 
 
   const int32_t tolerance = 2;
 
-  auto* netNumbers = new jrt::Array<int32_t>(1);
+  auto* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*netNumbers)[0] = ctrl->netNumber;
 
   double okLength =
@@ -698,7 +698,7 @@ bool FoundConnectionInserter::insertVia(Point* location, int32_t inputFromLayer,
     fromLayer = inputToLayer;
     toLayer = inputFromLayer;
   }
-  auto* netNumbers = new jrt::Array<int32_t>(1);
+  auto* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*netNumbers)[0] = ctrl->netNumber;
   ViaInfo* viaInfo = nullptr;
   bool foundSuitableSpan = false;

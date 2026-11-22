@@ -18,7 +18,7 @@ int32_t RetryNeighbourhood::ripNearOpenPins(BasicBoard* board, int32_t attempt) 
     return 0;
   }
   int32_t radius = RetryNeighbourhood::radius(board, reach->radiusMm());
-  jrt::Map<int32_t, Item*>* found = new jrt::LinkedHashMap<int32_t, Item*>();
+  jrt::Map<int32_t, Item*>* found = new (jrt::kOp) jrt::LinkedHashMap<int32_t, Item*>();
   for (Pin* pin : *board->getPins()) {
     if (pin->netCount() != 1 || pin->hasIgnoredNets()) {
       continue;
@@ -47,7 +47,7 @@ int32_t RetryNeighbourhood::ripNearOpenPins(BasicBoard* board, int32_t attempt) 
       }
     }
   }
-  jrt::List<Item*>* items = new jrt::ArrayList<Item*>(found->values());
+  jrt::List<Item*>* items = new (jrt::kOp) jrt::ArrayList<Item*>(found->values());
   items->sort(jrt::comparingInt<Item*>([](Item* i) { return i->getId(); }));
   int32_t removed = 0;
   for (Item* item : *items) {

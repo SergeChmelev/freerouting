@@ -8,7 +8,7 @@ namespace fr {
 static_assert(RipupMemory::MAX_FAILURES_WHILE_KEPT_AWAY == 2);
 
 jrt::Set<int32_t>* RipupMemory::recordRipup(int32_t ripperNet, jrt::Collection<Item*>* rippedItems, int32_t pass) {
-  jrt::Set<int32_t>* rippedNets = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* rippedNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (Item* item : *rippedItems) {
     for (int32_t i = 0; i < item->netCount(); i++) {
       rippedNets->add(item->getNetNumber(i));
@@ -18,8 +18,8 @@ jrt::Set<int32_t>* RipupMemory::recordRipup(int32_t ripperNet, jrt::Collection<I
 }
 
 jrt::Set<int32_t>* RipupMemory::recordRipupOfNets(int32_t ripperNet, jrt::Collection<int32_t>* rippedNets, int32_t pass) {
-  jrt::Set<int32_t>* started = new jrt::TreeSet<int32_t>();
-  for (int32_t rippedNet : *(new jrt::TreeSet<int32_t>(rippedNets))) {
+  jrt::Set<int32_t>* started = new (jrt::kOp) jrt::TreeSet<int32_t>();
+  for (int32_t rippedNet : *(new (jrt::kOp) jrt::TreeSet<int32_t>(rippedNets))) {
     if (rippedNet == ripperNet || rippedNet <= 0) {
       continue;
     }
@@ -28,7 +28,7 @@ jrt::Set<int32_t>* RipupMemory::recordRipupOfNets(int32_t ripperNet, jrt::Collec
       continue;
     }
     jrt::Map<int32_t, int32_t>* byRipped = seen->computeIfAbsent(
-        ripperNet, [](const int32_t&) -> jrt::Map<int32_t, int32_t>* { return new jrt::TreeMap<int32_t, int32_t>(); });
+        ripperNet, [](const int32_t&) -> jrt::Map<int32_t, int32_t>* { return new (jrt::kOp) jrt::TreeMap<int32_t, int32_t>(); });
     // Java: Integer previousPass = byRipped.put(rippedNet, pass) (null when absent)
     std::optional<int32_t> previousPass = byRipped->getOpt(rippedNet);
     byRipped->put(rippedNet, pass);
@@ -40,9 +40,9 @@ jrt::Set<int32_t>* RipupMemory::recordRipupOfNets(int32_t ripperNet, jrt::Collec
         continue;
       }
       byKeptFrom = active->computeIfAbsent(rippedNet, [](const int32_t&) -> jrt::Map<int32_t, RipupMemory_Entry*>* {
-        return new jrt::TreeMap<int32_t, RipupMemory_Entry*>();
+        return new (jrt::kOp) jrt::TreeMap<int32_t, RipupMemory_Entry*>();
       });
-      entry = new RipupMemory_Entry(ripperNet, rippedNet, pass, false);
+      entry = new (jrt::kOp) RipupMemory_Entry(ripperNet, rippedNet, pass, false);
       byKeptFrom->put(ripperNet, entry);
       started->add(rippedNet);
     }
@@ -57,7 +57,7 @@ jrt::Set<int32_t>* RipupMemory::netsNotToRip(int32_t net) {
   if (byKeptFrom == nullptr || byKeptFrom->isEmpty()) {
     return jrt::Collections::emptySet<int32_t>();
   }
-  return new jrt::TreeSet<int32_t>(byKeptFrom->keySet());
+  return new (jrt::kOp) jrt::TreeSet<int32_t>(byKeptFrom->keySet());
 }
 
 bool RipupMemory::isKeptAway(int32_t net) {
@@ -92,9 +92,9 @@ RipupMemory_Outcome RipupMemory::recordOutcome(int32_t net, int32_t keptFromNet,
   flippedPairs->add(pair);
   active
       ->computeIfAbsent(keptFromNet, [](const int32_t&) -> jrt::Map<int32_t, RipupMemory_Entry*>* {
-        return new jrt::TreeMap<int32_t, RipupMemory_Entry*>();
+        return new (jrt::kOp) jrt::TreeMap<int32_t, RipupMemory_Entry*>();
       })
-      ->put(net, new RipupMemory_Entry(net, keptFromNet, pass, true));
+      ->put(net, new (jrt::kOp) RipupMemory_Entry(net, keptFromNet, pass, true));
   return RipupMemory_Outcome::FLIPPED;
 }
 

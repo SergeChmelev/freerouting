@@ -86,7 +86,7 @@ int32_t ShapeSearchTree_EntrySortedByClearance::compareTo(
 // ---------------------------------------------------------------------------------------------
 
 jrt::ArrayList<ShapeTree_Leaf*>* ShapeSearchTree::QUERY_LEAF_BUFFER() {
-  static jrt::ArrayList<ShapeTree_Leaf*>* v = new jrt::ArrayList<ShapeTree_Leaf*>(128);
+  static jrt::ArrayList<ShapeTree_Leaf*>* v = new (jrt::kBoard) jrt::ArrayList<ShapeTree_Leaf*>(128);
   return v;
 }
 
@@ -146,8 +146,8 @@ void ShapeSearchTree::changeEntriesUnlocked(PolylineTrace* obj, Polyline* newPol
                          newPolyline->lines->length - 1 - keepAtEndCount);
   int32_t oldShapeCount = obj->treeShapeCount(this);
   int32_t newShapeCount = changedShapes->length + keepAtStartCount + keepAtEndCount;
-  auto* newLeafArr = new jrt::Array<ShapeTree_Leaf*>(newShapeCount);
-  auto* newPrecalculatedTreeShapes = new jrt::Array<TileShape*>(newShapeCount);
+  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
+  auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(newShapeCount);
   jrt::Array<ShapeTree_Leaf*>* oldEntries = obj->getSearchTreeEntries(this);
   for (int32_t i = 0; i < keepAtStartCount; i++) {
     (*newLeafArr)[i] = (*oldEntries)[i];
@@ -209,9 +209,9 @@ void ShapeSearchTree::mergeEntriesInFrontUnlocked(PolylineTrace* fromTrace,
       fromEntryNo, toEntryNo);
   int32_t newShapeCount =
       fromTraceEntries->length + linkShapes->length + toTraceEntries->length - 2;
-  auto* newLeafArr = new jrt::Array<ShapeTree_Leaf*>(newShapeCount);
+  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
   int32_t oldToShapeCount = toTraceEntries->length;
-  auto* newPrecalculatedTreeShapes = new jrt::Array<TileShape*>(newShapeCount);
+  auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(newShapeCount);
   // transfer the tree entries except the last or first from fromTrace to
   // toTrace
   for (int32_t i = 0; i < fromShapeCountMinus1; i++) {
@@ -281,8 +281,8 @@ void ShapeSearchTree::mergeEntriesAtEndUnlocked(PolylineTrace* fromTrace, Polyli
       fromEntryNo, toEntryNo);
   int32_t newShapeCount =
       fromTraceEntries->length + linkShapes->length + toTraceEntries->length - 2;
-  auto* newLeafArr = new jrt::Array<ShapeTree_Leaf*>(newShapeCount);
-  auto* newPrecalculatedTreeShapes = new jrt::Array<TileShape*>(newShapeCount);
+  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
+  auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(newShapeCount);
   // transfer the tree entries except the last from the old shapes
   // of toTrace to the new shapes of toTrace
   for (int32_t i = 0; i < toShapeCountMinus1; i++) {
@@ -329,7 +329,7 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
                                                       PolylineTrace* startPiece,
                                                       PolylineTrace* endPiece) {
   auto* startPieceLeafArr =
-      new jrt::Array<ShapeTree_Leaf*>(startPiece->polyline()->lines->length - 2);
+      new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(startPiece->polyline()->lines->length - 2);
   jrt::Array<ShapeTree_Leaf*>* fromTraceEntries = fromTrace->getSearchTreeEntries(this);
   // transfer the entries at the start of fromTrace to startPiece.
   for (int32_t i = 0; i < startPieceLeafArr->length - 1; i++) {
@@ -343,7 +343,7 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
 
   // create the last tree entry of the start piece.
 
-  auto* endPieceLeafArr = new jrt::Array<ShapeTree_Leaf*>(endPiece->polyline()->lines->length - 2);
+  auto* endPieceLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(endPiece->polyline()->lines->length - 2);
 
   // create the first tree entry of the end piece.
   (*endPieceLeafArr)[0] = insert(static_cast<ShapeTree_Storable*>(endPiece), 0);
@@ -363,7 +363,7 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
 void ShapeSearchTree::overlappingObjects(ConvexShape* shape, int32_t layer,
                                          jrt::Array<int32_t>* ignoreNetNos,
                                          jrt::Set<SearchTreeObject*>* obstacles) {
-  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
   // A naturally ordered set sorts the objects itself: the entries need not come in leaf order.
   // Java: `obstacles instanceof SortedSet && comparator() == null`.
   auto* sortedObstacles = dynamic_cast<jrt::TreeSet<SearchTreeObject*>*>(obstacles);
@@ -379,7 +379,7 @@ void ShapeSearchTree::overlappingObjects(ConvexShape* shape, int32_t layer,
 
 jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(
     ConvexShape* shape, int32_t layer, std::function<bool(SearchTreeObject*)> accept) {
-  jrt::Set<SearchTreeObject*>* result = new jrt::TreeSet<SearchTreeObject*>();
+  jrt::Set<SearchTreeObject*>* result = new (jrt::kOp) jrt::TreeSet<SearchTreeObject*>();
   RegularTileShape* bounds = shape == nullptr ? nullptr : shape->boundingShape(boundingDirections);
   if (bounds == nullptr) {
     FRLogger::warn("ShapeSearchTree.overlaps: shape not bounded");
@@ -412,8 +412,8 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(
 
 jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(ConvexShape* shape,
                                                                  int32_t layer) {
-  jrt::Set<SearchTreeObject*>* result = new jrt::TreeSet<SearchTreeObject*>();
-  this->overlappingObjects(shape, layer, new jrt::Array<int32_t>(0), result);
+  jrt::Set<SearchTreeObject*>* result = new (jrt::kOp) jrt::TreeSet<SearchTreeObject*>();
+  this->overlappingObjects(shape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), result);
   return result;
 }
 
@@ -433,11 +433,11 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjectsWithPointIn(
                                          : areaBounds->union_(areaLeaf->boundingShape);
     }
   }
-  jrt::Set<SearchTreeObject*>* result = new jrt::TreeSet<SearchTreeObject*>();
+  jrt::Set<SearchTreeObject*>* result = new (jrt::kOp) jrt::TreeSet<SearchTreeObject*>();
   if (areaBounds == nullptr) {
     return result;
   }
-  auto* pointLeaves = new jrt::ArrayList<ShapeTree_Leaf*>();
+  auto* pointLeaves = new (jrt::kOp) jrt::ArrayList<ShapeTree_Leaf*>();
   leaves->clear();
   this->collectOverlapsUnlocked(areaBounds, leaves);
   for (ShapeTree_Leaf* currentLeaf : *leaves) {
@@ -504,7 +504,7 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjectsWithPointIn(
 
 void ShapeSearchTree::overlappingTreeEntries(ConvexShape* shape, int32_t layer,
                                              jrt::Collection<ShapeTree_TreeEntry*>* treeEntries) {
-  overlappingTreeEntries(shape, layer, new jrt::Array<int32_t>(0), treeEntries);
+  overlappingTreeEntries(shape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), treeEntries);
 }
 
 void ShapeSearchTree::overlappingTreeEntries(ConvexShape* shape, int32_t layer,
@@ -590,7 +590,7 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
     }
     for (int32_t i = 0; i < keptCount; i++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(i);
-      treeEntries->add(new ShapeTree_TreeEntry(
+      treeEntries->add(new (jrt::kOp) ShapeTree_TreeEntry(
           jrt::fast_cast<SearchTreeObject>(currentLeaf->object), currentLeaf->shapeIndexInObject));
     }
   }
@@ -680,7 +680,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
   // sort the found items by its clearances to clearanceClassIndex on layer layer
   // Entries never compare equal (see EntrySortedByClearance), so sorting a list gives the
   // order a TreeSet would, without its rebalancing on every insertion.
-  auto* sortedItems = new jrt::ArrayList<ShapeSearchTree_EntrySortedByClearance*>();
+  auto* sortedItems = new (jrt::kOp) jrt::ArrayList<ShapeSearchTree_EntrySortedByClearance*>();
   {
     ClearListOnExit guard{tmpList};
     // Filter in traversal order, then sort only the kept leaves: the same order as sorting all
@@ -710,7 +710,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
           int32_t currentClearance =
               additionalClearance(clearanceClassIndex, currentItem->clearanceClassIndex(), layer);
           sortedItems->add(
-              new ShapeSearchTree_EntrySortedByClearance(currentLeaf, currentClearance));
+              new (jrt::kOp) ShapeSearchTree_EntrySortedByClearance(currentLeaf, currentClearance));
         } else if (obstaclesOf == nullptr &&
                    currentObject->getTreeShape(this, shapeIndex)
                        ->intersects(static_cast<Shape*>(shape))) {
@@ -723,7 +723,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
     sortLeafPrefix(tmpList, keptCount);
     for (int32_t i = 0; i < keptCount; i++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(i);
-      obstacleEntries->add(new ShapeTree_TreeEntry(
+      obstacleEntries->add(new (jrt::kOp) ShapeTree_TreeEntry(
           jrt::fast_cast<SearchTreeObject>(currentLeaf->object), currentLeaf->shapeIndexInObject));
     }
   }
@@ -758,7 +758,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
                       tmpEntry->leaf->object, tmpEntry->leaf->shapeIndexInObject, tmpShape,
                       tmpEntry->clearance))) {
       obstacleEntries->add(
-          new ShapeTree_TreeEntry(tmpEntry->leaf->object, tmpEntry->leaf->shapeIndexInObject));
+          new (jrt::kOp) ShapeTree_TreeEntry(tmpEntry->leaf->object, tmpEntry->leaf->shapeIndexInObject));
     }
   }
 }
@@ -819,10 +819,10 @@ ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_
   }
   if (treeShape != nullptr) {
     if (cache == nullptr || cache->length != drillItem->tileShapeCount()) {
-      cache = new jrt::Array<DrillItem_ExactCopperEntry*>(drillItem->tileShapeCount());
+      cache = new (jrt::kBoard) jrt::Array<DrillItem_ExactCopperEntry*>(drillItem->tileShapeCount());
       drillItem->exactCopperCache = cache;
     }
-    (*cache)[index] = new DrillItem_ExactCopperEntry(treeShape, result);
+    (*cache)[index] = new (jrt::kBoard) DrillItem_ExactCopperEntry(treeShape, result);
   }
   return result;
 }
@@ -874,7 +874,7 @@ jrt::Collection<ShapeTree_TreeEntry*>* ShapeSearchTree::overlappingTreeEntriesWi
 jrt::Collection<ShapeTree_TreeEntry*>* ShapeSearchTree::overlappingTreeEntriesWithClearance(
     ConvexShape* shape, int32_t layer, jrt::Array<int32_t>* ignoreNetNos,
     int32_t clearanceClassIndex, Item* obstaclesOf, ExactCopper* exactQuery) {
-  jrt::Collection<ShapeTree_TreeEntry*>* result = new jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::Collection<ShapeTree_TreeEntry*>* result = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
   this->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                             result, obstaclesOf, exactQuery);
   return result;
@@ -884,7 +884,7 @@ void ShapeSearchTree::overlappingObjectsWithClearance(ConvexShape* shape, int32_
                                                       jrt::Array<int32_t>* ignoreNetNos,
                                                       int32_t clearanceClassIndex,
                                                       jrt::Set<SearchTreeObject*>* obstacles) {
-  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
   this->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                             treeEntries);
   for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {
@@ -905,7 +905,7 @@ void ShapeSearchTree::overlappingObjectsWithClearance(ConvexShape* shape, int32_
                                                       int32_t clearanceClassIndex,
                                                       jrt::Collection<Item*>* obstacles,
                                                       Shape* exactShape) {
-  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
   this->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                             treeEntries, exactShape);
   for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {
@@ -926,7 +926,7 @@ jrt::Set<Item*>* ShapeSearchTree::overlappingItemsWithClearance(ConvexShape* sha
                                                                 jrt::Array<int32_t>* ignoreNetNos,
                                                                 int32_t clearanceClassIndex,
                                                                 Shape* exactShape) {
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   this->overlappingObjectsWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                         static_cast<jrt::Collection<Item*>*>(result), exactShape);
   return result;
@@ -943,10 +943,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
     TileShape* ignoreShape) {
   if (room->getContainedShape() == nullptr) {
     FRLogger::warn("ShapeSearchTree.completeShape: shapeToBeContained != null expected");
-    return new jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   if (this->root == nullptr) {
-    return new jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   TileShape* startShape = board->getBoundingBox();
   if (room->getShape() != nullptr) {
@@ -954,17 +954,17 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
   }
   RegularTileShape* boundingShape = startShape->boundingShape(this->boundingDirections);
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   if (startShape->dimension() == 2) {
     IncompleteFreeSpaceExpansionRoom* newRoom =
-        new IncompleteFreeSpaceExpansionRoom(startShape, room->getLayer(), room->getContainedShape());
+        new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(startShape, room->getLayer(), room->getContainedShape());
     result->add(newRoom);
   }
 
   // To ensure exact algorithmic parity with v1.9, we need to visit obstacles
   // in a deterministic order. The non-deterministic order of tree traversal
   // causes different room partitioning.
-  auto* overlappingLeaves = new jrt::ArrayList<ShapeTree_Leaf*>();
+  auto* overlappingLeaves = new (jrt::kOp) jrt::ArrayList<ShapeTree_Leaf*>();
   int32_t roomLayer = room->getLayer();
   ArrayStack<ShapeTree_TreeNode*>* stack = acquireScratchStack();
   {
@@ -997,7 +997,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
         currentObject->shapeLayer(shapeIndex) == roomLayer && currentObject != ignoreObject) {
       TileShape* currentObjectShape = currentObject->getTreeShape(this, shapeIndex);
       jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newResult =
-          new jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+          new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
       RegularTileShape* newBoundingShape = IntOctagon::EMPTY();
 
       for (IncompleteFreeSpaceExpansionRoom* currentIncompleteRoom : *result) {
@@ -1048,7 +1048,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
 jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainShape(
     IncompleteFreeSpaceExpansionRoom* incompleteRoom, TileShape* obstacleShape) {
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   // Search the edge line of obstacleShape, so that shapeToBeContained
   // are on the right side of this line, and that the line segment
   // intersects with the interior of shape.
@@ -1076,7 +1076,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
   double cutLineDistance = -1;
 
   for (int32_t i = 0; i < obstacleSimplex->borderLineCount(); i++) {
-    LineSegment* currentLineSegment = new LineSegment(static_cast<PolylineShape*>(obstacleSimplex), i);
+    LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(static_cast<PolylineShape*>(obstacleSimplex), i);
     if (roomShape->isIntersectedInteriorBy(currentLineSegment)) {
       // otherwise currentObject may not touch the intersection
       // of shape with the half_plane defined by the cutLine.
@@ -1098,7 +1098,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
       resultPiece = roomShape->intersection(resultPiece);
     }
     if (resultPiece->dimension() >= 2) {
-      result->add(new IncompleteFreeSpaceExpansionRoom(resultPiece, layer, shapeToBeContained));
+      result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, shapeToBeContained));
     }
   } else {
     // There is no cut line, so that all shapeToBeContained is
@@ -1111,7 +1111,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
 
     for (int32_t i = 0; i < obstacleSimplex->borderLineCount(); i++) {
       LineSegment* currentLineSegment =
-          new LineSegment(static_cast<PolylineShape*>(obstacleSimplex), i);
+          new (jrt::kGeom) LineSegment(static_cast<PolylineShape*>(obstacleSimplex), i);
       if (roomShape->isIntersectedInteriorBy(currentLineSegment)) {
         Line* currentLine = obstacleSimplex->borderLine(i);
         if (shapeToBeContained->sideOf(currentLine) == Side::COLLINEAR()) {
@@ -1138,7 +1138,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
       resultPiece = roomShape->intersection(cutHalfPlane);
     }
     if (resultPiece->dimension() >= 2) {
-      result->add(new IncompleteFreeSpaceExpansionRoom(resultPiece, layer, newShapeToBeContained));
+      result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, newShapeToBeContained));
     }
     TileShape* oppositeHalfPlane = TileShape::getInstance(cutLine->opposite());
     TileShape* restPiece;
@@ -1150,7 +1150,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
     if (restPiece->dimension() >= 2) {
       TileShape* restShapeToBeContained = shapeToBeContained->intersection(oppositeHalfPlane);
       IncompleteFreeSpaceExpansionRoom* restIncompleteRoom =
-          new IncompleteFreeSpaceExpansionRoom(restPiece, layer, restShapeToBeContained);
+          new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(restPiece, layer, restShapeToBeContained);
       result->addAll(restrainShape(restIncompleteRoom, obstacleShape));
     }
   }
@@ -1200,8 +1200,8 @@ void ShapeSearchTree::changeItemShape(Item* item, int32_t shapeIndex, TileShape*
 void ShapeSearchTree::changeItemShapeUnlocked(Item* item, int32_t shapeIndex,
                                               TileShape* newShape) {
   jrt::Array<ShapeTree_Leaf*>* oldEntries = item->getSearchTreeEntries(this);
-  auto* newLeafArr = new jrt::Array<ShapeTree_Leaf*>(oldEntries->length);
-  auto* newPrecalculatedTreeShapes = new jrt::Array<TileShape*>(oldEntries->length);
+  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(oldEntries->length);
+  auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(oldEntries->length);
   removeLeaf((*oldEntries)[shapeIndex]);
   for (int32_t i = 0; i < newPrecalculatedTreeShapes->length; i++) {
     if (i == shapeIndex) {
@@ -1219,9 +1219,9 @@ void ShapeSearchTree::changeItemShapeUnlocked(Item* item, int32_t shapeIndex,
 
 jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(DrillItem* drillItem) {
   if (this->board == nullptr) {
-    return new jrt::Array<TileShape*>(0);
+    return new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
-  auto* result = new jrt::Array<TileShape*>(drillItem->tileShapeCount());
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(drillItem->tileShapeCount());
   for (int32_t i = 0; i < result->length; i++) {
     Shape* currentShape = drillItem->getShape(i);
     if (currentShape == nullptr) {
@@ -1255,11 +1255,11 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(DrillItem* drillIte
 
 jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(ObstacleArea* obstacleArea) {
   if (this->board == nullptr) {
-    return new jrt::Array<TileShape*>(0);
+    return new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
   jrt::Array<TileShape*>* convexShapes = obstacleArea->splitToConvex();
   if (convexShapes == nullptr) {
-    return new jrt::Array<TileShape*>(0);
+    return new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
   double maxTreeShapeWidth = 50000;
   if (this->board->communication->hostCadExists()) {
@@ -1268,7 +1268,7 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(ObstacleArea* obsta
                        maxTreeShapeWidth);
   }
 
-  jrt::Collection<TileShape*>* treeShapeList = new jrt::LinkedList<TileShape*>();
+  jrt::Collection<TileShape*>* treeShapeList = new (jrt::kOp) jrt::LinkedList<TileShape*>();
   for (int32_t i = 0; i < convexShapes->length; i++) {
     TileShape* currentConvexShape = (*convexShapes)[i];
     int32_t offsetWidth = this->clearanceCompensationValue(obstacleArea->clearanceClassIndex(),
@@ -1278,7 +1278,7 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(ObstacleArea* obsta
         currentConvexShape->divideIntoSections(maxTreeShapeWidth);
     treeShapeList->addAll(jrt::Arrays::asList(currentTreeShapes));
   }
-  auto* obstacleResult = new jrt::Array<TileShape*>(treeShapeList->size());
+  auto* obstacleResult = new (jrt::kGeom) jrt::Array<TileShape*>(treeShapeList->size());
   jrt::Iterator<TileShape*>* it = treeShapeList->iterator();
   for (int32_t i = 0; i < obstacleResult->length; i++) {
     (*obstacleResult)[i] = it->next();
@@ -1288,15 +1288,15 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(ObstacleArea* obsta
 
 jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(BoardOutline* boardOutline) {
   if (this->board == nullptr) {
-    return new jrt::Array<TileShape*>(0);
+    return new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
   jrt::Array<TileShape*>* result;
   if (boardOutline->keepoutOutsideOutlineGenerated()) {
     jrt::Array<TileShape*>* convexShapes = boardOutline->getKeepoutTiles();
     if (convexShapes == nullptr) {
-      return new jrt::Array<TileShape*>(0);
+      return new (jrt::kGeom) jrt::Array<TileShape*>(0);
     }
-    jrt::Collection<TileShape*>* treeShapeList = new jrt::LinkedList<TileShape*>();
+    jrt::Collection<TileShape*>* treeShapeList = new (jrt::kOp) jrt::LinkedList<TileShape*>();
     for (int32_t layerIndex = 0; layerIndex < this->board->layerStructure->layers->length;
          layerIndex++) {
       for (int32_t i = 0; i < convexShapes->length; i++) {
@@ -1307,7 +1307,7 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(BoardOutline* board
         treeShapeList->add(currentConvexShape);
       }
     }
-    result = new jrt::Array<TileShape*>(treeShapeList->size());
+    result = new (jrt::kGeom) jrt::Array<TileShape*>(treeShapeList->size());
     jrt::Iterator<TileShape*>* it = treeShapeList->iterator();
     for (int32_t i = 0; i < result->length; i++) {
       (*result)[i] = it->next();
@@ -1316,7 +1316,7 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(BoardOutline* board
     // Only the line shapes of the outline are inserted as obstacles into the tree, oblique
     // lines in several slices (see BoardOutline.lineSlices).
     int32_t lineCount = boardOutline->lineCount();
-    result = new jrt::Array<TileShape*>(boardOutline->tileShapeCount());
+    result = new (jrt::kGeom) jrt::Array<TileShape*>(boardOutline->tileShapeCount());
     int32_t halfWidth = boardOutline->getHalfWidth();
     int32_t currentNo = 0;
     for (int32_t layerIndex = 0; layerIndex < this->board->layerStructure->layers->length;
@@ -1337,11 +1337,11 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(BoardOutline* board
 
 jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(PolylineTrace* trace) {
   if (this->board == nullptr) {
-    return new jrt::Array<TileShape*>(0);
+    return new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
   int32_t offsetWidth = trace->getHalfWidth() + this->clearanceCompensationValue(
                                                     trace->clearanceClassIndex(), trace->getLayer());
-  auto* result = new jrt::Array<TileShape*>(trace->tileShapeCount());
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(trace->tileShapeCount());
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = this->offsetShape(trace->polyline(), offsetWidth, i);
   }
@@ -1361,7 +1361,7 @@ Shape* ShapeSearchTree::drillHoleObstacle(DrillItem* drillItem) {
   if (jrt::fast_cast<IntPoint>(center) == nullptr) {
     center = center->toFloat()->round();
   }
-  return new Circle(jrt::fast_cast<IntPoint>(center), jrt::d2i(jrt::Math::ceil(drillRadius)));
+  return new (jrt::kOp) Circle(jrt::fast_cast<IntPoint>(center), jrt::d2i(jrt::Math::ceil(drillRadius)));
 }
 
 int32_t ShapeSearchTree::drillHoleClearanceDelta(DrillItem* drillItem, Shape* shape,
@@ -1423,11 +1423,11 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::divideLarge
       0.5 * jrt::Math::max(boardBoundingBox->height(), boardBoundingBox->width());
   jrt::Array<TileShape*>* sectionArr = currentRoom->getShape()->divideIntoSections(maxSectionWidth);
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   for (TileShape* currentSection : *sectionArr) {
     TileShape* currentShapeToBeContained =
         currentSection->intersection(currentRoom->getContainedShape());
-    IncompleteFreeSpaceExpansionRoom* currentSectionRoom = new IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* currentSectionRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
         currentSection, currentRoom->getLayer(), currentShapeToBeContained);
     result->add(currentSectionRoom);
   }

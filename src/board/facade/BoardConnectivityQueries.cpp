@@ -12,7 +12,7 @@ namespace fr {
 jrt::Map<int32_t, jrt::List<Item*>*>* BoardConnectivityQueries::getConnectableIndex() {
   int64_t currentStamp = board->itemList->getVersion() + board->getNetAssignmentChangeCount();
   if (connectableItemsByNet == nullptr || connectableItemsStamp != currentStamp) {
-    jrt::Map<int32_t, jrt::List<Item*>*>* map = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
+    jrt::Map<int32_t, jrt::List<Item*>*>* map = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
     jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator =
         board->itemList->startReadObject();
     for (;;) {
@@ -26,7 +26,7 @@ jrt::Map<int32_t, jrt::List<Item*>*>* BoardConnectivityQueries::getConnectableIn
             int32_t netNo = item->getNetNumber(i);
             map->computeIfAbsent(netNo,
                                  [](int32_t) -> jrt::List<Item*>* {
-                                   return new jrt::ArrayList<Item*>();
+                                   return new (jrt::kOp) jrt::ArrayList<Item*>();
                                  })
                 ->add(item);
           }
@@ -42,9 +42,9 @@ jrt::Map<int32_t, jrt::List<Item*>*>* BoardConnectivityQueries::getConnectableIn
 jrt::Collection<Item*>* BoardConnectivityQueries::getConnectableItems(int32_t netNumber) {
   jrt::List<Item*>* items = getConnectableIndex()->get(netNumber);
   if (items != nullptr) {
-    return new jrt::ArrayList<Item*>(items);
+    return new (jrt::kOp) jrt::ArrayList<Item*>(items);
   }
-  return new jrt::LinkedList<Item*>();
+  return new (jrt::kOp) jrt::LinkedList<Item*>();
 }
 
 int32_t BoardConnectivityQueries::connectableItemCount(int32_t netNumber) {
@@ -53,7 +53,7 @@ int32_t BoardConnectivityQueries::connectableItemCount(int32_t netNumber) {
 }
 
 jrt::Collection<Item*>* BoardConnectivityQueries::getComponentItems(int32_t componentId) {
-  jrt::Collection<Item*>* result = new jrt::LinkedList<Item*>();
+  jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
@@ -67,7 +67,7 @@ jrt::Collection<Item*>* BoardConnectivityQueries::getComponentItems(int32_t comp
 }
 
 jrt::Collection<Pin*>* BoardConnectivityQueries::getComponentPins(int32_t componentId) {
-  jrt::Collection<Pin*>* result = new jrt::LinkedList<Pin*>();
+  jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
@@ -102,11 +102,11 @@ Pin* BoardConnectivityQueries::getPin(int32_t componentId, int32_t pinIndex) {
 jrt::Collection<jrt::Collection<Item*>*>* BoardConnectivityQueries::getConnectedSets(
     int32_t netNumber) {
   jrt::Collection<jrt::Collection<Item*>*>* result =
-      new jrt::LinkedList<jrt::Collection<Item*>*>();
+      new (jrt::kOp) jrt::LinkedList<jrt::Collection<Item*>*>();
   if (netNumber <= 0) {
     return result;
   }
-  jrt::TreeSet<Item*>* itemsToHandle = new jrt::TreeSet<Item*>(getConnectableItems(netNumber));
+  jrt::TreeSet<Item*>* itemsToHandle = new (jrt::kOp) jrt::TreeSet<Item*>(getConnectableItems(netNumber));
   jrt::Iterator<Item*>* connectedItems = itemsToHandle->iterator();
   while (connectedItems->hasNext()) {
     Item* currentItem = connectedItems->next();

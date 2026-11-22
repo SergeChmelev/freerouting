@@ -5,7 +5,7 @@
 namespace fr {
 
 AutorouterSettings* AutorouterSettings::clone() {
-  auto* copy = new AutorouterSettings();
+  auto* copy = new (jrt::kBoard) AutorouterSettings();
   copy->enabled = enabled;
   copy->algorithm = algorithm;
   copy->maxPasses = maxPasses;

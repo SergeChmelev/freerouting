@@ -50,7 +50,7 @@ namespace fr {
 BatchFanout_EscapeStatistics* BatchFanout_EscapeStatistics::fromBoardStatistics(BoardStatistics* stats) {
   double percentage =
       stats->fanout->totalSmdPins > 0 ? (stats->fanout->escapedCount * 100.0) / stats->fanout->totalSmdPins : 0.0;
-  return new BatchFanout_EscapeStatistics(stats->fanout->totalSmdPins, stats->fanout->escapedCount, percentage);
+  return new (jrt::kOp) BatchFanout_EscapeStatistics(stats->fanout->totalSmdPins, stats->fanout->escapedCount, percentage);
 }
 
 bool BatchFanout_FanoutPassStatus::equals(jrt::Object* o) {
@@ -125,7 +125,7 @@ BatchFanout_Component::BatchFanout_Component(Component* boardComponent, jrt::Col
                                              const std::string& pinSortingOrder, RoutingBoard* routingBoard)
     : boardComponent(boardComponent), pinSortingOrder(pinSortingOrder) {
   // calculate the center of gravity of all SMD pins of this component.
-  jrt::Collection<Pin*>* currentPinList = new jrt::LinkedList<Pin*>();
+  jrt::Collection<Pin*>* currentPinList = new (jrt::kOp) jrt::LinkedList<Pin*>();
   int32_t componentId = boardComponent->id;
   for (Pin* currentBoardPin : *boardSmdPinList) {
     if (currentBoardPin->getComponentId() == componentId) {
@@ -144,13 +144,13 @@ BatchFanout_Component::BatchFanout_Component(Component* boardComponent, jrt::Col
     x /= this->smdPinCount;
     y /= this->smdPinCount;
   }
-  this->gravityCenterOfSmdPins = new FloatPoint(x, y);
+  this->gravityCenterOfSmdPins = new (jrt::kGeom) FloatPoint(x, y);
 
   // calculate the sorted SMD pins of this component
-  this->smdPins = new jrt::TreeSet<BatchFanout_Component_Pin*>();
+  this->smdPins = new (jrt::kOp) jrt::TreeSet<BatchFanout_Component_Pin*>();
 
   for (Pin* currentBoardPin : *currentPinList) {
-    this->smdPins->add(new BatchFanout_Component_Pin(this, currentBoardPin, boardSmdPinList, routingBoard));
+    this->smdPins->add(new (jrt::kOp) BatchFanout_Component_Pin(this, currentBoardPin, boardSmdPinList, routingBoard));
   }
 }
 
@@ -247,11 +247,11 @@ int32_t BatchFanout_Component_Pin::compareTo(BatchFanout_Component_Pin* other) {
 // ---------------------------------------------------------------------------------------------
 
 BatchFanout::BatchFanout(RoutingBoard* board, RouterSettings* settings, StoppableThread* thread)
-    : BatchFanout(board, settings, thread, new jrt::HashSet<Pin*>()) {}
+    : BatchFanout(board, settings, thread, new (jrt::kOp) jrt::HashSet<Pin*>()) {}
 
 BatchFanout::BatchFanout(RoutingBoard* board, RouterSettings* settings, StoppableThread* thread,
                          jrt::Set<Pin*>* bgaCommittedPins)
-    : progressThrottler(new ProgressThrottler(1000)) {
+    : progressThrottler(new (jrt::kBoard) ProgressThrottler(1000)) {
   this->thread = thread;
   this->routingBoard = board;
   this->settings = settings;
@@ -261,7 +261,7 @@ BatchFanout::BatchFanout(RoutingBoard* board, RouterSettings* settings, Stoppabl
   jrt::Collection<Pin*>* boardSmdPinList = routingBoard->getSmdPins();
   // Filter out SMD pins that belong to no net or an ignored net class, or were already
   // escaped by the BGA escape committer.
-  jrt::Collection<Pin*>* boardSmdPinListWithNets = new jrt::LinkedList<Pin*>();
+  jrt::Collection<Pin*>* boardSmdPinListWithNets = new (jrt::kOp) jrt::LinkedList<Pin*>();
   for (Pin* pin : *boardSmdPinList) {
     if (pin->netCount() > 0 && !pin->hasIgnoredNets() &&
         (bgaCommittedPins == nullptr || !bgaCommittedPins->contains(pin)) &&
@@ -269,11 +269,11 @@ BatchFanout::BatchFanout(RoutingBoard* board, RouterSettings* settings, Stoppabl
       boardSmdPinListWithNets->add(pin);
     }
   }
-  this->sortedComponents = new jrt::TreeSet<BatchFanout_Component*>();
+  this->sortedComponents = new (jrt::kOp) jrt::TreeSet<BatchFanout_Component*>();
   for (int32_t i = 1; i <= routingBoard->components->count(); ++i) {
     Component* currentBoardComponent = routingBoard->components->get(i);
     BatchFanout_Component* currentComponent =
-        new BatchFanout_Component(currentBoardComponent, boardSmdPinListWithNets, sortingOrder, routingBoard);
+        new (jrt::kOp) BatchFanout_Component(currentBoardComponent, boardSmdPinListWithNets, sortingOrder, routingBoard);
     if (currentComponent->smdPinCount > 0) {
       sortedComponents->add(currentComponent);
     }
@@ -362,7 +362,7 @@ BatchFanout_FanoutRunSummary* BatchFanout::fanoutBoard(RoutingBoard* board, Rout
                                             !settings->fanout->bgaEscapeEnabled.has_value() ||
                                             settings->fanout->bgaEscapeEnabled == true);
 
-  jrt::Set<Pin*>* bgaCommittedPins = new jrt::HashSet<Pin*>();
+  jrt::Set<Pin*>* bgaCommittedPins = new (jrt::kOp) jrt::HashSet<Pin*>();
   if (bgaEscapeEnabled && board != nullptr && board->components != nullptr && board->components->count() > 0) {
     try {
       jrt::List<BgaEscapeDescriptor*>* bgas = BgaFootprintDetector::detect(board, settings, infoLogger);
@@ -389,9 +389,9 @@ BatchFanout_FanoutRunSummary* BatchFanout::fanoutBoard(RoutingBoard* board, Rout
             infoLogger(committedMsg);
           }
           if (progressListener != nullptr) {
-            BoardStatistics* stats = new BoardStatistics(board, std::nullopt, false);
+            BoardStatistics* stats = new (jrt::kOp) BoardStatistics(board, std::nullopt, false);
             BatchFanout_EscapeStatistics* escapeStats = BatchFanout_EscapeStatistics::fromBoardStatistics(stats);
-            progressListener->onProgress(new BatchFanout_FanoutPassStatus(
+            progressListener->onProgress(new (jrt::kOp) BatchFanout_FanoutPassStatus(
                 0, 0, bga->pins()->size(), 0, commitResult->pinsCommitted(), 0, commitResult->drcRejections(),
                 commitResult->viasInserted(), commitResult->viasInserted(), 0LL, stats, true, escapeStats));
           }
@@ -413,7 +413,7 @@ BatchFanout_FanoutRunSummary* BatchFanout::fanoutBoard(RoutingBoard* board, Rout
                    " already-escaped BGA pin(s) to prevent redundant passes and stubs.");
   }
 
-  BatchFanout* fanoutInstance = new BatchFanout(board, settings, thread, bgaCommittedPins);
+  BatchFanout* fanoutInstance = new (jrt::kOp) BatchFanout(board, settings, thread, bgaCommittedPins);
   int64_t fanoutStart = jrt::System::currentTimeMillis();
   if (settings->fanout != nullptr && settings->fanout->timeoutString.has_value()) {
     std::optional<int64_t> timeoutSeconds = TextManager::parseTimespanString(settings->fanout->timeoutString);
@@ -465,10 +465,10 @@ BatchFanout_FanoutRunSummary* BatchFanout::fanoutBoard(RoutingBoard* board, Rout
     }
     lastBoardHash = currentBoardHash;
   }
-  BoardStatistics* stats = new BoardStatistics(board, std::nullopt, false);
+  BoardStatistics* stats = new (jrt::kOp) BoardStatistics(board, std::nullopt, false);
   BatchFanout_EscapeStatistics* finalEscape = BatchFanout_EscapeStatistics::fromBoardStatistics(stats);
   int64_t totalDurationMillis = jrt::Math::max(static_cast<int64_t>(0), jrt::System::currentTimeMillis() - fanoutStart);
-  return new BatchFanout_FanoutRunSummary(completedPasses, totalDurationMillis, finalEscape,
+  return new (jrt::kOp) BatchFanout_FanoutRunSummary(completedPasses, totalDurationMillis, finalEscape,
                                           fanoutInstance->isTimedOut);
 }
 
@@ -496,12 +496,12 @@ int32_t BatchFanout::fanoutPass(int32_t passNo, BatchFanout_FanoutProgressListen
                       ", pinsToFanout=" + jrt::str(this->totalSmdPinCount - this->alreadyConnectedPinCount) +
                       ", ripupCosts=" + jrt::str(effectiveRipupCosts) +
                       ", baseMillisPerPin=" + jrt::str(baseMillisPerPin),
-                  "", new jrt::Array<Point*>(0));
+                  "", new (jrt::kGeom) jrt::Array<Point*>(0));
 
   this->progressThrottler->reset();
-  BoardStatistics* progressStats = new BoardStatistics(this->routingBoard, std::nullopt, false);
+  BoardStatistics* progressStats = new (jrt::kOp) BoardStatistics(this->routingBoard, std::nullopt, false);
   publishProgress(progressListener, passNo, ripupCosts, pinsToGo, routedCount, notRoutedCount, insertErrorCount, 0,
-                  new BatchFanout_EscapeStatistics(this->totalSmdPinCount, 0, 0.0), false, passStart, progressStats);
+                  new (jrt::kOp) BatchFanout_EscapeStatistics(this->totalSmdPinCount, 0, 0.0), false, passStart, progressStats);
   bool maxLimitReached = false;
   int32_t alreadyConnectedCount = 0;
   for (BatchFanout_Component* currentComponent : *this->sortedComponents) {
@@ -515,7 +515,7 @@ int32_t BatchFanout::fanoutPass(int32_t passNo, BatchFanout_FanoutProgressListen
         break;
       }
       double maxMilliseconds = static_cast<double>(baseMillisPerPin * (passNo + 1));
-      TimeLimit* const timeLimit = new TimeLimit(jrt::d2i(maxMilliseconds));
+      TimeLimit* const timeLimit = new (jrt::kOp) TimeLimit(jrt::d2i(maxMilliseconds));
       if (currentPin->boardPin->hasIgnoredNets()) {
         --pinsToGo;
         continue;
@@ -638,14 +638,14 @@ int32_t BatchFanout::fanoutPass(int32_t passNo, BatchFanout_FanoutProgressListen
       if (this->deadlineMs.has_value() && jrt::System::currentTimeMillis() >= *this->deadlineMs) {
         FRLogger::info("Fanout stage timed out.");
         this->isTimedOut = true;
-        BoardStatistics* passStats = new BoardStatistics(this->routingBoard, std::nullopt, false);
+        BoardStatistics* passStats = new (jrt::kOp) BoardStatistics(this->routingBoard, std::nullopt, false);
         BatchFanout_EscapeStatistics* escapeStats = BatchFanout_EscapeStatistics::fromBoardStatistics(passStats);
         publishProgress(progressListener, passNo, ripupCosts, pinsToGo, routedCount, notRoutedCount, insertErrorCount,
                         extraViasThisPass, escapeStats, true, passStart, passStats);
         return routedCount;
       }
       if (this->thread != nullptr && this->thread->isStopAutoRouterRequested()) {
-        BoardStatistics* passStats = new BoardStatistics(this->routingBoard, std::nullopt, false);
+        BoardStatistics* passStats = new (jrt::kOp) BoardStatistics(this->routingBoard, std::nullopt, false);
         BatchFanout_EscapeStatistics* escapeStats = BatchFanout_EscapeStatistics::fromBoardStatistics(passStats);
         publishProgress(progressListener, passNo, ripupCosts, pinsToGo, routedCount, notRoutedCount, insertErrorCount,
                         extraViasThisPass, escapeStats, true, passStart, passStats);
@@ -658,7 +658,7 @@ int32_t BatchFanout::fanoutPass(int32_t passNo, BatchFanout_FanoutProgressListen
   }
   int32_t extraViasThisPass = jrt::Math::max(0, this->routingBoard->getViaCount() - viasBeforePass);
   this->extraViasTotal += extraViasThisPass;
-  BoardStatistics* passStats = new BoardStatistics(this->routingBoard, std::nullopt, false);
+  BoardStatistics* passStats = new (jrt::kOp) BoardStatistics(this->routingBoard, std::nullopt, false);
   BatchFanout_EscapeStatistics* escapeStats = BatchFanout_EscapeStatistics::fromBoardStatistics(passStats);
 
   int64_t passDurationMs = jrt::System::currentTimeMillis() - passStart;
@@ -670,7 +670,7 @@ int32_t BatchFanout::fanoutPass(int32_t passNo, BatchFanout_FanoutProgressListen
                       ", escaped=" + jrt::str(escapeStats->escapedCount()) + "/" +
                       jrt::str(escapeStats->totalSmdPins()) + " (" +
                       jrt::format("%.1f", escapeStats->escapedPercentage()) + "%)",
-                  "", new jrt::Array<Point*>(0));
+                  "", new (jrt::kGeom) jrt::Array<Point*>(0));
 
   if (progressListener == nullptr) {
     FRLogger::info("fanout pass: " + jrt::str(passNo + 1) + ", routed: " + jrt::str(routedCount) +
@@ -698,7 +698,7 @@ void BatchFanout::maybePublishProgress(BatchFanout_FanoutProgressListener* progr
   if (passCompleted || progressThrottler->shouldUpdate()) {
     // Mid-pass interim updates use a lightweight empty escape statistics placeholder
     // to avoid the cost of a full escape scan on every tick.
-    BatchFanout_EscapeStatistics* interimEscape = new BatchFanout_EscapeStatistics(this->totalSmdPinCount, 0, 0.0);
+    BatchFanout_EscapeStatistics* interimEscape = new (jrt::kOp) BatchFanout_EscapeStatistics(this->totalSmdPinCount, 0, 0.0);
     if (progressStats != nullptr) {
       progressStats->vias->totalCount = this->routingBoard->getViaCount();
       progressStats->traces->totalCount = this->routingBoard->getTraces()->size();
@@ -717,7 +717,7 @@ void BatchFanout::publishProgress(BatchFanout_FanoutProgressListener* progressLi
     return;
   }
   int64_t duration = jrt::Math::max(static_cast<int64_t>(0), jrt::System::currentTimeMillis() - passStart);
-  progressListener->onProgress(new BatchFanout_FanoutPassStatus(
+  progressListener->onProgress(new (jrt::kOp) BatchFanout_FanoutPassStatus(
       passNo + 1, ripupCosts, this->totalSmdPinCount, pinsToGo, routedCount, notRoutedCount, insertErrorCount,
       extraViasThisPass, this->extraViasTotal + extraViasThisPass, duration, boardStatistics, passCompleted,
       escapeStatistics));

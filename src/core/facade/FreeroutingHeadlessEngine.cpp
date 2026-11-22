@@ -117,7 +117,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
 
   if (request->cancellationToken()->isCancelled()) {
     return HeadlessRoutingResult::cancelled(board,
-                                            new BoardStatistics(board, std::nullopt, false),
+                                            new (jrt::kOp) BoardStatistics(board, std::nullopt, false),
                                             jrt::System::currentTimeMillis() - startTime);
   }
 
@@ -125,8 +125,8 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   SettingsMerger* settingsMerger;
   {
     std::istringstream dsnStream(bytesToString(dsnBytes));
-    settingsMerger = new SettingsMerger(
-        {new DefaultSettings(), new DsnFileSettings(dsnStream, request->designName())});
+    settingsMerger = new (jrt::kBoard) SettingsMerger(
+        {new (jrt::kBoard) DefaultSettings(), new (jrt::kBoard) DsnFileSettings(dsnStream, request->designName())});
   }
 
   jrt::Array<int8_t>* rulesBytes = request->rulesBytes();
@@ -144,11 +144,11 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
           jrt::System::currentTimeMillis() - startTime);
     }
     std::istringstream rulesStream(bytesToString(rulesBytes));
-    settingsMerger->addOrReplaceSources(new RulesFileSettings(rulesStream, rulesName));
+    settingsMerger->addOrReplaceSources(new (jrt::kBoard) RulesFileSettings(rulesStream, rulesName));
   }
 
   if (request->settings() != nullptr) {
-    settingsMerger->addOrReplaceSources(new ApiSettings(request->settings()));
+    settingsMerger->addOrReplaceSources(new (jrt::kBoard) ApiSettings(request->settings()));
   }
 
   RouterSettings* routerSettings = settingsMerger->merge();
@@ -163,13 +163,13 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   captureInitialClearanceBaseline(board);
 
   // 3. Prepare RoutingJob
-  auto* job = new RoutingJob();
+  auto* job = new (jrt::kBoard) RoutingJob();
   job->board = board;
   job->routerSettings = routerSettings;
   job->name = request->designName();
   std::optional<int64_t> deadlineMillis =
       parseDeadlineMillis(startTime, routerSettings->jobTimeoutString);
-  auto* thread = new HeadlessStoppableThread(request->cancellationToken(), deadlineMillis);
+  auto* thread = new (jrt::kBoard) HeadlessStoppableThread(request->cancellationToken(), deadlineMillis);
   job->thread = thread;
   job->state = RoutingJobState::RUNNING;
 
@@ -180,7 +180,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
     pipeline->addTaskStateChangedEventListener(
         TaskStateChangedEventListener::of([request, job](TaskStateChangedEvent* event) {
           notifyProgress(request->progressListener(),
-                         new HeadlessRoutingProgress(
+                         new (jrt::kBoard) HeadlessRoutingProgress(
                              job->stage, event->getPassNumber(), -1, nullptr,
                              "Task state: " + TaskState_toString(event->getTaskState())));
         }));
@@ -192,7 +192,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
                                  ? unboxIncompleteCount(stats)
                                  : 0;
           notifyProgress(request->progressListener(),
-                         new HeadlessRoutingProgress(job->stage, job->getCurrentPass(), unrouted,
+                         new (jrt::kBoard) HeadlessRoutingProgress(job->stage, job->getCurrentPass(), unrouted,
                                                      stats, "Board updated"));
         }));
 
@@ -200,7 +200,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
         [request, job](BatchAutorouter* autorouter) {
           BoardStatistics* stats = job->board->getStatistics();
           notifyProgress(request->progressListener(),
-                         new HeadlessRoutingProgress(
+                         new (jrt::kBoard) HeadlessRoutingProgress(
                              RoutingStage::ROUTING, job->getCurrentPass(),
                              stats->connections != nullptr ? unboxIncompleteCount(stats) : 0,
                              stats, "Routing stage finished"));
@@ -211,7 +211,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
                                  ? unboxIncompleteCount(stats)
                                  : 0;
           notifyProgress(request->progressListener(),
-                         new HeadlessRoutingProgress(RoutingStage::OPTIMIZATION, 0, unrouted,
+                         new (jrt::kBoard) HeadlessRoutingProgress(RoutingStage::OPTIMIZATION, 0, unrouted,
                                                      stats, "Optimization stage started"));
         },
         [request, job](BatchOptimizer* optimizer) {
@@ -220,7 +220,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
                                  ? unboxIncompleteCount(stats)
                                  : 0;
           notifyProgress(request->progressListener(),
-                         new HeadlessRoutingProgress(RoutingStage::OPTIMIZATION, 0, unrouted,
+                         new (jrt::kBoard) HeadlessRoutingProgress(RoutingStage::OPTIMIZATION, 0, unrouted,
                                                      stats, "Optimization stage finished"));
         }));
   }
@@ -263,7 +263,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   }
 
   // 6. Gather results & statistics without duplicating the clearance check
-  auto* stats = new BoardStatistics(board, std::nullopt, false);
+  auto* stats = new (jrt::kOp) BoardStatistics(board, std::nullopt, false);
   int32_t unrouted = stats->connections != nullptr ? unboxIncompleteCount(stats) : 0;
 
   std::optional<std::string> errorMessage;
@@ -274,10 +274,10 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   }
 
   // 7. Perform authoritative DRC once if requested
-  jrt::Collection<ClearanceViolation*>* violations = new jrt::ArrayList<ClearanceViolation*>();
+  jrt::Collection<ClearanceViolation*>* violations = new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>();
   if (request->runDrc() && !cancelled) {
     try {
-      violations = (new DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
+      violations = (new (jrt::kOp) DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
     } catch (const jrt::Exception& e) {
       FRLogger::warn("DRC check encountered an error: " + e.getMessage());
       if (!errorMessage.has_value()) {
@@ -287,13 +287,13 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   }
 
   // 8. Serialize to SES if requested
-  jrt::Array<int8_t>* sesBytes = new jrt::Array<int8_t>(0);
+  jrt::Array<int8_t>* sesBytes = new (jrt::kOp) jrt::Array<int8_t>(0);
   if (request->computeSes() && !cancelled) {
     try {
       std::ostringstream baos;
       dsn::SesWriter::write(board, baos, request->designName());
       std::string out = baos.str();
-      sesBytes = new jrt::Array<int8_t>(static_cast<int32_t>(out.size()));
+      sesBytes = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(out.size()));
       for (std::size_t i = 0; i < out.size(); i++) {
         (*sesBytes)[static_cast<int32_t>(i)] = static_cast<int8_t>(out[i]);
       }
@@ -309,7 +309,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   bool completed =
       !cancelled && !errorMessage.has_value() && unrouted == 0 && violations->isEmpty();
 
-  return new HeadlessRoutingResult(completed, cancelled, unrouted, violations, stats, sesBytes,
+  return new (jrt::kBoard) HeadlessRoutingResult(completed, cancelled, unrouted, violations, stats, sesBytes,
                                    executionTimeMillis, errorMessage, board);
 }
 
@@ -338,9 +338,9 @@ void FreeroutingHeadlessEngine::notifyProgress(HeadlessRoutingProgressListener* 
 
 jrt::Collection<ClearanceViolation*>* FreeroutingHeadlessEngine::checkDrc(RoutingBoard* board) {
   if (board == nullptr) {
-    return new jrt::ArrayList<ClearanceViolation*>();
+    return new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>();
   }
-  return (new DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
+  return (new (jrt::kOp) DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
 }
 
 jrt::Collection<ClearanceViolation*>* FreeroutingHeadlessEngine::checkDrc(
@@ -384,7 +384,7 @@ void FreeroutingHeadlessEngine::prepareBoardConnectivity(RoutingBoard* board,
   bool fixKicadFootprints = routerSettings != nullptr &&
                             routerSettings->fixKicadFootprints.has_value() &&
                             *routerSettings->fixKicadFootprints;
-  board->connectNetlessPads(false, fixKicadFootprints, new jrt::Array<int32_t>(1));
+  board->connectNetlessPads(false, fixKicadFootprints, new (jrt::kOp) jrt::Array<int32_t>(1));
   board->clusterNetTies();
   DifferentialPairDetector::detectAndRegister(board->rules);
 }
@@ -394,7 +394,7 @@ void FreeroutingHeadlessEngine::captureInitialClearanceBaseline(RoutingBoard* bo
     return;
   }
   jrt::Collection<ClearanceViolation*>* initialViolations =
-      (new DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
+      (new (jrt::kOp) DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
   board->preExistingClearanceViolationsCount = initialViolations->size();
   int32_t unfixable = 0;
   for (ClearanceViolation* v : *initialViolations) {
@@ -403,7 +403,7 @@ void FreeroutingHeadlessEngine::captureInitialClearanceBaseline(RoutingBoard* bo
     }
   }
   board->unfixableClearanceViolationsCount = unfixable;
-  board->clearanceBaseline = new ClearanceBaseline(initialViolations);
+  board->clearanceBaseline = new (jrt::kOp) ClearanceBaseline(initialViolations);
 }
 
 std::optional<int64_t> FreeroutingHeadlessEngine::parseDeadlineMillis(

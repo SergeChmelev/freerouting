@@ -82,7 +82,7 @@ class RoutingSupervisor_Stats : public virtual jrt::Object {
 class RoutingSupervisor : public virtual jrt::Object {
  private:
   jrt::Map<std::string, RoutingSupervisor_Stats*>* attemptStats =
-      new jrt::LinkedHashMap<std::string, RoutingSupervisor_Stats*>();
+      new (jrt::kOp) jrt::LinkedHashMap<std::string, RoutingSupervisor_Stats*>();
   int32_t attemptsWithoutGain = 0;
 
  public:

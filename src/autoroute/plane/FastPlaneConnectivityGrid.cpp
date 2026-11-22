@@ -170,7 +170,7 @@ FastPlaneConnectivityGrid_FractureMemo* FastPlaneConnectivityGrid_FractureMemo::
   if (currentArea == nullptr) {
     return nullptr;
   }
-  auto* detached = new FastPlaneConnectivityGrid_FractureMemo();
+  auto* detached = new (jrt::kOp) FastPlaneConnectivityGrid_FractureMemo();
   bool any = false;
   if (copperWords != nullptr && copperArea == currentArea) {
     detached->copperOriginX = copperOriginX;
@@ -226,7 +226,7 @@ FastPlaneConnectivityGrid_FractureMemo* FastPlaneConnectivityGrid_FractureMemo::
   if (copyArea == nullptr) {
     return nullptr;
   }
-  auto* attached = new FastPlaneConnectivityGrid_FractureMemo();
+  auto* attached = new (jrt::kOp) FastPlaneConnectivityGrid_FractureMemo();
   if (copperWords != nullptr) {
     attached->copperArea = copyArea;
     attached->copperOriginX = copperOriginX;
@@ -237,8 +237,8 @@ FastPlaneConnectivityGrid_FractureMemo* FastPlaneConnectivityGrid_FractureMemo::
     attached->copperWords = copperWords;
   }
   if (areasWords != nullptr) {
-    auto* copiedShapes = new jrt::Array<TileShape*>(areasShapes->length);
-    auto* copiedAreaItems = new jrt::Array<Item*>(areasItems->length);
+    auto* copiedShapes = new (jrt::kGeom) jrt::Array<TileShape*>(areasShapes->length);
+    auto* copiedAreaItems = new (jrt::kOp) jrt::Array<Item*>(areasItems->length);
     bool complete = true;
     for (int32_t i = 0; i < areasItems->length && complete; i++) {
       Item* copy = copyItemById((*areasItems)[i]->getId());
@@ -264,8 +264,8 @@ FastPlaneConnectivityGrid_FractureMemo* FastPlaneConnectivityGrid_FractureMemo::
     }
   }
   if (partitionResult != nullptr) {
-    auto* copies = new jrt::IdentityHashMap<Item*, Item*>();
-    auto* copiedItems = new jrt::Array<Item*>(partitionItems->length);
+    auto* copies = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
+    auto* copiedItems = new (jrt::kOp) jrt::Array<Item*>(partitionItems->length);
     bool complete = true;
     for (int32_t i = 0; i < partitionItems->length && complete; i++) {
       Item* copy = copyItemById((*partitionItems)[i]->getId());
@@ -276,12 +276,12 @@ FastPlaneConnectivityGrid_FractureMemo* FastPlaneConnectivityGrid_FractureMemo::
         copies->put((*partitionItems)[i], copy);
       }
     }
-    auto* copiedIslands = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
+    auto* copiedIslands = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
     for (auto* island : *partitionResult->islandItems->entrySet()) {
       if (!complete) {
         break;
       }
-      auto* copiedIsland = new jrt::ArrayList<Item*>(island->getValue()->size());
+      auto* copiedIsland = new (jrt::kOp) jrt::ArrayList<Item*>(island->getValue()->size());
       for (Item* item : *island->getValue()) {
         Item* copy = copies->get(item);
         if (copy == nullptr) {
@@ -302,7 +302,7 @@ FastPlaneConnectivityGrid_FractureMemo* FastPlaneConnectivityGrid_FractureMemo::
       attached->partitionObstacleWords = partitionObstacleWords;
       attached->partitionItems = copiedItems;
       attached->partitionLocations = partitionLocations;
-      attached->partitionResult = new FastPlaneConnectivityGrid_PlaneFractureResult(copiedIslands);
+      attached->partitionResult = new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(copiedIslands);
     }
   }
   return attached;
@@ -363,9 +363,9 @@ void FastPlaneConnectivityGrid::init(IntBox* bbox, int32_t requestedCellSize) {
 
   int32_t totalWords = this->rows * this->wordsPerRow;
   if (this->copperMask->length < totalWords) {
-    this->copperMask = new jrt::Array<int64_t>(totalWords);
-    this->obstacleMask = new jrt::Array<int64_t>(totalWords);
-    this->visitedMask = new jrt::Array<int64_t>(totalWords);
+    this->copperMask = new (jrt::kOp) jrt::Array<int64_t>(totalWords);
+    this->obstacleMask = new (jrt::kOp) jrt::Array<int64_t>(totalWords);
+    this->visitedMask = new (jrt::kOp) jrt::Array<int64_t>(totalWords);
   } else {
     jrt::Arrays::fill<int64_t>(this->copperMask, 0, totalWords, 0);
     jrt::Arrays::fill<int64_t>(this->obstacleMask, 0, totalWords, 0);
@@ -381,13 +381,13 @@ void FastPlaneConnectivityGrid::preparePartitionBuffers() {
   }
   int32_t totalCells = this->cols * this->rows;
   if (this->cellIslandMap->length < totalCells) {
-    this->cellIslandMap = new jrt::Array<int16_t>(totalCells);
+    this->cellIslandMap = new (jrt::kOp) jrt::Array<int16_t>(totalCells);
   }
   jrt::Arrays::fill<int16_t>(this->cellIslandMap, 0, totalCells, static_cast<int16_t>(-1));
 
   int32_t maxQueueSize = this->cols * this->rows;
   if (this->queue->length < maxQueueSize) {
-    this->queue = new jrt::Array<int32_t>(maxQueueSize);
+    this->queue = new (jrt::kOp) jrt::Array<int32_t>(maxQueueSize);
   }
   this->partitionBuffersReady = true;
 }
@@ -403,14 +403,14 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
     jrt::Collection<Item*>* sameNetItems,
     FastPlaneConnectivityGrid_FractureMemo* memo) {
   if (ca == nullptr || board == nullptr || sameNetItems == nullptr || sameNetItems->isEmpty()) {
-    return new FastPlaneConnectivityGrid_PlaneFractureResult(
+    return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(
         jrt::Collections::emptyMap<int32_t, jrt::List<Item*>*>());
   }
 
   if (sameNetItems->size() <= 1) {
-    auto* singleIsland = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
-    singleIsland->put(0, new jrt::ArrayList<Item*>(sameNetItems));
-    return new FastPlaneConnectivityGrid_PlaneFractureResult(singleIsland);
+    auto* singleIsland = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
+    singleIsland->put(0, new (jrt::kOp) jrt::ArrayList<Item*>(sameNetItems));
+    return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(singleIsland);
   }
 
   IntBox* bbox = ca->boundingBox();
@@ -430,8 +430,8 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
   }
   // the fill of the zone may keep further away than the clearance classes say
   int32_t clearanceInflate = jrt::d2i(Math::ceil(ca->fillKeepout(maxClearance)));
-  IntBox* queryBbox = new IntBox(new IntPoint(bbox->ll->x - clearanceInflate, bbox->ll->y - clearanceInflate),
-                                 new IntPoint(bbox->ur->x + clearanceInflate, bbox->ur->y + clearanceInflate));
+  IntBox* queryBbox = new (jrt::kGeom) IntBox(new (jrt::kGeom) IntPoint(bbox->ll->x - clearanceInflate, bbox->ll->y - clearanceInflate),
+                                 new (jrt::kGeom) IntPoint(bbox->ur->x + clearanceInflate, bbox->ur->y + clearanceInflate));
 
   int32_t maxDim = Math::max(bbox->width(), bbox->height());
   int32_t desiredCell =
@@ -453,10 +453,10 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
   // 2. Query spatial index for obstacles overlapping conduction area
   jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(queryBbox, layer);
   bool hasForeignObstacles = false;
-  auto* areaItems = new jrt::ArrayList<Item*>();
-  auto* areaShapeIndices = new jrt::ArrayList<int32_t>();
-  auto* areaShapes = new jrt::ArrayList<TileShape*>();
-  auto* areaClearances = new jrt::ArrayList<double>();
+  auto* areaItems = new (jrt::kOp) jrt::ArrayList<Item*>();
+  auto* areaShapeIndices = new (jrt::kOp) jrt::ArrayList<int32_t>();
+  auto* areaShapes = new (jrt::kOp) jrt::ArrayList<TileShape*>();
+  auto* areaClearances = new (jrt::kOp) jrt::ArrayList<double>();
   // With the fill rules of the design, a cell stands for the centre of a disc of fill as wide as
   // the minimum width: it is free when that centre keeps its distance to the foreign copper.
   bool exact = ca->getPadConnection().has_value();
@@ -549,9 +549,9 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
 
   // Without foreign obstacles, only the area's own holes can split it.
   if (!hasForeignObstacles && (ca->getArea() == nullptr || ca->getArea()->getHoles()->length == 0)) {
-    auto* singleIsland = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
-    singleIsland->put(0, new jrt::ArrayList<Item*>(sameNetItems));
-    return new FastPlaneConnectivityGrid_PlaneFractureResult(singleIsland);
+    auto* singleIsland = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
+    singleIsland->put(0, new (jrt::kOp) jrt::ArrayList<Item*>(sameNetItems));
+    return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(singleIsland);
   }
 
   // 3. Partition same-net items into connected islands using bitwise BFS
@@ -559,7 +559,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
     return partitionItemsByIsland(ca, sameNetItems);
   }
   jrt::Array<Item*>* items = sameNetItems->toArray();
-  auto* locations = new jrt::Array<IntPoint*>(items->length);
+  auto* locations = new (jrt::kGeom) jrt::Array<IntPoint*>(items->length);
   for (int32_t i = 0; i < items->length; i++) {
     (*locations)[i] = getItemLocation((*items)[i], ca);
   }
@@ -576,8 +576,8 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
 FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partitionItemsByPadConnection(
     ConductionArea* ca, BasicBoard* board, jrt::Collection<Item*>* sameNetItems) {
   int32_t layer = ca->getLayer();
-  auto* items = new jrt::ArrayList<Item*>(sameNetItems);
-  auto* indexOfItem = new jrt::HashMap<Item*, int32_t>();
+  auto* items = new (jrt::kOp) jrt::ArrayList<Item*>(sameNetItems);
+  auto* indexOfItem = new (jrt::kOp) jrt::HashMap<Item*, int32_t>();
   for (int32_t i = 0; i < items->size(); i++) {
     indexOfItem->put(items->get(i), i);
   }
@@ -587,8 +587,8 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   double endSlack = board->communication->getResolution(Unit::UM) * 5.0;
   // PORT NOTE: Java's null entries of the Mode[] array are INHERITED (ordinal 0) here. Every test
   // below compares with THERMAL, NONE or SOLID only, so null and INHERITED behave the same.
-  auto* modes = new ModeArr(items->size());
-  auto* spokes = new jrt::Array<SpokeArr*>(items->size());
+  auto* modes = new (jrt::kOp) ModeArr(items->size());
+  auto* spokes = new (jrt::kOp) jrt::Array<SpokeArr*>(items->size());
   double maxGap = ca->getThermalGap();
   for (int32_t i = 0; i < items->size(); i++) {
     auto* pin = jrt::fast_cast<Pin>(items->get(i));
@@ -628,10 +628,10 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   rasterizeOutsideOf(ca->getFillOutline(), minWidth / 2.0 - FILL_LENIENCY * minWidth);
 
   foldFineMask();
-  auto* pieceOfCell = new jrt::Array<int32_t>(cols * rows);
+  auto* pieceOfCell = new (jrt::kOp) jrt::Array<int32_t>(cols * rows);
   int32_t pieceCount = labelPieces(pieceOfCell)->length;
   // nodes: the pieces of the fill, then the items
-  auto* parent = new jrt::Array<int32_t>(pieceCount + items->size());
+  auto* parent = new (jrt::kOp) jrt::Array<int32_t>(pieceCount + items->size());
   for (int32_t i = 0; i < parent->length; i++) {
     (*parent)[i] = i;
   }
@@ -665,8 +665,8 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
 
   // islands: the groups of items other than traces, the largest first, then in the order of the
   // items
-  auto* groups = new jrt::LinkedHashMap<int32_t, jrt::List<Item*>*>();
-  auto* traces = new jrt::ArrayList<Trace*>();
+  auto* groups = new (jrt::kOp) jrt::LinkedHashMap<int32_t, jrt::List<Item*>*>();
+  auto* traces = new (jrt::kOp) jrt::ArrayList<Trace*>();
   for (int32_t i = 0; i < items->size(); i++) {
     if (auto* trace = jrt::fast_cast<Trace>(items->get(i))) {
       traces->add(trace);
@@ -674,18 +674,18 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
     }
     groups
         ->computeIfAbsent(find(parent, pieceCount + i),
-                          [](int32_t) -> jrt::List<Item*>* { return new jrt::ArrayList<Item*>(); })
+                          [](int32_t) -> jrt::List<Item*>* { return new (jrt::kOp) jrt::ArrayList<Item*>(); })
         ->add(items->get(i));
   }
-  auto* roots = new jrt::ArrayList<int32_t>(groups->keySet());
+  auto* roots = new (jrt::kOp) jrt::ArrayList<int32_t>(groups->keySet());
   int32_t largest = 0;
   for (int32_t i = 1; i < roots->size(); i++) {
     if (groups->get(roots->get(i))->size() > groups->get(roots->get(largest))->size()) {
       largest = i;
     }
   }
-  auto* islands = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
-  auto* islandOfRoot = new jrt::HashMap<int32_t, int32_t>();
+  auto* islands = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
+  auto* islandOfRoot = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
   if (!roots->isEmpty()) {
     islandOfRoot->put(roots->get(largest), islands->size());
     islands->put(islands->size(), groups->get(roots->get(largest)));
@@ -700,7 +700,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   std::function<int32_t(int32_t)> islandOfPiece = [islandOfRoot, islands, parent](int32_t piece) -> int32_t {
     return islandOfRoot->computeIfAbsent(find(parent, piece), [islands](int32_t) -> int32_t {
       int32_t id = islands->size();
-      islands->put(id, new jrt::ArrayList<Item*>());
+      islands->put(id, new (jrt::kOp) jrt::ArrayList<Item*>());
       return id;
     });
   };
@@ -723,9 +723,9 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   for (Item* item : *items) {
     box = box->union_(item->boundingBox());
   }
-  IntBox* dependencyBox = new IntBox(new IntPoint(box->ll->x - reach, box->ll->y - reach),
-                                     new IntPoint(box->ur->x + reach, box->ur->y + reach));
-  return new FastPlaneConnectivityGrid_PlaneFractureResult(islands, dependencyBox, traceEnds);
+  IntBox* dependencyBox = new (jrt::kGeom) IntBox(new (jrt::kGeom) IntPoint(box->ll->x - reach, box->ll->y - reach),
+                                     new (jrt::kGeom) IntPoint(box->ur->x + reach, box->ur->y + reach));
+  return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(islands, dependencyBox, traceEnds);
 }
 
 double FastPlaneConnectivityGrid::maxClearanceOf(ConductionArea* ca, BasicBoard* board) {
@@ -748,7 +748,7 @@ jrt::Array<int32_t>* FastPlaneConnectivityGrid::labelPieces(jrt::Array<int32_t>*
   }
   // cells none of whose sample points is marked: two of them that are neighbours always touch
   jrt::Array<bool>* partial = partialCells();
-  auto* sizes = new jrt::ArrayList<int32_t>();
+  auto* sizes = new (jrt::kOp) jrt::ArrayList<int32_t>();
   // diagonal neighbours too: what separates two pieces is much thicker than a cell
   static const int32_t dc[] = {1, -1, 0, 0, 1, 1, -1, -1};
   static const int32_t dr[] = {0, 0, 1, -1, 1, -1, 1, -1};
@@ -787,7 +787,7 @@ jrt::Array<int32_t>* FastPlaneConnectivityGrid::labelPieces(jrt::Array<int32_t>*
       (*pieceOfCell)[cell] = -1;
     }
   }
-  auto* result = new jrt::Array<int32_t>(sizes->size());
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(sizes->size());
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = sizes->get(i);
   }
@@ -796,7 +796,7 @@ jrt::Array<int32_t>* FastPlaneConnectivityGrid::labelPieces(jrt::Array<int32_t>*
 
 jrt::Array<bool>* FastPlaneConnectivityGrid::partialCells() {
   if (partialCell->length < cols * rows) {
-    partialCell = new jrt::Array<bool>(cols * rows);
+    partialCell = new (jrt::kOp) jrt::Array<bool>(cols * rows);
   } else {
     jrt::Arrays::fill<bool>(partialCell, 0, cols * rows, false);
   }
@@ -898,7 +898,7 @@ void FastPlaneConnectivityGrid::attachSolidPad(
         continue;
       }
       FloatPoint* centre =
-          new FloatPoint(originX + col * cellSize + cellSize / 2.0, originY + row * cellSize + cellSize / 2.0);
+          new (jrt::kGeom) FloatPoint(originX + col * cellSize + cellSize / 2.0, originY + row * cellSize + cellSize / 2.0);
       if (padShape->distance(centre) <= reach) {
         union_(parent, node, piece);
         attached = true;
@@ -911,11 +911,11 @@ void FastPlaneConnectivityGrid::attachSolidPad(
 
   double minWidth = ca->getFillMinWidth();
   double margin = maxKeepout + minWidth + 1.0;
-  IntBox* query = new IntBox(
-      new IntPoint(jrt::d2i(Math::floor(box->ll->x - margin)), jrt::d2i(Math::floor(box->ll->y - margin))),
-      new IntPoint(jrt::d2i(Math::ceil(box->ur->x + margin)), jrt::d2i(Math::ceil(box->ur->y + margin))));
-  auto* foreignShapes = new jrt::ArrayList<TileShape*>();
-  auto* foreignClearances = new jrt::ArrayList<jrt::Array<double>*>();
+  IntBox* query = new (jrt::kGeom) IntBox(
+      new (jrt::kGeom) IntPoint(jrt::d2i(Math::floor(box->ll->x - margin)), jrt::d2i(Math::floor(box->ll->y - margin))),
+      new (jrt::kGeom) IntPoint(jrt::d2i(Math::ceil(box->ur->x + margin)), jrt::d2i(Math::ceil(box->ur->y + margin))));
+  auto* foreignShapes = new (jrt::kOp) jrt::ArrayList<TileShape*>();
+  auto* foreignClearances = new (jrt::kOp) jrt::ArrayList<jrt::Array<double>*>();
   collectForeignCopper(ca, board, query, foreignShapes, foreignClearances, nullptr, nullptr, nullptr, -1);
   jrt::Array<FloatPoint*>* corners = padShape->cornerApproxArr();
   if (corners == nullptr || corners->length < 2) {
@@ -944,7 +944,7 @@ void FastPlaneConnectivityGrid::attachSolidPad(
     int32_t count = jrt::d2i(Math::ceil(length / step));
     for (int32_t k = 0; k <= count; k++) {
       double t = static_cast<double>(k) / count;
-      FloatPoint* centre = new FloatPoint(from->x + t * (to->x - from->x) + outX * minWidth / 2.0,
+      FloatPoint* centre = new (jrt::kGeom) FloatPoint(from->x + t * (to->x - from->x) + outX * minWidth / 2.0,
                                           from->y + t * (to->y - from->y) + outY * minWidth / 2.0);
       // the centre of the disc must be a point of the fill: inside the outline as the fill
       // follows it, clear of the reliefs of the net and of foreign copper
@@ -1047,11 +1047,11 @@ void FastPlaneConnectivityGrid::attachThermalPad(
   }
   double margin = Math::max(maxKeepout, maxGap) + (*own)[0]->halfWidth() + 1.0;
   IntBox* query =
-      new IntBox(new IntPoint(jrt::d2i(Math::floor(minX - margin)), jrt::d2i(Math::floor(minY - margin))),
-                 new IntPoint(jrt::d2i(Math::ceil(maxX + margin)), jrt::d2i(Math::ceil(maxY + margin))));
-  auto* foreignShapes = new jrt::ArrayList<TileShape*>();
-  auto* foreignClearances = new jrt::ArrayList<jrt::Array<double>*>();
-  auto* netPads = new jrt::ArrayList<int32_t>();
+      new (jrt::kGeom) IntBox(new (jrt::kGeom) IntPoint(jrt::d2i(Math::floor(minX - margin)), jrt::d2i(Math::floor(minY - margin))),
+                 new (jrt::kGeom) IntPoint(jrt::d2i(Math::ceil(maxX + margin)), jrt::d2i(Math::ceil(maxY + margin))));
+  auto* foreignShapes = new (jrt::kOp) jrt::ArrayList<TileShape*>();
+  auto* foreignClearances = new (jrt::kOp) jrt::ArrayList<jrt::Array<double>*>();
+  auto* netPads = new (jrt::kOp) jrt::ArrayList<int32_t>();
   collectForeignCopper(ca, board, query, foreignShapes, foreignClearances, netPads, indexOfItem, modes, index);
 
   Pin* ownPin = static_cast<Pin*>(items->get(index));
@@ -1060,8 +1060,8 @@ void FastPlaneConnectivityGrid::attachThermalPad(
   double ownGap = ownPin->getPlaneConnection()->gapOn(ca->getThermalGap());
   for (int32_t k = 0; k < own->length; k++) {
     PadPlaneConnection_Spoke* spoke = (*own)[k];
-    FloatPoint* start = new FloatPoint(spoke->startX(), spoke->startY());
-    FloatPoint* end = new FloatPoint(spoke->endX(), spoke->endY());
+    FloatPoint* start = new (jrt::kGeom) FloatPoint(spoke->startX(), spoke->startY());
+    FloatPoint* end = new (jrt::kGeom) FloatPoint(spoke->endX(), spoke->endY());
     // the relief of another pad of the net leaves no fill at the end of the spoke
     int32_t inReliefOf = -1;
     for (int32_t other : *netPads) {
@@ -1160,13 +1160,13 @@ jrt::Map<Item*, jrt::Array<jrt::Array<int32_t>*>*>* FastPlaneConnectivityGrid::a
     return jrt::Collections::emptyMap<Item*, jrt::Array<jrt::Array<int32_t>*>*>();
   }
   jrt::Map<Item*, jrt::List<int32_t>*>* islandsOfItem = islandsOfItems(islands);
-  auto* result = new jrt::HashMap<Item*, jrt::Array<jrt::Array<int32_t>*>*>();
+  auto* result = new (jrt::kOp) jrt::HashMap<Item*, jrt::Array<jrt::Array<int32_t>*>*>();
   for (Trace* trace : *traces) {
-    auto* ends = new jrt::Array<jrt::Array<int32_t>*>(2);
-    auto* all = new jrt::TreeSet<int32_t>();
+    auto* ends = new (jrt::kOp) jrt::Array<jrt::Array<int32_t>*>(2);
+    auto* all = new (jrt::kOp) jrt::TreeSet<int32_t>();
     for (int32_t e = 0; e < 2; e++) {
       Point* end = e == 0 ? trace->firstCorner() : trace->lastCorner();
-      auto* touched = new jrt::TreeSet<int32_t>();
+      auto* touched = new (jrt::kOp) jrt::TreeSet<int32_t>();
       if (end != nullptr && ca->getArea() != nullptr && ca->getArea()->contains(end)) {
         DrillItem* drill = drillItemAt(end, islandsOfItem->keySet());
         if (drill != nullptr) {
@@ -1175,7 +1175,7 @@ jrt::Map<Item*, jrt::Array<jrt::Array<int32_t>*>*>* FastPlaneConnectivityGrid::a
           touched->addAll(endIslands(trace, end));
         }
       }
-      (*ends)[e] = new jrt::Array<int32_t>(touched->toVector());
+      (*ends)[e] = new (jrt::kOp) jrt::Array<int32_t>(touched->toVector());
       all->addAll(touched);
     }
     all->addAll(wayIslands(trace));
@@ -1189,7 +1189,7 @@ jrt::Map<Item*, jrt::Array<jrt::Array<int32_t>*>*>* FastPlaneConnectivityGrid::a
 
 jrt::Set<int32_t>* FastPlaneConnectivityGrid::islandsOf(jrt::Set<int32_t>* pieces,
                                                         std::function<int32_t(int32_t)> islandOfPiece) {
-  auto* result = new jrt::TreeSet<int32_t>();
+  auto* result = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (int32_t piece : *pieces) {
     result->add(islandOfPiece(piece));
   }
@@ -1198,10 +1198,10 @@ jrt::Set<int32_t>* FastPlaneConnectivityGrid::islandsOf(jrt::Set<int32_t>* piece
 
 jrt::Map<Item*, jrt::List<int32_t>*>* FastPlaneConnectivityGrid::islandsOfItems(
     jrt::Map<int32_t, jrt::List<Item*>*>* islands) {
-  auto* result = new jrt::HashMap<Item*, jrt::List<int32_t>*>();
+  auto* result = new (jrt::kOp) jrt::HashMap<Item*, jrt::List<int32_t>*>();
   for (auto* entry : *islands->entrySet()) {
     for (Item* item : *entry->getValue()) {
-      result->computeIfAbsent(item, [](Item*) -> jrt::List<int32_t>* { return new jrt::ArrayList<int32_t>(); })
+      result->computeIfAbsent(item, [](Item*) -> jrt::List<int32_t>* { return new (jrt::kOp) jrt::ArrayList<int32_t>(); })
           ->add(entry->getKey());
     }
   }
@@ -1238,7 +1238,7 @@ jrt::TreeSet<int32_t>* FastPlaneConnectivityGrid::piecesNear(FloatPoint* point, 
   int32_t endCol = Math::min(cols - 1, jrt::d2i(Math::floor((point->x + limit - originX) / cellSize)));
   int32_t startRow = Math::max(0, jrt::d2i(Math::floor((point->y - limit - originY) / cellSize)));
   int32_t endRow = Math::min(rows - 1, jrt::d2i(Math::floor((point->y + limit - originY) / cellSize)));
-  auto* result = new jrt::TreeSet<int32_t>();
+  auto* result = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (int32_t row = startRow; row <= endRow; row++) {
     for (int32_t col = startCol; col <= endCol; col++) {
       int32_t piece = (*pieceOfCell)[row * cols + col];
@@ -1262,7 +1262,7 @@ jrt::TreeSet<int32_t>* FastPlaneConnectivityGrid::piecesAlong(Trace* trace, doub
   // the sample points are that far apart
   double limit = trace->getHalfWidth() + minWidth / 2.0 + fine * 0.75;
   double halfDiagonal = cellSize * Math::sqrt(0.5);
-  auto* result = new jrt::TreeSet<int32_t>();
+  auto* result = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (int32_t i = 0; i < Math::max(1, corners->length - 1); i++) {
     FloatPoint* from = (*corners)[i]->toFloat();
     FloatPoint* to = (*corners)[Math::min(i + 1, corners->length - 1)]->toFloat();
@@ -1278,7 +1278,7 @@ jrt::TreeSet<int32_t>* FastPlaneConnectivityGrid::piecesAlong(Trace* trace, doub
         if (piece < 0 || result->contains(piece)) {
           continue;
         }
-        FloatPoint* centre = new FloatPoint(originX + (c + 0.5) * cellSize, originY + (r + 0.5) * cellSize);
+        FloatPoint* centre = new (jrt::kGeom) FloatPoint(originX + (c + 0.5) * cellSize, originY + (r + 0.5) * cellSize);
         if (pointSegmentDistance(centre, from, to) > limit + halfDiagonal ||
             !hasFreeSampleNearSegment(r, c, from, to, limit, fine)) {
           continue;
@@ -1298,7 +1298,7 @@ bool FastPlaneConnectivityGrid::hasFreeSampleNearSegment(int32_t row, int32_t co
       if (isFineSet(fineRow, fineCol)) {
         continue;
       }
-      FloatPoint* sample = new FloatPoint(originX + (fineCol + 0.5) * fine, y);
+      FloatPoint* sample = new (jrt::kGeom) FloatPoint(originX + (fineCol + 0.5) * fine, y);
       if (pointSegmentDistance(sample, from, to) <= limit) {
         return true;
       }
@@ -1313,7 +1313,7 @@ void FastPlaneConnectivityGrid::initFineMask() {
   this->fineWordsPerRow = (this->fineCols + 63) / 64;
   int32_t words = this->fineRows * this->fineWordsPerRow;
   if (this->fineMask->length < words) {
-    this->fineMask = new jrt::Array<int64_t>(words);
+    this->fineMask = new (jrt::kOp) jrt::Array<int64_t>(words);
   } else {
     jrt::Arrays::fill<int64_t>(this->fineMask, 0, words, 0);
   }
@@ -1327,7 +1327,7 @@ void FastPlaneConnectivityGrid::rasterizeOutsideOf(Area* area, double reach) {
   if (tiles == nullptr) {
     return;
   }
-  auto* inside = new jrt::Array<int64_t>(fineRows * fineWordsPerRow);
+  auto* inside = new (jrt::kOp) jrt::Array<int64_t>(fineRows * fineWordsPerRow);
   for (TileShape* tile : *tiles) {
     jrt::Array<FloatPoint*>* corners = tile == nullptr ? nullptr : tile->cornerApproxArr();
     if (corners != nullptr && corners->length > 2) {
@@ -1340,7 +1340,7 @@ void FastPlaneConnectivityGrid::rasterizeOutsideOf(Area* area, double reach) {
   if (reach <= 0) {
     return;
   }
-  auto* rims = new jrt::ArrayList<Shape*>();
+  auto* rims = new (jrt::kOp) jrt::ArrayList<Shape*>();
   rims->add(area->getBorder());
   for (Shape* hole : *area->getHoles()) {
     rims->add(hole);
@@ -1480,7 +1480,7 @@ void FastPlaneConnectivityGrid::rasterizeConvex(jrt::Array<FloatPoint*>* corners
   // the corners of the band around each side
   auto* bandX = jrt::newArray2<double>(Math::max(sides, 0), 4);
   auto* bandY = jrt::newArray2<double>(Math::max(sides, 0), 4);
-  auto* hasBand = new jrt::Array<bool>(Math::max(sides, 0));
+  auto* hasBand = new (jrt::kOp) jrt::Array<bool>(Math::max(sides, 0));
   for (int32_t i = 0; i < sides; i++) {
     FloatPoint* from = (*corners)[i];
     FloatPoint* to = (*corners)[(i + 1) % corners->length];
@@ -1567,9 +1567,9 @@ bool FastPlaneConnectivityGrid::spokesMeet(
         }
         // a crossing under a pad: the strips already touch at the edges of the pads
         t = Math::max(0.0, t);
-        meet = new FloatPoint((*a)[0]->x + t * dx, (*a)[0]->y + t * dy);
+        meet = new (jrt::kGeom) FloatPoint((*a)[0]->x + t * dx, (*a)[0]->y + t * dy);
       } else {
-        meet = new FloatPoint(((*a)[0]->x + (*b)[0]->x) / 2.0, ((*a)[0]->y + (*b)[0]->y) / 2.0);
+        meet = new (jrt::kGeom) FloatPoint(((*a)[0]->x + (*b)[0]->x) / 2.0, ((*a)[0]->y + (*b)[0]->y) / 2.0);
         double length = Math::hypot(dx, dy);
         double across = length > 0 ? Math::abs((meet->x - (*a)[0]->x) * dy - (meet->y - (*a)[0]->y) * dx) / length : 0;
         if (across > 1.0) {
@@ -1597,16 +1597,16 @@ jrt::Array<FloatPoint*>* FastPlaneConnectivityGrid::shifted(PadPlaneConnection_S
   double length = Math::hypot(dx, dy);
   double shiftX = length > 0 ? -dy / length * offset : 0;
   double shiftY = length > 0 ? dx / length * offset : 0;
-  return jrt::Array<FloatPoint*>::of({new FloatPoint(spoke->startX() + shiftX, spoke->startY() + shiftY),
-                                      new FloatPoint(spoke->endX() + shiftX, spoke->endY() + shiftY)});
+  return jrt::Array<FloatPoint*>::of({new (jrt::kGeom) FloatPoint(spoke->startX() + shiftX, spoke->startY() + shiftY),
+                                      new (jrt::kGeom) FloatPoint(spoke->endX() + shiftX, spoke->endY() + shiftY)});
 }
 
 jrt::Array<PadPlaneConnection_Spoke*>* FastPlaneConnectivityGrid::wholeSpokes(
     Pin* pin, jrt::Array<PadPlaneConnection_Spoke*>* fromEdge) {
   PadPlaneConnection* connection = pin->getPlaneConnection();
-  auto* result = new SpokeArr(fromEdge->length);
+  auto* result = new (jrt::kOp) SpokeArr(fromEdge->length);
   for (int32_t i = 0; i < fromEdge->length; i++) {
-    (*result)[i] = new PadPlaneConnection_Spoke(connection->centerX(), connection->centerY(), (*fromEdge)[i]->endX(),
+    (*result)[i] = new (jrt::kBoard) PadPlaneConnection_Spoke(connection->centerX(), connection->centerY(), (*fromEdge)[i]->endX(),
                                                 (*fromEdge)[i]->endY(), (*fromEdge)[i]->halfWidth());
   }
   return result;
@@ -1640,8 +1640,8 @@ bool FastPlaneConnectivityGrid::isStripFree(
   for (double offset : *stripOffsets(halfWidth, minWidth)) {
     double shiftX = length > 0 ? -(end->y - start->y) / length * offset : 0;
     double shiftY = length > 0 ? (end->x - start->x) / length * offset : 0;
-    FloatPoint* from = new FloatPoint(start->x + shiftX, start->y + shiftY);
-    FloatPoint* to = new FloatPoint(end->x + shiftX, end->y + shiftY);
+    FloatPoint* from = new (jrt::kGeom) FloatPoint(start->x + shiftX, start->y + shiftY);
+    FloatPoint* to = new (jrt::kGeom) FloatPoint(end->x + shiftX, end->y + shiftY);
     if (isFree(from, to, 0, foreignShapes, foreignClearances)) {
       return true;
     }
@@ -1663,9 +1663,9 @@ bool FastPlaneConnectivityGrid::isStripFree(
   double fillDistance = gap + minWidth / 2.0 - 1.0;
   // only the foreign copper that can reach one of these points
   FloatPoint* farEnd =
-      new FloatPoint(start->x + alongX * (along - 1) * step, start->y + alongY * (along - 1) * step);
-  auto* nearShapes = new jrt::ArrayList<TileShape*>();
-  auto* nearClearances = new jrt::ArrayList<jrt::Array<double>*>();
+      new (jrt::kGeom) FloatPoint(start->x + alongX * (along - 1) * step, start->y + alongY * (along - 1) * step);
+  auto* nearShapes = new (jrt::kOp) jrt::ArrayList<TileShape*>();
+  auto* nearClearances = new (jrt::kOp) jrt::ArrayList<jrt::Array<double>*>();
   for (int32_t i = 0; i < foreignShapes->size(); i++) {
     if (FastPlaneConnectivityGrid::distance(start, farEnd, foreignShapes->get(i)) <
         (*foreignClearances->get(i))[0] + half * step) {
@@ -1673,19 +1673,19 @@ bool FastPlaneConnectivityGrid::isStripFree(
       nearClearances->add(foreignClearances->get(i));
     }
   }
-  auto* reached = new jrt::Array<bool>(across);
+  auto* reached = new (jrt::kOp) jrt::Array<bool>(across);
   for (int32_t m = 0; m < along; m++) {
     double distance = m * step;
-    auto* free = new jrt::Array<bool>(across);
-    auto* inFill = new jrt::Array<bool>(across);
+    auto* free = new (jrt::kOp) jrt::Array<bool>(across);
+    auto* inFill = new (jrt::kOp) jrt::Array<bool>(across);
     for (int32_t n = 0; n < across; n++) {
       double offset = (n - half) * step;
       FloatPoint* point =
-          new FloatPoint(start->x + alongX * distance - alongY * offset, start->y + alongY * distance + alongX * offset);
+          new (jrt::kGeom) FloatPoint(start->x + alongX * distance - alongY * offset, start->y + alongY * distance + alongX * offset);
       (*inFill)[n] = padShape->distance(point) >= fillDistance;
       (*free)[n] = ((*inFill)[n] || Math::abs(offset) <= side + 1e-6) && isFree(point, point, 0, nearShapes, nearClearances);
     }
-    auto* next = new jrt::Array<bool>(across);
+    auto* next = new (jrt::kOp) jrt::Array<bool>(across);
     for (int32_t n = 0; n < across; n++) {
       (*next)[n] = (*free)[n] &&
                    (m == 0 || (*reached)[n] || (n > 0 && (*reached)[n - 1]) || (n < across - 1 && (*reached)[n + 1]));
@@ -1730,7 +1730,7 @@ bool FastPlaneConnectivityGrid::isEndInFill(
   for (double slide : *slides) {
     FloatPoint* centre = end;
     if (slide != 0) {
-      centre = new FloatPoint(end->x - (end->y - start->y) / length * slide,
+      centre = new (jrt::kGeom) FloatPoint(end->x - (end->y - start->y) / length * slide,
                               end->y + (end->x - start->x) / length * slide);
       if (padShape != nullptr && padShape->distance(centre) < gap + minWidth / 2.0 - FILL_LENIENCY * minWidth) {
         continue;
@@ -1841,7 +1841,7 @@ void FastPlaneConnectivityGrid::rasterizeConductionArea(ConductionArea* ca) {
         int32_t spanStart = -1;
         for (int32_t c = startCol; c <= endCol; c++) {
           int32_t cellX = originX + c * cellSize + cellSize / 2;
-          if (tile->contains(static_cast<Point*>(new IntPoint(cellX, cellY)))) {
+          if (tile->contains(static_cast<Point*>(new (jrt::kGeom) IntPoint(cellX, cellY)))) {
             if (spanStart == -1) {
               spanStart = c;
             }
@@ -1899,18 +1899,18 @@ void FastPlaneConnectivityGrid::rasterizeObstacleAreas(
     return;
   }
   jrt::Array<TileShape*>* shapeArr = shapes->toArray();
-  auto* clearanceArr = new jrt::Array<double>(clearances->size());
+  auto* clearanceArr = new (jrt::kOp) jrt::Array<double>(clearances->size());
   for (int32_t i = 0; i < clearanceArr->length; i++) {
     (*clearanceArr)[i] = clearances->get(i);
   }
   int32_t words = rows * wordsPerRow;
   jrt::Array<int64_t>* areaWords = memo->lookupObstacleAreas(this, shapeArr, clearanceArr);
   if (areaWords == nullptr) {
-    areaWords = new jrt::Array<int64_t>(words);
+    areaWords = new (jrt::kOp) jrt::Array<int64_t>(words);
     for (int32_t i = 0; i < shapeArr->length; i++) {
       rasterizeObstacleShape((*shapeArr)[i]->enlarge((*clearanceArr)[i]), areaWords);
     }
-    auto* indexArr = new jrt::Array<int32_t>(shapeIndices->size());
+    auto* indexArr = new (jrt::kOp) jrt::Array<int32_t>(shapeIndices->size());
     for (int32_t i = 0; i < indexArr->length; i++) {
       (*indexArr)[i] = shapeIndices->get(i);
     }
@@ -1949,7 +1949,7 @@ void FastPlaneConnectivityGrid::rasterizeObstacleShape(Shape* shape, jrt::Array<
       int32_t spanStart = -1;
       for (int32_t c = startCol; c <= endCol; c++) {
         int32_t cellX = originX + c * cellSize + cellSize / 2;
-        if (shape->contains(static_cast<Point*>(new IntPoint(cellX, cellY)))) {
+        if (shape->contains(static_cast<Point*>(new (jrt::kGeom) IntPoint(cellX, cellY)))) {
           if (spanStart == -1) {
             spanStart = c;
           }
@@ -2082,7 +2082,7 @@ void FastPlaneConnectivityGrid::rasterizeThickSegment(int32_t x1, int32_t y1, in
 FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partitionItemsByIsland(
     ConductionArea* ca, jrt::Collection<Item*>* items) {
   jrt::Array<Item*>* itemArr = items->toArray();
-  auto* locations = new jrt::Array<IntPoint*>(itemArr->length);
+  auto* locations = new (jrt::kGeom) jrt::Array<IntPoint*>(itemArr->length);
   for (int32_t i = 0; i < itemArr->length; i++) {
     (*locations)[i] = getItemLocation((*itemArr)[i], ca);
   }
@@ -2092,17 +2092,17 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
 FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partitionItemsByIsland(
     ConductionArea* ca, jrt::Collection<Item*>* items, jrt::Array<Item*>* itemArr, jrt::Array<IntPoint*>* locations) {
   preparePartitionBuffers();
-  auto* islands = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
-  auto* itemIslandMap = new jrt::HashMap<Item*, int32_t>();
-  auto* unseededItems = new jrt::ArrayList<Item*>();
-  auto* unseededSet = new jrt::HashSet<Item*>();
+  auto* islands = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
+  auto* itemIslandMap = new (jrt::kOp) jrt::HashMap<Item*, int32_t>();
+  auto* unseededItems = new (jrt::kOp) jrt::ArrayList<Item*>();
+  auto* unseededSet = new (jrt::kOp) jrt::HashSet<Item*>();
   // seed cell index of each item: SEED_UNKNOWN until computed, SEED_NONE if there is none
-  auto* seeds = new jrt::Array<int32_t>(itemArr->length);
+  auto* seeds = new (jrt::kOp) jrt::Array<int32_t>(itemArr->length);
   jrt::Arrays::fill<int32_t>(seeds, SEED_UNKNOWN);
   int32_t nextIslandId = 0;
-  auto newList = [](int32_t) -> jrt::List<Item*>* { return new jrt::ArrayList<Item*>(); };
+  auto newList = [](int32_t) -> jrt::List<Item*>* { return new (jrt::kOp) jrt::ArrayList<Item*>(); };
 
-  auto* traces = new jrt::ArrayList<Trace*>();
+  auto* traces = new (jrt::kOp) jrt::ArrayList<Trace*>();
   for (int32_t i = 0; i < itemArr->length; i++) {
     Item* item = (*itemArr)[i];
     if (auto* trace = jrt::fast_cast<Trace>(item)) {
@@ -2158,9 +2158,9 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   }
 
   if (nextIslandId == 0 && traces->isEmpty()) {
-    auto* single = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
-    single->put(0, new jrt::ArrayList<Item*>(items));
-    return new FastPlaneConnectivityGrid_PlaneFractureResult(single);
+    auto* single = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
+    single->put(0, new (jrt::kOp) jrt::ArrayList<Item*>(items));
+    return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(single);
   }
   int32_t islandCounter = nextIslandId;
 
@@ -2172,11 +2172,11 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
       traces,
       islands,
       [this, &islandCounter, islands](Trace* trace, Point* end) -> jrt::Set<int32_t>* {
-        auto* result = new jrt::TreeSet<int32_t>();
+        auto* result = new (jrt::kOp) jrt::TreeSet<int32_t>();
         for (int32_t cell : *fillCellsAround(toIntPoint(end), trace->getHalfWidth())) {
           if ((*cellIslandMap)[cell] < 0) {
             int32_t id = islandCounter++;
-            islands->put(id, new jrt::ArrayList<Item*>());
+            islands->put(id, new (jrt::kOp) jrt::ArrayList<Item*>());
             runFloodFill(cell % cols, cell / cols, static_cast<int16_t>(id));
           }
           result->add(static_cast<int32_t>((*cellIslandMap)[cell]));
@@ -2186,9 +2186,9 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
       [](Trace*) -> jrt::Set<int32_t>* { return jrt::Collections::emptySet<int32_t>(); });
 
   if (islandCounter == 0) {
-    auto* single = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
-    single->put(0, new jrt::ArrayList<Item*>(items));
-    return new FastPlaneConnectivityGrid_PlaneFractureResult(single, nullptr, traceEnds);
+    auto* single = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
+    single->put(0, new (jrt::kOp) jrt::ArrayList<Item*>(items));
+    return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(single, nullptr, traceEnds);
   }
 
   for (Item* unseeded : *unseededItems) {
@@ -2209,7 +2209,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
     itemIslandMap->put(unseeded, assignedIsland);
   }
 
-  return new FastPlaneConnectivityGrid_PlaneFractureResult(islands, nullptr, traceEnds);
+  return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(islands, nullptr, traceEnds);
 }
 
 jrt::List<int32_t>* FastPlaneConnectivityGrid::fillCellsAround(IntPoint* point, double halfWidth) {
@@ -2220,7 +2220,7 @@ jrt::List<int32_t>* FastPlaneConnectivityGrid::fillCellsAround(IntPoint* point, 
   int32_t minRow = Math::max(0, jrt::d2i(Math::floor((point->y - reach - originY) / static_cast<double>(cellSize))));
   int32_t maxRow =
       Math::min(rows - 1, jrt::d2i(Math::floor((point->y + reach - originY) / static_cast<double>(cellSize))));
-  auto* result = new jrt::ArrayList<int32_t>();
+  auto* result = new (jrt::kOp) jrt::ArrayList<int32_t>();
   for (int32_t row = minRow; row <= maxRow; row++) {
     double cellY = originY + row * static_cast<double>(cellSize) + cellSize / 2.0;
     for (int32_t col = minCol; col <= maxCol; col++) {
@@ -2339,7 +2339,7 @@ IntPoint* FastPlaneConnectivityGrid::getItemLocation(Item* item, ConductionArea*
       IntBox* box = drillItem->boundingBox();
       if (box != nullptr) {
         jrt::Array<IntPoint*>* corners = jrt::Array<IntPoint*>::of(
-            {box->ll, box->ur, new IntPoint(box->ll->x, box->ur->y), new IntPoint(box->ur->x, box->ll->y)});
+            {box->ll, box->ur, new (jrt::kGeom) IntPoint(box->ll->x, box->ur->y), new (jrt::kGeom) IntPoint(box->ur->x, box->ll->y)});
         for (IntPoint* cp : *corners) {
           if (ca->getArea()->contains(static_cast<Point*>(cp))) {
             return cp;

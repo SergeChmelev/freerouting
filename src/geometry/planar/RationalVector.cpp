@@ -49,7 +49,7 @@ bool RationalVector::equals(jrt::Object* other) {
   return det.signum() == 0;
 }
 
-Vector* RationalVector::negate() { return new RationalVector(x.negate(), y.negate(), z); }
+Vector* RationalVector::negate() { return new (jrt::kGeom) RationalVector(x.negate(), y.negate(), z); }
 
 Vector* RationalVector::add(Vector* other) { return other->add(this); }
 
@@ -57,13 +57,13 @@ Vector* RationalVector::add(IntVector* other) {
   BigIntAux_RationalCoordinates* result = BigIntAux::addRationalCoordinates(
       x, y, z, jrt::BigInteger::valueOf(other->x), jrt::BigInteger::valueOf(other->y),
       jrt::BigInteger::ONE());
-  return new RationalVector(result->x(), result->y(), result->z());
+  return new (jrt::kGeom) RationalVector(result->x(), result->y(), result->z());
 }
 
 Vector* RationalVector::add(RationalVector* other) {
   BigIntAux_RationalCoordinates* result =
       BigIntAux::addRationalCoordinates(x, y, z, other->x, other->y, other->z);
-  return new RationalVector(result->x(), result->y(), result->z());
+  return new (jrt::kGeom) RationalVector(result->x(), result->y(), result->z());
 }
 
 Side* RationalVector::sideOf(Vector* other) {
@@ -108,7 +108,7 @@ Signum* RationalVector::projection(RationalVector* other) {
 double RationalVector::scalarProduct(Vector* other) { return other->scalarProduct(this); }
 
 double RationalVector::scalarProduct(IntVector* other) {
-  Vector* vector = new RationalVector(other);
+  Vector* vector = new (jrt::kGeom) RationalVector(other);
   return vector->scalarProduct(this);
 }
 
@@ -122,7 +122,7 @@ FloatPoint* RationalVector::toFloat() {
   double xd = x.doubleValue();
   double yd = y.doubleValue();
   double zd = z.doubleValue();
-  return new FloatPoint(xd / zd, yd / zd);
+  return new (jrt::kGeom) FloatPoint(xd / zd, yd / zd);
 }
 
 Vector* RationalVector::changeLengthApprox(double length) {
@@ -146,22 +146,22 @@ Vector* RationalVector::turn90Degree(int32_t factor) {
     case 0:
       return this;  // 0 degrees
     case 1:
-      return new RationalVector(y.negate(), x, this->z);  // 90 degrees
+      return new (jrt::kGeom) RationalVector(y.negate(), x, this->z);  // 90 degrees
     case 2:
-      return new RationalVector(x.negate(), y.negate(), this->z);  // 180 degrees
+      return new (jrt::kGeom) RationalVector(x.negate(), y.negate(), this->z);  // 180 degrees
     case 3:
-      return new RationalVector(y, x.negate(), this->z);  // 270 degrees
+      return new (jrt::kGeom) RationalVector(y, x.negate(), this->z);  // 270 degrees
     default:
       return this;
   }
 }
 
 Vector* RationalVector::mirrorAtYAxis() {
-  return new RationalVector(this->x.negate(), this->y, this->z);
+  return new (jrt::kGeom) RationalVector(this->x.negate(), this->y, this->z);
 }
 
 Vector* RationalVector::mirrorAtXAxis() {
-  return new RationalVector(this->x, this->y.negate(), this->z);
+  return new (jrt::kGeom) RationalVector(this->x, this->y.negate(), this->z);
 }
 
 Direction* RationalVector::toNormalizedDirection() {
@@ -175,9 +175,9 @@ Direction* RationalVector::toNormalizedDirection() {
   dy = dy.divide(gcd);
   if (dx.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0 &&
       dy.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0) {
-    return new IntDirection(dx.intValue(), dy.intValue());
+    return new (jrt::kGeom) IntDirection(dx.intValue(), dy.intValue());
   }
-  return new BigIntDirection(dx, dy);
+  return new (jrt::kGeom) BigIntDirection(dx, dy);
 }
 
 Point* RationalVector::addTo(IntPoint* point) {
@@ -185,13 +185,13 @@ Point* RationalVector::addTo(IntPoint* point) {
   newX = newX.add(x);
   jrt::BigInteger newY = z.multiply(jrt::BigInteger::valueOf(point->y));
   newY = newY.add(y);
-  return new RationalPoint(newX, newY, z);
+  return new (jrt::kGeom) RationalPoint(newX, newY, z);
 }
 
 Point* RationalVector::addTo(RationalPoint* point) {
   BigIntAux_RationalCoordinates* result =
       BigIntAux::addRationalCoordinates(x, y, z, point->x, point->y, point->z);
-  return new RationalPoint(result->x(), result->y(), result->z());
+  return new (jrt::kGeom) RationalPoint(result->x(), result->y(), result->z());
 }
 
 }  // namespace fr

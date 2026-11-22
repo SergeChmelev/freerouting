@@ -13,39 +13,39 @@
 namespace fr {
 
 IntDirection* Direction::NULL_() {
-  static IntDirection* v = new IntDirection(0, 0);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(0, 0);
   return v;
 }
 IntDirection* Direction::RIGHT() {
-  static IntDirection* v = new IntDirection(1, 0);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(1, 0);
   return v;
 }
 IntDirection* Direction::RIGHT45() {
-  static IntDirection* v = new IntDirection(1, 1);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(1, 1);
   return v;
 }
 IntDirection* Direction::UP() {
-  static IntDirection* v = new IntDirection(0, 1);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(0, 1);
   return v;
 }
 IntDirection* Direction::UP45() {
-  static IntDirection* v = new IntDirection(-1, 1);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(-1, 1);
   return v;
 }
 IntDirection* Direction::LEFT() {
-  static IntDirection* v = new IntDirection(-1, 0);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(-1, 0);
   return v;
 }
 IntDirection* Direction::LEFT45() {
-  static IntDirection* v = new IntDirection(-1, -1);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(-1, -1);
   return v;
 }
 IntDirection* Direction::DOWN() {
-  static IntDirection* v = new IntDirection(0, -1);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(0, -1);
   return v;
 }
 IntDirection* Direction::DOWN45() {
-  static IntDirection* v = new IntDirection(1, -1);
+  static IntDirection* v = new (jrt::kGeom) IntDirection(1, -1);
   return v;
 }
 
@@ -62,7 +62,7 @@ Direction* Direction::getInstanceApprox(double angle) {
   const double scaleFactor = 10000;
   int32_t x = jrt::l2i(jrt::Math::round(jrt::Math::cos(angle) * scaleFactor));
   int32_t y = jrt::l2i(jrt::Math::round(jrt::Math::sin(angle) * scaleFactor));
-  return getInstance(new IntVector(x, y));
+  return getInstance(new (jrt::kGeom) IntVector(x, y));
 }
 
 bool Direction::isMultipleOf45Degree() { return isOrthogonal() || isDiagonal(); }
@@ -104,7 +104,7 @@ Direction* Direction::middleApprox(Direction* other) {
   double x = v1->x / length1 + v2->x / length2;
   double y = v1->y / length1 + v2->y / length2;
   const double scaleFactor = 1000;
-  Vector* vm = new IntVector(jrt::l2i(jrt::Math::round(x * scaleFactor)),
+  Vector* vm = new (jrt::kGeom) IntVector(jrt::l2i(jrt::Math::round(x * scaleFactor)),
                              jrt::l2i(jrt::Math::round(y * scaleFactor)));
   return Direction::getInstance(vm);
 }

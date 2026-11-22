@@ -40,7 +40,7 @@ void FoundConnectionLocator::initialize(MazeSearchEngine_Result* mazeSearchResul
                                         jrt::Map<Item*, int32_t>* ripupCosts) {
   jrt::Collection<FoundConnectionLocator_BacktrackElement*>* backtrackList =
       backtrack(mazeSearchResult, rippedItemList, ripupCosts, ctrl->netNumber);
-  this->backtrackArray = new jrt::Array<FoundConnectionLocator_BacktrackElement*>(backtrackList->size());
+  this->backtrackArray = new (jrt::kOp) jrt::Array<FoundConnectionLocator_BacktrackElement*>(backtrackList->size());
   jrt::Iterator<FoundConnectionLocator_BacktrackElement*>* it = backtrackList->iterator();
   for (int32_t i = 0; i < backtrackArray->length; i++) {
     (*this->backtrackArray)[i] = it->next();
@@ -58,7 +58,7 @@ void FoundConnectionLocator::initialize(MazeSearchEngine_Result* mazeSearchResul
                       + ", next_room_type=" + nextRoomType);
     }
   }
-  this->connectionItems = new jrt::LinkedList<FoundConnectionLocator_ResultItem*>();
+  this->connectionItems = new (jrt::kOp) jrt::LinkedList<FoundConnectionLocator_ResultItem*>();
   FoundConnectionLocator_BacktrackElement* startInfo =
       (*this->backtrackArray)[backtrackArray->length - 1];
   if (jrt::fast_cast<TargetItemExpansionDoor>(startInfo->door) == nullptr) {
@@ -168,10 +168,10 @@ FoundConnectionLocator* FoundConnectionLocator::getInstance(
   FoundConnectionLocator* result;
   if (angleRestriction == AngleRestriction::NINETY_DEGREE
       || angleRestriction == AngleRestriction::FORTYFIVE_DEGREE) {
-    result = new FoundConnectionLocator45Degree(mazeSearchResult, ctrl, searchTree,
+    result = new (jrt::kOp) FoundConnectionLocator45Degree(mazeSearchResult, ctrl, searchTree,
                                                 angleRestriction, rippedItemList, ripupCosts);
   } else {
-    result = new FoundConnectionLocatorAnyAngle(mazeSearchResult, ctrl, searchTree,
+    result = new (jrt::kOp) FoundConnectionLocatorAnyAngle(mazeSearchResult, ctrl, searchTree,
                                                 angleRestriction, rippedItemList, ripupCosts);
   }
   // PORT NOTE: second construction phase (see header).
@@ -237,7 +237,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
     return nullptr;
   }
   jrt::Collection<FoundConnectionLocator_BacktrackElement*>* result =
-      new jrt::LinkedList<FoundConnectionLocator_BacktrackElement*>();
+      new (jrt::kOp) jrt::LinkedList<FoundConnectionLocator_BacktrackElement*>();
   CompleteExpansionRoom* currentNextRoom = nullptr;
   ExpandableObject* currentBacktrackDoor = mazeSearchResult->destinationDoor;
   MazeSearchElement* currentMazeSearchElement =
@@ -265,7 +265,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
       }
     }
   }
-  auto* currentBacktrackElement = new FoundConnectionLocator_BacktrackElement(
+  auto* currentBacktrackElement = new (jrt::kOp) FoundConnectionLocator_BacktrackElement(
       currentBacktrackDoor, mazeSearchResult->sectionNoOfDoor, currentNextRoom);
   int32_t step = 0;
   for (;;) {
@@ -285,7 +285,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
       currentNextRoom = currentBacktrackDoor->otherRoom(currentNextRoom);
     }
     currentMazeSearchElement = currentBacktrackDoor->getMazeSearchElement(currentSectionNo);
-    currentBacktrackElement = new FoundConnectionLocator_BacktrackElement(
+    currentBacktrackElement = new (jrt::kOp) FoundConnectionLocator_BacktrackElement(
         currentBacktrackDoor, currentSectionNo, currentNextRoom);
     if (debugBacktrack) {
       std::string doorType = jrt::className(currentBacktrackDoor);
@@ -326,7 +326,7 @@ FloatPoint* FoundConnectionLocator::ninetyDegreeCorner(FloatPoint* fromPoint, Fl
     x = fromPoint->x;
     y = toPoint->y;
   }
-  return new FloatPoint(x, y);
+  return new (jrt::kGeom) FloatPoint(x, y);
 }
 
 FloatPoint* FoundConnectionLocator::fortyfiveDegreeCorner(FloatPoint* fromPoint,
@@ -370,7 +370,7 @@ FloatPoint* FoundConnectionLocator::fortyfiveDegreeCorner(FloatPoint* fromPoint,
       }
     }
   }
-  return new FloatPoint(x, y);
+  return new (jrt::kGeom) FloatPoint(x, y);
 }
 
 FloatPoint* FoundConnectionLocator::calculateAdditionalCorner(FloatPoint* fromPoint,
@@ -390,7 +390,7 @@ FloatPoint* FoundConnectionLocator::calculateAdditionalCorner(FloatPoint* fromPo
 
 FoundConnectionLocator_ResultItem* FoundConnectionLocator::calculateNextTrace(bool layerChanged,
                                                                              bool atFanoutEnd) {
-  jrt::List<FloatPoint*>* cornerList = new jrt::ArrayList<FloatPoint*>();
+  jrt::List<FloatPoint*>* cornerList = new (jrt::kOp) jrt::ArrayList<FloatPoint*>();
   cornerList->add(this->currentFromPoint);
   if (!atFanoutEnd) {
     FloatPoint* adjustedStartCorner = this->adjustStartCorner();
@@ -431,7 +431,7 @@ FoundConnectionLocator_ResultItem* FoundConnectionLocator::calculateNextTrace(bo
   }
 
   // Round the new trace corners to Integer.
-  jrt::Collection<IntPoint*>* roundedCornerList = new jrt::LinkedList<IntPoint*>();
+  jrt::Collection<IntPoint*>* roundedCornerList = new (jrt::kOp) jrt::LinkedList<IntPoint*>();
   IntPoint* prevPoint = nullptr;
   for (FloatPoint* corner : *cornerList) {
     IntPoint* currentPoint = corner->round();
@@ -442,12 +442,12 @@ FoundConnectionLocator_ResultItem* FoundConnectionLocator::calculateNextTrace(bo
   }
 
   // Construct the result item
-  auto* corners = new jrt::Array<IntPoint*>(roundedCornerList->size());
+  auto* corners = new (jrt::kGeom) jrt::Array<IntPoint*>(roundedCornerList->size());
   jrt::Iterator<IntPoint*>* it2 = roundedCornerList->iterator();
   for (int32_t i = 0; i < corners->length; i++) {
     (*corners)[i] = it2->next();
   }
-  auto* result = new FoundConnectionLocator_ResultItem(corners, this->currentTraceLayer);
+  auto* result = new (jrt::kOp) FoundConnectionLocator_ResultItem(corners, this->currentTraceLayer);
   if (this->ctrl->netNumber == 33 || this->ctrl->netNumber == 66 || this->ctrl->netNumber == 67) {
     IntPoint* first = corners->length > 0 ? (*corners)[0] : nullptr;
     IntPoint* last = corners->length > 0 ? (*corners)[corners->length - 1] : nullptr;
@@ -541,7 +541,7 @@ IntPoint* FoundConnectionLocator::padEndWithClearStub(Pin* pin, TileShape* coppe
       }
       path = jrt::Array<FloatPoint*>::of({corner, add, endPoint});
     }
-    jrt::List<Point*>* corners = new jrt::ArrayList<Point*>();
+    jrt::List<Point*>* corners = new (jrt::kOp) jrt::ArrayList<Point*>();
     for (FloatPoint* p : *path) {
       IntPoint* rounded = p->round();
       if (corners->isEmpty() || !rounded->equals(corners->get(corners->size() - 1))) {
@@ -550,15 +550,15 @@ IntPoint* FoundConnectionLocator::padEndWithClearStub(Pin* pin, TileShape* coppe
     }
     if (corners->size() < 2) {
       IntBox* box =
-          new IntBox(end->x - halfWidth, end->y - halfWidth, end->x + halfWidth, end->y + halfWidth);
+          new (jrt::kGeom) IntBox(end->x - halfWidth, end->y - halfWidth, end->x + halfWidth, end->y + halfWidth);
       return !endBlockedByUnshovableCopper(pin->board, box, layer, this->ctrl->netNumber,
                                            this->ctrl->traceClearanceClassIndex);
     }
-    auto* cornerArr = new jrt::Array<Point*>(corners->size());
+    auto* cornerArr = new (jrt::kGeom) jrt::Array<Point*>(corners->size());
     for (int32_t k = 0; k < cornerArr->length; k++) {
       (*cornerArr)[k] = corners->get(k);
     }
-    Polyline* stub = new Polyline(cornerArr);
+    Polyline* stub = new (jrt::kGeom) Polyline(cornerArr);
     for (int32_t i = 0; i < stub->cornerCount() - 1; i++) {
       if (endBlockedByUnshovableCopper(pin->board, stub->offsetShape(halfWidth, i), layer,
                                        this->ctrl->netNumber,
@@ -580,7 +580,7 @@ IntPoint* FoundConnectionLocator::padEndWithClearStub(Pin* pin, TileShape* coppe
   double bestDistance = jrt::Double::MAX_VALUE;
   for (int32_t i = 1; i < steps; i++) {
     for (int32_t j = 1; j < steps; j++) {
-      IntPoint* at = new IntPoint(jrt::l2i(jrt::Math::round(box->ll->x + i * stepX)),
+      IntPoint* at = new (jrt::kGeom) IntPoint(jrt::l2i(jrt::Math::round(box->ll->x + i * stepX)),
                                   jrt::l2i(jrt::Math::round(box->ll->y + j * stepY)));
       double distance = at->toFloat()->distance(usualEnd->toFloat());
       if (distance >= bestDistance || !copper->contains(static_cast<Point*>(at)) || !clear(at)) {
@@ -602,8 +602,8 @@ bool FoundConnectionLocator::unshovableCopperOverlapsPad(BasicBoard* board, Pin*
                                                          TileShape* copper, int32_t layer,
                                                          int32_t netNumber) {
   ShapeSearchTree* defaultTree = board->searchTreeManager->getDefaultTree();
-  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new jrt::ArrayList<ShapeTree_TreeEntry*>();
-  defaultTree->overlappingTreeEntries(copper, layer, new jrt::Array<int32_t>(0), treeEntries);
+  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
+  defaultTree->overlappingTreeEntries(copper, layer, new (jrt::kOp) jrt::Array<int32_t>(0), treeEntries);
   for (ShapeTree_TreeEntry* entry : *treeEntries) {
     auto* item = jrt::fast_cast<Item>(entry->object);
     if (item == nullptr || item == pin || !item->isTraceObstacle(netNumber, entry->shapeIndexInObject)) {
@@ -628,8 +628,8 @@ bool FoundConnectionLocator::endBlockedByUnshovableCopper(BasicBoard* board, Til
     return true;
   }
   ShapeSearchTree* defaultTree = board->searchTreeManager->getDefaultTree();
-  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new jrt::ArrayList<ShapeTree_TreeEntry*>();
-  auto* ignoreNetNos = new jrt::Array<int32_t>(0);
+  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
+  auto* ignoreNetNos = new (jrt::kOp) jrt::Array<int32_t>(0);
   if (defaultTree->isClearanceCompensationUsed()) {
     defaultTree->overlappingTreeEntries(shape, layer, ignoreNetNos, treeEntries);
   } else {

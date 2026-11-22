@@ -45,7 +45,7 @@ AutorouteEngine::AutorouteEngine(RoutingBoard* board, int32_t traceClearanceClas
   this->netNumber = -1;
   int32_t maxDrillPageWidth = jrt::d2i(5 * board->rules->getDefaultViaDiameter());
   maxDrillPageWidth = jrt::Math::max(maxDrillPageWidth, 10000);
-  this->drillPageArray = new DrillPageArray(this->board, maxDrillPageWidth);
+  this->drillPageArray = new (jrt::kOp) DrillPageArray(this->board, maxDrillPageWidth);
   this->stoppableThread = nullptr;
 }
 
@@ -56,7 +56,7 @@ void AutorouteEngine::initConnection(int32_t netNumber, Stoppable* stoppableThre
       if (this->completeExpansionRooms != nullptr) {
         // invalidate the net dependent complete free space expansion rooms.
         jrt::Collection<CompleteFreeSpaceExpansionRoom*>* roomsToRemove =
-            new jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+            new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
         for (CompleteFreeSpaceExpansionRoom* currentRoom : *completeExpansionRooms) {
           if (currentRoom->isNetDependent()) {
             roomsToRemove->add(currentRoom);
@@ -95,7 +95,7 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   }
 
   if (mazeSearchAlgo == nullptr) {
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::FAILED,
         "Failed to route connection between " + describeConnection(startSet, destSet) +
             ", because the maze search algorithm could not be created.");
@@ -148,21 +148,21 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   }
 
   if (searchResult == nullptr) {
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::FAILED,
         "Failed to route connection between " + describeConnection(startSet, destSet) +
             ", because no connection was found between their nets.");
   }
 
   if (autorouteResult == nullptr) {
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::FAILED,
         "Failed to route connection between " + describeConnection(startSet, destSet) + ".");
   }
 
   if (isDisabledSignalLayer(ctrl, autorouteResult->startLayer) ||
       isDisabledSignalLayer(ctrl, autorouteResult->targetLayer)) {
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::FAILED,
         "Failed to route connection between " + describeConnection(startSet, destSet) +
             ", because some of their layers are disabled.");
@@ -170,7 +170,7 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
 
   if (autorouteResult->connectionItems == nullptr) {
     FRLogger::debug("AutorouteEngine.autoroute_connection: result_items != null expected");
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::SKIPPED,
         "No new connections were made between " + describeConnection(startSet, destSet) + ".");
   }
@@ -188,20 +188,20 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
     this->board->endNotifyObservers();
   }
   if (insertFoundConnectionAlgo == nullptr) {
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::FAILED,
         "Failed to route connection between " + describeConnection(startSet, destSet) +
             ", because the new connection could not be inserted.");
   }
 
-  return new AutorouteAttemptResult(AutorouteAttemptState::ROUTED);
+  return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::ROUTED);
 }
 
 jrt::Set<int32_t>* AutorouteEngine::ripConnections(RoutingBoard* board,
                                                    jrt::Collection<Item*>* rippedItems,
                                                    bool removeUnconnectedVias) {
-  jrt::TreeSet<Item*>* rippedConnections = new jrt::TreeSet<Item*>();
-  jrt::TreeSet<int32_t>* changedNets = new jrt::TreeSet<int32_t>();
+  jrt::TreeSet<Item*>* rippedConnections = new (jrt::kOp) jrt::TreeSet<Item*>();
+  jrt::TreeSet<int32_t>* changedNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
   Item_StopConnectionOption stopConnectionOption = removeUnconnectedVias
                                                        ? Item_StopConnectionOption::NONE
                                                        : Item_StopConnectionOption::FANOUT_VIA;
@@ -280,9 +280,9 @@ void AutorouteEngine::emitDiagnostics(AutorouteDiagnostic_Sink* sink, double int
 IncompleteFreeSpaceExpansionRoom* AutorouteEngine::addIncompleteExpansionRoom(
     TileShape* shape, int32_t layer, TileShape* containedShape) {
   IncompleteFreeSpaceExpansionRoom* newRoom =
-      new IncompleteFreeSpaceExpansionRoom(shape, layer, containedShape);
+      new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(shape, layer, containedShape);
   if (this->incompleteExpansionRooms == nullptr) {
-    this->incompleteExpansionRooms = new jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+    this->incompleteExpansionRooms = new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   }
   this->incompleteExpansionRooms->add(newRoom);
   return newRoom;
@@ -323,12 +323,12 @@ void AutorouteEngine::removeCompleteExpansionRoom(CompleteFreeSpaceExpansionRoom
     if (intersection->dimension() == 1) {
       // add a new incomplete room to currentNeighbour.
       jrt::Array<int32_t>* touchingSides = roomShape->touchingSides(neighbourShape);
-      jrt::Array<Line*>* lines = new jrt::Array<Line*>(1);
+      jrt::Array<Line*>* lines = new (jrt::kGeom) jrt::Array<Line*>(1);
       (*lines)[0] = neighbourShape->borderLine((*touchingSides)[1])->opposite();
       Simplex* newIncompleteRoomShape = Simplex::getInstance(lines);
       IncompleteFreeSpaceExpansionRoom* newIncompleteRoom =
           addIncompleteExpansionRoom(newIncompleteRoomShape, roomLayer, intersection);
-      ExpansionDoor* newDoor = new ExpansionDoor(currentNeighbour, newIncompleteRoom, 1);
+      ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(currentNeighbour, newIncompleteRoom, 1);
       currentNeighbour->addDoor(newDoor);
       newIncompleteRoom->addDoor(newDoor);
     }
@@ -348,7 +348,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
     IncompleteFreeSpaceExpansionRoom* room) {
   try {
     jrt::Collection<CompleteFreeSpaceExpansionRoom*>* result =
-        new jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+        new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
     TileShape* fromDoorShape = nullptr;
     SearchTreeObject* ignoreObject = nullptr;
     jrt::Collection<ExpansionDoor*>* roomDoors = room->getDoors();
@@ -430,7 +430,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
     return result;
   } catch (const jrt::Exception& e) {
     FRLogger::error("AutorouteEngine.complete_expansion_room: ", &e);
-    return new jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
   }
 }
 
@@ -442,7 +442,7 @@ CompleteFreeSpaceExpansionRoom* AutorouteEngine::addCompleteRoom(
     return nullptr;
   }
   if (completeExpansionRooms == nullptr) {
-    completeExpansionRooms = new jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+    completeExpansionRooms = new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
   }
   completeExpansionRooms->add(completedRoom);
   this->autorouteSearchTree->insert(static_cast<ShapeTree_Storable*>(completedRoom));
@@ -515,7 +515,7 @@ void AutorouteEngine::removeAllDoors(ExpansionRoom* room) {
 jrt::Set<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::getRoomsWithTargetItems(
     jrt::Set<Item*>* items) {
   jrt::Set<CompleteFreeSpaceExpansionRoom*>* result =
-      new jrt::TreeSet<CompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::TreeSet<CompleteFreeSpaceExpansionRoom*>();
   if (this->completeExpansionRooms != nullptr) {
     for (CompleteFreeSpaceExpansionRoom* currentRoom : *this->completeExpansionRooms) {
       jrt::Collection<TargetItemExpansionDoor*>* targetDoorList = currentRoom->getTargetDoors();

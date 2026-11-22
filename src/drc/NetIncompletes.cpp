@@ -23,7 +23,7 @@ namespace fr {
 NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netItems,
                                BasicBoard* board) {
   this->drawMarkerRadius = board->rules->getMinTraceHalfWidth() * 2;
-  this->incompletes = new jrt::LinkedList<AirLine*>();
+  this->incompletes = new (jrt::kOp) jrt::LinkedList<AirLine*>();
   this->net = board->rules->nets->get(netNumber);
 
   bool traceActive = FRLogger::isGranularTraceActive();
@@ -35,14 +35,14 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
                     "Starting incomplete calculation: net=" + jrt::str(netNumber) +
                         ", name=" + (net != nullptr ? net->name : std::string("null")) +
                         ", total_items_in_collection=" + jrt::str(netItems->size()),
-                    netLabel, new jrt::Array<Point*>(0));
+                    netLabel, new (jrt::kGeom) jrt::Array<Point*>(0));
   }
 
   // Filter out dangling items (vias and tracks with isTail() == true)
   // AND items with zero contacts (unconnected pins/pads)
   // These are DRC violations, not unrouted connections, and should not be counted
   // as incompletes
-  jrt::Collection<Item*>* filteredItems = new jrt::LinkedList<Item*>();
+  jrt::Collection<Item*>* filteredItems = new (jrt::kOp) jrt::LinkedList<Item*>();
   int32_t danglingCount = 0;
   int32_t unconnectedCount = 0;
   int32_t conductionAreaCount = 0;
@@ -86,13 +86,13 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
                         ", unconnected=" + jrt::str(unconnectedCount) +
                         ", conduction_areas_total=" + jrt::str(conductionAreaCount) +
                         ", conduction_areas_kept=" + jrt::str(conductionAreaFilteredCount),
-                    netLabel, new jrt::Array<Point*>(0));
+                    netLabel, new (jrt::kGeom) jrt::Array<Point*>(0));
   }
 
   // Create an array of Item-connectedSet pairs.
   jrt::Array<NetIncompletes_NetItem*>* groupedNetItems = calculateNetItems(filteredItems);
 
-  auto* uniqueConnectedSets = new jrt::HashSet<jrt::Collection<Item*>*>();
+  auto* uniqueConnectedSets = new (jrt::kOp) jrt::HashSet<jrt::Collection<Item*>*>();
   for (NetIncompletes_NetItem* netItem : *groupedNetItems) {
     uniqueConnectedSets->add(netItem->connectedSet);
   }
@@ -104,7 +104,7 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
                         jrt::str(groupedNetItems->length) +
                         ", uniqueConnectedSets=" + jrt::str(uniqueConnectedSets->size()) +
                         " (for N groups, expect N-1 airlines)",
-                    netLabel, new jrt::Array<Point*>(0));
+                    netLabel, new (jrt::kGeom) jrt::Array<Point*>(0));
   }
 
   if (this->connectedGroupCount <= 1) {
@@ -112,27 +112,27 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
       FRLogger::trace("NetIncompletes.<init>", "fully_connected",
                       "Net is fully connected or has no routable items: netItems=" +
                           jrt::str(groupedNetItems->length),
-                      netLabel, new jrt::Array<Point*>(0));
+                      netLabel, new (jrt::kGeom) jrt::Array<Point*>(0));
     }
     calcLengthViolation();
     return;
   }
 
   // create a Delaunay Triangulation for the netItems
-  auto* triangulationObjects = new jrt::LinkedList<PlanarDelaunayTriangulation_Storable*>();
+  auto* triangulationObjects = new (jrt::kOp) jrt::LinkedList<PlanarDelaunayTriangulation_Storable*>();
   for (NetIncompletes_NetItem* netItem : *groupedNetItems) {
     triangulationObjects->add(netItem);
   }
   PlanarDelaunayTriangulation* triangulation =
-      new PlanarDelaunayTriangulation(triangulationObjects);
+      new (jrt::kOp) PlanarDelaunayTriangulation(triangulationObjects);
 
   // sort the result edges of the triangulation by length in ascending order.
   jrt::Collection<PlanarDelaunayTriangulation_ResultEdge*>* triangulationLines =
       triangulation->getEdgeLines();
-  auto* sortedEdges = new jrt::TreeSet<NetIncompletes_Edge*>();
+  auto* sortedEdges = new (jrt::kOp) jrt::TreeSet<NetIncompletes_Edge*>();
 
   for (PlanarDelaunayTriangulation_ResultEdge* currentLine : *triangulationLines) {
-    NetIncompletes_Edge* newEdge = new NetIncompletes_Edge(
+    NetIncompletes_Edge* newEdge = new (jrt::kOp) NetIncompletes_Edge(
         jrt::fast_cast<NetIncompletes_NetItem>(currentLine->startObject),
         currentLine->startPoint->toFloat(),
         jrt::fast_cast<NetIncompletes_NetItem>(currentLine->endObject),
@@ -148,7 +148,7 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
       continue;  // airline exists already
     }
 
-    this->incompletes->add(new AirLine(currentNet, currentEdge->fromItem->item,
+    this->incompletes->add(new (jrt::kOp) AirLine(currentNet, currentEdge->fromItem->item,
                                        currentEdge->fromCorner, currentEdge->toItem->item,
                                        currentEdge->toCorner));
     joinConnectedSets(groupedNetItems, currentEdge->fromItem->connectedSet,
@@ -165,7 +165,7 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
             ", connected_groups=" + jrt::str(uniqueConnectedSets->size()) +
             " => Formula: total_items - incompleteCount = " +
             jrt::str(netItems->size() - this->incompletes->size()),
-        netLabel, new jrt::Array<Point*>(0));
+        netLabel, new (jrt::kGeom) jrt::Array<Point*>(0));
   }
 
   calcLengthViolation();
@@ -198,9 +198,9 @@ bool NetIncompletes::calcLengthViolation() {
 
 jrt::Array<NetIncompletes_NetItem*>* NetIncompletes::calculateNetItems(
     jrt::Collection<Item*>* itemList) {
-  auto* result = new jrt::ArrayList<NetIncompletes_NetItem*>();
+  auto* result = new (jrt::kOp) jrt::ArrayList<NetIncompletes_NetItem*>();
   // Ordered by item id: on a fractured plane the connected set depends on the start item.
-  auto* uniqueItems = new jrt::TreeSet<Item*>(itemList);
+  auto* uniqueItems = new (jrt::kOp) jrt::TreeSet<Item*>(itemList);
   int32_t uniqueItemsCount = uniqueItems->size();
 
   while (!uniqueItems->isEmpty()) {
@@ -208,7 +208,7 @@ jrt::Array<NetIncompletes_NetItem*>* NetIncompletes::calculateNetItems(
     jrt::Collection<Item*>* currentConnectedSet = startItem->getConnectedSet(this->net->netNumber);
 
     // Prevent ConcurrentModificationException by creating a list of items to remove
-    jrt::Collection<Item*>* itemsInComponent = new jrt::ArrayList<Item*>();
+    jrt::Collection<Item*>* itemsInComponent = new (jrt::kOp) jrt::ArrayList<Item*>();
     for (Item* itemInSet : *currentConnectedSet) {
       if (uniqueItems->contains(itemInSet)) {
         itemsInComponent->add(itemInSet);
@@ -216,7 +216,7 @@ jrt::Array<NetIncompletes_NetItem*>* NetIncompletes::calculateNetItems(
     }
 
     for (Item* currentItem : *itemsInComponent) {
-      result->add(new NetIncompletes_NetItem(currentItem, currentConnectedSet));
+      result->add(new (jrt::kOp) NetIncompletes_NetItem(currentItem, currentConnectedSet));
     }
     uniqueItems->removeAll(itemsInComponent);
   }
@@ -226,7 +226,7 @@ jrt::Array<NetIncompletes_NetItem*>* NetIncompletes::calculateNetItems(
   } else if (result->size() < uniqueItemsCount) {
     FRLogger::warn("NetIncompletes.calculate_net_items: too few items");
   }
-  return new jrt::Array<NetIncompletes_NetItem*>(result->toVector());
+  return new (jrt::kOp) jrt::Array<NetIncompletes_NetItem*>(result->toVector());
 }
 
 void NetIncompletes::joinConnectedSets(jrt::Array<NetIncompletes_NetItem*>* netItems,

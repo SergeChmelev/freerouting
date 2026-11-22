@@ -5,7 +5,7 @@
 namespace fr {
 
 OptimizerScoreSettings* OptimizerScoreSettings::clone() {
-  auto* c = new OptimizerScoreSettings();
+  auto* c = new (jrt::kBoard) OptimizerScoreSettings();
   c->version = version;
   c->excessWireLengthWeight = excessWireLengthWeight;
   c->excessViaWeight = excessViaWeight;

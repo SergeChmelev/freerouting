@@ -39,12 +39,12 @@
 namespace fr::dsn {
 
 void SesWriter::write(fr::BasicBoard* board, std::ostream& out, const std::string& designName) {
-  auto* outputFile = new fr::IndentFileWriter(out);
+  auto* outputFile = new (jrt::kOp) fr::IndentFileWriter(out);
   std::string sessionName = jrt::replace(designName, ".dsn", ".ses");
   jrt::Array<std::string>* reservedChars =
       jrt::Array<std::string>::of({"(", ")", " ", ";", "-", "_", "/", "~", "{", "}"});
   auto* identifierType =
-      new fr::IdentifierType(reservedChars, board->communication->specctraParserInfo->stringQuote);
+      new (jrt::kOp) fr::IdentifierType(reservedChars, board->communication->specctraParserInfo->stringQuote);
   writeSessionScope(board, identifierType, outputFile, sessionName, designName);
   outputFile->flush();
   if (out.bad()) {
@@ -57,7 +57,7 @@ void SesWriter::writeSessionScope(fr::BasicBoard* board, fr::IdentifierType* ide
                                   const std::string& designName) {
   double scaleFactor = board->communication->coordinateTransform->dsnToBoard(1.0) /
                        board->communication->resolution;
-  auto* coordinateTransform = new fr::io::CoordinateTransform(scaleFactor, 0, 0);
+  auto* coordinateTransform = new (jrt::kBoard) fr::io::CoordinateTransform(scaleFactor, 0, 0);
   file->startScope(false);
   file->write("session ");
   identifierType->write(sessionName, file);
@@ -196,7 +196,7 @@ void SesWriter::writeLibrary(fr::BasicBoard* board, fr::IdentifierType* identifi
                              fr::IndentFileWriter* file) {
   file->startScope();
   file->write("library_out ");
-  auto* writtenPadstackNames = new jrt::LinkedHashSet<std::string>();
+  auto* writtenPadstackNames = new (jrt::kOp) jrt::LinkedHashSet<std::string>();
   for (int32_t i = 0; i < board->library->viaPadstackCount(); i++) {
     fr::Padstack* viaPadstack = board->library->getViaPadstack(i);
     if (viaPadstack == nullptr || !writtenPadstackNames->add(viaPadstack->name)) {
@@ -238,7 +238,7 @@ void SesWriter::writePadstack(fr::Padstack* padstack, fr::BasicBoard* board,
       continue;
     }
     fr::Layer* boardLayer = (*board->layerStructure->layers)[i];
-    auto* currentLayer = new Layer(boardLayer->name, i, boardLayer->isSignal);
+    auto* currentLayer = new (jrt::kOp) Layer(boardLayer->name, i, boardLayer->isSignal);
     Shape* currentShape = coordinateTransform->boardToDsnRel(currentBoardShape, currentLayer);
     file->startScope();
     file->write("shape");
@@ -365,12 +365,12 @@ void SesWriter::writeConductionArea(fr::ConductionArea* conductionArea, fr::Basi
   fr::Area* currentArea = conductionArea->getArea();
   int32_t layerIndex = conductionArea->getLayer();
   fr::Layer* boardLayer = (*board->layerStructure->layers)[layerIndex];
-  Layer* conductionLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
+  Layer* conductionLayer = new (jrt::kOp) Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
   if (auto* shape = jrt::fast_cast<fr::Shape>(currentArea)) {
     boundaryShape = shape;
-    holes = new jrt::Array<fr::Shape*>(0);
+    holes = new (jrt::kOp) jrt::Array<fr::Shape*>(0);
   } else {
     boundaryShape = currentArea->getBorder();
     holes = currentArea->getHoles();

@@ -28,12 +28,12 @@ ExactCopper* ExactCopper::of(Shape* shape) { return of(shape, 0); }
 
 ExactCopper* ExactCopper::of(Shape* shape, double grow) {
   if (auto* circle = jrt::fast_cast<Circle>(shape)) {
-    return new ExactCopper(static_cast<TileShape*>(nullptr), circle->center->toFloat(),
+    return new (jrt::kBoard) ExactCopper(static_cast<TileShape*>(nullptr), circle->center->toFloat(),
                            circle->radius + grow);
   }
   if (auto* tile = jrt::fast_cast<TileShape>(shape)) {
     if (!tile->isEmpty() && tile->isBounded() && tile->borderLineCount() > 0) {
-      return new ExactCopper(tile, FloatPoint::ZERO(), grow);
+      return new (jrt::kBoard) ExactCopper(tile, FloatPoint::ZERO(), grow);
     }
   }
   return nullptr;
@@ -41,9 +41,9 @@ ExactCopper* ExactCopper::of(Shape* shape, double grow) {
 
 ExactCopper* ExactCopper::ofOval(PadOval* oval, double grow) {
   if (oval->start()->x == oval->end()->x && oval->start()->y == oval->end()->y) {
-    return new ExactCopper(static_cast<TileShape*>(nullptr), oval->start(), oval->radius() + grow);
+    return new (jrt::kBoard) ExactCopper(static_cast<TileShape*>(nullptr), oval->start(), oval->radius() + grow);
   }
-  return new ExactCopper(jrt::Array<FloatPoint*>::of({oval->start(), oval->end()}),
+  return new (jrt::kBoard) ExactCopper(jrt::Array<FloatPoint*>::of({oval->start(), oval->end()}),
                          oval->radius() + grow);
 }
 

@@ -15,7 +15,7 @@ FloatLine::FloatLine(FloatPoint* a, FloatPoint* b) {
   this->b = b;
 }
 
-FloatLine* FloatLine::opposite() { return new FloatLine(this->b, this->a); }
+FloatLine* FloatLine::opposite() { return new (jrt::kGeom) FloatLine(this->b, this->a); }
 
 FloatLine* FloatLine::adjustDirection(FloatLine* other) {
   if (this->b->sideOf(this->a, other->a) == other->b->sideOf(this->a, other->a)) {
@@ -39,7 +39,7 @@ FloatPoint* FloatLine::intersection(FloatLine* other) {
   }
   isX = (d2x * det1 - d1x * det2) / det;
   isY = (d2y * det1 - d1y * det2) / det;
-  return new FloatPoint(isX, isY);
+  return new (jrt::kGeom) FloatPoint(isX, isY);
 }
 
 FloatLine* FloatLine::translate(double dist) {
@@ -52,14 +52,14 @@ FloatLine* FloatLine::translate(double dist) {
   if (dxdx <= dydy) {
     // translate along the x axis
     double relX = (dist * length) / dy;
-    newA = new FloatPoint(this->a->x - relX, this->a->y);
+    newA = new (jrt::kGeom) FloatPoint(this->a->x - relX, this->a->y);
   } else {
     // translate along the y axis
     double relY = (dist * length) / dx;
-    newA = new FloatPoint(this->a->x, this->a->y + relY);
+    newA = new (jrt::kGeom) FloatPoint(this->a->x, this->a->y + relY);
   }
-  FloatPoint* newB = new FloatPoint(newA->x + dx, newA->y + dy);
-  return new FloatLine(newA, newB);
+  FloatPoint* newB = new (jrt::kGeom) FloatPoint(newA->x + dx, newA->y + dy);
+  return new (jrt::kGeom) FloatLine(newA, newB);
 }
 
 double FloatLine::signedDistance(FloatPoint* point) {
@@ -87,7 +87,7 @@ FloatPoint* FloatLine::perpendicularProjection(FloatPoint* point) {
   double x = (point->x * dxdx + point->y * dxdy + det * dy) / denominator;
   double y = (point->x * dxdy + point->y * dydy - det * dx) / denominator;
 
-  return new FloatPoint(x, y);
+  return new (jrt::kGeom) FloatPoint(x, y);
 }
 
 double FloatLine::segmentDistance(FloatPoint* point) {
@@ -128,7 +128,7 @@ FloatLine* FloatLine::segmentProjection(FloatLine* lineSegment) {
       jrt::Math::abs(projectedB->y) >= Limits::CRIT_INT) {
     return nullptr;
   }
-  return new FloatLine(projectedA, projectedB);
+  return new (jrt::kGeom) FloatLine(projectedA, projectedB);
 }
 
 FloatLine* FloatLine::segmentProjection2(FloatLine* lineSegment) {
@@ -141,7 +141,7 @@ FloatLine* FloatLine::segmentProjection2(FloatLine* lineSegment) {
   FloatPoint* projectedA;
   if (lineSegment->a->scalarProduct(lineSegment->b, this->a) < 0) {
     FloatLine* currentPerpendicularLine =
-        new FloatLine(lineSegment->a, lineSegment->b->turn90Degree(1, lineSegment->a));
+        new (jrt::kGeom) FloatLine(lineSegment->a, lineSegment->b->turn90Degree(1, lineSegment->a));
     projectedA = currentPerpendicularLine->intersection(this);
     if (projectedA == nullptr || jrt::Math::abs(projectedA->x) >= Limits::CRIT_INT ||
         jrt::Math::abs(projectedA->y) >= Limits::CRIT_INT) {
@@ -155,7 +155,7 @@ FloatLine* FloatLine::segmentProjection2(FloatLine* lineSegment) {
 
   if (lineSegment->b->scalarProduct(lineSegment->a, this->b) < 0) {
     FloatLine* currentPerpendicularLine =
-        new FloatLine(lineSegment->b, lineSegment->a->turn90Degree(1, lineSegment->b));
+        new (jrt::kGeom) FloatLine(lineSegment->b, lineSegment->a->turn90Degree(1, lineSegment->b));
     projectedB = currentPerpendicularLine->intersection(this);
     if (projectedB == nullptr || jrt::Math::abs(projectedB->x) >= Limits::CRIT_INT ||
         jrt::Math::abs(projectedB->y) >= Limits::CRIT_INT) {
@@ -164,7 +164,7 @@ FloatLine* FloatLine::segmentProjection2(FloatLine* lineSegment) {
   } else {
     projectedB = this->b;
   }
-  return new FloatLine(projectedA, projectedB);
+  return new (jrt::kGeom) FloatLine(projectedA, projectedB);
 }
 
 FloatLine* FloatLine::shrinkSegment(double offset) {
@@ -175,12 +175,12 @@ FloatLine* FloatLine::shrinkSegment(double offset) {
   }
   double length = jrt::Math::sqrt(dx * dx + dy * dy);
   double effectiveOffset = jrt::Math::min(offset, length / 2);
-  FloatPoint* newA = new FloatPoint(a->x + (dx * effectiveOffset) / length,
+  FloatPoint* newA = new (jrt::kGeom) FloatPoint(a->x + (dx * effectiveOffset) / length,
                                     a->y + (dy * effectiveOffset) / length);
   double newLength = length - effectiveOffset;
   FloatPoint* newB =
-      new FloatPoint(a->x + (dx * newLength) / length, a->y + (dy * newLength) / length);
-  return new FloatLine(newA, newB);
+      new (jrt::kGeom) FloatPoint(a->x + (dx * newLength) / length, a->y + (dy * newLength) / length);
+  return new (jrt::kGeom) FloatLine(newA, newB);
 }
 
 FloatPoint* FloatLine::nearestSegmentPoint(FloatPoint* fromPoint) {
@@ -200,15 +200,15 @@ FloatPoint* FloatLine::nearestSegmentPoint(FloatPoint* fromPoint) {
 
 jrt::Array<FloatLine*>* FloatLine::divideSegmentIntoSections(int32_t count) {
   if (count == 0) {
-    return new jrt::Array<FloatLine*>(0);
+    return new (jrt::kGeom) jrt::Array<FloatLine*>(0);
   }
   if (count == 1) {
-    auto* result = new jrt::Array<FloatLine*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<FloatLine*>(1);
     (*result)[0] = this;
     return result;
   }
   double lineLength = this->b->distance(this->a);
-  auto* result = new jrt::Array<FloatLine*>(count);
+  auto* result = new (jrt::kGeom) jrt::Array<FloatLine*>(count);
   double sectionLength = lineLength / count;
   double dx = b->x - a->x;
   double dy = b->y - a->y;
@@ -221,9 +221,9 @@ jrt::Array<FloatLine*>* FloatLine::divideSegmentIntoSections(int32_t count) {
       double currentDistance = (i + 1) * sectionLength;
       double currentX = a->x + (dx * currentDistance) / lineLength;
       double currentY = a->y + (dy * currentDistance) / lineLength;
-      currentB = new FloatPoint(currentX, currentY);
+      currentB = new (jrt::kGeom) FloatPoint(currentX, currentY);
     }
-    (*result)[i] = new FloatLine(currentA, currentB);
+    (*result)[i] = new (jrt::kGeom) FloatLine(currentA, currentB);
     currentA = currentB;
   }
   return result;

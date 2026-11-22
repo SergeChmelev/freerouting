@@ -60,7 +60,7 @@ class MazeSearchEngine : public virtual jrt::Object {
   /** The search tree for expanding. It is the tree compensated for the current net. */
   ShapeSearchTree* searchTree;
 
-  jrt::Random* randomGenerator = new jrt::Random();
+  jrt::Random* randomGenerator = new (jrt::kOp) jrt::Random();
 
   MazeFanoutDiagnostics* fanoutDiagnostics;
 

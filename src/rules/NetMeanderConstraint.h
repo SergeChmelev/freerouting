@@ -26,7 +26,7 @@ class NetMeanderConstraint : public virtual jrt::Object {
 
   /** A constraint without amplitude and spacing. */
   static NetMeanderConstraint* UNCONSTRAINED() {
-    static NetMeanderConstraint* v = new NetMeanderConstraint(
+    static NetMeanderConstraint* v = new (jrt::kBoard) NetMeanderConstraint(
         0.0, 0.0, 0.0, DEFAULT_CORNER_STYLE, DEFAULT_RADIUS_PERCENTAGE, DEFAULT_SINGLE_SIDED);
     return v;
   }
@@ -68,7 +68,7 @@ class NetMeanderConstraint : public virtual jrt::Object {
                                     CornerStyle cornerStyle, double radiusPercentage,
                                     bool singleSided, double mmToBoardScale) {
     double scale = (mmToBoardScale > 0) ? mmToBoardScale : 1.0;
-    return new NetMeanderConstraint(minAmpMm * scale, maxAmpMm * scale, spacingMm * scale,
+    return new (jrt::kBoard) NetMeanderConstraint(minAmpMm * scale, maxAmpMm * scale, spacingMm * scale,
                                     cornerStyle, radiusPercentage, singleSided);
   }
 
@@ -113,27 +113,27 @@ class NetMeanderConstraint : public virtual jrt::Object {
   bool isValid() { return !(this->maxAmplitude_ > 0.0 && this->minAmplitude_ > this->maxAmplitude_); }
 
   NetMeanderConstraint* withAmplitude(double newMin, double newMax) {
-    return new NetMeanderConstraint(newMin, newMax, spacing_, cornerStyle_, radiusPercentage_,
+    return new (jrt::kBoard) NetMeanderConstraint(newMin, newMax, spacing_, cornerStyle_, radiusPercentage_,
                                     singleSided_);
   }
 
   NetMeanderConstraint* withSpacing(double newSpacing) {
-    return new NetMeanderConstraint(minAmplitude_, maxAmplitude_, newSpacing, cornerStyle_,
+    return new (jrt::kBoard) NetMeanderConstraint(minAmplitude_, maxAmplitude_, newSpacing, cornerStyle_,
                                     radiusPercentage_, singleSided_);
   }
 
   NetMeanderConstraint* withCornerStyle(CornerStyle newStyle) {
-    return new NetMeanderConstraint(minAmplitude_, maxAmplitude_, spacing_, newStyle,
+    return new (jrt::kBoard) NetMeanderConstraint(minAmplitude_, maxAmplitude_, spacing_, newStyle,
                                     radiusPercentage_, singleSided_);
   }
 
   NetMeanderConstraint* withRadiusPercentage(double newRadius) {
-    return new NetMeanderConstraint(minAmplitude_, maxAmplitude_, spacing_, cornerStyle_,
+    return new (jrt::kBoard) NetMeanderConstraint(minAmplitude_, maxAmplitude_, spacing_, cornerStyle_,
                                     newRadius, singleSided_);
   }
 
   NetMeanderConstraint* withSingleSided(bool newSingleSided) {
-    return new NetMeanderConstraint(minAmplitude_, maxAmplitude_, spacing_, cornerStyle_,
+    return new (jrt::kBoard) NetMeanderConstraint(minAmplitude_, maxAmplitude_, spacing_, cornerStyle_,
                                     radiusPercentage_, newSingleSided);
   }
 

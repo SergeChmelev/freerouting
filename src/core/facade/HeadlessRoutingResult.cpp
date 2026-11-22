@@ -23,10 +23,10 @@ HeadlessRoutingResult::HeadlessRoutingResult(
   this->clearanceViolations_ =
       clearanceViolations != nullptr
           ? static_cast<jrt::Collection<ClearanceViolation*>*>(
-                new jrt::ArrayList<ClearanceViolation*>(clearanceViolations))
+                new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>(clearanceViolations))
           : static_cast<jrt::Collection<ClearanceViolation*>*>(
-                new jrt::ArrayList<ClearanceViolation*>());
-  this->sesBytes_ = sesBytes != nullptr ? sesBytes->clone() : new jrt::Array<int8_t>(0);
+                new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>());
+  this->sesBytes_ = sesBytes != nullptr ? sesBytes->clone() : new (jrt::kOp) jrt::Array<int8_t>(0);
 }
 
 jrt::Array<int8_t>* HeadlessRoutingResult::sesBytes() { return sesBytes_->clone(); }
@@ -77,8 +77,8 @@ std::string HeadlessRoutingResult::sesContent() {
 
 HeadlessRoutingResult* HeadlessRoutingResult::failure(const std::string& errorMessage,
                                                       int64_t executionTimeMillis) {
-  return new HeadlessRoutingResult(false, false, -1, new jrt::ArrayList<ClearanceViolation*>(),
-                                   nullptr, new jrt::Array<int8_t>(0), executionTimeMillis,
+  return new (jrt::kBoard) HeadlessRoutingResult(false, false, -1, new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>(),
+                                   nullptr, new (jrt::kOp) jrt::Array<int8_t>(0), executionTimeMillis,
                                    errorMessage, nullptr);
 }
 
@@ -93,8 +93,8 @@ HeadlessRoutingResult* HeadlessRoutingResult::cancelled(RoutingBoard* board,
     }
     unrouted = *stats->connections->incompleteCount;
   }
-  return new HeadlessRoutingResult(false, true, unrouted, new jrt::ArrayList<ClearanceViolation*>(),
-                                   stats, new jrt::Array<int8_t>(0), executionTimeMillis,
+  return new (jrt::kBoard) HeadlessRoutingResult(false, true, unrouted, new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>(),
+                                   stats, new (jrt::kOp) jrt::Array<int8_t>(0), executionTimeMillis,
                                    std::string("Routing was cancelled"), board);
 }
 

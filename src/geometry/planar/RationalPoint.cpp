@@ -39,7 +39,7 @@ FloatPoint* RationalPoint::toFloat() {
     yd /= zd;
   }
 
-  return new FloatPoint(xd, yd);
+  return new (jrt::kGeom) FloatPoint(xd, yd);
 }
 
 int32_t RationalPoint::getId() {
@@ -92,7 +92,7 @@ IntBox* RationalPoint::surroundingBox() {
   int32_t lly = floorCoordinate(y);
   int32_t urx = ceilCoordinate(x);
   int32_t ury = ceilCoordinate(y);
-  return new IntBox(llx, lly, urx, ury);
+  return new (jrt::kGeom) IntBox(llx, lly, urx, ury);
 }
 
 IntOctagon* RationalPoint::surroundingOctagon() {
@@ -104,7 +104,7 @@ IntOctagon* RationalPoint::surroundingOctagon() {
   int32_t lrx = ceilCoordinate(x.subtract(y));
   int32_t llx = floorCoordinate(x.add(y));
   int32_t urx = ceilCoordinate(x.add(y));
-  return new IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
+  return new (jrt::kGeom) IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
 }
 
 int32_t RationalPoint::floorCoordinate(const jrt::BigInteger& numerator) {
@@ -154,13 +154,13 @@ Point* RationalPoint::translateBy(IntVector* vector) {
   BigIntAux_RationalCoordinates* result = BigIntAux::addRationalCoordinates(
       x, y, z, jrt::BigInteger::valueOf(vector->x), jrt::BigInteger::valueOf(vector->y),
       jrt::BigInteger::ONE());
-  return new RationalPoint(result->x(), result->y(), result->z());
+  return new (jrt::kGeom) RationalPoint(result->x(), result->y(), result->z());
 }
 
 Point* RationalPoint::translateBy(RationalVector* vector) {
   BigIntAux_RationalCoordinates* result =
       BigIntAux::addRationalCoordinates(x, y, z, vector->x, vector->y, vector->z);
-  return new RationalPoint(result->x(), result->y(), result->z());
+  return new (jrt::kGeom) RationalPoint(result->x(), result->y(), result->z());
 }
 
 Vector* RationalPoint::differenceBy(Point* other) {
@@ -174,13 +174,13 @@ Vector* RationalPoint::differenceBy(IntPoint* other) {
   BigIntAux_RationalCoordinates* result = BigIntAux::addRationalCoordinates(
       x, y, z, jrt::BigInteger::valueOf(-other->x), jrt::BigInteger::valueOf(-other->y),
       jrt::BigInteger::ONE());
-  return new RationalVector(result->x(), result->y(), result->z());
+  return new (jrt::kGeom) RationalVector(result->x(), result->y(), result->z());
 }
 
 Vector* RationalPoint::differenceBy(RationalPoint* other) {
   BigIntAux_RationalCoordinates* result = BigIntAux::addRationalCoordinates(
       x, y, z, other->x.negate(), other->y.negate(), other->z);
-  return new RationalVector(result->x(), result->y(), result->z());
+  return new (jrt::kGeom) RationalVector(result->x(), result->y(), result->z());
 }
 
 Side* RationalPoint::sideOf(Point* p1, Point* p2) {
@@ -206,12 +206,12 @@ Side* RationalPoint::sideOf(Point* p1, Point* p2) {
 
 BigIntAux_RationalCoordinates* RationalPoint::coordinates(Point* point) {
   if (auto* p = jrt::fast_cast<IntPoint>(point)) {
-    return new BigIntAux_RationalCoordinates(jrt::BigInteger::valueOf(p->x),
+    return new (jrt::kOp) BigIntAux_RationalCoordinates(jrt::BigInteger::valueOf(p->x),
                                              jrt::BigInteger::valueOf(p->y),
                                              jrt::BigInteger::ONE());
   }
   if (auto* p = jrt::fast_cast<RationalPoint>(point)) {
-    return new BigIntAux_RationalCoordinates(p->x, p->y, p->z);
+    return new (jrt::kOp) BigIntAux_RationalCoordinates(p->x, p->y, p->z);
   }
   throw jrt::IllegalArgumentException("Unsupported point type: " + jrt::className(point));
 }
@@ -256,12 +256,12 @@ Point* RationalPoint::perpendicularProjection(Line* line) {
       projY = projY.divide(denominator);
       if (projX.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0 &&
           projY.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0) {
-        return new IntPoint(projX.intValue(), projY.intValue());
+        return new (jrt::kGeom) IntPoint(projX.intValue(), projY.intValue());
       }
       denominator = jrt::BigInteger::ONE();
     }
   }
-  return new RationalPoint(projX, projY, denominator);
+  return new (jrt::kGeom) RationalPoint(projX, projY, denominator);
 }
 
 int32_t RationalPoint::compareX(Point* other) { return -other->compareX(this); }

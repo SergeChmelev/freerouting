@@ -100,7 +100,7 @@ IntBox* Circle::boundingBox() {
   int32_t upperRightX = center->x + radius;
   int32_t lowerLeftY = center->y - radius;
   int32_t upperRightY = center->y + radius;
-  return new IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
+  return new (jrt::kGeom) IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
 }
 
 IntOctagon* Circle::boundingOctagon() {
@@ -115,7 +115,7 @@ IntOctagon* Circle::boundingOctagon() {
   int32_t lowerRightDiagonalX = rightX - (center->y - ceilCornerValue);
   int32_t lowerLeftDiagonalX = leftX + (center->y - floorCornerValue);
   int32_t upperRightDiagonalX = rightX + (center->y + ceilCornerValue);
-  return new IntOctagon(leftX, bottomY, rightX, topY, upperLeftDiagonalX, lowerRightDiagonalX,
+  return new (jrt::kGeom) IntOctagon(leftX, bottomY, rightX, topY, upperLeftDiagonalX, lowerRightDiagonalX,
                         lowerLeftDiagonalX, upperRightDiagonalX);
 }
 
@@ -134,16 +134,16 @@ TileShape* Circle::boundingTileWithDivisions(int32_t quadrantDivisionCount) {
     return this->boundingOctagon();
   }
   int32_t divisions = quadrantDivisionCount;
-  auto* tangentLineArr = new jrt::Array<Line*>(divisions * 4);
+  auto* tangentLineArr = new (jrt::kGeom) jrt::Array<Line*>(divisions * 4);
   for (int32_t i = 0; i < divisions; i++) {
     Vector* borderDelta;
     if (i == 0) {
-      borderDelta = new IntVector(this->radius, 0);
+      borderDelta = new (jrt::kGeom) IntVector(this->radius, 0);
     } else {
       double currentAngle = i * jrt::Math::PI / (2.0 * divisions);
       int32_t currentX = jrt::d2i(jrt::Math::ceil(jrt::Math::cos(currentAngle) * this->radius));
       int32_t currentY = jrt::d2i(jrt::Math::ceil(jrt::Math::sin(currentAngle) * this->radius));
-      borderDelta = new IntVector(currentX, currentY);
+      borderDelta = new (jrt::kGeom) IntVector(currentX, currentY);
     }
     Point* currentA = this->center->translateBy(borderDelta);
     Direction* currentDirection;
@@ -153,7 +153,7 @@ TileShape* Circle::boundingTileWithDivisions(int32_t quadrantDivisionCount) {
       double currentAngle = i * jrt::Math::PI / (2.0 * divisions);
       currentDirection = Direction::getInstanceApprox(currentAngle + jrt::Math::PI / 2.0);
     }
-    Line* currentTangent = new Line(currentA, currentDirection);
+    Line* currentTangent = new (jrt::kGeom) Line(currentA, currentDirection);
     (*tangentLineArr)[divisions + i] = currentTangent;
     (*tangentLineArr)[2 * divisions + i] = currentTangent->turn90Degree(1, this->center);
     (*tangentLineArr)[3 * divisions + i] = currentTangent->turn90Degree(2, this->center);
@@ -177,22 +177,22 @@ bool Circle::isContainedIn(IntBox* box) {
 
 Circle* Circle::turn90Degree(int32_t factor, IntPoint* pole) {
   IntPoint* newCenter = jrt::fast_cast<IntPoint>(center->turn90Degree(factor, pole));
-  return new Circle(newCenter, radius);
+  return new (jrt::kOp) Circle(newCenter, radius);
 }
 
 Circle* Circle::rotateApprox(double angle, FloatPoint* pole) {
   IntPoint* newCenter = center->toFloat()->rotate(angle, pole)->round();
-  return new Circle(newCenter, radius);
+  return new (jrt::kOp) Circle(newCenter, radius);
 }
 
 Circle* Circle::mirrorVertical(IntPoint* pole) {
   IntPoint* newCenter = jrt::fast_cast<IntPoint>(center->mirrorVertical(pole));
-  return new Circle(newCenter, radius);
+  return new (jrt::kOp) Circle(newCenter, radius);
 }
 
 Circle* Circle::mirrorHorizontal(IntPoint* pole) {
   IntPoint* newCenter = jrt::fast_cast<IntPoint>(center->mirrorHorizontal(pole));
-  return new Circle(newCenter, radius);
+  return new (jrt::kOp) Circle(newCenter, radius);
 }
 
 double Circle::maxWidth() { return 2 * this->radius; }
@@ -204,13 +204,13 @@ RegularTileShape* Circle::boundingShape(ShapeBoundingDirections* dirs) { return 
 Circle* Circle::offset(double offset) {
   double newRadius = this->radius + offset;
   int32_t r = jrt::l2i(jrt::Math::round(newRadius));
-  return new Circle(this->center, r);
+  return new (jrt::kOp) Circle(this->center, r);
 }
 
 Circle* Circle::shrink(double offset) {
   double newRadius = this->radius - offset;
   int32_t r = jrt::Math::max(jrt::l2i(jrt::Math::round(newRadius)), 1);
-  return new Circle(this->center, r);
+  return new (jrt::kOp) Circle(this->center, r);
 }
 
 Circle* Circle::translateBy(Vector* vector) {
@@ -218,7 +218,7 @@ Circle* Circle::translateBy(Vector* vector) {
     return this;
   }
   IntPoint* newCenter = center->translateBy(vector->toIntegerExact())->toIntegerExact();
-  return new Circle(newCenter, radius);
+  return new (jrt::kOp) Circle(newCenter, radius);
 }
 
 FloatPoint* Circle::nearestPointApprox(FloatPoint* point) {
@@ -236,7 +236,7 @@ Circle* Circle::enlarge(double offset) {
     return this;
   }
   int32_t newRadius = radius + jrt::l2i(jrt::Math::round(offset));
-  return new Circle(center, newRadius);
+  return new (jrt::kOp) Circle(center, newRadius);
 }
 
 bool Circle::intersects(Shape* other) { return other->intersects(this); }
@@ -261,7 +261,7 @@ jrt::Array<Polyline*>* Circle::cutout(Polyline* polyline) {
 }
 
 jrt::Array<TileShape*>* Circle::splitToConvex() {
-  auto* result = new jrt::Array<TileShape*>(1);
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(1);
   if (this->radius >= 16) {
     (*result)[0] = this->boundingTileWithDivisions(16);
   } else {
@@ -270,9 +270,9 @@ jrt::Array<TileShape*>* Circle::splitToConvex() {
   return result;
 }
 
-jrt::Array<Shape*>* Circle::getHoles() { return new jrt::Array<Shape*>(0); }
+jrt::Array<Shape*>* Circle::getHoles() { return new (jrt::kOp) jrt::Array<Shape*>(0); }
 
-jrt::Array<FloatPoint*>* Circle::cornerApproxArr() { return new jrt::Array<FloatPoint*>(0); }
+jrt::Array<FloatPoint*>* Circle::cornerApproxArr() { return new (jrt::kGeom) jrt::Array<FloatPoint*>(0); }
 
 std::string Circle::toString() {
   // PORT NOTE: toString(Locale.ENGLISH) inlined (Locale dropped).

@@ -17,7 +17,7 @@ namespace fr {
 
 void RoutingBoardOperations::startMarkingChangedArea() {
   if (board->changedArea == nullptr) {
-    board->changedArea = new ChangedArea(board->getLayerCount());
+    board->changedArea = new (jrt::kOp) ChangedArea(board->getLayerCount());
   }
 }
 
@@ -29,11 +29,11 @@ void RoutingBoardOperations::joinChangedArea(FloatPoint* point, int32_t layer) {
 
 void RoutingBoardOperations::markAllChangedArea() {
   startMarkingChangedArea();
-  jrt::Array<FloatPoint*>* boardCorners = new jrt::Array<FloatPoint*>(4);
+  jrt::Array<FloatPoint*>* boardCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(4);
   (*boardCorners)[0] = board->boundingBox->ll->toFloat();
-  (*boardCorners)[1] = new FloatPoint(board->boundingBox->ur->x, board->boundingBox->ll->y);
+  (*boardCorners)[1] = new (jrt::kGeom) FloatPoint(board->boundingBox->ur->x, board->boundingBox->ll->y);
   (*boardCorners)[2] = board->boundingBox->ur->toFloat();
-  (*boardCorners)[3] = new FloatPoint(board->boundingBox->ll->x, board->boundingBox->ur->y);
+  (*boardCorners)[3] = new (jrt::kGeom) FloatPoint(board->boundingBox->ll->x, board->boundingBox->ur->y);
   for (int32_t layer = 0; layer < board->getLayerCount(); layer++) {
     for (FloatPoint* boardCorner : *boardCorners) {
       joinChangedArea(boardCorner, layer);
@@ -72,7 +72,7 @@ bool RoutingBoardOperations::removeItemsAndPullTight(jrt::Collection<Item*>* ite
     calculateTidyRegion = false;
   }
   startMarkingChangedArea();
-  jrt::Set<int32_t>* changedNets = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* changedNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (Item* currentItem : *itemList) {
     if (currentItem->isDeletionForbidden() || currentItem->isUserFixed()) {
       result = false;
@@ -96,7 +96,7 @@ bool RoutingBoardOperations::removeItemsAndPullTight(jrt::Collection<Item*>* ite
   if (calculateTidyRegion) {
     tidyRegion = tidyRegion->enlarge(tidyWidth);
   }
-  board->optChangedArea(new jrt::Array<int32_t>(0), tidyRegion, pullTightAccuracy, nullptr,
+  board->optChangedArea(new (jrt::kOp) jrt::Array<int32_t>(0), tidyRegion, pullTightAccuracy, nullptr,
                         nullptr, PULL_TIGHT_TIME_LIMIT);
   return result;
 }

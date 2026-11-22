@@ -34,7 +34,7 @@ std::string BallEscapeOrder_Entry::toString() {
 
 jrt::Set<std::string>* BallEscapeOrder::MODES() {
   static jrt::Set<std::string>* v =
-      new jrt::HashSet<std::string>({"auto", "off", "outer_first", "inner_first"});
+      new (jrt::kBoard) jrt::HashSet<std::string>({"auto", "off", "outer_first", "inner_first"});
   return v;
 }
 
@@ -68,21 +68,21 @@ BallEscapeOrder* BallEscapeOrder::of(BasicBoard* board, const std::optional<std:
     return nullptr;
   }
   // One walk over the board's pins, grouped by part in the board's item order
-  jrt::Map<int32_t, jrt::List<Pin*>*>* byPart = new jrt::HashMap<int32_t, jrt::List<Pin*>*>();
+  jrt::Map<int32_t, jrt::List<Pin*>*>* byPart = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
   for (Pin* pin : *board->getPins()) {
     int32_t part = pin->getComponentId();
     if (part <= 0) {
       continue;
     }
-    byPart->computeIfAbsent(part, [](const int32_t&) -> jrt::List<Pin*>* { return new jrt::ArrayList<Pin*>(); })
+    byPart->computeIfAbsent(part, [](const int32_t&) -> jrt::List<Pin*>* { return new (jrt::kOp) jrt::ArrayList<Pin*>(); })
         ->add(pin);
   }
-  jrt::Map<int32_t, int32_t>* rings = new jrt::HashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* rings = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
   for (jrt::List<Pin*>* pins : *byPart->values()) {
     if (pins->size() < BallFields::MIN_BALLS || !TwoLayerBga::isBallGrid(pins)) {
       continue;
     }
-    jrt::List<FloatPoint*>* centres = new jrt::ArrayList<FloatPoint*>(pins->size());
+    jrt::List<FloatPoint*>* centres = new (jrt::kOp) jrt::ArrayList<FloatPoint*>(pins->size());
     for (Pin* p : *pins) {
       centres->add(p->getCenter()->toFloat());
     }
@@ -91,7 +91,7 @@ BallEscapeOrder* BallEscapeOrder::of(BasicBoard* board, const std::optional<std:
       rings->put(pins->get(i)->getId(), (*ring)[i]);
     }
   }
-  return rings->isEmpty() ? nullptr : new BallEscapeOrder(rings, "outer_first" == mode);
+  return rings->isEmpty() ? nullptr : new (jrt::kOp) BallEscapeOrder(rings, "outer_first" == mode);
 }
 
 jrt::Array<int32_t>* BallEscapeOrder::rings(jrt::List<FloatPoint*>* centres) {
@@ -122,7 +122,7 @@ jrt::Array<int32_t>* BallEscapeOrder::rings(jrt::List<FloatPoint*>* centres) {
       y1 = c->y;
     }
   }
-  auto* result = new jrt::Array<int32_t>(centres->size());
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(centres->size());
   for (int32_t i = 0; i < centres->size(); i++) {
     FloatPoint* c = centres->get(i);
     double edge = jrt::Math::min(jrt::Math::min(c->x - x0, x1 - c->x), jrt::Math::min(c->y - y0, y1 - c->y));
@@ -132,15 +132,15 @@ jrt::Array<int32_t>* BallEscapeOrder::rings(jrt::List<FloatPoint*>* centres) {
 }
 
 int32_t BallEscapeOrder::moveToFront(jrt::List<Item*>* items) {
-  jrt::List<BallEscapeOrder_Entry*>* front = new jrt::ArrayList<BallEscapeOrder_Entry*>();
-  jrt::List<Item*>* rest = new jrt::ArrayList<Item*>(items->size());
+  jrt::List<BallEscapeOrder_Entry*>* front = new (jrt::kOp) jrt::ArrayList<BallEscapeOrder_Entry*>();
+  jrt::List<Item*>* rest = new (jrt::kOp) jrt::ArrayList<Item*>(items->size());
   for (int32_t i = 0; i < items->size(); i++) {
     Item* item = items->get(i);
     auto* pin = jrt::fast_cast<Pin>(item);
     std::optional<int32_t> ring = (pin != nullptr) ? getRing(pin->getId()) : std::nullopt;
     if (ring.has_value()) {
       int32_t ringKey = outerFirst ? *ring : -*ring;
-      front->add(new BallEscapeOrder_Entry(ringKey, i, item));
+      front->add(new (jrt::kOp) BallEscapeOrder_Entry(ringKey, i, item));
     } else {
       rest->add(item);
     }

@@ -35,7 +35,7 @@ inline std::string BatchAutorouter_StopReason_toString(BatchAutorouter_StopReaso
   return BatchAutorouter_StopReason_name(e);
 }
 inline jrt::Array<BatchAutorouter_StopReason>* BatchAutorouter_StopReason_values() {
-  auto* a = new jrt::Array<BatchAutorouter_StopReason>(7);
+  auto* a = new (jrt::kOp) jrt::Array<BatchAutorouter_StopReason>(7);
   for (int32_t i = 0; i < 7; ++i) (*a)[i] = static_cast<BatchAutorouter_StopReason>(i);
   return a;
 }
@@ -153,7 +153,7 @@ class BatchAutorouter : public NamedAlgorithm {
   int64_t lastBoardUpdateTimestamp = 0;
   bool isOptimizerAutorouter = false;
   /** Nets whose open connections this router does not try to route (Java init: Set.of()). */
-  jrt::Set<int32_t>* netsLeftUnrouted = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* netsLeftUnrouted = new (jrt::kOp) jrt::HashSet<int32_t>();
   int64_t profileItemSelectionNanos = 0;
   int64_t profileIntermediateStatisticsNanos = 0;
   int64_t profileBoardStatisticsNanos = 0;
@@ -170,7 +170,7 @@ class BatchAutorouter : public NamedAlgorithm {
    * Erik Gavriluk (freerouting.net): nets that routed at neck width earlier in the pass loop (or
    * had necked traces when the loop started).
    */
-  jrt::Set<int32_t>* neckedRouteNets = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* neckedRouteNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
   /** Erik Gavriluk (freerouting.net): whether nets in neckedRouteNets route at neck width directly. */
   bool startNecked = false;
   int32_t startNeckedRouted = 0;

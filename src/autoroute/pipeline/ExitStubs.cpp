@@ -150,7 +150,7 @@ std::string ExitStubs_DiagEntry::toString() {
 }
 
 ExitStubs_DiagRow::ExitStubs_DiagRow(int32_t dx, int32_t dy, double line)
-    : dx(dx), dy(dy), line(line), row(new jrt::ArrayList<ExitStubs_DiagEntry*>()) {}
+    : dx(dx), dy(dy), line(line), row(new (jrt::kOp) jrt::ArrayList<ExitStubs_DiagEntry*>()) {}
 
 bool ExitStubs_JointEntry::equals(jrt::Object* o) {
   if (o == this) return true;
@@ -175,19 +175,19 @@ std::string ExitStubs_JointEntry::toString() {
 // ---------------------------------------------------------------------------------------------
 
 std::regex& ExitStubs::KICAD_PAD_SIZE() {
-  static std::regex* v = new std::regex("Pad_([0-9]+(?:\\.[0-9]+)?)x([0-9]+(?:\\.[0-9]+)?)_");
+  static std::regex* v = new (jrt::kBoard) std::regex("Pad_([0-9]+(?:\\.[0-9]+)?)x([0-9]+(?:\\.[0-9]+)?)_");
   return *v;
 }
 
 std::regex& ExitStubs::TOLERANCE_COPY() {
-  static std::regex* v = new std::regex("^(.*)#tolerance[0-9]+$");
+  static std::regex* v = new (jrt::kBoard) std::regex("^(.*)#tolerance[0-9]+$");
   return *v;
 }
 
 namespace {
 /** board.getItems().stream().map(Item::getId).collect(Collectors.toSet()) */
 jrt::Set<int32_t>* itemIdSet(BasicBoard* board) {
-  jrt::Set<int32_t>* result = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* result = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (Item* item : *board->getItems()) {
     result->add(item->getId());
   }
@@ -206,9 +206,9 @@ std::optional<std::string> ExitStubs::apply(RouterSettings* settings, RoutingBoa
   int32_t placed = 0;
   int32_t inward = 0;
   int32_t fanned = 0;
-  jrt::Set<int32_t>* pins = new jrt::HashSet<int32_t>();
-  jrt::Map<std::string, int32_t>* parts = new jrt::TreeMap<std::string, int32_t>();
-  jrt::List<ExitStubs_StubPlacement*>* inserted = new jrt::ArrayList<ExitStubs_StubPlacement*>();
+  jrt::Set<int32_t>* pins = new (jrt::kOp) jrt::HashSet<int32_t>();
+  jrt::Map<std::string, int32_t>* parts = new (jrt::kOp) jrt::TreeMap<std::string, int32_t>();
+  jrt::List<ExitStubs_StubPlacement*>* inserted = new (jrt::kOp) jrt::ArrayList<ExitStubs_StubPlacement*>();
 
   for (ExitStubs_Stub* planned : *stubs) {
     ExitStubs_Stub* stub = planned;
@@ -225,21 +225,21 @@ std::optional<std::string> ExitStubs::apply(RouterSettings* settings, RoutingBoa
       stub = stub->mirrored();
     }
     jrt::Set<int32_t>* beforeStub = itemIdSet(board);
-    board->insertTrace(new Polyline(stub->corners(centre)), layer, stub->halfWidth_, jrt::Array<int32_t>::of({net}),
+    board->insertTrace(new (jrt::kGeom) Polyline(stub->corners(centre)), layer, stub->halfWidth_, jrt::Array<int32_t>::of({net}),
                        traceClass, PLACED_STATE);
-    jrt::List<Item*>* traces = new jrt::ArrayList<Item*>();
+    jrt::List<Item*>* traces = new (jrt::kOp) jrt::ArrayList<Item*>();
     for (Item* i : *board->getItems()) {
       if (jrt::fast_cast<Trace>(i) != nullptr && !beforeStub->contains(i->getId())) {
         traces->add(i);
       }
     }
-    inserted->add(new ExitStubs_StubPlacement(stub, traces));
+    inserted->add(new (jrt::kOp) ExitStubs_StubPlacement(stub, traces));
   }
 
   int32_t unreachable = 0;
   for (bool removed = true; removed;) {
     removed = false;
-    for (ExitStubs_StubPlacement* entry : *new jrt::ArrayList<ExitStubs_StubPlacement*>(inserted)) {
+    for (ExitStubs_StubPlacement* entry : *new (jrt::kOp) jrt::ArrayList<ExitStubs_StubPlacement*>(inserted)) {
       if (entry->stub_->inward_ || endReachable(board, entry->stub_)) {
         continue;
       }
@@ -331,8 +331,8 @@ bool ExitStubs::endReachable(RoutingBoard* board, ExitStubs_Stub* stub) {
                         {jrt::Integer::signum(dx - dy), jrt::Integer::signum(dx + dy)},
                         {jrt::Integer::signum(dx + dy), jrt::Integer::signum(dy - dx)}};
   for (auto& d : dirs) {
-    Polyline* path = new Polyline(jrt::Array<Point*>::of(
-        {stub->end_, new IntPoint(stub->end_->x + d[0] * length, stub->end_->y + d[1] * length)}));
+    Polyline* path = new (jrt::kGeom) Polyline(jrt::Array<Point*>::of(
+        {stub->end_, new (jrt::kGeom) IntPoint(stub->end_->x + d[0] * length, stub->end_->y + d[1] * length)}));
     if (board->checkPolylineTrace(path, layer, stub->halfWidth_, jrt::Array<int32_t>::of({net}), traceClass)) {
       return true;
     }
@@ -351,7 +351,7 @@ int32_t ExitStubs::endProbeLength(BasicBoard* board, IntPoint* end, int32_t laye
   }
   int32_t reach = length;
   int32_t search = widest + reach;
-  IntBox* area = new IntBox(end->x - search, end->y - search, end->x + search, end->y + search);
+  IntBox* area = new (jrt::kGeom) IntBox(end->x - search, end->y - search, end->x + search, end->y + search);
   FloatPoint* at = end->toFloat();
   for (SearchTreeObject* entry : *board->overlappingObjects(area, layer)) {
     auto* item = jrt::fast_cast<Item>(entry);
@@ -374,7 +374,7 @@ int32_t ExitStubs::endProbeLength(BasicBoard* board, IntPoint* end, int32_t laye
 }
 
 jrt::List<ExitStubs_Stub*>* ExitStubs::plan(BasicBoard* board, RouterSettings* settings) {
-  jrt::Map<int32_t, int32_t>* pinsOfNet = new jrt::HashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* pinsOfNet = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
   for (Pin* pin : *board->getPins()) {
     for (int32_t i = 0; i < pin->netCount(); i++) {
       int32_t n = pin->getNetNumber(i);
@@ -382,9 +382,9 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::plan(BasicBoard* board, RouterSettings* s
     }
   }
   int32_t allowance = copperAllowance(board, settings);
-  jrt::List<ExitStubs_Stub*>* result = new jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* result = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
   for (int32_t id = 1; id <= board->components->count(); id++) {
-    jrt::List<Pin*>* pins = new jrt::ArrayList<Pin*>(board->getComponentPins(id));
+    jrt::List<Pin*>* pins = new (jrt::kOp) jrt::ArrayList<Pin*>(board->getComponentPins(id));
     if (pins->size() < MIN_PINS) {
       continue;
     }
@@ -400,8 +400,8 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::plan(BasicBoard* board, RouterSettings* s
     }
     double cx = pins->isEmpty() ? 0.0 : sumX / pins->size();
     double cy = pins->isEmpty() ? 0.0 : sumY / pins->size();
-    jrt::List<ExitStubs_Stub*>* part = new jrt::ArrayList<ExitStubs_Stub*>();
-    jrt::List<Pin*>* sortedPins = new jrt::ArrayList<Pin*>(pins);
+    jrt::List<ExitStubs_Stub*>* part = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
+    jrt::List<Pin*>* sortedPins = new (jrt::kOp) jrt::ArrayList<Pin*>(pins);
     sortedPins->sort([](Pin* a, Pin* b) { return jrt::Integer::compare(a->getId(), b->getId()); });
     for (Pin* pin : *sortedPins) {
       part->addAll(candidates(board, settings, pin, pins, pinsOfNet, cx, cy, allowance));
@@ -418,15 +418,15 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fans(BasicBoard* board, jrt::List<ExitStu
   ClearanceMatrix* matrix = board->rules->clearanceMatrix;
   int32_t margin = ClearanceMatrix::clearance_safety_margin;
   jrt::Map<ExitStubs_RowKey*, jrt::List<ExitStubs_RowEntry*>*>* rows =
-      new jrt::HashMap<ExitStubs_RowKey*, jrt::List<ExitStubs_RowEntry*>*>();
-  jrt::Set<int32_t>* inwardPins = new jrt::HashSet<int32_t>();
+      new (jrt::kOp) jrt::HashMap<ExitStubs_RowKey*, jrt::List<ExitStubs_RowEntry*>*>();
+  jrt::Set<int32_t>* inwardPins = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (ExitStubs_Stub* s : *stubs) {
     if (s->inward_) {
       inwardPins->add(s->pin_->getId());
     }
   }
-  jrt::List<ExitStubs_Stub*>* result = new jrt::ArrayList<ExitStubs_Stub*>();
-  jrt::List<ExitStubs_Stub*>* diagonal = new jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* result = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* diagonal = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
 
   for (ExitStubs_Stub* stub : *stubs) {
     if (stub->inward_ || stub->bend_ != nullptr) {
@@ -442,12 +442,12 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fans(BasicBoard* board, jrt::List<ExitStu
     }
     IntBox* box = stub->pin_->getTileShape(0)->boundingBox();
     int32_t line = dx != 0 ? (dx > 0 ? box->ur->x : box->ll->x) : (dy > 0 ? box->ur->y : box->ll->y);
-    ExitStubs_RowKey* key = new ExitStubs_RowKey(dx, dy, line);
+    ExitStubs_RowKey* key = new (jrt::kOp) ExitStubs_RowKey(dx, dy, line);
     rows->computeIfAbsent(key,
                           [](ExitStubs_RowKey* const&) -> jrt::List<ExitStubs_RowEntry*>* {
-                            return new jrt::ArrayList<ExitStubs_RowEntry*>();
+                            return new (jrt::kOp) jrt::ArrayList<ExitStubs_RowEntry*>();
                           })
-        ->add(new ExitStubs_RowEntry(stub, centre, dx != 0 ? centre->y : centre->x));
+        ->add(new (jrt::kOp) ExitStubs_RowEntry(stub, centre, dx != 0 ? centre->y : centre->x));
   }
 
   for (auto* entry : *rows->entrySet()) {
@@ -460,12 +460,12 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fans(BasicBoard* board, jrt::List<ExitStu
         pitch = jrt::Math::min(pitch, all->get(i)->lateral_ - all->get(i - 1)->lateral_);
       }
     }
-    jrt::List<jrt::List<ExitStubs_RowEntry*>*>* runs = new jrt::ArrayList<jrt::List<ExitStubs_RowEntry*>*>();
+    jrt::List<jrt::List<ExitStubs_RowEntry*>*>* runs = new (jrt::kOp) jrt::ArrayList<jrt::List<ExitStubs_RowEntry*>*>();
     for (ExitStubs_RowEntry* re : *all) {
       if (runs->isEmpty() ||
           re->lateral_ - runs->get(runs->size() - 1)->get(runs->get(runs->size() - 1)->size() - 1)->lateral_ >
               pitch * 3 / 2) {
-        runs->add(new jrt::ArrayList<ExitStubs_RowEntry*>());
+        runs->add(new (jrt::kOp) jrt::ArrayList<ExitStubs_RowEntry*>());
       }
       runs->get(runs->size() - 1)->add(re);
     }
@@ -488,8 +488,8 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fans(BasicBoard* board, jrt::List<ExitStu
 
 jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFans(BasicBoard* board, jrt::List<ExitStubs_Stub*>* stubs,
                                                     int32_t allowance, ClearanceMatrix* matrix, int32_t margin) {
-  jrt::List<ExitStubs_Stub*>* result = new jrt::ArrayList<ExitStubs_Stub*>();
-  jrt::List<ExitStubs_DiagRow*>* rows = new jrt::ArrayList<ExitStubs_DiagRow*>();
+  jrt::List<ExitStubs_Stub*>* result = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_DiagRow*>* rows = new (jrt::kOp) jrt::ArrayList<ExitStubs_DiagRow*>();
 
   for (ExitStubs_Stub* stub : *stubs) {
     IntPoint* centre = ExitStubs::centre(stub->pin_);
@@ -511,10 +511,10 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFans(BasicBoard* board, jrt::List
       }
     }
     if (matched == nullptr) {
-      matched = new ExitStubs_DiagRow(dx, dy, line);
+      matched = new (jrt::kOp) ExitStubs_DiagRow(dx, dy, line);
       rows->add(matched);
     }
-    matched->row->add(new ExitStubs_DiagEntry(stub, centre, lateral));
+    matched->row->add(new (jrt::kOp) ExitStubs_DiagEntry(stub, centre, lateral));
   }
 
   for (ExitStubs_DiagRow* r : *rows) {
@@ -528,12 +528,12 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFans(BasicBoard* board, jrt::List
         pitch = jrt::Math::min(pitch, all->get(i)->lateral_ - all->get(i - 1)->lateral_);
       }
     }
-    jrt::List<jrt::List<ExitStubs_DiagEntry*>*>* runs = new jrt::ArrayList<jrt::List<ExitStubs_DiagEntry*>*>();
+    jrt::List<jrt::List<ExitStubs_DiagEntry*>*>* runs = new (jrt::kOp) jrt::ArrayList<jrt::List<ExitStubs_DiagEntry*>*>();
     for (ExitStubs_DiagEntry* entry : *all) {
       if (runs->isEmpty() ||
           entry->lateral_ - runs->get(runs->size() - 1)->get(runs->get(runs->size() - 1)->size() - 1)->lateral_ >
               pitch * 1.5) {
-        runs->add(new jrt::ArrayList<ExitStubs_DiagEntry*>());
+        runs->add(new (jrt::kOp) jrt::ArrayList<ExitStubs_DiagEntry*>());
       }
       runs->get(runs->size() - 1)->add(entry);
     }
@@ -551,7 +551,7 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFans(BasicBoard* board, jrt::List
 jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFanOut(BasicBoard* board, jrt::List<ExitStubs_DiagEntry*>* run,
                                                       int32_t dx, int32_t dy, int32_t allowance,
                                                       ClearanceMatrix* matrix, int32_t margin, bool force) {
-  jrt::List<ExitStubs_Stub*>* straight = new jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* straight = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
   for (ExitStubs_DiagEntry* e : *run) {
     straight->add(e->stub_);
   }
@@ -590,8 +590,8 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFanOut(BasicBoard* board, jrt::Li
   int32_t tipSteps = jrt::d2i(jrt::Math::ceil(diag->halfLength() / root2));
   IntPoint* c0 = run->get(0)->centre_;
   int32_t netOf0 = run->get(0)->stub_->pin_->getNetNumber(0);
-  auto* requiredHolder = new jrt::Array<int32_t>(1);
-  slack(board, c0, new IntPoint(c0->x + dx * tipSteps, c0->y + dy * tipSteps), layer, half, netOf0,
+  auto* requiredHolder = new (jrt::kOp) jrt::Array<int32_t>(1);
+  slack(board, c0, new (jrt::kGeom) IntPoint(c0->x + dx * tipSteps, c0->y + dy * tipSteps), layer, half, netOf0,
         traceClass(board, run->get(0)->stub_->pin_), allowance, requiredHolder);
   double first = jrt::Math::max(static_cast<double>(margin),
                                 jrt::Math::ceil((half + (*requiredHolder)[0]) * root2) - (pitch - diag->halfWidth())) +
@@ -599,7 +599,7 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFanOut(BasicBoard* board, jrt::Li
   double reach = jrt::Math::ceil(half + between + margin * root2);
 
   int32_t n = run->size();
-  jrt::List<ExitStubs_Stub*>* result = new jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* result = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
   for (int32_t i = 0; i < n; i++) {
     ExitStubs_DiagEntry* de = run->get(i);
     ExitStubs_Stub* stub = de->stub_;
@@ -609,18 +609,18 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::diagonalFanOut(BasicBoard* board, jrt::Li
     int32_t side = (2 * i + 1 < n) ? -1 : (2 * i + 1 > n) ? 1 : 0;
     int32_t level = side < 0 ? i : (side > 0 ? n - 1 - i : (n - 1) / 2);
     int32_t bendSteps = tipSteps + jrt::d2i(jrt::Math::ceil((first + level * rise) / root2));
-    IntPoint* bendAt = new IntPoint(centre->x + dx * bendSteps, centre->y + dy * bendSteps);
+    IntPoint* bendAt = new (jrt::kGeom) IntPoint(centre->x + dx * bendSteps, centre->y + dy * bendSteps);
     ExitStubs_Stub* fan;
     if (side == 0) {
       int32_t endSteps = bendSteps + jrt::d2i(jrt::Math::ceil(2 * reach / root2));
-      fan = new ExitStubs_Stub(stub->pin_, new IntPoint(centre->x + dx * endSteps, centre->y + dy * endSteps),
+      fan = new (jrt::kOp) ExitStubs_Stub(stub->pin_, new (jrt::kGeom) IntPoint(centre->x + dx * endSteps, centre->y + dy * endSteps),
                                stub->halfWidth_, false, stub->slack_, nullptr, nullptr);
     } else {
       int32_t a[2] = {dx, 0};
       int32_t b[2] = {0, dy};
       int32_t* turn = jrt::Integer::signum(a[0] * -dy + a[1] * dx) == side ? a : b;
-      fan = new ExitStubs_Stub(stub->pin_,
-                               new IntPoint(bendAt->x + turn[0] * jrt::d2i(reach), bendAt->y + turn[1] * jrt::d2i(reach)),
+      fan = new (jrt::kOp) ExitStubs_Stub(stub->pin_,
+                               new (jrt::kGeom) IntPoint(bendAt->x + turn[0] * jrt::d2i(reach), bendAt->y + turn[1] * jrt::d2i(reach)),
                                stub->halfWidth_, false, stub->slack_, bendAt, nullptr);
     }
     if (pathSlack(board, fan->corners(centre), layer, fan->halfWidth_, net, traceClass, allowance) >= 0) {
@@ -694,10 +694,10 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::reachable(BasicBoard* board, jrt::List<Ex
 jrt::List<ExitStubs_Stub*>* ExitStubs::staircase(BasicBoard* board, jrt::List<ExitStubs_RowEntry*>* run, int32_t dx,
                                                  int32_t dy, int32_t line, int32_t allowance, ClearanceMatrix* matrix,
                                                  int32_t margin) {
-  jrt::List<ExitStubs_Stub*>* result = new jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* result = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
   int32_t n = run->size();
   if (n < 2) {
-    jrt::List<ExitStubs_Stub*>* straight = new jrt::ArrayList<ExitStubs_Stub*>();
+    jrt::List<ExitStubs_Stub*>* straight = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
     for (ExitStubs_RowEntry* e : *run) {
       straight->add(e->stub_);
     }
@@ -722,9 +722,9 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::staircase(BasicBoard* board, jrt::List<Ex
                                                        traceClass(board, run->get(i)->stub_->pin_), layer, true));
   }
   int32_t netOf0 = run->get(0)->stub_->pin_->getNetNumber(0);
-  auto* requiredHolder = new jrt::Array<int32_t>(1);
+  auto* requiredHolder = new (jrt::kOp) jrt::Array<int32_t>(1);
   slack(board, run->get(0)->centre_,
-        new IntPoint(dx != 0 ? line : run->get(0)->centre_->x, dy != 0 ? line : run->get(0)->centre_->y), layer, half,
+        new (jrt::kGeom) IntPoint(dx != 0 ? line : run->get(0)->centre_->x, dy != 0 ? line : run->get(0)->centre_->y), layer, half,
         netOf0, traceClass(board, run->get(0)->stub_->pin_), allowance, requiredHolder);
   int32_t clearTips = half + (*requiredHolder)[0] + margin;
   int32_t rise = 2 * half + between + TIGHT_SLACK;
@@ -742,9 +742,9 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::staircase(BasicBoard* board, jrt::List<Ex
     int32_t lx = dx != 0 ? 0 : side;
     int32_t ly = dx != 0 ? side : 0;
     int32_t at = margin + jrt::Math::max(baseAt + level * rise, level == 0 ? 0 : clearTips);
-    IntPoint* bendAt = dx != 0 ? new IntPoint(line + dx * at, centre->y) : new IntPoint(centre->x, line + dy * at);
+    IntPoint* bendAt = dx != 0 ? new (jrt::kGeom) IntPoint(line + dx * at, centre->y) : new (jrt::kGeom) IntPoint(centre->x, line + dy * at);
     if (side == 0) {
-      ExitStubs_Stub* up = new ExitStubs_Stub(stub->pin_, new IntPoint(bendAt->x + dx * rise, bendAt->y + dy * rise),
+      ExitStubs_Stub* up = new (jrt::kOp) ExitStubs_Stub(stub->pin_, new (jrt::kGeom) IntPoint(bendAt->x + dx * rise, bendAt->y + dy * rise),
                                               stub->halfWidth_, false, stub->slack_, nullptr, nullptr);
       return pathSlack(board, up->corners(centre), layer, up->halfWidth_, net, traceClass, allowance) >= 0 ? up
                                                                                                            : nullptr;
@@ -752,13 +752,13 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::staircase(BasicBoard* board, jrt::List<Ex
     int32_t length = half + finalBetween + margin;
     int32_t onward = half + matrix->maxValue(traceClass, layer) + margin;
     for (int32_t k = 0; k <= 8; k++, length += finalPitch) {
-      IntPoint* end = new IntPoint(bendAt->x + lx * length, bendAt->y + ly * length);
-      ExitStubs_Stub* turned = new ExitStubs_Stub(stub->pin_, end, stub->halfWidth_, false, stub->slack_, bendAt, nullptr);
+      IntPoint* end = new (jrt::kGeom) IntPoint(bendAt->x + lx * length, bendAt->y + ly * length);
+      ExitStubs_Stub* turned = new (jrt::kOp) ExitStubs_Stub(stub->pin_, end, stub->halfWidth_, false, stub->slack_, bendAt, nullptr);
       if (pathSlack(board, turned->corners(centre), layer, turned->halfWidth_, net, traceClass, allowance) < 0) {
         return nullptr;
       }
       Polyline* past =
-          new Polyline(jrt::Array<Point*>::of({end, new IntPoint(end->x + lx * onward, end->y + ly * onward)}));
+          new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({end, new (jrt::kGeom) IntPoint(end->x + lx * onward, end->y + ly * onward)}));
       if (board->checkPolylineTrace(past, layer, turned->halfWidth_, jrt::Array<int32_t>::of({net}), traceClass)) {
         return turned;
       }
@@ -769,10 +769,10 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::staircase(BasicBoard* board, jrt::List<Ex
   int32_t lowerCount = n / 2;
   int32_t upperFrom = (n + 1) / 2;
 
-  jrt::List<int32_t>* lowerHalf = new jrt::ArrayList<int32_t>();
+  jrt::List<int32_t>* lowerHalf = new (jrt::kOp) jrt::ArrayList<int32_t>();
   for (int32_t i = 0; i < lowerCount; i++) lowerHalf->add(i);
 
-  jrt::List<int32_t>* upperHalf = new jrt::ArrayList<int32_t>();
+  jrt::List<int32_t>* upperHalf = new (jrt::kOp) jrt::ArrayList<int32_t>();
   for (int32_t i = n - 1; i >= upperFrom; i--) upperHalf->add(i);
 
   jrt::List<jrt::List<int32_t>*>* halves = jrt::ArrayList<jrt::List<int32_t>*>::of({lowerHalf, upperHalf});
@@ -811,8 +811,8 @@ bool ExitStubs::reachableAmong(BasicBoard* board, ExitStubs_Stub* stub, jrt::Lis
                         {jrt::Integer::signum(dx - dy), jrt::Integer::signum(dx + dy)},
                         {jrt::Integer::signum(dx + dy), jrt::Integer::signum(dy - dx)}};
   for (auto& d : dirs) {
-    IntPoint* b = new IntPoint(stub->end_->x + d[0] * length, stub->end_->y + d[1] * length);
-    if (!board->checkPolylineTrace(new Polyline(jrt::Array<Point*>::of({stub->end_, b})), layer, stub->halfWidth_,
+    IntPoint* b = new (jrt::kGeom) IntPoint(stub->end_->x + d[0] * length, stub->end_->y + d[1] * length);
+    if (!board->checkPolylineTrace(new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({stub->end_, b})), layer, stub->halfWidth_,
                                    jrt::Array<int32_t>::of({net}), traceClass)) {
       continue;
     }
@@ -848,7 +848,7 @@ double ExitStubs::segmentsDistance(FloatPoint* a, FloatPoint* b, FloatPoint* c, 
 jrt::List<ExitStubs_Stub*>* ExitStubs::fanOut(BasicBoard* board, jrt::List<ExitStubs_RowEntry*>* run, int32_t dx,
                                               int32_t dy, int32_t line, int32_t allowance, ClearanceMatrix* matrix,
                                               int32_t margin, bool force) {
-  jrt::List<ExitStubs_Stub*>* straight = new jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* straight = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
   for (ExitStubs_RowEntry* e : *run) {
     straight->add(e->stub_);
   }
@@ -881,9 +881,9 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fanOut(BasicBoard* board, jrt::List<ExitS
   IntBox* pad = run->get(0)->stub_->pin_->getTileShape(0)->boundingBox();
   int32_t padHalf = (dx != 0 ? pad->height() : pad->width()) / 2;
   int32_t netOf0 = run->get(0)->stub_->pin_->getNetNumber(0);
-  auto* requiredHolder = new jrt::Array<int32_t>(1);
+  auto* requiredHolder = new (jrt::kOp) jrt::Array<int32_t>(1);
   slack(board, run->get(0)->centre_,
-        new IntPoint(dx != 0 ? line : run->get(0)->centre_->x, dy != 0 ? line : run->get(0)->centre_->y), layer, half,
+        new (jrt::kGeom) IntPoint(dx != 0 ? line : run->get(0)->centre_->x, dy != 0 ? line : run->get(0)->centre_->y), layer, half,
         netOf0, traceClass(board, run->get(0)->stub_->pin_), allowance, requiredHolder);
   int32_t first =
       jrt::Math::max(margin, jrt::d2i(jrt::Math::ceil((half + (*requiredHolder)[0]) * jrt::Math::sqrt(2))) -
@@ -891,7 +891,7 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fanOut(BasicBoard* board, jrt::List<ExitS
       margin;
   int32_t reach = jrt::d2i(jrt::Math::ceil((half + between) / jrt::Math::sqrt(2))) + margin;
   int32_t n = run->size();
-  jrt::List<ExitStubs_Stub*>* result = new jrt::ArrayList<ExitStubs_Stub*>();
+  jrt::List<ExitStubs_Stub*>* result = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
   for (int32_t i = 0; i < n; i++) {
     ExitStubs_RowEntry* re = run->get(i);
     ExitStubs_Stub* stub = re->stub_;
@@ -903,13 +903,13 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fanOut(BasicBoard* board, jrt::List<ExitS
     int32_t lx = dx != 0 ? 0 : side;
     int32_t ly = dx != 0 ? side : 0;
     int32_t at = first + level * rise;
-    IntPoint* bendAt = dx != 0 ? new IntPoint(line + dx * at, centre->y) : new IntPoint(centre->x, line + dy * at);
+    IntPoint* bendAt = dx != 0 ? new (jrt::kGeom) IntPoint(line + dx * at, centre->y) : new (jrt::kGeom) IntPoint(centre->x, line + dy * at);
     ExitStubs_Stub* fan =
-        side == 0 ? new ExitStubs_Stub(stub->pin_,
-                                       new IntPoint(bendAt->x + dx * reach * 2, bendAt->y + dy * reach * 2),
+        side == 0 ? new (jrt::kOp) ExitStubs_Stub(stub->pin_,
+                                       new (jrt::kGeom) IntPoint(bendAt->x + dx * reach * 2, bendAt->y + dy * reach * 2),
                                        stub->halfWidth_, false, stub->slack_, nullptr, nullptr)
-                  : new ExitStubs_Stub(stub->pin_,
-                                       new IntPoint(bendAt->x + (dx + lx) * reach, bendAt->y + (dy + ly) * reach),
+                  : new (jrt::kOp) ExitStubs_Stub(stub->pin_,
+                                       new (jrt::kGeom) IntPoint(bendAt->x + (dx + lx) * reach, bendAt->y + (dy + ly) * reach),
                                        stub->halfWidth_, false, stub->slack_, bendAt, nullptr);
     if (side != 0) {
       int32_t other = -side;
@@ -918,11 +918,11 @@ jrt::List<ExitStubs_Stub*>* ExitStubs::fanOut(BasicBoard* board, jrt::List<ExitS
       int32_t my = dx != 0 ? other : 0;
       int32_t mat = first + otherLevel * rise;
       IntPoint* mirrorBend =
-          dx != 0 ? new IntPoint(line + dx * mat, centre->y) : new IntPoint(centre->x, line + dy * mat);
-      fan = new ExitStubs_Stub(
+          dx != 0 ? new (jrt::kGeom) IntPoint(line + dx * mat, centre->y) : new (jrt::kGeom) IntPoint(centre->x, line + dy * mat);
+      fan = new (jrt::kOp) ExitStubs_Stub(
           fan->pin_, fan->end_, fan->halfWidth_, fan->inward_, fan->slack_, fan->bend_,
-          new ExitStubs_Mirror(mirrorBend,
-                               new IntPoint(mirrorBend->x + (dx + mx) * reach, mirrorBend->y + (dy + my) * reach)));
+          new (jrt::kOp) ExitStubs_Mirror(mirrorBend,
+                               new (jrt::kGeom) IntPoint(mirrorBend->x + (dx + mx) * reach, mirrorBend->y + (dy + my) * reach)));
     }
     if (pathSlack(board, fan->corners(centre), layer, fan->halfWidth_, net, traceClass, allowance) >= 0) {
       result->add(fan);
@@ -938,8 +938,8 @@ int32_t ExitStubs::traceClass(BasicBoard* board, Pin* pin) {
 jrt::List<ExitStubs_Stub*>* ExitStubs::candidates(BasicBoard* board, RouterSettings* settings, Pin* pin,
                                                   jrt::List<Pin*>* partPins, jrt::Map<int32_t, int32_t>* pinsOfNet,
                                                   double cx, double cy, int32_t allowance) {
-  jrt::List<ExitStubs_Stub*>* stubs = new jrt::ArrayList<ExitStubs_Stub*>();
-  auto* inwardHolder = new jrt::Array<ExitStubs_Stub*>(1);
+  jrt::List<ExitStubs_Stub*>* stubs = new (jrt::kOp) jrt::ArrayList<ExitStubs_Stub*>();
+  auto* inwardHolder = new (jrt::kOp) jrt::Array<ExitStubs_Stub*>(1);
   ExitStubs_Stub* outward = ExitStubs::outward(board, settings, pin, partPins, pinsOfNet, cx, cy, allowance, inwardHolder);
   if (outward != nullptr) {
     stubs->add(outward);
@@ -1017,29 +1017,29 @@ ExitStubs_Stub* ExitStubs::outward(BasicBoard* board, RouterSettings* settings, 
   }
   if (target != nullptr) {
     int32_t length = targetDistance + half;
-    IntPoint* end = new IntPoint(centre->x + ix * length, centre->y + iy * length);
-    auto* largestHolder = new jrt::Array<int32_t>(1);
+    IntPoint* end = new (jrt::kGeom) IntPoint(centre->x + ix * length, centre->y + iy * length);
+    auto* largestHolder = new (jrt::kOp) jrt::Array<int32_t>(1);
     double slack = ExitStubs::slack(board, centre, end, layer, half, net, traceClass, allowance, largestHolder);
     if (slack >= 0 && slack < TIGHT_SLACK && !routerPasses(board, centre, end, layer, half, net, traceClass)) {
-      (*inwardHolder)[0] = new ExitStubs_Stub(
+      (*inwardHolder)[0] = new (jrt::kOp) ExitStubs_Stub(
           pin, end, widest(board, centre, end, layer, half, classHalf, net, traceClass, allowance), true, slack);
     }
   }
 
-  IntPoint* tip = new IntPoint(centre->x + ox * halfLength, centre->y + oy * halfLength);
-  auto* largestHolder = new jrt::Array<int32_t>(1);
+  IntPoint* tip = new (jrt::kGeom) IntPoint(centre->x + ox * halfLength, centre->y + oy * halfLength);
+  auto* largestHolder = new (jrt::kOp) jrt::Array<int32_t>(1);
   double rowSlack = slack(board, centre, tip, layer, half, net, traceClass, allowance, largestHolder);
   if (rowSlack < 0 || rowSlack >= TIGHT_SLACK) {
     return nullptr;
   }
   int32_t run = (*largestHolder)[0] + half + ClearanceMatrix::clearance_safety_margin;
-  IntPoint* stubEnd = new IntPoint(tip->x + ox * run, tip->y + oy * run);
+  IntPoint* stubEnd = new (jrt::kGeom) IntPoint(tip->x + ox * run, tip->y + oy * run);
   double stubSlack = slack(board, centre, stubEnd, layer, half, net, traceClass, allowance, largestHolder);
   if (stubSlack < 0 ||
       (routerPasses(board, centre, stubEnd, layer, half, net, traceClass) && !isTolerancePin(board, pin))) {
     return nullptr;
   }
-  return new ExitStubs_Stub(pin, stubEnd,
+  return new (jrt::kOp) ExitStubs_Stub(pin, stubEnd,
                             widest(board, centre, stubEnd, layer, half, classHalf, net, traceClass, allowance), false,
                             stubSlack);
 }
@@ -1059,21 +1059,21 @@ ExitStubs_Stub* ExitStubs::diagonalOutward(BasicBoard* board, Pin* pin, TileShap
   int32_t ox = sign * diag->dx();
   int32_t oy = sign * diag->dy();
   int32_t tipSteps = jrt::d2i(jrt::Math::ceil(diag->halfLength() / jrt::Math::sqrt(2)));
-  IntPoint* tip = new IntPoint(centre->x + ox * tipSteps, centre->y + oy * tipSteps);
-  auto* largestHolder = new jrt::Array<int32_t>(1);
+  IntPoint* tip = new (jrt::kGeom) IntPoint(centre->x + ox * tipSteps, centre->y + oy * tipSteps);
+  auto* largestHolder = new (jrt::kOp) jrt::Array<int32_t>(1);
   double rowSlack = slack(board, centre, tip, layer, half, net, traceClass, allowance, largestHolder);
   if (rowSlack < 0 || rowSlack >= TIGHT_SLACK) {
     return nullptr;
   }
   int32_t run = (*largestHolder)[0] + half + ClearanceMatrix::clearance_safety_margin;
   int32_t endSteps = tipSteps + jrt::d2i(jrt::Math::ceil(run / jrt::Math::sqrt(2)));
-  IntPoint* stubEnd = new IntPoint(centre->x + ox * endSteps, centre->y + oy * endSteps);
+  IntPoint* stubEnd = new (jrt::kGeom) IntPoint(centre->x + ox * endSteps, centre->y + oy * endSteps);
   double stubSlack = slack(board, centre, stubEnd, layer, half, net, traceClass, allowance, largestHolder);
   if (stubSlack < 0 ||
       (routerPasses(board, centre, stubEnd, layer, half, net, traceClass) && !isTolerancePin(board, pin))) {
     return nullptr;
   }
-  return new ExitStubs_Stub(pin, stubEnd,
+  return new (jrt::kOp) ExitStubs_Stub(pin, stubEnd,
                             widest(board, centre, stubEnd, layer, half, classHalf, net, traceClass, allowance), false,
                             stubSlack);
 }
@@ -1110,13 +1110,13 @@ ExitStubs_DiagonalResult* ExitStubs::diagonal(TileShape* shape) {
   if (jrt::Math::abs(wide - high) > 2 || jrt::Math::max(rising, falling) < 1.5 * jrt::Math::min(rising, falling)) {
     return nullptr;
   }
-  return rising > falling ? new ExitStubs_DiagonalResult(1, 1, rising / 2.0, falling / 2.0)
-                          : new ExitStubs_DiagonalResult(1, -1, falling / 2.0, rising / 2.0);
+  return rising > falling ? new (jrt::kOp) ExitStubs_DiagonalResult(1, 1, rising / 2.0, falling / 2.0)
+                          : new (jrt::kOp) ExitStubs_DiagonalResult(1, -1, falling / 2.0, rising / 2.0);
 }
 
 bool ExitStubs::routerPasses(BasicBoard* board, IntPoint* from, IntPoint* to, int32_t layer, int32_t half, int32_t net,
                              int32_t traceClass) {
-  return board->checkPolylineTrace(new Polyline(jrt::Array<Point*>::of({from, to})), layer, half,
+  return board->checkPolylineTrace(new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({from, to})), layer, half,
                                    jrt::Array<int32_t>::of({net}), traceClass);
 }
 
@@ -1143,7 +1143,7 @@ std::string ExitStubs::padNumber(Pin* pin) {
 
 int32_t ExitStubs::widest(BasicBoard* board, IntPoint* from, IntPoint* to, int32_t layer, int32_t half,
                           int32_t classHalf, int32_t net, int32_t traceClass, int32_t allowance) {
-  auto* holder = new jrt::Array<int32_t>(1);
+  auto* holder = new (jrt::kOp) jrt::Array<int32_t>(1);
   return classHalf > half && slack(board, from, to, layer, classHalf, net, traceClass, allowance, holder) >= 0
              ? classHalf
              : half;
@@ -1163,7 +1163,7 @@ double ExitStubs::slack(BasicBoard* board, IntPoint* from, IntPoint* to, int32_t
   ClearanceMatrix* matrix = board->rules->clearanceMatrix;
   int32_t search = half + matrix->maxValue(traceClass, layer) + 4 * ClearanceMatrix::clearance_safety_margin;
   IntBox* bounds = board->getBoundingBox();
-  IntBox* area = new IntBox(jrt::Math::max(bounds->ll->x, jrt::Math::min(from->x, to->x) - search),
+  IntBox* area = new (jrt::kGeom) IntBox(jrt::Math::max(bounds->ll->x, jrt::Math::min(from->x, to->x) - search),
                             jrt::Math::max(bounds->ll->y, jrt::Math::min(from->y, to->y) - search),
                             jrt::Math::min(bounds->ur->x, jrt::Math::max(from->x, to->x) + search),
                             jrt::Math::min(bounds->ur->y, jrt::Math::max(from->y, to->y) + search));
@@ -1198,7 +1198,7 @@ double ExitStubs::slack(BasicBoard* board, IntPoint* from, IntPoint* to, int32_t
 double ExitStubs::pathSlack(BasicBoard* board, jrt::Array<Point*>* corners, int32_t layer, int32_t half, int32_t net,
                             int32_t traceClass, int32_t allowance) {
   double least = jrt::Double::POSITIVE_INFINITY;
-  auto* holder = new jrt::Array<int32_t>(1);
+  auto* holder = new (jrt::kOp) jrt::Array<int32_t>(1);
   for (int32_t i = 0; i + 1 < corners->length; i++) {
     least = jrt::Math::min(least, slack(board, (*corners)[i]->toFloat()->round(), (*corners)[i + 1]->toFloat()->round(),
                                         layer, half, net, traceClass, allowance, holder));
@@ -1309,7 +1309,7 @@ double ExitStubs::side(FloatPoint* p, FloatPoint* q, FloatPoint* r) {
 }
 
 std::optional<std::string> ExitStubs::release(RoutingBoard* board, jrt::Collection<int32_t>* itemIds) {
-  jrt::List<PolylineTrace*>* traces = new jrt::ArrayList<PolylineTrace*>();
+  jrt::List<PolylineTrace*>* traces = new (jrt::kOp) jrt::ArrayList<PolylineTrace*>();
   for (int32_t id : *itemIds) {
     Item* item = board->getItem(id);
     auto* trace = jrt::fast_cast<PolylineTrace>(item);
@@ -1320,7 +1320,7 @@ std::optional<std::string> ExitStubs::release(RoutingBoard* board, jrt::Collecti
   if (traces->isEmpty()) {
     return std::nullopt;
   }
-  jrt::Set<int32_t>* netSet = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* netSet = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (PolylineTrace* t : *traces) {
     for (int32_t i = 0; i < t->netCount(); i++) {
       netSet->add(t->getNetNumber(i));
@@ -1332,17 +1332,17 @@ std::optional<std::string> ExitStubs::release(RoutingBoard* board, jrt::Collecti
   for (PolylineTrace* t : *traces) {
     snapped += snapNearJoints(board, t);
   }
-  jrt::List<ExitStubs_JointEntry*>* joints = new jrt::ArrayList<ExitStubs_JointEntry*>();
+  jrt::List<ExitStubs_JointEntry*>* joints = new (jrt::kOp) jrt::ArrayList<ExitStubs_JointEntry*>();
   for (PolylineTrace* t : *traces) {
-    joints->add(new ExitStubs_JointEntry(t, ExitStubs::joints(t)));
+    joints->add(new (jrt::kOp) ExitStubs_JointEntry(t, ExitStubs::joints(t)));
   }
-  jrt::List<PolylineTrace*>* released = new jrt::ArrayList<PolylineTrace*>();
+  jrt::List<PolylineTrace*>* released = new (jrt::kOp) jrt::ArrayList<PolylineTrace*>();
   int32_t splits = 0;
   for (ExitStubs_JointEntry* je : *joints) {
     PolylineTrace* trace = je->trace();
     jrt::List<Point*>* points = je->points();
     trace->setFixedState(FixedState::UNFIXED);
-    jrt::List<PolylineTrace*>* pieces = new jrt::ArrayList<PolylineTrace*>();
+    jrt::List<PolylineTrace*>* pieces = new (jrt::kOp) jrt::ArrayList<PolylineTrace*>();
     pieces->add(trace);
     for (Point* point : *points) {
       PolylineTrace* piece = nullptr;
@@ -1379,7 +1379,7 @@ std::optional<std::string> ExitStubs::release(RoutingBoard* board, jrt::Collecti
   int32_t removed = 0;
   for (bool changed = true; changed;) {
     changed = false;
-    for (PolylineTrace* piece : *new jrt::ArrayList<PolylineTrace*>(released)) {
+    for (PolylineTrace* piece : *new (jrt::kOp) jrt::ArrayList<PolylineTrace*>(released)) {
       if (piece->isOnTheBoard() && piece->isTail() && !piece->hasInteriorContacts()) {
         board->removeItem(piece);
         removed++;
@@ -1412,7 +1412,7 @@ int32_t ExitStubs::snapNearJoints(RoutingBoard* board, PolylineTrace* stub) {
   int32_t moved = 0;
   // PORT NOTE: Java HashSet<Item> iterates in identity-hash order (not reproducible run to run);
   // the port uses jrt::HashSet with the deterministic identity hash of jrt::Object.
-  jrt::Set<Item*>* contacts = new jrt::HashSet<Item*>();
+  jrt::Set<Item*>* contacts = new (jrt::kOp) jrt::HashSet<Item*>();
   for (int32_t i = 0; i < stub->netCount(); i++) {
     contacts->addAll(board->getConnectableItems(stub->getNetNumber(i)));
   }
@@ -1441,7 +1441,7 @@ int32_t ExitStubs::snapNearJoints(RoutingBoard* board, PolylineTrace* stub) {
       int32_t clearanceClass = other->clearanceClassIndex();
       jrt::Array<int32_t>* nets = other->netNumbers;
       board->removeItem(other);
-      board->insertTraceWithoutCleaning(new Polyline(corners), layer, half, nets, clearanceClass, FixedState::UNFIXED);
+      board->insertTraceWithoutCleaning(new (jrt::kGeom) Polyline(corners), layer, half, nets, clearanceClass, FixedState::UNFIXED);
       moved++;
       break;
     }
@@ -1467,7 +1467,7 @@ IntPoint* ExitStubs::nearestOnLine(jrt::Array<Point*>* line, IntPoint* at) {
     double t = (static_cast<double>(at->x - a->x) * dx + static_cast<double>(at->y - a->y) * dy) / (dx * dx + dy * dy);
     int32_t k = jrt::l2i(jrt::Math::max(static_cast<int64_t>(0),
                                         jrt::Math::min(static_cast<int64_t>(length), jrt::Math::round(t))));
-    IntPoint* q = new IntPoint(a->x + k * dx, a->y + k * dy);
+    IntPoint* q = new (jrt::kGeom) IntPoint(a->x + k * dx, a->y + k * dy);
     double distance = jrt::Math::sqrt(jrt::Math::pow(q->x - at->x, 2) + jrt::Math::pow(q->y - at->y, 2));
     if (distance > 0 && distance < bestDistance) {
       best = q;
@@ -1478,9 +1478,9 @@ IntPoint* ExitStubs::nearestOnLine(jrt::Array<Point*>* line, IntPoint* at) {
 }
 
 jrt::List<Point*>* ExitStubs::joints(Trace* trace) {
-  jrt::List<Point*>* points = new jrt::ArrayList<Point*>();
+  jrt::List<Point*>* points = new (jrt::kOp) jrt::ArrayList<Point*>();
   for (Item* contact : *trace->getNormalContacts()) {
-    jrt::List<Point*>* ends = new jrt::ArrayList<Point*>();
+    jrt::List<Point*>* ends = new (jrt::kOp) jrt::ArrayList<Point*>();
     if (auto* other = jrt::fast_cast<Trace>(contact)) {
       ends->add(other->firstCorner());
       ends->add(other->lastCorner());
@@ -1500,7 +1500,7 @@ jrt::List<Point*>* ExitStubs::joints(Trace* trace) {
 int32_t ExitStubs::open(RoutingBoard* board, jrt::Collection<int32_t>* nets) {
   int32_t total = 0;
   for (int32_t net : *nets) {
-    total += (new NetIncompletes(net, board->getConnectableItems(net), board))->count();
+    total += (new (jrt::kOp) NetIncompletes(net, board->getConnectableItems(net), board))->count();
   }
   return total;
 }

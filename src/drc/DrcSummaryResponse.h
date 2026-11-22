@@ -29,7 +29,7 @@ class DrcSummaryResponse_DiagnosticViolation : public virtual jrt::Object {
   /** Clearance shortfall in mm, if applicable. */
   std::optional<double> shortfallMm;
   /** Descriptions of the involved items. */
-  jrt::List<std::string>* items = new jrt::ArrayList<std::string>();
+  jrt::List<std::string>* items = new (jrt::kOp) jrt::ArrayList<std::string>();
 
   DrcSummaryResponse_DiagnosticViolation() {}
 
@@ -90,12 +90,12 @@ class DrcSummaryResponse : public virtual jrt::Object {
   int32_t unconnectedNetsCount = 0;
   /** Detailed list of diagnostic violation summaries. */
   jrt::List<DrcSummaryResponse_DiagnosticViolation*>* violations =
-      new jrt::ArrayList<DrcSummaryResponse_DiagnosticViolation*>();
+      new (jrt::kOp) jrt::ArrayList<DrcSummaryResponse_DiagnosticViolation*>();
   /** Clustered areas with high concentration of violations or routing bottlenecks. */
   jrt::List<DrcSummaryResponse_CongestionZone*>* congestionZones =
-      new jrt::ArrayList<DrcSummaryResponse_CongestionZone*>();
+      new (jrt::kOp) jrt::ArrayList<DrcSummaryResponse_CongestionZone*>();
   /** Actionable suggestions for router settings or layout auto-corrections. */
-  jrt::List<std::string>* hints = new jrt::ArrayList<std::string>();
+  jrt::List<std::string>* hints = new (jrt::kOp) jrt::ArrayList<std::string>();
 };
 
 }  // namespace fr

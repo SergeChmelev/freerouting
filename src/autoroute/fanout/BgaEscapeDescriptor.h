@@ -19,7 +19,7 @@ inline std::string BgaEscapeDescriptor_LatticeClass_toString(BgaEscapeDescriptor
   return BgaEscapeDescriptor_LatticeClass_name(e);
 }
 inline jrt::Array<BgaEscapeDescriptor_LatticeClass>* BgaEscapeDescriptor_LatticeClass_values() {
-  auto* a = new jrt::Array<BgaEscapeDescriptor_LatticeClass>(2);
+  auto* a = new (jrt::kOp) jrt::Array<BgaEscapeDescriptor_LatticeClass>(2);
   for (int32_t i = 0; i < 2; ++i) (*a)[i] = static_cast<BgaEscapeDescriptor_LatticeClass>(i);
   return a;
 }
@@ -53,7 +53,7 @@ inline std::string BgaEscapeDescriptor_PinDisposition_toString(BgaEscapeDescript
   return BgaEscapeDescriptor_PinDisposition_name(e);
 }
 inline jrt::Array<BgaEscapeDescriptor_PinDisposition>* BgaEscapeDescriptor_PinDisposition_values() {
-  auto* a = new jrt::Array<BgaEscapeDescriptor_PinDisposition>(3);
+  auto* a = new (jrt::kOp) jrt::Array<BgaEscapeDescriptor_PinDisposition>(3);
   for (int32_t i = 0; i < 3; ++i) (*a)[i] = static_cast<BgaEscapeDescriptor_PinDisposition>(i);
   return a;
 }

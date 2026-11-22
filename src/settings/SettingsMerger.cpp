@@ -17,7 +17,7 @@ SettingsMerger::SettingsMerger(jrt::List<SettingsSource*>* sources) {
 
 void SettingsMerger::addOrReplaceSources(std::initializer_list<SettingsSource*> sources) {
   addOrReplaceSources(static_cast<jrt::List<SettingsSource*>*>(
-      new jrt::ArrayList<SettingsSource*>(sources)));
+      new (jrt::kOp) jrt::ArrayList<SettingsSource*>(sources)));
 }
 
 void SettingsMerger::addOrReplaceSources(SettingsSource* source) {
@@ -45,12 +45,12 @@ void SettingsMerger::addOrReplaceSources(jrt::List<SettingsSource*>* newSources)
 RouterSettings* SettingsMerger::merge() {
   if (sources == nullptr || sources->isEmpty()) {
     FRLogger::warn("No settings sources provided, using defaults");
-    return new RouterSettings();
+    return new (jrt::kBoard) RouterSettings();
   }
 
   // Sort sources by priority (lowest to highest), stable like Java's List.sort
   auto* sortedSources =
-      new jrt::ArrayList<SettingsSource*>(static_cast<jrt::Collection<SettingsSource*>*>(sources));
+      new (jrt::kOp) jrt::ArrayList<SettingsSource*>(static_cast<jrt::Collection<SettingsSource*>*>(sources));
   sortedSources->sort([](SettingsSource* a, SettingsSource* b) {
     return jrt::Integer::compare(a->getPriority(), b->getPriority());
   });
@@ -83,7 +83,7 @@ RouterSettings* SettingsMerger::merge() {
 
   if (mergedSettings == nullptr) {
     FRLogger::warn("No valid settings found in any source, using defaults");
-    mergedSettings = new RouterSettings();
+    mergedSettings = new (jrt::kBoard) RouterSettings();
   }
 
   // Validate the merged settings
@@ -95,6 +95,6 @@ RouterSettings* SettingsMerger::merge() {
   return mergedSettings;
 }
 
-SettingsMerger* SettingsMerger::clone() { return new SettingsMerger(this->sources); }
+SettingsMerger* SettingsMerger::clone() { return new (jrt::kBoard) SettingsMerger(this->sources); }
 
 }  // namespace fr

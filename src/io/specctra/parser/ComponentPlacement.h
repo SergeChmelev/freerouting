@@ -79,7 +79,7 @@ class ComponentPlacement : public virtual jrt::Object {
 
   /** Creates a new instance of ComponentPlacement. */
   explicit ComponentPlacement(const std::string& libName)
-      : libName(libName), locations(new jrt::LinkedList<ComponentPlacement_ComponentLocation*>()) {}
+      : libName(libName), locations(new (jrt::kOp) jrt::LinkedList<ComponentPlacement_ComponentLocation*>()) {}
 };
 
 }  // namespace fr::dsn

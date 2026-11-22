@@ -20,10 +20,10 @@ ExpansionDrill::ExpansionDrill(TileShape* shape, Point* location, int32_t firstL
   this->firstLayer = firstLayer;
   this->lastLayer = lastLayer;
   int32_t layerCount = lastLayer - firstLayer + 1;
-  roomArr = new jrt::Array<CompleteExpansionRoom*>(layerCount);
-  mazeSearchElements = new jrt::Array<MazeSearchElement*>(layerCount);
+  roomArr = new (jrt::kOp) jrt::Array<CompleteExpansionRoom*>(layerCount);
+  mazeSearchElements = new (jrt::kOp) jrt::Array<MazeSearchElement*>(layerCount);
   for (int32_t i = 0; i < mazeSearchElements->length; i++) {
-    (*mazeSearchElements)[i] = new MazeSearchElement();
+    (*mazeSearchElements)[i] = new (jrt::kOp) MazeSearchElement();
   }
 }
 
@@ -50,7 +50,7 @@ bool ExpansionDrill::calculateExpansionRooms(AutorouteEngine* autorouteEngine) {
     if (foundRoom == nullptr) {
       // create a new expansion room on this layer
       IncompleteFreeSpaceExpansionRoom* newIncompleteRoom =
-          new IncompleteFreeSpaceExpansionRoom(nullptr, i, searchShape);
+          new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(nullptr, i, searchShape);
       jrt::Collection<CompleteFreeSpaceExpansionRoom*>* newRooms =
           autorouteEngine->completeExpansionRoom(newIncompleteRoom);
       if (newRooms->size() != 1) {
@@ -80,7 +80,7 @@ int32_t ExpansionDrill::getId() {
 
 void ExpansionDrill::emitDiagnostic(AutorouteDiagnostic_Sink* sink, double intensity) {
   if (sink != nullptr && intensity > 0) {
-    sink->accept(new AutorouteDiagnostic(AutorouteDiagnostic_Kind::EXPANSION_DRILL, this->shape, -1, intensity));
+    sink->accept(new (jrt::kOp) AutorouteDiagnostic(AutorouteDiagnostic_Kind::EXPANSION_DRILL, this->shape, -1, intensity));
   }
 }
 

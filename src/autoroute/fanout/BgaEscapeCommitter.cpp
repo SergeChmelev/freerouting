@@ -129,7 +129,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
     jrt::List<BgaEscapeSolver_PinEscapeProposal*>* proposals) {
   if (board == nullptr || board->rules == nullptr || bga == nullptr || proposals == nullptr ||
       proposals->isEmpty()) {
-    return new BgaEscapeCommitter_CommitResult(0, 0, 0, 0, 0);
+    return new (jrt::kOp) BgaEscapeCommitter_CommitResult(0, 0, 0, 0, 0);
   }
 
   int32_t attempted = 0;
@@ -145,11 +145,11 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
 
   // Maintain placed plane vias for deduplication of shared ground/power vias
   jrt::Map<BgaEscapeCommitter_PlaneViaKey*, Via*>* placedPlaneVias =
-      new jrt::HashMap<BgaEscapeCommitter_PlaneViaKey*, Via*>();
+      new (jrt::kOp) jrt::HashMap<BgaEscapeCommitter_PlaneViaKey*, Via*>();
   // Maintain committed via locations to prevent double-via collisions
-  jrt::Set<IntPoint*>* committedViaLocations = new jrt::HashSet<IntPoint*>();
+  jrt::Set<IntPoint*>* committedViaLocations = new (jrt::kOp) jrt::HashSet<IntPoint*>();
   // Maintain successfully escaped pins to bypass redundant CPU fanout retries
-  jrt::Set<Pin*>* committedPins = new jrt::HashSet<Pin*>();
+  jrt::Set<Pin*>* committedPins = new (jrt::kOp) jrt::HashSet<Pin*>();
 
   for (BgaEscapeSolver_PinEscapeProposal* proposal : *proposals) {
     // PORT NOTE: Thread.currentThread().isInterrupted() is always false (single-threaded port).
@@ -181,7 +181,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
 
     int32_t netNo = pd->netNo();
     jrt::Array<int32_t>* netNumbers =
-        (netNo > 0) ? jrt::Array<int32_t>::of({netNo}) : new jrt::Array<int32_t>(0);
+        (netNo > 0) ? jrt::Array<int32_t>::of({netNo}) : new (jrt::kOp) jrt::Array<int32_t>(0);
     int32_t pinLayer = pin->firstLayer();
     int32_t targetLayer = pd->targetLayer();
     int32_t sector = pd->breakoutSector();
@@ -242,7 +242,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
         }
       }
 
-      Polyline* polyline = new Polyline(jrt::Array<Point*>::of({pinCenter, globalExit}));
+      Polyline* polyline = new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({pinCenter, globalExit}));
       board->insertTrace(polyline, pinLayer, traceHalfWidthPin, netNumbers, traceClClass,
                          FixedState::USER_FIXED);
       if (pin->getNormalContacts()->isEmpty()) {
@@ -320,7 +320,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
       }
 
       Polyline* polyline =
-          new Polyline(jrt::Array<Point*>::of({pinCenter, globalJog, globalExit}));
+          new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({pinCenter, globalJog, globalExit}));
       board->insertTrace(polyline, pinLayer, traceHalfWidthPin, netNumbers, traceClClass,
                          FixedState::USER_FIXED);
       if (pin->getNormalContacts()->isEmpty()) {
@@ -379,7 +379,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
           toGlobalPoint(pinCenter, pd->localU(), pd->localV(), viaU, viaV, cos, sin);
 
       BgaEscapeCommitter_PlaneViaKey* viaKey =
-          new BgaEscapeCommitter_PlaneViaKey(globalViaCenter, netNo);
+          new (jrt::kOp) BgaEscapeCommitter_PlaneViaKey(globalViaCenter, netNo);
       bool isPlaneDrop = (pd->disposition() == BgaEscapeDescriptor_PinDisposition::PLANE_DROP);
       bool viaAlreadyPlaced = isPlaneDrop && placedPlaneVias->containsKey(viaKey);
 
@@ -480,7 +480,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
       }
 
       // Commit dogbone trace and verify insertion before proceeding
-      Polyline* dogbone = new Polyline(jrt::Array<Point*>::of({pinCenter, globalViaCenter}));
+      Polyline* dogbone = new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({pinCenter, globalViaCenter}));
       board->insertTrace(dogbone, pinLayer, traceHalfWidthPin, netNumbers, traceClClass,
                          FixedState::USER_FIXED);
       if (pin->getNormalContacts()->isEmpty()) {
@@ -494,14 +494,14 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
       bool breakoutInserted = false;
       if (!isPlaneDrop && globalCorridor != nullptr && globalBreakoutExit != nullptr) {
         int32_t tracesBeforeBreakout = board->getTraces()->size();
-        Polyline* breakout = new Polyline(
+        Polyline* breakout = new (jrt::kGeom) Polyline(
             jrt::Array<Point*>::of({globalViaCenter, globalCorridor, globalBreakoutExit}));
         board->insertTrace(breakout, targetLayer, traceHalfWidthTarget, netNumbers, traceClClass,
                            FixedState::USER_FIXED);
         if (board->getTraces()->size() <= tracesBeforeBreakout) {
           // Roll back dogbone traces contacting this pin and the newly inserted via
           // Java: List.copyOf(pin.getNormalContacts())
-          jrt::List<Item*>* contacts = new jrt::ArrayList<Item*>(pin->getNormalContacts());
+          jrt::List<Item*>* contacts = new (jrt::kOp) jrt::ArrayList<Item*>(pin->getNormalContacts());
           for (Item* contact : *contacts) {
             board->removeItem(contact);
           }
@@ -541,7 +541,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
                  jrt::str(attempted) + " escapes (" + jrt::str(drcRejections) +
                  " rejected by DRC)");
 
-  return new BgaEscapeCommitter_CommitResult(attempted, committed, viasInserted, tracesInserted,
+  return new (jrt::kOp) BgaEscapeCommitter_CommitResult(attempted, committed, viasInserted, tracesInserted,
                                              drcRejections, committedPins);
 }
 
@@ -552,7 +552,7 @@ IntPoint* BgaEscapeCommitter::toGlobalPoint(Point* pinCenter, double localPinU, 
   double dLocalV = targetV - localPinV;
   double dGlobalX = dLocalU * cos - dLocalV * sin;
   double dGlobalY = dLocalU * sin + dLocalV * cos;
-  return new IntPoint(jrt::l2i(jrt::Math::round(pinCenter->toFloat()->x + dGlobalX)),
+  return new (jrt::kGeom) IntPoint(jrt::l2i(jrt::Math::round(pinCenter->toFloat()->x + dGlobalX)),
                       jrt::l2i(jrt::Math::round(pinCenter->toFloat()->y + dGlobalY)));
 }
 
@@ -562,7 +562,7 @@ IntPoint* BgaEscapeCommitter::interpolatePoint(Point* from, Point* to, double ra
   double clampedRatio = jrt::Math::clamp(ratio, 0.0, 1.0);
   double rx = f1->x + (f2->x - f1->x) * clampedRatio;
   double ry = f1->y + (f2->y - f1->y) * clampedRatio;
-  return new IntPoint(jrt::l2i(jrt::Math::round(rx)), jrt::l2i(jrt::Math::round(ry)));
+  return new (jrt::kGeom) IntPoint(jrt::l2i(jrt::Math::round(rx)), jrt::l2i(jrt::Math::round(ry)));
 }
 
 double BgaEscapeCommitter::getDistToPerimeter(BgaEscapeDescriptor_BgaPinDescriptor* pd,
@@ -636,7 +636,7 @@ BgaEscapeCommitter_ResolvedVia* BgaEscapeCommitter::resolveVia(RoutingBoard* boa
       if (vi != nullptr && vi->getPadstack() != nullptr) {
         Padstack* ps = vi->getPadstack();
         if (ps->fromLayer() == lowL && ps->toLayer() == highL) {
-          return new BgaEscapeCommitter_ResolvedVia(ps, vi->getClearanceClassIndex());
+          return new (jrt::kOp) BgaEscapeCommitter_ResolvedVia(ps, vi->getClearanceClassIndex());
         }
       }
     }
@@ -648,7 +648,7 @@ BgaEscapeCommitter_ResolvedVia* BgaEscapeCommitter::resolveVia(RoutingBoard* boa
     if (vi != nullptr && vi->getPadstack() != nullptr) {
       Padstack* ps = vi->getPadstack();
       if (ps->fromLayer() == lowL && ps->toLayer() == highL) {
-        return new BgaEscapeCommitter_ResolvedVia(ps, vi->getClearanceClassIndex());
+        return new (jrt::kOp) BgaEscapeCommitter_ResolvedVia(ps, vi->getClearanceClassIndex());
       }
     }
   }
@@ -661,7 +661,7 @@ BgaEscapeCommitter_ResolvedVia* BgaEscapeCommitter::resolveVia(RoutingBoard* boa
       for (int32_t i = 0; i < vr->viaCount(); i++) {
         ViaInfo* vi = vr->getVia(i);
         if (vi != nullptr && coversSpan(vi->getPadstack(), lowL, highL)) {
-          return new BgaEscapeCommitter_ResolvedVia(vi->getPadstack(),
+          return new (jrt::kOp) BgaEscapeCommitter_ResolvedVia(vi->getPadstack(),
                                                     vi->getClearanceClassIndex());
         }
       }
@@ -670,14 +670,14 @@ BgaEscapeCommitter_ResolvedVia* BgaEscapeCommitter::resolveVia(RoutingBoard* boa
   for (int32_t i = 0; i < board->rules->viaInfos->count(); i++) {
     ViaInfo* vi = board->rules->viaInfos->get(i);
     if (vi != nullptr && coversSpan(vi->getPadstack(), lowL, highL)) {
-      return new BgaEscapeCommitter_ResolvedVia(vi->getPadstack(), vi->getClearanceClassIndex());
+      return new (jrt::kOp) BgaEscapeCommitter_ResolvedVia(vi->getPadstack(), vi->getClearanceClassIndex());
     }
   }
   if (board->library != nullptr && board->library->padstacks != nullptr &&
       board->library->padstacks->count() > 0) {
     Padstack* ps = board->library->padstacks->get(1);
     if (coversSpan(ps, lowL, highL)) {
-      return new BgaEscapeCommitter_ResolvedVia(ps, defaultViaClClass);
+      return new (jrt::kOp) BgaEscapeCommitter_ResolvedVia(ps, defaultViaClClass);
     }
   }
   return nullptr;

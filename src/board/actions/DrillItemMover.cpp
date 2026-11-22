@@ -49,12 +49,12 @@ bool DrillItemMover::check(DrillItem* drillItem, Vector* vector, int32_t maxRecu
   }
   jrt::Collection<Item*>* effectiveIgnoreItems;
   if (ignoreItems == nullptr) {
-    effectiveIgnoreItems = new jrt::LinkedList<Item*>();
+    effectiveIgnoreItems = new (jrt::kOp) jrt::LinkedList<Item*>();
   } else {
     effectiveIgnoreItems = ignoreItems;
   }
   effectiveIgnoreItems->add(drillItem);
-  ForcedPadRouter* forcedPadRouter = new ForcedPadRouter(board);
+  ForcedPadRouter* forcedPadRouter = new (jrt::kOp) ForcedPadRouter(board);
   bool attachAllowed = false;
   if (auto* via = jrt::fast_cast<Via>(drillItem)) {
     attachAllowed = via->attachAllowed;
@@ -79,7 +79,7 @@ bool DrillItemMover::check(DrillItem* drillItem, Vector* vector, int32_t maxRecu
     } else {
       currentTileShape = newShape->boundingOctagon();
     }
-    ShapeEntrySide* fromSide = new ShapeEntrySide(drillItem->getCenter(), currentTileShape);
+    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(drillItem->getCenter(), currentTileShape);
     if (forcedPadRouter->checkForcedPad(
             currentTileShape, fromSide, currentLayer, drillItem->netNumbers,
             drillItem->clearanceClassIndex(), attachAllowed, effectiveIgnoreItems,
@@ -120,8 +120,8 @@ bool DrillItemMover::insertJoiningTidyRegion(DrillItem* drillItem, Vector* vecto
       return false;
     }
   }
-  ForcedPadRouter* forcedPadRouter = new ForcedPadRouter(board);
-  jrt::Collection<Item*>* ignoreItems = new jrt::LinkedList<Item*>();
+  ForcedPadRouter* forcedPadRouter = new (jrt::kOp) ForcedPadRouter(board);
+  jrt::Collection<Item*>* ignoreItems = new (jrt::kOp) jrt::LinkedList<Item*>();
   ignoreItems->add(drillItem);
   ShapeSearchTree* searchTree = board->searchTreeManager->getDefaultTree();
   for (int32_t currentLayer = drillItem->firstLayer(); currentLayer <= drillItem->lastLayer();
@@ -142,7 +142,7 @@ bool DrillItemMover::insertJoiningTidyRegion(DrillItem* drillItem, Vector* vecto
         (*tidyRegionHolder)[0] != nullptr) {
       (*tidyRegionHolder)[0] = (*tidyRegionHolder)[0]->union_(currentTileShape->boundingOctagon());
     }
-    ShapeEntrySide* fromSide = new ShapeEntrySide(drillItem->getCenter(), currentTileShape);
+    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(drillItem->getCenter(), currentTileShape);
     if (!forcedPadRouter->forcedPad(currentTileShape, fromSide, currentLayer,
                                     drillItem->netNumbers, drillItem->clearanceClassIndex(),
                                     attachAllowed, ignoreItems, maxRecursionDepth,
@@ -192,10 +192,10 @@ bool DrillItemMover::shoveVias(TileShape* obstacleShape, ShapeEntrySide* fromSid
                                int32_t maxViaRecursionDepth, bool copperSharingAllowed,
                                RoutingBoard* board, Shape* exactShape) {
   ShapeSearchTree* searchTree = board->searchTreeManager->getDefaultTree();
-  ShapeTraceEntries* shapeEntries = new ShapeTraceEntries(obstacleShape, layer, netNumbers,
+  ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(obstacleShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      obstacleShape, layer, new jrt::Array<int32_t>(0), clearanceClassIndex, exactShape);
+      obstacleShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex, exactShape);
 
   if (!shapeEntries->storeItems(obstacles, false, copperSharingAllowed)) {
     return true;
@@ -234,7 +234,7 @@ bool DrillItemMover::shoveVias(TileShape* obstacleShape, ShapeEntrySide* fromSid
     for (int32_t i = 0; i < tryViaCenters->length; i++) {
       if (i == 0 ||
           checkViaCenter->distanceSquare((*tryViaCenters)[i]->toFloat()) <= maxDistSquare) {
-        jrt::Collection<Item*>* localIgnoreItems = new jrt::LinkedList<Item*>();
+        jrt::Collection<Item*>* localIgnoreItems = new (jrt::kOp) jrt::LinkedList<Item*>();
         if (ignoreItems != nullptr) {
           localIgnoreItems->addAll(ignoreItems);
         }
@@ -265,7 +265,7 @@ jrt::Array<IntPoint*>* DrillItemMover::tryShoveViaPoints(TileShape* obstacleShap
   ShapeSearchTree* searchTree = board->searchTreeManager->getDefaultTree();
   TileShape* currentViaShape = via->getTreeShapeOnLayer(searchTree, layer);
   if (currentViaShape == nullptr) {
-    return new jrt::Array<IntPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<IntPoint*>(0);
   }
   bool isIntOctagon = obstacleShape->isIntOctagon();
   double clearanceValue =
@@ -310,7 +310,7 @@ jrt::Array<IntPoint*>* DrillItemMover::tryShoveViaPoints(TileShape* obstacleShap
     }
     jrt::Array<FloatPoint*>* shoveDeltas =
         currentOffsetShape->nearestRelativeOutsideLocations(currentViaShape, tryCount);
-    tryViaCenters = new jrt::Array<IntPoint*>(shoveDeltas->length);
+    tryViaCenters = new (jrt::kGeom) jrt::Array<IntPoint*>(shoveDeltas->length);
     for (int32_t i = 0; i < tryViaCenters->length; i++) {
       Vector* currentDelta = (*shoveDeltas)[i]->round()->differenceBy(Point::ZERO());
       (*tryViaCenters)[i] = jrt::fast_cast<IntPoint>(currentViaCenter->translateBy(currentDelta));

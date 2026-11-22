@@ -27,7 +27,7 @@ inline std::string FortyfiveDegreeDirection_toString(FortyfiveDegreeDirection e)
 }
 
 inline jrt::Array<FortyfiveDegreeDirection>* FortyfiveDegreeDirection_values() {
-  auto* a = new jrt::Array<FortyfiveDegreeDirection>(8);
+  auto* a = new (jrt::kGeom) jrt::Array<FortyfiveDegreeDirection>(8);
   for (int32_t i = 0; i < 8; ++i) (*a)[i] = static_cast<FortyfiveDegreeDirection>(i);
   return a;
 }

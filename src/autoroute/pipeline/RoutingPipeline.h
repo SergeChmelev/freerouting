@@ -43,7 +43,7 @@ class RoutingPipeline_StageListener : public virtual jrt::Object {
         if (c) c(optimizer);
       }
     };
-    auto* adapter = new Adapter();
+    auto* adapter = new (jrt::kOp) Adapter();
     adapter->a = std::move(afterRouting);
     adapter->b = std::move(beforeOptimization);
     adapter->c = std::move(afterOptimization);
@@ -58,7 +58,7 @@ class RoutingPipeline : public virtual jrt::Object {
   BatchAutorouter* autorouter;
   BatchOptimizer* optimizer;
   jrt::List<RoutingPipeline_StageListener*>* stageListeners;  // Java init: new ArrayList<>() (set in constructor)
-  jrt::List<int32_t>* exitStubItems = new jrt::ArrayList<int32_t>();
+  jrt::List<int32_t>* exitStubItems = new (jrt::kOp) jrt::ArrayList<int32_t>();
 
   RoutingPipeline(RoutingJob* job, std::function<BatchOptimizer*(RoutingJob*)> optimizerFactory);
 

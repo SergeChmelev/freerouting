@@ -50,7 +50,7 @@ TraceTightener::TraceTightener(RoutingBoard* board, jrt::Array<int32_t>* onlyNet
                                int32_t keepPointLayer)
     : board(board), onlyNetNoArr(onlyNetNoArr), stoppableThread(stoppableThread) {
   if (timeLimit > 0) {
-    this->timeLimit = new TimeLimit(timeLimit);
+    this->timeLimit = new (jrt::kOp) TimeLimit(timeLimit);
   } else {
     this->timeLimit = nullptr;
   }
@@ -66,13 +66,13 @@ TraceTightener* TraceTightener::getInstance(RoutingBoard* board,
   TraceTightener* result;
   AngleRestriction angleRestriction = board->rules->getTraceAngleRestriction();
   if (angleRestriction == AngleRestriction::NINETY_DEGREE) {
-    result = new TraceTightener90(board, onlyNetNoArr, stoppableThread, timeLimit, keepPoint,
+    result = new (jrt::kOp) TraceTightener90(board, onlyNetNoArr, stoppableThread, timeLimit, keepPoint,
                                   keepPointLayer);
   } else if (angleRestriction == AngleRestriction::FORTYFIVE_DEGREE) {
-    result = new TraceTightener45(board, onlyNetNoArr, stoppableThread, timeLimit, keepPoint,
+    result = new (jrt::kOp) TraceTightener45(board, onlyNetNoArr, stoppableThread, timeLimit, keepPoint,
                                   keepPointLayer);
   } else {
-    result = new TraceTightenerAnyAngle(board, onlyNetNoArr, stoppableThread, timeLimit,
+    result = new (jrt::kOp) TraceTightenerAnyAngle(board, onlyNetNoArr, stoppableThread, timeLimit,
                                         keepPoint, keepPointLayer);
   }
   result->currentClipShape = clipShape;
@@ -86,7 +86,7 @@ void TraceTightener::optChangedArea(
     return;
   }
   bool somethingChanged = true;
-  ViaMoveHistory* viaMoves = new ViaMoveHistory();
+  ViaMoveHistory* viaMoves = new (jrt::kBoard) ViaMoveHistory();
   // starting with curr_min_translate_dist big is a try to
   // avoid fine approximation at the beginning to avoid
   // problems with dog ears
@@ -172,10 +172,10 @@ Polyline* TraceTightener::repositionLines(Polyline* polyline) {
   for (int32_t i = 2; i < polyline->lines->length - 2; i++) {
     Line* newLine = repositionLine(polyline->lines, i);
     if (newLine != nullptr) {
-      jrt::Array<Line*>* lines = new jrt::Array<Line*>(polyline->lines->length);
+      jrt::Array<Line*>* lines = new (jrt::kGeom) jrt::Array<Line*>(polyline->lines->length);
       jrt::arraycopy(polyline->lines, 0, lines, 0, lines->length);
       (*lines)[i] = newLine;
-      Polyline* result = new Polyline(lines);
+      Polyline* result = new (jrt::kGeom) Polyline(lines);
       return skipSegmentsOfLength0(result);
     }
   }
@@ -218,7 +218,7 @@ Line* TraceTightener::repositionLine(jrt::Array<Line*>* lines, int32_t no) {
   Side* sideOfNearestPoint = translateLine->sideOf(nearestPoint);
   int32_t sign = Signum::asInt(maxTranslateDist);
   Line* newLine = nullptr;
-  jrt::Array<Line*>* checkLines = new jrt::Array<Line*>(3);
+  jrt::Array<Line*>* checkLines = new (jrt::kGeom) jrt::Array<Line*>(3);
   (*checkLines)[0] = (*lines)[no - 1];
   (*checkLines)[2] = (*lines)[no + 1];
   bool firstTime = true;
@@ -244,7 +244,7 @@ Line* TraceTightener::repositionLine(jrt::Array<Line*>* lines, int32_t no) {
       deltaDist -= shortenValue;
       continue;
     }
-    Polyline* tmp = new Polyline(checkLines);
+    Polyline* tmp = new (jrt::kGeom) Polyline(checkLines);
 
     bool checkOk = false;
     if (tmp->lines->length == 3) {
@@ -295,10 +295,10 @@ Polyline* TraceTightener::skipSegmentsOfLength0(Polyline* polyline) {
     if (trySkip) {
       // check, if skipping the line of length 0 does not
       // result in a clearance violation
-      jrt::Array<Line*>* currentLines = new jrt::Array<Line*>(currentPolyline->lines->length - 1);
+      jrt::Array<Line*>* currentLines = new (jrt::kGeom) jrt::Array<Line*>(currentPolyline->lines->length - 1);
       jrt::arraycopy(currentPolyline->lines, 0, currentLines, 0, i);
       jrt::arraycopy(currentPolyline->lines, i + 1, currentLines, i, currentLines->length - i);
-      Polyline* tmp = new Polyline(currentLines);
+      Polyline* tmp = new (jrt::kGeom) Polyline(currentLines);
       bool checkOk = tmp->lines->length == currentLines->length;
       if (checkOk && !(*currentPolyline->lines)[i]->isMultipleOf45Degree()) {
         // no check necessary for skipping 45 degree lines, because the check is
@@ -396,7 +396,7 @@ bool TraceTightener::splitTracesAtKeepPoint() {
     return false;
   }
   ItemSelectionFilter* filter =
-      new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+      new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
   jrt::Collection<Item*>* pickedItems =
       this->board->pickItems(this->keepPoint, this->keepPointLayer, filter);
   for (Item* currentItem : *pickedItems) {
@@ -435,7 +435,7 @@ Polyline* TraceTightener::avoidAcidTraps(Polyline* polyline) {
     return polyline;
   }
   Polyline* result = polyline;
-  TraceShover* shoveTraceAlgo = new TraceShover(this->board);
+  TraceShover* shoveTraceAlgo = new (jrt::kOp) TraceShover(this->board);
   Polyline* newPolyline =
       shoveTraceAlgo->springOverObstacles(polyline, currentHalfWidth, currentLayer,
                                           currentNetNumbers, currentClearanceClassIndex,

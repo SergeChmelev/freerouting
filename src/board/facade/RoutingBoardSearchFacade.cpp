@@ -29,8 +29,8 @@ double RoutingBoardSearchFacade::checkTraceSegment(Point* fromPoint, Point* toPo
   if (fromPoint->equals(toPoint)) {
     return 0;
   }
-  Polyline* currentPolyline = new Polyline(fromPoint, toPoint);
-  LineSegment* currentLineSegment = new LineSegment(currentPolyline, 1);
+  Polyline* currentPolyline = new (jrt::kGeom) Polyline(fromPoint, toPoint);
+  LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(currentPolyline, 1);
   return checkTraceSegment(currentLineSegment, layer, netNumbers, traceHalfWidth, clClassNo,
                            onlyNotShovableObstacles);
 }

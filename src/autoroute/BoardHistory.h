@@ -39,7 +39,7 @@ class BoardHistory : public virtual jrt::Object {
  private:
   int32_t maxHistorySize;
   jrt::List<BoardHistory_BoardHistoryEntry*>* boards =
-      new jrt::ArrayList<BoardHistory_BoardHistoryEntry*>();
+      new (jrt::kBoard) jrt::ArrayList<BoardHistory_BoardHistoryEntry*>();
   RouterSettings* routerSettings;
   // PORT NOTE: ReadWriteLock rwLock dropped (single-threaded port).
 

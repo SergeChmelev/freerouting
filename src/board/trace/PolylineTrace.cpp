@@ -57,11 +57,11 @@ PolylineTrace::PolylineTrace(Polyline* polyline, int32_t layer, int32_t halfWidt
 }
 
 Item* PolylineTrace::copy(int32_t id) {
-  jrt::Array<int32_t>* currentNetNumbers = new jrt::Array<int32_t>(this->netCount());
+  jrt::Array<int32_t>* currentNetNumbers = new (jrt::kOp) jrt::Array<int32_t>(this->netCount());
   for (int32_t i = 0; i < currentNetNumbers->length; i++) {
     (*currentNetNumbers)[i] = getNetNumber(i);
   }
-  return new PolylineTrace(lines, getLayer(), getHalfWidth(), currentNetNumbers,
+  return new (jrt::kBoard) PolylineTrace(lines, getLayer(), getHalfWidth(), currentNetNumbers,
                            clearanceClassIndex(), id, getComponentId(), getFixedState(), board);
 }
 
@@ -220,7 +220,7 @@ bool PolylineTrace::combineAtStart(bool ignoreAreas) {
   jrt::Array<Line*>* thisLines = lines->lines;
   jrt::Array<Line*>* otherLines;
   if (reverseOrder) {
-    otherLines = new jrt::Array<Line*>(otherTrace->lines->lines->length);
+    otherLines = new (jrt::kGeom) jrt::Array<Line*>(otherTrace->lines->lines->length);
     for (int32_t i = 0; i < otherLines->length; i++) {
       (*otherLines)[i] = (*otherTrace->lines->lines)[otherLines->length - 1 - i]->opposite();
     }
@@ -232,14 +232,14 @@ bool PolylineTrace::combineAtStart(bool ignoreAreas) {
   if (skipLine) {
     --newLineCount;
   }
-  jrt::Array<Line*>* newLines = new jrt::Array<Line*>(newLineCount);
+  jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(newLineCount);
   jrt::arraycopy(otherLines, 0, newLines, 0, otherLines->length - 1);
   int32_t joinPos = otherLines->length - 1;
   if (skipLine) {
     --joinPos;
   }
   jrt::arraycopy(thisLines, 1, newLines, joinPos, thisLines->length - 1);
-  Polyline* joinedPolyline = new Polyline(newLines);
+  Polyline* joinedPolyline = new (jrt::kGeom) Polyline(newLines);
   // Determine whether both traces have entries in the default search tree. If either is missing,
   // fall back to the safe full-remove + re-insert path.
   bool hasTreeEntries = PolylineTraceSearchTreeAdapter::hasDefaultEntries(this, otherTrace);
@@ -325,7 +325,7 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
   jrt::Array<Line*>* thisLines = lines->lines;
   jrt::Array<Line*>* otherLines;
   if (reverseOrder) {
-    otherLines = new jrt::Array<Line*>(otherTrace->lines->lines->length);
+    otherLines = new (jrt::kGeom) jrt::Array<Line*>(otherTrace->lines->lines->length);
     for (int32_t i = 0; i < otherLines->length; i++) {
       (*otherLines)[i] = (*otherTrace->lines->lines)[otherLines->length - 1 - i]->opposite();
     }
@@ -337,14 +337,14 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
   if (skipLine) {
     --newLineCount;
   }
-  jrt::Array<Line*>* newLines = new jrt::Array<Line*>(newLineCount);
+  jrt::Array<Line*>* newLines = new (jrt::kGeom) jrt::Array<Line*>(newLineCount);
   jrt::arraycopy(thisLines, 0, newLines, 0, thisLines->length - 1);
   int32_t joinPos = thisLines->length - 1;
   if (skipLine) {
     --joinPos;
   }
   jrt::arraycopy(otherLines, 1, newLines, joinPos, otherLines->length - 1);
-  Polyline* joinedPolyline = new Polyline(newLines);
+  Polyline* joinedPolyline = new (jrt::kGeom) Polyline(newLines);
   // Determine whether both traces have entries in the default search tree. If either is missing,
   // fall back to the safe full-remove + re-insert path.
   bool hasTreeEntries = PolylineTraceSearchTreeAdapter::hasDefaultEntries(this, otherTrace);
@@ -375,7 +375,7 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
 }
 
 jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
-  jrt::Collection<PolylineTrace*>* result = new jrt::LinkedList<PolylineTrace*>();
+  jrt::Collection<PolylineTrace*>* result = new (jrt::kOp) jrt::LinkedList<PolylineTrace*>();
   if (!this->netsNormal()) {
     // only normal nets are split
     result->add(this);
@@ -385,15 +385,15 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
   ShapeSearchTree* defaultTree = board->searchTreeManager->getDefaultTree();
   for (int32_t i = 0; i < this->lines->lines->length - 2; i++) {
     if (clipShape != nullptr) {
-      LineSegment* currentSegment = new LineSegment(this->lines, i + 1);
+      LineSegment* currentSegment = new (jrt::kGeom) LineSegment(this->lines, i + 1);
       if (!clipShape->intersects(currentSegment->boundingBox())) {
         continue;
       }
     }
     TileShape* currentShape = this->getTreeShape(defaultTree, i);
-    LineSegment* currentLineSegment = new LineSegment(this->lines, i + 1);
+    LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(this->lines, i + 1);
     jrt::Collection<ShapeTree_TreeEntry*>* overlappingTreeEntries =
-        new jrt::LinkedList<ShapeTree_TreeEntry*>();
+        new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
     // look for intersecting traces with the i-th line segment
     defaultTree->overlappingTreeEntries(currentShape, getLayer(), overlappingTreeEntries);
     jrt::Iterator<ShapeTree_TreeEntry*>* it = overlappingTreeEntries->iterator();
@@ -428,9 +428,9 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
       }
       if (auto* foundTrace = jrt::fast_cast<PolylineTrace>(foundItem)) {
         LineSegment* foundLineSegment =
-            new LineSegment(foundTrace->lines, foundEntry->shapeIndexInObject + 1);
+            new (jrt::kGeom) LineSegment(foundTrace->lines, foundEntry->shapeIndexInObject + 1);
         jrt::Array<Line*>* intersectingLines = foundLineSegment->intersection(currentLineSegment);
-        jrt::Collection<PolylineTrace*>* splitPieces = new jrt::LinkedList<PolylineTrace*>();
+        jrt::Collection<PolylineTrace*>* splitPieces = new (jrt::kOp) jrt::LinkedList<PolylineTrace*>();
 
         bool debugNet49 = this->netNumbers != nullptr && this->netNumbers->length > 0 &&
                           (*this->netNumbers)[0] == 49;
@@ -540,7 +540,7 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
         Point* splitPoint = currentDrillItem->getCenter();
         if (currentLineSegment->contains(splitPoint)) {
           Direction* splitLineDirection = currentLineSegment->getLine()->direction()->turn45Degree(2);
-          Line* splitLine = new Line(splitPoint, splitLineDirection);
+          Line* splitLine = new (jrt::kGeom) Line(splitPoint, splitLineDirection);
           split(i + 1, splitLine);
         }
       } else if (!this->isUserFixed() && jrt::fast_cast<ConductionArea>(foundItem) != nullptr) {
@@ -577,14 +577,14 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
 
 jrt::Array<Trace*>* PolylineTrace::split(Point* point) {
   for (int32_t i = 0; i < this->lines->lines->length - 2; i++) {
-    LineSegment* currentLineSegment = new LineSegment(this->lines, i + 1);
+    LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(this->lines, i + 1);
     Line* splitLine = currentLineSegment->splitLine(point);
     if (splitLine != nullptr) {
       jrt::Array<PolylineTrace*>* pieces = split(i + 1, splitLine);
       if (pieces != nullptr) {
         // PORT NOTE: Java returns the PolylineTrace[] through array covariance as Trace[]; C++
         // arrays are not covariant, so the two pieces are copied into a new Trace* array.
-        jrt::Array<Trace*>* result = new jrt::Array<Trace*>(pieces->length);
+        jrt::Array<Trace*>* result = new (jrt::kOp) jrt::Array<Trace*>(pieces->length);
         for (int32_t k = 0; k < pieces->length; k++) {
           (*result)[k] = (*pieces)[k];
         }
@@ -616,7 +616,7 @@ jrt::Array<PolylineTrace*>* PolylineTrace::split(int32_t lineIndex, Line* newEnd
     return nullptr;
   }
   board->removeItem(this);
-  jrt::Array<PolylineTrace*>* result = new jrt::Array<PolylineTrace*>(2);
+  jrt::Array<PolylineTrace*>* result = new (jrt::kOp) jrt::Array<PolylineTrace*>(2);
   (*result)[0] = board->insertTraceWithoutCleaning((*splitPolylines)[0], getLayer(),
                                                    getHalfWidth(), netNumbers,
                                                    clearanceClassIndex(), getFixedState());
@@ -717,7 +717,7 @@ bool PolylineTrace::pullTight(bool ownNetOnly, int32_t pullTightAccuracy,
   if (ownNetOnly) {
     optNetNoArr = this->netNumbers;
   } else {
-    optNetNoArr = new jrt::Array<int32_t>(0);
+    optNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(0);
   }
   TraceTightener* pullTightAlgo = TraceTightener::getInstance(
       routingBoard, optNetNoArr, nullptr, pullTightAccuracy, stoppableThread, -1, nullptr, -1);
@@ -734,7 +734,7 @@ bool PolylineTrace::smoothenEndCornersFork(bool ownNetOnly, int32_t pullTightAcc
   if (ownNetOnly) {
     optNetNoArr = this->netNumbers;
   } else {
-    optNetNoArr = new jrt::Array<int32_t>(0);
+    optNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(0);
   }
   TraceTightener* pullTightAlgo = TraceTightener::getInstance(
       routingBoard, optNetNoArr, nullptr, pullTightAccuracy, stoppableThread, -1, nullptr, -1);
@@ -951,7 +951,7 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
   for (Pin_TraceExitRestriction* currentExitRestriction : *traceExitRestrictions) {
     int32_t currentIntersectingBorderLineNo =
         offsetPinShape->intersectingBorderLineNo(pinCenter, currentExitRestriction->direction);
-    Line* currentPinExitRay = new Line(pinCenter, currentExitRestriction->direction);
+    Line* currentPinExitRay = new (jrt::kGeom) Line(pinCenter, currentExitRestriction->direction);
     FloatPoint* currentExitCorner = currentPinExitRay->intersectionApprox(
         offsetPinShape->borderLine(currentIntersectingBorderLineNo));
     double currentExitCornerDistance = currentExitCorner->distanceSquare(traceEntryLocationApprox);
@@ -993,13 +993,13 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
       ((*latestEntryTuple)[1] - nearestBorderLineNo + cornerCount) % cornerCount;
   int32_t currentBorderLineNo = nearestBorderLineNo;
   if (counterClockWiseSideDiff <= clockWiseSideDiff) {
-    currentLines = new jrt::Array<Line*>(counterClockWiseSideDiff + 3);
+    currentLines = new (jrt::kGeom) jrt::Array<Line*>(counterClockWiseSideDiff + 3);
     for (int32_t i = 0; i <= counterClockWiseSideDiff; i++) {
       (*currentLines)[i + 1] = offsetPinShape->borderLine(currentBorderLineNo);
       currentBorderLineNo = (currentBorderLineNo + 1) % cornerCount;
     }
   } else {
-    currentLines = new jrt::Array<Line*>(clockWiseSideDiff + 3);
+    currentLines = new (jrt::kGeom) jrt::Array<Line*>(clockWiseSideDiff + 3);
     for (int32_t i = 0; i <= clockWiseSideDiff; i++) {
       (*currentLines)[i + 1] = offsetPinShape->borderLine(currentBorderLineNo);
       currentBorderLineNo = (currentBorderLineNo - 1 + cornerCount) % cornerCount;
@@ -1008,17 +1008,17 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
   (*currentLines)[0] = nearestPinExitRay;
   (*currentLines)[currentLines->length - 1] = (*tracePolyline->lines)[(*latestEntryTuple)[0]];
 
-  Polyline* borderPolyline = new Polyline(currentLines);
+  Polyline* borderPolyline = new (jrt::kGeom) Polyline(currentLines);
   if (!this->board->checkPolylineTrace(borderPolyline, this->getLayer(), this->getHalfWidth(),
                                        this->netNumbers, this->clearanceClassIndex())) {
     return false;
   }
 
   jrt::Array<Line*>* cutLines =
-      new jrt::Array<Line*>(tracePolyline->lines->length - (*latestEntryTuple)[0] + 1);
+      new (jrt::kGeom) jrt::Array<Line*>(tracePolyline->lines->length - (*latestEntryTuple)[0] + 1);
   (*cutLines)[0] = (*currentLines)[currentLines->length - 2];
   jrt::arraycopy(tracePolyline->lines, (*latestEntryTuple)[0], cutLines, 1, cutLines->length - 1);
-  Polyline* cutPolyline = new Polyline(cutLines);
+  Polyline* cutPolyline = new (jrt::kGeom) Polyline(cutLines);
   Polyline* changedPolyline;
   if (cutPolyline->firstCorner()->equals(cutPolyline->lastCorner())) {
     changedPolyline = borderPolyline;
@@ -1031,11 +1031,11 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
   this->change(changedPolyline);
 
   // create a shoveFixed exit line.
-  currentLines = new jrt::Array<Line*>(3);
-  (*currentLines)[0] = new Line(pinCenter, pinExitDirection->turn45Degree(2));
+  currentLines = new (jrt::kGeom) jrt::Array<Line*>(3);
+  (*currentLines)[0] = new (jrt::kGeom) Line(pinCenter, pinExitDirection->turn45Degree(2));
   (*currentLines)[1] = nearestPinExitRay;
   (*currentLines)[2] = offsetPinShape->borderLine(nearestBorderLineNo);
-  Polyline* exitLineSegment = new Polyline(currentLines);
+  Polyline* exitLineSegment = new (jrt::kGeom) Polyline(currentLines);
   this->board->insertTrace(exitLineSegment, this->getLayer(), this->getHalfWidth(),
                            this->netNumbers, this->clearanceClassIndex(),
                            FixedState::SHOVE_FIXED);

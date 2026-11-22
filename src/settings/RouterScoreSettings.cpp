@@ -5,7 +5,7 @@
 namespace fr {
 
 RouterScoreSettings* RouterScoreSettings::clone() {
-  auto* c = new RouterScoreSettings();
+  auto* c = new (jrt::kBoard) RouterScoreSettings();
   c->version = version;
   c->unroutedConnectionWeight = unroutedConnectionWeight;
   c->unroutedFreeFraction = unroutedFreeFraction;

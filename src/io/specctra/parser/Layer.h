@@ -29,7 +29,7 @@ class Layer : public virtual jrt::Object {
 
   /** Creates a new instance of Layer with an empty net name list. */
   Layer(const std::string& name, int32_t no, bool isSignal)
-      : Layer(name, no, isSignal, new jrt::LinkedList<std::string>()) {}
+      : Layer(name, no, isSignal, new (jrt::kOp) jrt::LinkedList<std::string>()) {}
 
   /** Writes a layer scope in the structure scope. Throws jrt::IOException. */
   static void writeScope(WriteScopeParameter* scopeParameter, int32_t layerIndex, bool writeRule);

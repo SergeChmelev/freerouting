@@ -27,7 +27,7 @@ std::string formatMax4(float value) {
 }  // namespace
 
 std::string PrintableShape_Circle::toString() {
-  TextManager* tm = new TextManager(jrt::className(this), this->locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), this->locale);
 
   std::string result = tm->getText("circle") + ": ";
   if (center->x != 0 || center->y != 0) {
@@ -42,7 +42,7 @@ std::string PrintableShape_Circle::toString() {
 }
 
 std::string PrintableShape_Rectangle::toString() {
-  TextManager* tm = new TextManager(jrt::className(this), this->locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), this->locale);
 
   return tm->getText("rectangle") + ": " + tm->getText("lowerLeft") + " = " +
          lowerLeft->toString() + ", " + tm->getText("upperRight") + " = " +
@@ -50,7 +50,7 @@ std::string PrintableShape_Rectangle::toString() {
 }
 
 std::string PrintableShape_Polygon::toString() {
-  TextManager* tm = new TextManager(jrt::className(this), this->locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), this->locale);
 
   std::string joined;
   for (int32_t i = 0; i < corners->length; i++) {

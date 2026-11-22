@@ -9,7 +9,7 @@ namespace fr {
 
 Padstacks::Padstacks(LayerStructure* layerStructure) {
   boardLayerStructure = layerStructure;
-  padstacks = new jrt::ArrayList<Padstack*>();
+  padstacks = new (jrt::kBoard) jrt::ArrayList<Padstack*>();
 }
 
 Padstack* Padstacks::get(const std::string& name) {
@@ -55,7 +55,7 @@ double Padstacks::getMaxDrillRadius() {
 Padstack* Padstacks::add(const std::string& name, jrt::Array<ConvexShape*>* shapes,
                          jrt::Array<jrt::Array<ConvexShape*>*>* auxiliaryShapes, bool drillAllowed,
                          bool placedAbsolute) {
-  auto* newPadstack = new Padstack(name, padstacks->size() + 1, shapes, auxiliaryShapes,
+  auto* newPadstack = new (jrt::kBoard) Padstack(name, padstacks->size() + 1, shapes, auxiliaryShapes,
                                    drillAllowed, placedAbsolute, this);
   padstacks->add(newPadstack);
   return newPadstack;
@@ -78,7 +78,7 @@ Padstack* Padstacks::add(jrt::Array<ConvexShape*>* shapes,
 }
 
 Padstack* Padstacks::add(ConvexShape* shape, int32_t fromLayer, int32_t toLayer) {
-  auto* shapes = new jrt::Array<ConvexShape*>(boardLayerStructure->layers->length);
+  auto* shapes = new (jrt::kGeom) jrt::Array<ConvexShape*>(boardLayerStructure->layers->length);
   int32_t firstLayer = jrt::Math::max(fromLayer, 0);
   int32_t lastLayer = jrt::Math::min(toLayer, boardLayerStructure->layers->length - 1);
   for (int32_t i = firstLayer; i <= lastLayer; i++) {

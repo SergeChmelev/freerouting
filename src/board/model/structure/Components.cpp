@@ -14,10 +14,10 @@
 namespace fr {
 
 Components* Components::deepCopy() {
-  auto* result = new Components();
+  auto* result = new (jrt::kBoard) Components();
   // Every component (also those only reachable from the undo/redo history) is cloned exactly
   // once; the same original maps to the same copy everywhere.
-  auto* copies = new jrt::IdentityHashMap<UndoableObjects_Storable*, UndoableObjects_Storable*>();
+  auto* copies = new (jrt::kOp) jrt::IdentityHashMap<UndoableObjects_Storable*, UndoableObjects_Storable*>();
   auto mapObject = [copies](UndoableObjects_Storable* original) -> UndoableObjects_Storable* {
     if (original == nullptr) {
       return nullptr;
@@ -48,13 +48,13 @@ Components* Components::deepCopy() {
 }
 
 Components::Components()
-    : undoList(new UndoableObjects()), componentArr(new jrt::ArrayList<Component*>()) {}
+    : undoList(new (jrt::kBoard) UndoableObjects()), componentArr(new (jrt::kBoard) jrt::ArrayList<Component*>()) {}
 
 Component* Components::addPrecise(const std::string& name, FloatPoint* exactLocation,
                                   double rotationInDegree, bool onFront, Package* packageFront,
                                   Package* packageBack, bool positionFixed,
                                   const std::optional<std::string>& partNumber) {
-  auto* newComponent = new Component(name, exactLocation, rotationInDegree, onFront, packageFront,
+  auto* newComponent = new (jrt::kOp) Component(name, exactLocation, rotationInDegree, onFront, packageFront,
                                      packageBack, componentArr->size() + 1, positionFixed,
                                      partNumber);
   componentArr->add(newComponent);
@@ -79,7 +79,7 @@ Component* Components::add(Point* location, double rotation, bool onFront,
 Component* Components::copy(Component* original, Vector* translation, Package* componentPackage) {
   FloatPoint* offset = translation->toFloat();
   FloatPoint* location = original->getExactLocation();
-  auto* translated = new FloatPoint(location->x + offset->x, location->y + offset->y);
+  auto* translated = new (jrt::kGeom) FloatPoint(location->x + offset->x, location->y + offset->y);
   return addPrecise("Component#" + jrt::str(componentArr->size() + 1), translated,
                     original->getRotationInDegree(), original->placedOnFront(), componentPackage,
                     componentPackage, false, original->getPartNumber());

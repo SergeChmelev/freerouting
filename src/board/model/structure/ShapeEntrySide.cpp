@@ -14,7 +14,7 @@
 namespace fr {
 
 ShapeEntrySide* ShapeEntrySide::NOT_CALCULATED() {
-  static ShapeEntrySide* v = new ShapeEntrySide(-1, nullptr);
+  static ShapeEntrySide* v = new (jrt::kBoard) ShapeEntrySide(-1, nullptr);
   return v;
 }
 
@@ -24,7 +24,7 @@ ShapeEntrySide::ShapeEntrySide(Polyline* polyline, int32_t no, TileShape* shape)
   bool borderIntersectionFound = false;
   // calculate the edgeIndex of shape, where polyline enters
   for (int32_t currentNo = no; currentNo > 0; currentNo--) {
-    auto* currentSeg = new LineSegment(polyline, currentNo);
+    auto* currentSeg = new (jrt::kGeom) LineSegment(polyline, currentNo);
     jrt::Array<int32_t>* intersections = currentSeg->borderIntersections(shape);
     if (intersections->length > 0) {
       fromsideNo = (*intersections)[0];
@@ -101,7 +101,7 @@ ShapeEntrySide::ShapeEntrySide(LineSegment* lineSegment, TileShape* shape, bool 
     // Check each side of the shape
     for (int32_t i = 0; i < borderLineCount; i++) {
       auto* borderLine =
-          new FloatLine(shape->borderLine(i)->a->toFloat(), shape->borderLine(i)->b->toFloat());
+          new (jrt::kGeom) FloatLine(shape->borderLine(i)->a->toFloat(), shape->borderLine(i)->b->toFloat());
       FloatPoint* projection = borderLine->perpendicularProjection(startCorner);
 
       // Only consider if projection is on the line segment

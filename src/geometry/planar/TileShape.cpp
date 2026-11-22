@@ -24,29 +24,29 @@ TileShape* TileShape::getInstance(jrt::Array<Line*>* lines) {
 }
 
 TileShape* TileShape::getInstance(jrt::Array<Point*>* convexPolygon) {
-  auto* lines = new jrt::Array<Line*>(convexPolygon->length);
+  auto* lines = new (jrt::kGeom) jrt::Array<Line*>(convexPolygon->length);
   for (int32_t j = 0; j < lines->length - 1; j++) {
-    (*lines)[j] = new Line((*convexPolygon)[j], (*convexPolygon)[j + 1]);
+    (*lines)[j] = new (jrt::kGeom) Line((*convexPolygon)[j], (*convexPolygon)[j + 1]);
   }
-  (*lines)[lines->length - 1] = new Line((*convexPolygon)[lines->length - 1], (*convexPolygon)[0]);
+  (*lines)[lines->length - 1] = new (jrt::kGeom) Line((*convexPolygon)[lines->length - 1], (*convexPolygon)[0]);
   return getInstance(lines);
 }
 
 TileShape* TileShape::getInstance(Line* line) {
-  auto* lines = new jrt::Array<Line*>(1);
+  auto* lines = new (jrt::kGeom) jrt::Array<Line*>(1);
   (*lines)[0] = line;
   return Simplex::getInstance(lines);
 }
 
 IntOctagon* TileShape::getInstance(int32_t lx, int32_t ly, int32_t rx, int32_t uy, int32_t ulx,
                                    int32_t lrx, int32_t llx, int32_t urx) {
-  IntOctagon* oct = new IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
+  IntOctagon* oct = new (jrt::kGeom) IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
   return oct->normalize();
 }
 
 IntOctagon* TileShape::getInstance(int32_t lowerLeftX, int32_t lowerLeftY, int32_t upperRightX,
                                    int32_t upperRightY) {
-  IntBox* box = new IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
+  IntBox* box = new (jrt::kGeom) IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
   return box->toIntOctagon();
 }
 
@@ -265,25 +265,25 @@ FloatPoint* TileShape::nearestBorderPointApprox(FloatPoint* fromPoint) {
 jrt::Array<FloatPoint*>* TileShape::nearestBorderPointsApprox(FloatPoint* fromPoint,
                                                               int32_t count) {
   if (count <= 0) {
-    return new jrt::Array<FloatPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<FloatPoint*>(0);
   }
   int32_t lineCount = borderLineCount();
   if (lineCount == 0) {
-    return new jrt::Array<FloatPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<FloatPoint*>(0);
   }
   if (lineCount == 1) {
-    auto* result = new jrt::Array<FloatPoint*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<FloatPoint*>(1);
     (*result)[0] = fromPoint->projectionApprox(borderLine(0));
     return result;
   }
   if (this->dimension() == 0) {
-    auto* result = new jrt::Array<FloatPoint*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<FloatPoint*>(1);
     (*result)[0] = cornerApprox(0);
     return result;
   }
   int32_t resultCount = jrt::Math::min(count, lineCount);
-  auto* nearestPoints = new jrt::Array<FloatPoint*>(resultCount);
-  auto* minDists = new jrt::Array<double>(resultCount);
+  auto* nearestPoints = new (jrt::kGeom) jrt::Array<FloatPoint*>(resultCount);
+  auto* minDists = new (jrt::kOp) jrt::Array<double>(resultCount);
   jrt::Arrays::fill(minDists, jrt::Double::MAX_VALUE);
 
   // calculate the distances to the nearest corners first
@@ -354,20 +354,20 @@ FloatLine* TileShape::diagonalCornerSegment() {
   }
   FloatPoint* firstCorner = this->cornerApprox(0);
   FloatPoint* lastCorner = this->cornerApprox(this->borderLineCount() / 2);
-  return new FloatLine(firstCorner, lastCorner);
+  return new (jrt::kGeom) FloatLine(firstCorner, lastCorner);
 }
 
 jrt::Array<FloatPoint*>* TileShape::nearestRelativeOutsideLocations(TileShape* shape,
                                                                     int32_t count) {
   int32_t lineCount = borderLineCount();
   if (count <= 0 || lineCount < 3 || !this->intersects(static_cast<Shape*>(shape))) {
-    return new jrt::Array<FloatPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<FloatPoint*>(0);
   }
 
   int32_t resultCount = jrt::Math::min(count, lineCount);
 
-  auto* translateCoors = new jrt::Array<FloatPoint*>(resultCount);
-  auto* minDists = new jrt::Array<double>(resultCount);
+  auto* translateCoors = new (jrt::kGeom) jrt::Array<FloatPoint*>(resultCount);
+  auto* minDists = new (jrt::kOp) jrt::Array<double>(resultCount);
   jrt::Arrays::fill(minDists, jrt::Double::MAX_VALUE);
 
   int32_t currentInd = lineCount - 1;
@@ -456,7 +456,7 @@ jrt::Array<int32_t>* TileShape::touchingSides(TileShape* other) {
   }
   if (dir2 == nullptr) {
     FRLogger::warn("touching_side : dir2 not found");
-    return new jrt::Array<int32_t>(0);
+    return new (jrt::kOp) jrt::Array<int32_t>(0);
   }
   int32_t sideNo1 = 0;
   Direction* dir1 = this->borderLine(0)->direction();
@@ -466,7 +466,7 @@ jrt::Array<int32_t>* TileShape::touchingSides(TileShape* other) {
     int32_t compare = dir2->compareTo(dir1);
     if (compare == 0) {
       if (this->borderLine(sideNo1)->isEqualOrOpposite(other->borderLine(sideNo2))) {
-        auto* result = new jrt::Array<int32_t>(2);
+        auto* result = new (jrt::kOp) jrt::Array<int32_t>(2);
         (*result)[0] = sideNo1;
         (*result)[1] = sideNo2;
         return result;
@@ -480,7 +480,7 @@ jrt::Array<int32_t>* TileShape::touchingSides(TileShape* other) {
       dir2 = other->borderLine(sideNo2)->direction()->opposite();
     }
   }
-  return new jrt::Array<int32_t>(0);
+  return new (jrt::kOp) jrt::Array<int32_t>(0);
 }
 
 double TileShape::distanceToTheLeft(Line* line) {
@@ -525,7 +525,7 @@ Side* TileShape::sideOf(Line* line) {
 }
 
 TileShape* TileShape::turn90Degree(int32_t factor, IntPoint* pole) {
-  auto* newLines = new jrt::Array<Line*>(borderLineCount());
+  auto* newLines = new (jrt::kGeom) jrt::Array<Line*>(borderLineCount());
   for (int32_t i = 0; i < newLines->length; i++) {
     (*newLines)[i] = this->borderLine(i)->turn90Degree(factor, pole);
   }
@@ -537,18 +537,18 @@ TileShape* TileShape::rotateApprox(double angle, FloatPoint* pole) {
     return this;
   }
   // PORT NOTE: Java IntPoint[] passed covariantly as Point[] -> Array<Point*> of IntPoints.
-  auto* newCorners = new jrt::Array<Point*>(borderLineCount());
+  auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(borderLineCount());
   for (int32_t i = 0; i < newCorners->length; i++) {
     (*newCorners)[i] = this->cornerApprox(i)->rotate(angle, pole)->round();
   }
-  Polygon* cornerPolygon = new Polygon(newCorners);
+  Polygon* cornerPolygon = new (jrt::kOp) Polygon(newCorners);
   jrt::Array<Point*>* polygonCorners = cornerPolygon->cornerArray();
   TileShape* result;
   if (polygonCorners->length >= 3) {
     result = getInstance(polygonCorners);
   } else if (polygonCorners->length == 2) {
-    Polyline* currentPolyline = new Polyline(polygonCorners);
-    LineSegment* currentSegment = new LineSegment(currentPolyline, 0);
+    Polyline* currentPolyline = new (jrt::kGeom) Polyline(polygonCorners);
+    LineSegment* currentSegment = new (jrt::kGeom) LineSegment(currentPolyline, 0);
     result = currentSegment->toSimplex();
   } else if (polygonCorners->length == 1) {
     result = getInstance((*polygonCorners)[0]);
@@ -559,7 +559,7 @@ TileShape* TileShape::rotateApprox(double angle, FloatPoint* pole) {
 }
 
 TileShape* TileShape::mirrorVertical(IntPoint* pole) {
-  auto* newLines = new jrt::Array<Line*>(borderLineCount());
+  auto* newLines = new (jrt::kGeom) jrt::Array<Line*>(borderLineCount());
   for (int32_t i = 0; i < newLines->length; i++) {
     (*newLines)[i] = this->borderLine(i)->mirrorVertical(pole);
   }
@@ -567,7 +567,7 @@ TileShape* TileShape::mirrorVertical(IntPoint* pole) {
 }
 
 TileShape* TileShape::mirrorHorizontal(IntPoint* pole) {
-  auto* newLines = new jrt::Array<Line*>(borderLineCount());
+  auto* newLines = new (jrt::kGeom) jrt::Array<Line*>(borderLineCount());
   for (int32_t i = 0; i < newLines->length; i++) {
     (*newLines)[i] = this->borderLine(i)->mirrorHorizontal(pole);
   }
@@ -579,7 +579,7 @@ int32_t TileShape::intersectingBorderLineNo(Point* point, Direction* direction) 
     return -1;
   }
   FloatPoint* fromPoint = point->toFloat();
-  Line* intersectionLine = new Line(point, direction);
+  Line* intersectionLine = new (jrt::kGeom) Line(point, direction);
   FloatPoint* secondLinePoint = intersectionLine->b->toFloat();
   int32_t result = -1;
   double minDistance = jrt::Float::MAX_VALUE;
@@ -610,14 +610,14 @@ jrt::Array<Polyline*>* TileShape::cutout(Polyline* polyline) {
     // no intersections
     if (firstCornerIsInside) {
       // polyline is contained completely in this shape
-      return new jrt::Array<Polyline*>(0);
+      return new (jrt::kGeom) jrt::Array<Polyline*>(0);
     }
     // polyline is completely outside
-    auto* result = new jrt::Array<Polyline*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<Polyline*>(1);
     (*result)[0] = polyline;
     return result;
   }
-  jrt::Collection<Polyline*>* pieces = new jrt::LinkedList<Polyline*>();
+  jrt::Collection<Polyline*>* pieces = new (jrt::kOp) jrt::LinkedList<Polyline*>();
   int32_t currentIntersectionNo = 0;
   jrt::Array<int32_t>* currentIntersectionTuple = (*intersectionNo)[currentIntersectionNo];
   Point* firstIntersection = (*polyline->lines)[(*currentIntersectionTuple)[0]]->intersection(
@@ -627,12 +627,12 @@ jrt::Array<Polyline*>* TileShape::cutout(Polyline* polyline) {
     if (!firstCorner->equals(firstIntersection)) {
       // otherwise skip 1 point outside polyline at the start
       int32_t currentPolylineIntersectionNo = (*currentIntersectionTuple)[0];
-      auto* currentLines = new jrt::Array<Line*>(currentPolylineIntersectionNo + 2);
+      auto* currentLines = new (jrt::kGeom) jrt::Array<Line*>(currentPolylineIntersectionNo + 2);
       jrt::arraycopy(polyline->lines, 0, currentLines, 0, currentPolylineIntersectionNo + 1);
       // close the polyline piece with the intersected edge line.
       (*currentLines)[currentPolylineIntersectionNo + 1] =
           this->borderLine((*currentIntersectionTuple)[1]);
-      Polyline* currentPiece = new Polyline(currentLines);
+      Polyline* currentPiece = new (jrt::kGeom) Polyline(currentLines);
       if (!currentPiece->isEmpty()) {
         pieces->add(currentPiece);
       }
@@ -660,13 +660,13 @@ jrt::Array<Polyline*>* TileShape::cutout(Polyline* polyline) {
     }
 
     if (insertPiece) {
-      auto* currentLines = new jrt::Array<Line*>(nextIntersectionNoOfPolyline -
+      auto* currentLines = new (jrt::kGeom) jrt::Array<Line*>(nextIntersectionNoOfPolyline -
                                                  currentIntersectionNoOfPolyline + 3);
       (*currentLines)[0] = this->borderLine((*currentIntersectionTuple)[1]);
       jrt::arraycopy(polyline->lines, currentIntersectionNoOfPolyline, currentLines, 1,
                      currentLines->length - 2);
       (*currentLines)[currentLines->length - 1] = this->borderLine((*nextIntersectionTuple)[1]);
-      Polyline* currentPiece = new Polyline(currentLines);
+      Polyline* currentPiece = new (jrt::kGeom) Polyline(currentLines);
       if (!currentPiece->isEmpty()) {
         pieces->add(currentPiece);
       }
@@ -678,16 +678,16 @@ jrt::Array<Polyline*>* TileShape::cutout(Polyline* polyline) {
     currentIntersectionTuple = (*intersectionNo)[currentIntersectionNo];
     int32_t currentPolylineIntersectionNo = (*currentIntersectionTuple)[0];
     auto* currentLines =
-        new jrt::Array<Line*>(polyline->lines->length - currentPolylineIntersectionNo + 1);
+        new (jrt::kGeom) jrt::Array<Line*>(polyline->lines->length - currentPolylineIntersectionNo + 1);
     (*currentLines)[0] = this->borderLine((*currentIntersectionTuple)[1]);
     jrt::arraycopy(polyline->lines, currentPolylineIntersectionNo, currentLines, 1,
                    currentLines->length - 1);
-    Polyline* currentPiece = new Polyline(currentLines);
+    Polyline* currentPiece = new (jrt::kGeom) Polyline(currentLines);
     if (!currentPiece->isEmpty()) {
       pieces->add(currentPiece);
     }
   }
-  auto* result = new jrt::Array<Polyline*>(pieces->size());
+  auto* result = new (jrt::kGeom) jrt::Array<Polyline*>(pieces->size());
   jrt::Iterator<Polyline*>* it = pieces->iterator();
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = it->next();
@@ -702,7 +702,7 @@ jrt::Array<jrt::Array<int32_t>*>* TileShape::entrancePoints(Polyline* polyline) 
   int32_t prevIntersectionLineNo = -1;
   int32_t prevIntersectionEdgeNo = -1;
   for (int32_t lineIndex = 1; lineIndex < polyline->lines->length - 1; lineIndex++) {
-    LineSegment* currentLineSeg = new LineSegment(polyline, lineIndex);
+    LineSegment* currentLineSeg = new (jrt::kGeom) LineSegment(polyline, lineIndex);
     jrt::Array<int32_t>* currentIntersections = currentLineSeg->borderIntersections(this);
     for (int32_t i = 0; i < currentIntersections->length; i++) {
       int32_t edgeIndex = (*currentIntersections)[i];
@@ -719,13 +719,13 @@ jrt::Array<jrt::Array<int32_t>*>* TileShape::entrancePoints(Polyline* polyline) 
 }
 
 jrt::Array<TileShape*>* TileShape::splitToConvex() {
-  auto* result = new jrt::Array<TileShape*>(1);
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(1);
   (*result)[0] = this;
   return result;
 }
 
 jrt::Array<TileShape*>* TileShape::splitIntoSlices(int32_t count) {
-  auto* result = new jrt::Array<TileShape*>(jrt::Math::max(1, count));
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(jrt::Math::max(1, count));
   if (result->length == 1) {
     (*result)[0] = this;
     return result;
@@ -737,8 +737,8 @@ jrt::Array<TileShape*>* TileShape::splitIntoSlices(int32_t count) {
   for (int32_t i = 0; i < result->length; i++) {
     int32_t from = jrt::l2i(low + extent * i / result->length);
     int32_t to = jrt::l2i(low + extent * (i + 1) / result->length);
-    IntBox* slab = alongX ? new IntBox(from, box->ll->y, to, box->ur->y)
-                          : new IntBox(box->ll->x, from, box->ur->x, to);
+    IntBox* slab = alongX ? new (jrt::kGeom) IntBox(from, box->ll->y, to, box->ur->y)
+                          : new (jrt::kGeom) IntBox(box->ll->x, from, box->ur->x, to);
     TileShape* slice = to > from ? this->intersectionWithSimplify(slab) : nullptr;
     (*result)[i] =
         slice == nullptr || slice->isEmpty() || slice->dimension() < 2 ? this : slice;
@@ -748,11 +748,11 @@ jrt::Array<TileShape*>* TileShape::splitIntoSlices(int32_t count) {
 
 jrt::Array<TileShape*>* TileShape::splitToTightOctagons(jrt::Array<TileShape*>* convexShapes,
                                                         double tolerance) {
-  jrt::Collection<TileShape*>* pieces = new jrt::LinkedList<TileShape*>();
+  jrt::Collection<TileShape*>* pieces = new (jrt::kOp) jrt::LinkedList<TileShape*>();
   for (TileShape* shape : *convexShapes) {
     addTightOctagonPieces(shape, tolerance, 0, pieces);
   }
-  return new jrt::Array<TileShape*>(pieces->toVector());
+  return new (jrt::kGeom) jrt::Array<TileShape*>(pieces->toVector());
 }
 
 void TileShape::addTightOctagonPieces(TileShape* shape, double tolerance, int32_t depth,
@@ -771,12 +771,12 @@ void TileShape::addTightOctagonPieces(TileShape* shape, double tolerance, int32_
   IntBox* secondHalf;
   if (box->width() >= box->height()) {
     int32_t middle = box->ll->x + box->width() / 2;
-    firstHalf = new IntBox(box->ll->x, box->ll->y, middle, box->ur->y);
-    secondHalf = new IntBox(middle, box->ll->y, box->ur->x, box->ur->y);
+    firstHalf = new (jrt::kGeom) IntBox(box->ll->x, box->ll->y, middle, box->ur->y);
+    secondHalf = new (jrt::kGeom) IntBox(middle, box->ll->y, box->ur->x, box->ur->y);
   } else {
     int32_t middle = box->ll->y + box->height() / 2;
-    firstHalf = new IntBox(box->ll->x, box->ll->y, box->ur->x, middle);
-    secondHalf = new IntBox(box->ll->x, middle, box->ur->x, box->ur->y);
+    firstHalf = new (jrt::kGeom) IntBox(box->ll->x, box->ll->y, box->ur->x, middle);
+    secondHalf = new (jrt::kGeom) IntBox(box->ll->x, middle, box->ur->x, box->ur->y);
   }
   for (IntBox* half : {firstHalf, secondHalf}) {
     TileShape* piece = shape->intersectionWithSimplify(half);
@@ -797,19 +797,19 @@ double TileShape::boundingOctagonExcess() {
 
 jrt::Array<TileShape*>* TileShape::divideIntoSections(double maxSectionWidth) {
   if (this->isEmpty()) {
-    auto* result = new jrt::Array<TileShape*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(1);
     (*result)[0] = this;
     return result;
   }
   jrt::Array<TileShape*>* sectionBoxes = this->boundingBox()->divideIntoSections(maxSectionWidth);
-  jrt::Collection<TileShape*>* sectionList = new jrt::LinkedList<TileShape*>();
+  jrt::Collection<TileShape*>* sectionList = new (jrt::kOp) jrt::LinkedList<TileShape*>();
   for (int32_t i = 0; i < sectionBoxes->length; i++) {
     TileShape* currentSection = this->intersectionWithSimplify((*sectionBoxes)[i]);
     if (currentSection->dimension() == 2) {
       sectionList->add(currentSection);
     }
   }
-  auto* result = new jrt::Array<TileShape*>(sectionList->size());
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(sectionList->size());
   jrt::Iterator<TileShape*>* it = sectionList->iterator();
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = it->next();
@@ -826,8 +826,8 @@ bool TileShape::isIntersectedInteriorBy(Point* startPoint, Point* endPoint, Line
   FloatPoint* floatStartPoint = startPoint->toFloat();
   FloatPoint* floatEndPoint = endPoint->toFloat();
 
-  auto* borderLineSideOfStartPointArr = new jrt::Array<Side*>(this->borderLineCount());
-  auto* borderLineSideOfEndPointArr = new jrt::Array<Side*>(borderLineSideOfStartPointArr->length);
+  auto* borderLineSideOfStartPointArr = new (jrt::kGeom) jrt::Array<Side*>(this->borderLineCount());
+  auto* borderLineSideOfEndPointArr = new (jrt::kGeom) jrt::Array<Side*>(borderLineSideOfStartPointArr->length);
   for (int32_t i = 0; i < borderLineSideOfStartPointArr->length; i++) {
     Line* currentBorderLine = this->borderLine(i);
     Side* borderLineSideOfStartPoint = currentBorderLine->sideOf(floatStartPoint, 1);

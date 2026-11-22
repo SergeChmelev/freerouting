@@ -58,7 +58,7 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
     throw jrt::IllegalArgumentException("direct_first requires the autorouter stage");
   }
   int64_t started = jrt::System::currentTimeMillis();
-  jrt::List<Pin*>* pins = new jrt::ArrayList<Pin*>();
+  jrt::List<Pin*>* pins = new (jrt::kOp) jrt::ArrayList<Pin*>();
   for (Pin* pin : *board->getSmdPins()) {
     if (pin->netCount() == 1 && !pin->hasIgnoredNets()) {
       pins->add(pin);
@@ -67,11 +67,11 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
   pins->sort(jrt::thenComparing<Pin*>(
       jrt::comparingInt<Pin*>([](Pin* p) { return p->getComponentId(); }),
       jrt::comparingInt<Pin*>([](Pin* pin) { return pin->pinIndex; })));
-  jrt::List<DirectPinRouting_FixedCopper*>* fixed = new jrt::ArrayList<DirectPinRouting_FixedCopper*>();
+  jrt::List<DirectPinRouting_FixedCopper*>* fixed = new (jrt::kOp) jrt::ArrayList<DirectPinRouting_FixedCopper*>();
   for (Item* item : *board->getItems()) {
     if ((jrt::fast_cast<Trace>(item) != nullptr || jrt::fast_cast<Via>(item) != nullptr) &&
         !FixedState_isFix(item->getFixedState())) {
-      fixed->add(new DirectPinRouting_FixedCopper(item->getId(), item->getFixedState()));
+      fixed->add(new (jrt::kOp) DirectPinRouting_FixedCopper(item->getId(), item->getFixedState()));
       item->setFixedState(FixedState::SYSTEM_FIXED);
     }
   }
@@ -121,17 +121,17 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
     throw;
   }
   finallyBlock();
-  BoardStatistics* stats = new BoardStatistics(board);
+  BoardStatistics* stats = new (jrt::kOp) BoardStatistics(board);
   FRLogger::info("Direct pin routing: " + jrt::str(routed) + " complete surface connections, " +
                  jrt::str(deferred) + " deferred.");
-  return new BatchFanout_FanoutRunSummary(1, jrt::System::currentTimeMillis() - started,
+  return new (jrt::kOp) BatchFanout_FanoutRunSummary(1, jrt::System::currentTimeMillis() - started,
                                           BatchFanout_EscapeStatistics::fromBoardStatistics(stats), false);
 }
 
 AutorouteAttemptResult* DirectPinRouting::routeOnLayer(RoutingBoard* board, RouterSettings* settings,
                                                        StoppableThread* thread, Pin* pin, int32_t net,
                                                        int32_t layer, bool neck) {
-  AutorouteControl* control = new AutorouteControl(board, net, settings);
+  AutorouteControl* control = new (jrt::kOp) AutorouteControl(board, net, settings);
   control->viasAllowed = false;
   control->ripupAllowed = false;
   control->removeUnconnectedVias = false;
@@ -139,12 +139,12 @@ AutorouteAttemptResult* DirectPinRouting::routeOnLayer(RoutingBoard* board, Rout
     (*control->layerActive)[i] = (*control->layerActive)[i] && i == layer;
   }
   if (!(*control->layerActive)[layer]) {
-    return new AutorouteAttemptResult(AutorouteAttemptState::FAILED, "Pin layer is inactive.");
+    return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::FAILED, "Pin layer is inactive.");
   }
   if (neck) {
     int32_t neckHalfWidth = DirectPinRouting::neckHalfWidth(board, settings);
     if (neckHalfWidth >= (*control->traceHalfWidth)[layer]) {
-      return new AutorouteAttemptResult(AutorouteAttemptState::FAILED,
+      return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::FAILED,
                                         "Neck width is not narrower than the class width.");
     }
     int32_t compensation = (*control->compensatedTraceHalfWidth)[layer] - (*control->traceHalfWidth)[layer];
@@ -156,9 +156,9 @@ AutorouteAttemptResult* DirectPinRouting::routeOnLayer(RoutingBoard* board, Rout
                          : 1000LL;
   AutorouteEngine* engine = board->initAutoroute(
       net, control->traceClearanceClassIndex, thread,
-      new TimeLimit(jrt::l2i(jrt::Math::min(perPinMs, static_cast<int64_t>(jrt::Integer::MAX_VALUE)))), false);
+      new (jrt::kOp) TimeLimit(jrt::l2i(jrt::Math::min(perPinMs, static_cast<int64_t>(jrt::Integer::MAX_VALUE)))), false);
   return engine->autorouteConnection(pin->getConnectedSet(net), pin->getUnconnectedSet(net), control,
-                                     new jrt::TreeSet<Item*>(), nullptr);
+                                     new (jrt::kOp) jrt::TreeSet<Item*>(), nullptr);
 }
 
 int32_t DirectPinRouting::neckHalfWidth(RoutingBoard* board, RouterSettings* settings) {

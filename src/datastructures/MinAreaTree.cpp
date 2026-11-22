@@ -14,11 +14,11 @@ namespace fr {
 // ---------------------------------------------------------------------------------------------
 
 MinAreaTree_ThreadScratchStacks::MinAreaTree_ThreadScratchStacks()
-    : stacks(new jrt::ArrayList<ArrayStack<ShapeTree_TreeNode*>*>(2)) {}
+    : stacks(new (jrt::kOp) jrt::ArrayList<ArrayStack<ShapeTree_TreeNode*>*>(2)) {}
 
 ArrayStack<ShapeTree_TreeNode*>* MinAreaTree_ThreadScratchStacks::acquire() {
   if (activeDepth == stacks->size()) {
-    stacks->add(new ArrayStack<ShapeTree_TreeNode*>(INITIAL_STACK_CAPACITY));
+    stacks->add(new (jrt::kOp) ArrayStack<ShapeTree_TreeNode*>(INITIAL_STACK_CAPACITY));
   }
   ArrayStack<ShapeTree_TreeNode*>* stack = stacks->get(activeDepth++);
   stack->reset();
@@ -37,7 +37,7 @@ void MinAreaTree_ThreadScratchStacks::release(ArrayStack<ShapeTree_TreeNode*>* s
 // ---------------------------------------------------------------------------------------------
 
 MinAreaTree_ThreadScratchStacks* MinAreaTree::SCRATCH_STACKS() {
-  static MinAreaTree_ThreadScratchStacks* v = new MinAreaTree_ThreadScratchStacks();
+  static MinAreaTree_ThreadScratchStacks* v = new (jrt::kBoard) MinAreaTree_ThreadScratchStacks();
   return v;
 }
 
@@ -58,7 +58,7 @@ void MinAreaTree::overlaps(RegularTileShape* shape, jrt::List<ShapeTree_Leaf*>* 
 }
 
 jrt::List<ShapeTree_Leaf*>* MinAreaTree::overlapsUnlocked(RegularTileShape* shape) {
-  jrt::List<ShapeTree_Leaf*>* foundOverlaps = new jrt::ArrayList<ShapeTree_Leaf*>();
+  jrt::List<ShapeTree_Leaf*>* foundOverlaps = new (jrt::kOp) jrt::ArrayList<ShapeTree_Leaf*>();
   overlapsUnlocked(shape, foundOverlaps);
   return foundOverlaps;
 }
@@ -130,7 +130,7 @@ void MinAreaTree::insertUnlocked(ShapeTree_Leaf* leaf) {
   // Construct a new node - whenever a leaf is added so is a new node
   RegularTileShape* newBounds = leaf->boundingShape->union_(leafToReplace->boundingShape);
   ShapeTree_InnerNode* currentParent = leafToReplace->parent;
-  auto* newNode = new ShapeTree_InnerNode(newBounds, currentParent);
+  auto* newNode = new (jrt::kBoard) ShapeTree_InnerNode(newBounds, currentParent);
 
   if (leafToReplace->parent != nullptr) {
     // Replace the pointer from the parent to the leaf with our new node

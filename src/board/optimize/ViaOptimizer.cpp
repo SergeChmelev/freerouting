@@ -26,7 +26,7 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
                                   jrt::Array<AutorouteControl_ExpansionCostFactor*>* traceCosts,
                                   int32_t tracePullTightAccuracy, int32_t maxRecursionDepth) {
   return optViaLocation(board, via, traceCosts, tracePullTightAccuracy, maxRecursionDepth,
-                        new ViaMoveHistory());
+                        new (jrt::kBoard) ViaMoveHistory());
 }
 
 bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
@@ -110,7 +110,7 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
     firstLayerTraceCosts = (*traceCosts)[firstLayer];
     secondLayerTraceCosts = (*traceCosts)[secondLayer];
   } else {
-    firstLayerTraceCosts = new AutorouteControl_ExpansionCostFactor(1, 1);
+    firstLayerTraceCosts = new (jrt::kOp) AutorouteControl_ExpansionCostFactor(1, 1);
     secondLayerTraceCosts = firstLayerTraceCosts;
   }
 
@@ -133,7 +133,7 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
   }
   history->recordMove(via, viaCenter, newLocation, tracePullTightAccuracy);
   ItemSelectionFilter* filter =
-      new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+      new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
   jrt::Collection<Item*>* pickedItems =
       board->pickItems(newLocation, firstTrace->getLayer(), filter);
   for (Item* currentItem : *pickedItems) {
@@ -143,7 +143,7 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
   for (Item* currentItem : *pickedItems) {
     jrt::fast_cast<PolylineTrace>(currentItem)->pullTight(true, tracePullTightAccuracy, nullptr);
   }
-  filter = new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::VIAS);
+  filter = new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::VIAS);
   pickedItems = board->pickItems(newLocation, firstTrace->getLayer(), filter);
   for (Item* currentItem : *pickedItems) {
     optViaLocation(board, jrt::fast_cast<Via>(currentItem), traceCosts, tracePullTightAccuracy,
@@ -225,7 +225,7 @@ bool ViaOptimizer::optPlaneOrFanoutVia(RoutingBoard* board, Via* via,
     FloatPoint* floatViaCenter = viaCenter->toFloat();
     FloatPoint* floatPrevCorner = prevCorner->toFloat();
     if (floatCheckCorner->scalarProduct(floatViaCenter, floatPrevCorner) != 0) {
-      FloatLine* currentLine = new FloatLine(floatCheckCorner, floatPrevCorner);
+      FloatLine* currentLine = new (jrt::kGeom) FloatLine(floatCheckCorner, floatPrevCorner);
       Point* projection = currentLine->perpendicularProjection(floatViaCenter)->round();
       Vector* diffVector = projection->differenceBy(viaCenter);
       bool projectionOk = true;
@@ -254,7 +254,7 @@ bool ViaOptimizer::optPlaneOrFanoutVia(RoutingBoard* board, Via* via,
   if (contactPlane != nullptr) {
     // check, that the new location is inside the contact plane
     ItemSelectionFilter* filter =
-        new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::CONDUCTION);
+        new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::CONDUCTION);
     jrt::Collection<Item*>* pickedItems =
         board->pickItems(newViaLocation, contactPlane->getLayer(), filter);
     bool contactOk = false;
@@ -274,7 +274,7 @@ bool ViaOptimizer::optPlaneOrFanoutVia(RoutingBoard* board, Via* via,
     return false;
   }
   ItemSelectionFilter* filter =
-      new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+      new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
   jrt::Collection<Item*>* pickedItems =
       board->pickItems(newViaLocation, contactTrace->getLayer(), filter);
   for (Item* currentItem : *pickedItems) {
@@ -494,7 +494,7 @@ Point* ViaOptimizer::repositionVia(RoutingBoard* board, Via* via, int32_t firstT
 
   if (!firstDelta->isOrthogonal()) {
     FloatPoint* floatCheckLocation =
-        new FloatPoint(floatViaLocation->x, floatFirstTraceFromCorner->y);
+        new (jrt::kGeom) FloatPoint(floatViaLocation->x, floatFirstTraceFromCorner->y);
 
     currentWeightedDistance1 = floatViaLocation->weightedDistance(
         floatFirstTraceFromCorner, firstTraceCosts->horizontal(), firstTraceCosts->vertical());
@@ -514,7 +514,7 @@ Point* ViaOptimizer::repositionVia(RoutingBoard* board, Via* via, int32_t firstT
       }
     }
 
-    floatCheckLocation = new FloatPoint(floatFirstTraceFromCorner->x, floatViaLocation->y);
+    floatCheckLocation = new (jrt::kGeom) FloatPoint(floatFirstTraceFromCorner->x, floatViaLocation->y);
 
     currentWeightedDistance2 = floatViaLocation->weightedDistance(
         floatCheckLocation, secondTraceCosts->horizontal(), secondTraceCosts->vertical());
@@ -535,7 +535,7 @@ Point* ViaOptimizer::repositionVia(RoutingBoard* board, Via* via, int32_t firstT
 
   if (!secondDelta->isOrthogonal()) {
     FloatPoint* floatCheckLocation =
-        new FloatPoint(floatViaLocation->x, floatSecondTraceFromCorner->y);
+        new (jrt::kGeom) FloatPoint(floatViaLocation->x, floatSecondTraceFromCorner->y);
 
     currentWeightedDistance1 = floatViaLocation->weightedDistance(
         floatSecondTraceFromCorner, secondTraceCosts->horizontal(), secondTraceCosts->vertical());
@@ -555,7 +555,7 @@ Point* ViaOptimizer::repositionVia(RoutingBoard* board, Via* via, int32_t firstT
       }
     }
 
-    floatCheckLocation = new FloatPoint(floatSecondTraceFromCorner->x, floatViaLocation->y);
+    floatCheckLocation = new (jrt::kGeom) FloatPoint(floatSecondTraceFromCorner->x, floatViaLocation->y);
 
     currentWeightedDistance2 = floatViaLocation->weightedDistance(
         floatCheckLocation, firstTraceCosts->horizontal(), firstTraceCosts->vertical());

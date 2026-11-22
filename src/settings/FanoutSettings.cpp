@@ -5,7 +5,7 @@
 namespace fr {
 
 FanoutSettings* FanoutSettings::clone() {
-  auto* c = new FanoutSettings();
+  auto* c = new (jrt::kBoard) FanoutSettings();
   c->enabled = enabled;
   c->maxPasses = maxPasses;
   c->maxItems = maxItems;

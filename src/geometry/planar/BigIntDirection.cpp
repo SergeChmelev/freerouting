@@ -12,7 +12,7 @@ bool BigIntDirection::isOrthogonal() { return x.signum() == 0 || y.signum() == 0
 
 bool BigIntDirection::isDiagonal() { return x.abs().equals(y.abs()); }
 
-Vector* BigIntDirection::getVector() { return new RationalVector(x, y, jrt::BigInteger::ONE()); }
+Vector* BigIntDirection::getVector() { return new (jrt::kGeom) RationalVector(x, y, jrt::BigInteger::ONE()); }
 
 Direction* BigIntDirection::turn45Degree(int32_t factor) {
   jrt::BigInteger r0, r1;
@@ -50,17 +50,17 @@ Direction* BigIntDirection::turn45Degree(int32_t factor) {
       r1 = y.subtract(x);
       break;
   }
-  return Direction::getInstance(new RationalVector(r0, r1, jrt::BigInteger::ONE()));
+  return Direction::getInstance(new (jrt::kGeom) RationalVector(r0, r1, jrt::BigInteger::ONE()));
 }
 
-Direction* BigIntDirection::opposite() { return new BigIntDirection(x.negate(), y.negate()); }
+Direction* BigIntDirection::opposite() { return new (jrt::kGeom) BigIntDirection(x.negate(), y.negate()); }
 
 int32_t BigIntDirection::compareTo(Direction* otherDirection) {
   return -otherDirection->compareTo(this);
 }
 
 int32_t BigIntDirection::compareTo(IntDirection* otherDirection) {
-  BigIntDirection* other = new BigIntDirection(otherDirection);
+  BigIntDirection* other = new (jrt::kGeom) BigIntDirection(otherDirection);
   return compareTo(other);
 }
 

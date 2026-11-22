@@ -71,7 +71,7 @@ std::string BoardOutline_EdgeWindow::toString() {
 
 BoardOutline::BoardOutline(jrt::Array<PolylineShape*>* shapes, int32_t clearanceClassIndex,
                            int32_t id, BasicBoard* board)
-    : Item(new jrt::Array<int32_t>(0), clearanceClassIndex, id, 0, FixedState::SYSTEM_FIXED,
+    : Item(new (jrt::kBoard) jrt::Array<int32_t>(0), clearanceClassIndex, id, 0, FixedState::SYSTEM_FIXED,
            board) {
   this->shapes = shapes;
 }
@@ -130,7 +130,7 @@ jrt::Set<int32_t>* BoardOutline::getEdgePinNets() {
   }
   if (this->edgePinNets == nullptr || this->cachedItemCount != currentItemCount) {
     this->cachedItemCount = currentItemCount;
-    jrt::Set<int32_t>* set = new jrt::HashSet<int32_t>();
+    jrt::Set<int32_t>* set = new (jrt::kOp) jrt::HashSet<int32_t>();
     if (this->board != nullptr) {
       for (Pin* pin : *this->board->getPins()) {
         if (this->isEdgePin(pin)) {
@@ -195,7 +195,7 @@ double BoardOutline::distanceToOutline(FloatPoint* point) {
     for (int32_t i = 0; i < cornerCount; i++) {
       FloatPoint* from = outlineShape->corner(i)->toFloat();
       FloatPoint* to = outlineShape->corner((i + 1) % cornerCount)->toFloat();
-      result = jrt::Math::min(result, (new FloatLine(from, to))->segmentDistance(point));
+      result = jrt::Math::min(result, (new (jrt::kGeom) FloatLine(from, to))->segmentDistance(point));
     }
   }
   return result;
@@ -282,9 +282,9 @@ bool BoardOutline::blocksTraceAt(TileShape* traceShape, int32_t layer,
   if (this->board == nullptr || this->lineSliceCount() <= 0 || this->pieceWindows == nullptr) {
     return true;
   }
-  jrt::Collection<ShapeTree_TreeEntry*>* entries = new jrt::ArrayList<ShapeTree_TreeEntry*>();
+  jrt::Collection<ShapeTree_TreeEntry*>* entries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
   this->board->searchTreeManager->getDefaultTree()->overlappingTreeEntriesWithClearance(
-      static_cast<ConvexShape*>(traceShape), layer, new jrt::Array<int32_t>(0),
+      static_cast<ConvexShape*>(traceShape), layer, new (jrt::kOp) jrt::Array<int32_t>(0),
       clearanceClassIndex, entries);
   bool reached = false;
   for (ShapeTree_TreeEntry* entry : *entries) {
@@ -327,7 +327,7 @@ int32_t BoardOutline::lastLayer() { return this->board->layerStructure->layers->
 bool BoardOutline::isOnLayer(int32_t layer) { return true; }
 
 void BoardOutline::translateBy(Vector* vector) {
-  auto* newShapes = new jrt::Array<PolylineShape*>(this->shapes->length);
+  auto* newShapes = new (jrt::kGeom) jrt::Array<PolylineShape*>(this->shapes->length);
   for (int32_t i = 0; i < this->shapes->length; i++) {
     (*newShapes)[i] = (*this->shapes)[i]->translateBy(vector);
   }
@@ -344,7 +344,7 @@ void BoardOutline::translateBy(Vector* vector) {
 }
 
 void BoardOutline::turn90Degree(int32_t factor, IntPoint* pole) {
-  auto* newShapes = new jrt::Array<PolylineShape*>(this->shapes->length);
+  auto* newShapes = new (jrt::kGeom) jrt::Array<PolylineShape*>(this->shapes->length);
   for (int32_t i = 0; i < this->shapes->length; i++) {
     (*newShapes)[i] = (*this->shapes)[i]->turn90Degree(factor, pole);
   }
@@ -362,7 +362,7 @@ void BoardOutline::turn90Degree(int32_t factor, IntPoint* pole) {
 
 void BoardOutline::rotateApprox(double angleInDegree, FloatPoint* pole) {
   double angle = jrt::Math::toRadians(angleInDegree);
-  auto* newShapes = new jrt::Array<PolylineShape*>(this->shapes->length);
+  auto* newShapes = new (jrt::kGeom) jrt::Array<PolylineShape*>(this->shapes->length);
   for (int32_t i = 0; i < this->shapes->length; i++) {
     (*newShapes)[i] = (*this->shapes)[i]->rotateApprox(angle, pole);
   }
@@ -379,7 +379,7 @@ void BoardOutline::rotateApprox(double angleInDegree, FloatPoint* pole) {
 }
 
 void BoardOutline::changePlacementSide(IntPoint* pole) {
-  auto* newShapes = new jrt::Array<PolylineShape*>(this->shapes->length);
+  auto* newShapes = new (jrt::kGeom) jrt::Array<PolylineShape*>(this->shapes->length);
   for (int32_t i = 0; i < this->shapes->length; i++) {
     (*newShapes)[i] = (*this->shapes)[i]->mirrorVertical(pole);
   }
@@ -415,7 +415,7 @@ bool BoardOutline::isSelectedByFilter(ItemSelectionFilter* filter) {
 Area* BoardOutline::getKeepoutArea() {
   if (this->keepoutArea == nullptr) {
     jrt::Array<PolylineShape*>* holeArr = this->shapes->clone();
-    keepoutArea = new PolylineArea(this->board->boundingBox, holeArr);
+    keepoutArea = new (jrt::kGeom) PolylineArea(this->board->boundingBox, holeArr);
   }
   return this->keepoutArea;
 }
@@ -433,7 +433,7 @@ jrt::Array<TileShape*>* BoardOutline::getKeepoutTiles() {
 
 jrt::Array<TileShape*>* BoardOutline::getKeepoutLines() {
   if (this->keepoutLines == nullptr) {
-    this->keepoutLines = new jrt::Array<TileShape*>(0);
+    this->keepoutLines = new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
   return this->keepoutLines;
 }
@@ -441,11 +441,11 @@ jrt::Array<TileShape*>* BoardOutline::getKeepoutLines() {
 Item* BoardOutline::copy(int32_t id) {
   // Java copy() passes only the shapes. The board deep copy restores edgePinNetsCrossOutline and
   // the keepout-outside state itself (BasicBoard::copyItemListFrom).
-  return new BoardOutline(this->shapes, this->clearanceClassIndex(), id, this->board);
+  return new (jrt::kBoard) BoardOutline(this->shapes, this->clearanceClassIndex(), id, this->board);
 }
 
 void BoardOutline::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("app.freerouting.board.model.structure.BoardOutline", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("app.freerouting.board.model.structure.BoardOutline", locale);
   printer->appendBold(tm->getText("boardOutline"));
   printClearanceInfo(printer, locale);
   printer->newline();
@@ -480,7 +480,7 @@ TileShape* BoardOutline::lineShape(int32_t lineIndex, int32_t halfWidth) {
           {currentShape->borderLine((index + borderLineCount - 1) % borderLineCount),
            currentShape->borderLine(index),
            currentShape->borderLine((index + 1) % borderLineCount)});
-      return (new Polyline(lines))->offsetShape(halfWidth, 0);
+      return (new (jrt::kGeom) Polyline(lines))->offsetShape(halfWidth, 0);
     }
     index -= borderLineCount;
   }
@@ -489,7 +489,7 @@ TileShape* BoardOutline::lineShape(int32_t lineIndex, int32_t halfWidth) {
 
 int32_t BoardOutline::lineSlices(int32_t lineIndex) {
   if (this->lineSlices_ == nullptr) {
-    auto* slices = new jrt::Array<int32_t>(this->lineCount());
+    auto* slices = new (jrt::kOp) jrt::Array<int32_t>(this->lineCount());
     double tolerance = this->sliceTolerance();
     for (int32_t i = 0; i < slices->length; i++) {
       double excess = this->lineShape(i, HALF_WIDTH)->boundingOctagonExcess();
@@ -514,8 +514,8 @@ void BoardOutline::clearLineCuts() {
 void BoardOutline::cutAtEdgeWindows(jrt::Array<int32_t>* slices,
                                     jrt::Array<BoardOutline_EdgeWindow*>* windows) {
   this->edgeWindows = windows;
-  this->lineCuts = new jrt::Array<jrt::Array<int32_t>*>(slices->length);
-  this->lineCutAlongX = new jrt::Array<bool>(slices->length);
+  this->lineCuts = new (jrt::kBoard) jrt::Array<jrt::Array<int32_t>*>(slices->length);
+  this->lineCutAlongX = new (jrt::kBoard) jrt::Array<bool>(slices->length);
   if (windows->length == 0) {
     this->pieceWindows = nullptr;
     return;
@@ -527,7 +527,7 @@ void BoardOutline::cutAtEdgeWindows(jrt::Array<int32_t>* slices,
     bool alongX = box->width() >= box->height();
     int32_t low = alongX ? box->ll->x : box->ll->y;
     int32_t high = alongX ? box->ur->x : box->ur->y;
-    auto* cuts = new jrt::TreeSet<int32_t>();
+    auto* cuts = new (jrt::kOp) jrt::TreeSet<int32_t>();
     for (BoardOutline_EdgeWindow* window : *windows) {
       if (!window->box()->intersects(box) ||
           base->intersectionWithSimplify(window->box())->dimension() < 2) {
@@ -547,7 +547,7 @@ void BoardOutline::cutAtEdgeWindows(jrt::Array<int32_t>* slices,
     for (int32_t k = 1; k < (*slices)[i]; k++) {
       cuts->add(jrt::l2i(low + extent * k / (*slices)[i]));
     }
-    auto* cutArray = new jrt::Array<int32_t>(cuts->size());
+    auto* cutArray = new (jrt::kOp) jrt::Array<int32_t>(cuts->size());
     {
       int32_t n = 0;
       for (int32_t c : *cuts) {
@@ -560,8 +560,8 @@ void BoardOutline::cutAtEdgeWindows(jrt::Array<int32_t>* slices,
     for (int32_t k = 0; k <= cutArray->length; k++) {
       int32_t from = k == 0 ? low : (*cutArray)[k - 1];
       int32_t to = k == cutArray->length ? high : (*cutArray)[k];
-      IntBox* slab = alongX ? new IntBox(from, box->ll->y, to, box->ur->y)
-                            : new IntBox(box->ll->x, from, box->ur->x, to);
+      IntBox* slab = alongX ? new (jrt::kGeom) IntBox(from, box->ll->y, to, box->ur->y)
+                            : new (jrt::kGeom) IntBox(box->ll->x, from, box->ur->x, to);
       TileShape* piece = base->intersectionWithSimplify(slab);
       std::vector<int32_t> inside;
       if (piece != nullptr && !piece->isEmpty() && piece->dimension() >= 2) {
@@ -572,10 +572,10 @@ void BoardOutline::cutAtEdgeWindows(jrt::Array<int32_t>* slices,
           }
         }
       }
-      pieces.push_back(inside.empty() ? nullptr : new jrt::Array<int32_t>(inside));
+      pieces.push_back(inside.empty() ? nullptr : new (jrt::kOp) jrt::Array<int32_t>(inside));
     }
   }
-  this->pieceWindows = new jrt::Array<jrt::Array<int32_t>*>(pieces);
+  this->pieceWindows = new (jrt::kBoard) jrt::Array<jrt::Array<int32_t>*>(pieces);
 }
 
 jrt::Array<TileShape*>* BoardOutline::splitLine(int32_t lineIndex, TileShape* lineShape,
@@ -589,12 +589,12 @@ jrt::Array<TileShape*>* BoardOutline::splitLine(int32_t lineIndex, TileShape* li
   IntBox* box = lineShape->boundingBox();
   int32_t low = alongX ? box->ll->x : box->ll->y;
   int32_t high = alongX ? box->ur->x : box->ur->y;
-  auto* result = new jrt::Array<TileShape*>(count);
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(count);
   for (int32_t k = 0; k < count; k++) {
     int32_t from = k == 0 ? low : jrt::Math::max(low, (*cuts)[k - 1] - widening);
     int32_t to = k == cuts->length ? high : jrt::Math::min(high, (*cuts)[k] + widening);
-    IntBox* slab = alongX ? new IntBox(from, box->ll->y, to, box->ur->y)
-                          : new IntBox(box->ll->x, from, box->ur->x, to);
+    IntBox* slab = alongX ? new (jrt::kGeom) IntBox(from, box->ll->y, to, box->ur->y)
+                          : new (jrt::kGeom) IntBox(box->ll->x, from, box->ur->x, to);
     TileShape* piece = to > from ? lineShape->intersectionWithSimplify(slab) : nullptr;
     (*result)[k] =
         piece == nullptr || piece->isEmpty() || piece->dimension() < 2 ? lineShape : piece;
@@ -604,7 +604,7 @@ jrt::Array<TileShape*>* BoardOutline::splitLine(int32_t lineIndex, TileShape* li
 
 jrt::Array<BoardOutline_EdgeWindow*>* BoardOutline::computeEdgeWindows() {
   if (this->board == nullptr || this->keepoutOutsideOutline || this->board->rules == nullptr) {
-    return new jrt::Array<BoardOutline_EdgeWindow*>(0);
+    return new (jrt::kOp) jrt::Array<BoardOutline_EdgeWindow*>(0);
   }
   std::vector<BoardOutline_EdgeWindow*> result;
   for (Pin* pin : *this->board->getPins()) {
@@ -614,7 +614,7 @@ jrt::Array<BoardOutline_EdgeWindow*>* BoardOutline::computeEdgeWindows() {
         netVec.push_back(n);
       }
     }
-    auto* nets = new jrt::Array<int32_t>(netVec);
+    auto* nets = new (jrt::kOp) jrt::Array<int32_t>(netVec);
     if (nets->length == 0 || !this->isEdgePin(pin)) {
       continue;
     }
@@ -633,10 +633,10 @@ jrt::Array<BoardOutline_EdgeWindow*>* BoardOutline::computeEdgeWindows() {
             margin, clearance + this->board->rules->getTraceHalfWidth(net, layer) + HALF_WIDTH);
       }
       result.push_back(
-          new BoardOutline_EdgeWindow(shape->boundingBox()->offset(margin), layer, nets));
+          new (jrt::kBoard) BoardOutline_EdgeWindow(shape->boundingBox()->offset(margin), layer, nets));
     }
   }
-  return new jrt::Array<BoardOutline_EdgeWindow*>(result);
+  return new (jrt::kOp) jrt::Array<BoardOutline_EdgeWindow*>(result);
 }
 
 bool BoardOutline::isEdgePin(Pin* pin) {

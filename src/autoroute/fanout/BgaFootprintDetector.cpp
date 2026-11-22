@@ -74,7 +74,7 @@ jrt::List<BgaEscapeDescriptor*>* BgaFootprintDetector::detect(
 
   // Group board SMD pins by component
   jrt::Map<int32_t, jrt::List<Pin*>*>* smdPinsByComp =
-      new jrt::HashMap<int32_t, jrt::List<Pin*>*>();
+      new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
 
   for (Pin* pin : *board->getSmdPins()) {
     int32_t compId = pin->getComponentId();
@@ -84,13 +84,13 @@ jrt::List<BgaEscapeDescriptor*>* BgaFootprintDetector::detect(
     // Java: computeIfAbsent(compId, _ -> new ArrayList<>()).add(pin)
     jrt::List<Pin*>* list = smdPinsByComp->get(compId);
     if (list == nullptr) {
-      list = new jrt::ArrayList<Pin*>();
+      list = new (jrt::kOp) jrt::ArrayList<Pin*>();
       smdPinsByComp->put(compId, list);
     }
     list->add(pin);
   }
 
-  jrt::List<BgaEscapeDescriptor*>* result = new jrt::ArrayList<BgaEscapeDescriptor*>();
+  jrt::List<BgaEscapeDescriptor*>* result = new (jrt::kOp) jrt::ArrayList<BgaEscapeDescriptor*>();
   for (int32_t compId = 1; compId <= board->components->count(); compId++) {
     Component* comp = board->components->get(compId);
     if (comp == nullptr) {
@@ -165,7 +165,7 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
   double sin = jrt::Math::sin(rad);
 
   jrt::List<BgaFootprintDetector_LocalPoint*>* localPoints =
-      new jrt::ArrayList<BgaFootprintDetector_LocalPoint*>();
+      new (jrt::kOp) jrt::ArrayList<BgaFootprintDetector_LocalPoint*>();
 
   double minU = jrt::Double::MAX_VALUE;
   double maxU = -jrt::Double::MAX_VALUE;
@@ -184,7 +184,7 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
     if (v < minV) minV = v;
     if (v > maxV) maxV = v;
 
-    localPoints->add(new BgaFootprintDetector_LocalPoint(p, u, v));
+    localPoints->add(new (jrt::kOp) BgaFootprintDetector_LocalPoint(p, u, v));
   }
 
   // 3. Compute pitch: nearest-neighbor distances in (u, v)
@@ -214,8 +214,8 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
   }
 
   double pitchTol = minPitch * 0.35;
-  jrt::List<double>* uCoords = new jrt::ArrayList<double>();
-  jrt::List<double>* vCoords = new jrt::ArrayList<double>();
+  jrt::List<double>* uCoords = new (jrt::kOp) jrt::ArrayList<double>();
+  jrt::List<double>* vCoords = new (jrt::kOp) jrt::ArrayList<double>();
   for (BgaFootprintDetector_LocalPoint* lp : *localPoints) {
     uCoords->add(lp->u_);
     vCoords->add(lp->v_);
@@ -262,10 +262,10 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
       if (ip->y > maxBy) maxBy = ip->y;
     }
   }
-  IntBox* bgaBox = new IntBox(new IntPoint(minBx, minBy), new IntPoint(maxBx, maxBy));
+  IntBox* bgaBox = new (jrt::kGeom) IntBox(new (jrt::kGeom) IntPoint(minBx, minBy), new (jrt::kGeom) IntPoint(maxBx, maxBy));
 
   // Identify inner layers containing a BGA-spanning ConductionArea (solid pour)
-  jrt::Set<int32_t>* pouredLayers = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* pouredLayers = new (jrt::kOp) jrt::HashSet<int32_t>();
   if (board->getConductionAreas() != nullptr) {
     for (ConductionArea* ca : *board->getConductionAreas()) {
       int32_t l = ca->getLayer();
@@ -286,7 +286,7 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
     }
   }
 
-  jrt::List<int32_t>* signalLayers = new jrt::ArrayList<int32_t>();
+  jrt::List<int32_t>* signalLayers = new (jrt::kOp) jrt::ArrayList<int32_t>();
   if (pinLayer == 0) {
     for (int32_t l = 0; l < board->getLayerCount(); l++) {
       bool layerActive =
@@ -328,7 +328,7 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
 
   // Pre-index ConductionAreas overlapping the BGA footprint by net number
   jrt::Map<int32_t, jrt::List<ConductionArea*>*>* conductionAreasByNet =
-      new jrt::HashMap<int32_t, jrt::List<ConductionArea*>*>();
+      new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<ConductionArea*>*>();
   if (board->getConductionAreas() != nullptr) {
     for (ConductionArea* ca : *board->getConductionAreas()) {
       if (ca->getArea() != nullptr) {
@@ -339,7 +339,7 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
             if (netNum > 0) {
               jrt::List<ConductionArea*>* list = conductionAreasByNet->get(netNum);
               if (list == nullptr) {
-                list = new jrt::ArrayList<ConductionArea*>();
+                list = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
                 conductionAreasByNet->put(netNum, list);
               }
               list->add(ca);
@@ -353,7 +353,7 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
   // Chebyshev distance in (u, v) from outer bounding box
   int32_t maxRing = 0;
   jrt::List<BgaEscapeDescriptor_BgaPinDescriptor*>* pinDescriptors =
-      new jrt::ArrayList<BgaEscapeDescriptor_BgaPinDescriptor*>();
+      new (jrt::kOp) jrt::ArrayList<BgaEscapeDescriptor_BgaPinDescriptor*>();
 
   // Sort pins in canonical order (top-to-bottom, left-to-right in local frame)
   localPoints->sort(jrt::thenComparing<BgaFootprintDetector_LocalPoint*>(
@@ -441,12 +441,12 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
       }
     }
 
-    pinDescriptors->add(new BgaEscapeDescriptor_BgaPinDescriptor(
+    pinDescriptors->add(new (jrt::kOp) BgaEscapeDescriptor_BgaPinDescriptor(
         pin, lp->u_, lp->v_, ring, i, disposition, netNo, pin->clearanceClassIndex(), targetLayer,
         sector));
   }
 
-  return new BgaEscapeDescriptor(comp, rotDeg, pitchUm, minPitch, lattice, pinDescriptors, minU,
+  return new (jrt::kOp) BgaEscapeDescriptor(comp, rotDeg, pitchUm, minPitch, lattice, pinDescriptors, minU,
                                  maxU, minV, maxV, maxRing);
 }
 
@@ -454,7 +454,7 @@ int32_t BgaFootprintDetector::countDistinct(jrt::List<double>* values, double to
   if (values == nullptr || values->isEmpty()) {
     return 0;
   }
-  jrt::List<double>* sorted = new jrt::ArrayList<double>(values);
+  jrt::List<double>* sorted = new (jrt::kOp) jrt::ArrayList<double>(values);
   // Java: Collections.sort (natural Double ordering)
   sorted->sort(jrt::naturalOrder<double>());
   int32_t count = 1;

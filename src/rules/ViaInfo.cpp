@@ -9,7 +9,7 @@
 namespace fr {
 
 void ViaInfo::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("ViaInfo", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("ViaInfo", locale);
 
   printer->appendBold(tm->getText("via") + " ");
   printer->appendBold(this->name);

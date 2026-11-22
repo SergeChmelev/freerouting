@@ -65,7 +65,7 @@ std::string jsonEscape(const std::string& s) {
 
 BoardFileDetails::BoardFileDetails() {
   this->format = io::FileFormat::UNKNOWN;
-  this->statistics = new BoardStatistics();
+  this->statistics = new (jrt::kBoard) BoardStatistics();
 }
 
 BoardFileDetails::BoardFileDetails(const std::string& file) : BoardFileDetails() {
@@ -77,7 +77,7 @@ BoardFileDetails::BoardFileDetails(const std::string& file) : BoardFileDetails()
     std::vector<char> bytes((std::istreambuf_iterator<char>(fis)),
                             std::istreambuf_iterator<char>());
     if (!fis.bad()) {
-      auto* data = new jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
+      auto* data = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
       for (std::size_t i = 0; i < bytes.size(); i++) {
         (*data)[static_cast<int32_t>(i)] = static_cast<int8_t>(bytes[i]);
       }
@@ -88,7 +88,7 @@ BoardFileDetails::BoardFileDetails(const std::string& file) : BoardFileDetails()
 }
 
 BoardFileDetails::BoardFileDetails(BasicBoard* board) : BoardFileDetails() {
-  this->statistics = new BoardStatistics(board);
+  this->statistics = new (jrt::kBoard) BoardStatistics(board);
 }
 
 int64_t BoardFileDetails::calculateCrc32(std::istream& inputStream) {
@@ -143,7 +143,7 @@ void BoardFileDetails::setData(jrt::Array<int8_t>* data) {
   }
 
   // set the statistical data based on the file content
-  this->statistics = new BoardStatistics(data, this->format);
+  this->statistics = new (jrt::kOp) BoardStatistics(data, this->format);
 
   // Publish the complete snapshot after its metadata is ready for polling readers.
   this->dataBytes = data;
@@ -153,8 +153,8 @@ void BoardFileDetails::setData(jrt::Array<int8_t>* data) {
 void BoardFileDetails::invalidateData() {
   this->size = 0;
   this->crc32 = 0;
-  this->statistics = new BoardStatistics();
-  this->dataBytes = new jrt::Array<int8_t>(0);
+  this->statistics = new (jrt::kBoard) BoardStatistics();
+  this->dataBytes = new (jrt::kBoard) jrt::Array<int8_t>(0);
 }
 
 std::string BoardFileDetails::toString() {
@@ -254,7 +254,7 @@ void BoardFileDetails::addUpdatedEventListener(BoardFileDetailsUpdatedEventListe
 }
 
 void BoardFileDetails::fireUpdatedEvent() {
-  auto* event = new BoardFileDetailsUpdatedEvent(this, this);
+  auto* event = new (jrt::kBoard) BoardFileDetailsUpdatedEvent(this, this);
   for (BoardFileDetailsUpdatedEventListener* listener : *updatedEventListeners) {
     listener->onBoardFileDetailsUpdated(event);
   }

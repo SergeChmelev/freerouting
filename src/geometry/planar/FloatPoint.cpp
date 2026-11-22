@@ -76,7 +76,7 @@ std::string padLeft(const std::string& s, int32_t padding) {
 }  // namespace
 
 FloatPoint* FloatPoint::ZERO() {
-  static FloatPoint* v = new FloatPoint(0, 0);
+  static FloatPoint* v = new (jrt::kGeom) FloatPoint(0, 0);
   return v;
 }
 
@@ -107,7 +107,7 @@ IntOctagon* FloatPoint::boundingOctagon(jrt::Array<FloatPoint*>* points) {
     minLowerLeftDiagonalX = jrt::Math::min(minLowerLeftDiagonalX, tmp);
     maxUpperRightDiagonalX = jrt::Math::max(maxUpperRightDiagonalX, tmp);
   }
-  return new IntOctagon(jrt::d2i(jrt::Math::floor(minX)), jrt::d2i(jrt::Math::floor(minY)),
+  return new (jrt::kGeom) IntOctagon(jrt::d2i(jrt::Math::floor(minX)), jrt::d2i(jrt::Math::floor(minY)),
                         jrt::d2i(jrt::Math::ceil(maxX)), jrt::d2i(jrt::Math::ceil(maxY)),
                         jrt::d2i(jrt::Math::floor(minUpperLeftDiagonalX)),
                         jrt::d2i(jrt::Math::ceil(maxLowerRightDiagonalX)),
@@ -135,7 +135,7 @@ double FloatPoint::weightedDistance(FloatPoint* other, double horizontalWeight,
 }
 
 IntPoint* FloatPoint::round() {
-  return new IntPoint(jrt::l2i(jrt::Math::round(x)), jrt::l2i(jrt::Math::round(y)));
+  return new (jrt::kGeom) IntPoint(jrt::l2i(jrt::Math::round(x)), jrt::l2i(jrt::Math::round(y)));
 }
 
 IntPoint* FloatPoint::roundToTheRight(Direction* dir) {
@@ -159,7 +159,7 @@ IntPoint* FloatPoint::roundToTheRight(Direction* dir) {
   } else {
     roundedY = jrt::l2i(jrt::Math::round(y));
   }
-  return new IntPoint(roundedX, roundedY);
+  return new (jrt::kGeom) IntPoint(roundedX, roundedY);
 }
 
 IntPoint* FloatPoint::roundToGrid(int32_t horizontalGrid, int32_t verticalGrid) {
@@ -175,7 +175,7 @@ IntPoint* FloatPoint::roundToGrid(int32_t horizontalGrid, int32_t verticalGrid) 
   } else {
     roundedY = this->y;
   }
-  return new IntPoint(jrt::d2i(roundedX), jrt::d2i(roundedY));
+  return new (jrt::kGeom) IntPoint(jrt::d2i(roundedX), jrt::d2i(roundedY));
 }
 
 IntPoint* FloatPoint::roundToTheLeft(Direction* dir) {
@@ -199,19 +199,19 @@ IntPoint* FloatPoint::roundToTheLeft(Direction* dir) {
   } else {
     roundedY = jrt::l2i(jrt::Math::round(y));
   }
-  return new IntPoint(roundedX, roundedY);
+  return new (jrt::kGeom) IntPoint(roundedX, roundedY);
 }
 
 FloatPoint* FloatPoint::add(FloatPoint* other) {
-  return new FloatPoint(this->x + other->x, this->y + other->y);
+  return new (jrt::kGeom) FloatPoint(this->x + other->x, this->y + other->y);
 }
 
 FloatPoint* FloatPoint::subtract(FloatPoint* other) {
-  return new FloatPoint(this->x - other->x, this->y - other->y);
+  return new (jrt::kGeom) FloatPoint(this->x - other->x, this->y - other->y);
 }
 
 FloatPoint* FloatPoint::projectionApprox(Line* line) {
-  FloatLine* floatLine = new FloatLine(line->a->toFloat(), line->b->toFloat());
+  FloatLine* floatLine = new (jrt::kGeom) FloatLine(line->a->toFloat(), line->b->toFloat());
   return floatLine->perpendicularProjection(this);
 }
 
@@ -235,7 +235,7 @@ FloatPoint* FloatPoint::changeSize(double newSize) {
   double length = jrt::Math::sqrt(x * x + y * y);
   double newX = (x * newSize) / length;
   double newY = (y * newSize) / length;
-  return new FloatPoint(newX, newY);
+  return new (jrt::kGeom) FloatPoint(newX, newY);
 }
 
 FloatPoint* FloatPoint::changeLength(FloatPoint* toPoint, double newLength) {
@@ -248,7 +248,7 @@ FloatPoint* FloatPoint::changeLength(FloatPoint* toPoint, double newLength) {
   double length = jrt::Math::sqrt(dx * dx + dy * dy);
   double newX = this->x + (dx * newLength) / length;
   double newY = this->y + (dy * newLength) / length;
-  return new FloatPoint(newX, newY);
+  return new (jrt::kGeom) FloatPoint(newX, newY);
 }
 
 FloatPoint* FloatPoint::middlePoint(FloatPoint* toPoint) {
@@ -257,7 +257,7 @@ FloatPoint* FloatPoint::middlePoint(FloatPoint* toPoint) {
   }
   double middleX = 0.5 * (this->x + toPoint->x);
   double middleY = 0.5 * (this->y + toPoint->y);
-  return new FloatPoint(middleX, middleY);
+  return new (jrt::kGeom) FloatPoint(middleX, middleY);
 }
 
 Side* FloatPoint::sideOf(FloatPoint* p1, FloatPoint* p2) {
@@ -280,7 +280,7 @@ FloatPoint* FloatPoint::rotate(double angle, FloatPoint* pole) {
   double cosAngle = jrt::Math::cos(angle);
   double newDx = dx * cosAngle - dy * sinAngle;
   double newDy = dx * sinAngle + dy * cosAngle;
-  return new FloatPoint(pole->x + newDx, pole->y + newDy);
+  return new (jrt::kGeom) FloatPoint(pole->x + newDx, pole->y + newDy);
 }
 
 FloatPoint* FloatPoint::turn90Degree(int32_t factor) {
@@ -292,10 +292,10 @@ FloatPoint* FloatPoint::turn90Degree(int32_t factor) {
     n -= 4;
   }
   switch (n) {
-    case 0: return new FloatPoint(x, y);    // 0 degrees
-    case 1: return new FloatPoint(-y, x);   // 90 degrees
-    case 2: return new FloatPoint(-x, -y);  // 180 degrees
-    case 3: return new FloatPoint(y, -x);   // 270 degrees
+    case 0: return new (jrt::kGeom) FloatPoint(x, y);    // 0 degrees
+    case 1: return new (jrt::kGeom) FloatPoint(-y, x);   // 90 degrees
+    case 2: return new (jrt::kGeom) FloatPoint(-x, -y);  // 180 degrees
+    case 3: return new (jrt::kGeom) FloatPoint(y, -x);   // 270 degrees
     default: return ZERO();
   }
 }
@@ -333,10 +333,10 @@ bool FloatPoint::isContainedInBox(FloatPoint* p1, FloatPoint* p2, double toleran
 
 IntBox* FloatPoint::boundingBox() {
   IntPoint* lowerLeft =
-      new IntPoint(jrt::d2i(jrt::Math::floor(this->x)), jrt::d2i(jrt::Math::floor(this->y)));
+      new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::floor(this->x)), jrt::d2i(jrt::Math::floor(this->y)));
   IntPoint* upperRight =
-      new IntPoint(jrt::d2i(jrt::Math::ceil(this->x)), jrt::d2i(jrt::Math::ceil(this->y)));
-  return new IntBox(lowerLeft, upperRight);
+      new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::ceil(this->x)), jrt::d2i(jrt::Math::ceil(this->y)));
+  return new (jrt::kGeom) IntBox(lowerLeft, upperRight);
 }
 
 jrt::Array<FloatPoint*>* FloatPoint::tangentialPoints(FloatPoint* toPoint, double distance) {
@@ -351,8 +351,8 @@ jrt::Array<FloatPoint*>* FloatPoint::tangentialPoints(FloatPoint* toPoint, doubl
 
   if (situationTurned) {
     // turn the situation by 90 degree
-    pole = new FloatPoint(-this->y, this->x);
-    circleCenter = new FloatPoint(-toPoint->y, toPoint->x);
+    pole = new (jrt::kGeom) FloatPoint(-this->y, this->x);
+    circleCenter = new (jrt::kGeom) FloatPoint(-toPoint->y, toPoint->x);
   } else {
     pole = this;
     circleCenter = toPoint;
@@ -368,11 +368,11 @@ jrt::Array<FloatPoint*>* FloatPoint::tangentialPoints(FloatPoint* toPoint, doubl
 
   if (discriminant <= 0) {
     // pole is inside the circle.
-    return new jrt::Array<FloatPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<FloatPoint*>(0);
   }
   double squareRoot = jrt::Math::sqrt(discriminant);
 
-  auto* result = new jrt::Array<FloatPoint*>(2);
+  auto* result = new (jrt::kGeom) jrt::Array<FloatPoint*>(2);
 
   double a1 = radiusSquare * dy;
   double dy1 = (a1 + distance * squareRoot) / distSquare;
@@ -385,11 +385,11 @@ jrt::Array<FloatPoint*>* FloatPoint::tangentialPoints(FloatPoint* toPoint, doubl
 
   if (situationTurned) {
     // turn the result by 270 degree
-    (*result)[0] = new FloatPoint(firstPointY, -firstPointX);
-    (*result)[1] = new FloatPoint(secondPointY, -secondPointX);
+    (*result)[0] = new (jrt::kGeom) FloatPoint(firstPointY, -firstPointX);
+    (*result)[1] = new (jrt::kGeom) FloatPoint(secondPointY, -secondPointX);
   } else {
-    (*result)[0] = new FloatPoint(firstPointX, firstPointY);
-    (*result)[1] = new FloatPoint(secondPointX, secondPointY);
+    (*result)[0] = new (jrt::kGeom) FloatPoint(firstPointX, firstPointY);
+    (*result)[1] = new (jrt::kGeom) FloatPoint(secondPointX, secondPointY);
   }
   return result;
 }
@@ -436,7 +436,7 @@ FloatPoint* FloatPoint::circleCenter(FloatPoint* p1, FloatPoint* p2) {
        slope1 * (p1->x + p2->x)) /
       (2 * (slope2 - slope1));
   double centerY = (0.5 * (this->x + p1->x) - centerX) / slope1 + 0.5 * (this->y + p1->y);
-  return new FloatPoint(centerX, centerY);
+  return new (jrt::kGeom) FloatPoint(centerX, centerY);
 }
 
 bool FloatPoint::insideCircle(FloatPoint* p1, FloatPoint* p2, FloatPoint* p3) {

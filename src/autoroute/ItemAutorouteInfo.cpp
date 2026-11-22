@@ -13,11 +13,11 @@ ObstacleExpansionRoom* ItemAutorouteInfo::getExpansionRoom(int32_t index, ShapeS
   int32_t currentShapeCount = this->item->treeShapeCount(autorouteTree);
 
   if (expansionRoomArr == nullptr) {
-    expansionRoomArr = new jrt::Array<ObstacleExpansionRoom*>(currentShapeCount);
+    expansionRoomArr = new (jrt::kOp) jrt::Array<ObstacleExpansionRoom*>(currentShapeCount);
   } else if (expansionRoomArr->length != currentShapeCount) {
     // Item's tree shape count has changed (e.g., trace modified during routing)
     // Resize the array and preserve existing rooms
-    jrt::Array<ObstacleExpansionRoom*>* newArray = new jrt::Array<ObstacleExpansionRoom*>(currentShapeCount);
+    jrt::Array<ObstacleExpansionRoom*>* newArray = new (jrt::kOp) jrt::Array<ObstacleExpansionRoom*>(currentShapeCount);
     int32_t copyLength = jrt::Math::min(expansionRoomArr->length, currentShapeCount);
     jrt::arraycopy(expansionRoomArr, 0, newArray, 0, copyLength);
     expansionRoomArr = newArray;
@@ -29,7 +29,7 @@ ObstacleExpansionRoom* ItemAutorouteInfo::getExpansionRoom(int32_t index, ShapeS
     return nullptr;
   }
   if ((*expansionRoomArr)[index] == nullptr) {
-    (*expansionRoomArr)[index] = new ObstacleExpansionRoom(this->item, index, autorouteTree);
+    (*expansionRoomArr)[index] = new (jrt::kOp) ObstacleExpansionRoom(this->item, index, autorouteTree);
   }
   return (*expansionRoomArr)[index];
 }

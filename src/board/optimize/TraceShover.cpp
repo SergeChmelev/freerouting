@@ -66,11 +66,11 @@ double TraceShover::check(RoutingBoard* board, LineSegment* lineSegment, bool sh
   if (!traceShape->isContainedIn(board->getBoundingBox())) {
     return 0;
   }
-  ShapeEntrySide* fromSide = new ShapeEntrySide(lineSegment, traceShape, shoveToTheLeft);
-  ShapeTraceEntries* shapeEntries = new ShapeTraceEntries(traceShape, layer, netNumbers,
+  ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(lineSegment, traceShape, shoveToTheLeft);
+  ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(traceShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      traceShape, layer, new jrt::Array<int32_t>(0), clearanceClassIndex);
+      traceShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex);
   bool obstaclesShovable = shapeEntries->storeItems(obstacles, false, true);
   if (!obstaclesShovable || shapeEntries->traceTailsInShape()) {
     return 0;
@@ -104,7 +104,7 @@ double TraceShover::check(RoutingBoard* board, LineSegment* lineSegment, bool sh
         return 0;
       }
       Vector* delta = (*newViaCenter)[0]->differenceBy(currentShoveVia->getCenter());
-      jrt::Collection<Item*>* ignoreItems = new jrt::LinkedList<Item*>();
+      jrt::Collection<Item*>* ignoreItems = new (jrt::kOp) jrt::LinkedList<Item*>();
       shoveViaOk = DrillItemMover::check(currentShoveVia, delta, maxRecursionDepth,
                                          maxViaRecursionDepth - 1, ignoreItems, board, nullptr);
     }
@@ -138,7 +138,7 @@ double TraceShover::check(RoutingBoard* board, LineSegment* lineSegment, bool sh
       break;
     }
     for (int32_t i = 0; i < currentSubstituteTrace->tileShapeCount(); i++) {
-      LineSegment* currentLineSegment = new LineSegment(currentSubstituteTrace->polyline(), i + 1);
+      LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(currentSubstituteTrace->polyline(), i + 1);
       if (shoveToTheLeft) {
         // swap the line segment to get the correct shove length
         // in case it is smaller than the length of the whole line segment.
@@ -199,7 +199,7 @@ bool TraceShover::check(TileShape* traceShape, ShapeEntrySide* fromSide, Directi
                          timeLimit);
   }
   int64_t stamp = board->itemList->getContentVersion();
-  ShoveCheckCache_Key* key = new ShoveCheckCache_Key(
+  ShoveCheckCache_Key* key = new (jrt::kOp) ShoveCheckCache_Key(
       traceShape, fromSide, dir, layer, netNumbers, clearanceClassIndex, maxRecursionDepth,
       maxViaRecursionDepth, maxSpringOverRecursionDepth, false);
   ShoveCheckCache_Entry* hit = cache->tryGet(board, stamp, key);
@@ -251,7 +251,7 @@ bool TraceShover::measuredCheck(ShoveCheckCache* cache, ShoveCheckCache_Key* key
                               ? ShoveCheckCache::obstacleIndex(board, obstacle)
                               : -1;
   ShoveCheckCache_Entry* entry =
-      new ShoveCheckCache_Entry(result, idsUsed, wroteObstacle, obstacleIndex, wroteLayer,
+      new (jrt::kOp) ShoveCheckCache_Entry(result, idsUsed, wroteObstacle, obstacleIndex, wroteLayer,
                                 wroteLayer ? board->getShoveFailingLayer() : -1);
   cache->put(board, stamp, key, entry);
   return result;
@@ -315,11 +315,11 @@ bool TraceShover::checkUncached(TileShape* traceShape, ShapeEntrySide* fromSide,
     this->board->setShoveFailingObstacle(board->getOutline());
     return false;
   }
-  ShapeTraceEntries* shapeEntries = new ShapeTraceEntries(traceShape, layer, netNumbers,
+  ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(traceShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   ShapeSearchTree* searchTree = this->board->searchTreeManager->getDefaultTree();
   jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      traceShape, layer, new jrt::Array<int32_t>(0), clearanceClassIndex);
+      traceShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex);
   obstacles->removeAll(getIgnoreItemsAtTiePins(traceShape, layer, netNumbers));
   bool obstaclesShovable = shapeEntries->storeItems(obstacles, false, true);
   if (!obstaclesShovable) {
@@ -364,7 +364,7 @@ bool TraceShover::checkUncached(TileShape* traceShape, ShapeEntrySide* fromSide,
           currentShoveViaCenter->distanceSquare((*tryViaCenters)[i]->toFloat()) <=
               maxDistSquare) {
         Vector* delta = (*tryViaCenters)[i]->differenceBy(currentShoveVia->getCenter());
-        jrt::Collection<Item*>* ignoreItems = new jrt::LinkedList<Item*>();
+        jrt::Collection<Item*>* ignoreItems = new (jrt::kOp) jrt::LinkedList<Item*>();
         if (DrillItemMover::check(currentShoveVia, delta, maxRecursionDepth,
                                   maxViaRecursionDepth - 1, ignoreItems, this->board,
                                   timeLimit)) {
@@ -415,7 +415,7 @@ bool TraceShover::checkUncached(TileShape* traceShape, ShapeEntrySide* fromSide,
       bool isInFront = dir == nullptr || dir->equals(currentDirection);
       if (isInFront) {
         ShapeAndEntrySide* current =
-            new ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
+            new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
         if (!this->check(current->shape, current->fromSide, currentDirection, layer,
                          currentSubstituteTrace->netNumbers,
                          currentSubstituteTrace->clearanceClassIndex(), maxRecursionDepth - 1,
@@ -445,11 +445,11 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
                                  this->board)) {
     return false;
   }
-  ShapeTraceEntries* shapeEntries = new ShapeTraceEntries(traceShape, layer, netNumbers,
+  ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(traceShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   ShapeSearchTree* searchTree = this->board->searchTreeManager->getDefaultTree();
   jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      traceShape, layer, new jrt::Array<int32_t>(0), clearanceClassIndex);
+      traceShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex);
   obstacles->removeAll(getIgnoreItemsAtTiePins(traceShape, layer, netNumbers));
   bool obstaclesShovable = shapeEntries->storeItems(obstacles, false, true);
   if (!shapeEntries->shoveViaList->isEmpty()) {
@@ -507,7 +507,7 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
     jrt::Array<int32_t>* currentNetNumbers = currentSubstituteTrace->netNumbers;
     for (int32_t i = 0; i < currentSubstituteTrace->tileShapeCount(); i++) {
       ShapeAndEntrySide* current =
-          new ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
+          new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
       if (!this->insert(current->shape, current->fromSide, layer, currentNetNumbers,
                         currentSubstituteTrace->clearanceClassIndex(), ignoreItems,
                         maxRecursionDepth - 1, maxViaRecursionDepth,
@@ -520,7 +520,7 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
     }
     jrt::Array<Point*>* endCorners = nullptr;
     if (!tailsExistBefore) {
-      endCorners = new jrt::Array<Point*>(2);
+      endCorners = new (jrt::kGeom) jrt::Array<Point*>(2);
       (*endCorners)[0] = currentSubstituteTrace->firstCorner();
       (*endCorners)[1] = currentSubstituteTrace->lastCorner();
     }
@@ -550,7 +550,7 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
 jrt::Collection<Item*>* TraceShover::getIgnoreItemsAtTiePins(TileShape* traceShape, int32_t layer,
                                                              jrt::Array<int32_t>* netNumbers) {
   jrt::Collection<SearchTreeObject*>* overlaps = this->board->overlappingObjects(traceShape, layer);
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
     if (auto* currentPin = jrt::fast_cast<Pin>(currentObject)) {
       if (currentPin->sharesNetNo(netNumbers)) {
@@ -572,7 +572,7 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
   if (contactPins == nullptr) {
     checkNetNoArr = netNumbers;
   } else {
-    checkNetNoArr = new jrt::Array<int32_t>(0);
+    checkNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(0);
   }
   for (int32_t i = 0; i < polyline->lines->length - 2; i++) {
     TileShape* currentShape = polyline->offsetShape(halfWidth, i);
@@ -751,7 +751,7 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
       sideDiff += offsetShape->borderLineCount();
     }
   }
-  jrt::Array<Line*>* substituteLines = new jrt::Array<Line*>(sideDiff + 3);
+  jrt::Array<Line*>* substituteLines = new (jrt::kGeom) jrt::Array<Line*>(sideDiff + 3);
   (*substituteLines)[0] = (*polyline->lines)[firstIntersectionLineNo];
   int32_t currentEdgeLineNo = firstIntersectionSideNo;
 
@@ -764,7 +764,7 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
     }
   }
   (*substituteLines)[sideDiff + 2] = (*polyline->lines)[lastIntersectionLineNo];
-  Polyline* substitutePolyline = new Polyline(substituteLines);
+  Polyline* substitutePolyline = new (jrt::kGeom) Polyline(substituteLines);
   jrt::Array<Polyline*>* pieces = offsetShape->cutout(
       polyline);  // build a circuit around the offsetShape in counter clock sense
   // from the first intersection point to the second intersection point

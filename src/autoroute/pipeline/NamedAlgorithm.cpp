@@ -13,9 +13,9 @@ namespace fr {
 
 NamedAlgorithm::NamedAlgorithm(StoppableThread* thread, RoutingBoard* board, RouterSettings* settings)
     : thread(thread),
-      boardSnapshotEventListeners(new jrt::ArrayList<BoardSnapshotEventListener*>()),
-      boardUpdatedEventListeners(new jrt::ArrayList<BoardUpdatedEventListener*>()),
-      taskStateChangedEventListeners(new jrt::ArrayList<TaskStateChangedEventListener*>()),
+      boardSnapshotEventListeners(new (jrt::kOp) jrt::ArrayList<BoardSnapshotEventListener*>()),
+      boardUpdatedEventListeners(new (jrt::kOp) jrt::ArrayList<BoardUpdatedEventListener*>()),
+      taskStateChangedEventListeners(new (jrt::kOp) jrt::ArrayList<TaskStateChangedEventListener*>()),
       settings(settings),
       board(board) {}
 
@@ -24,7 +24,7 @@ void NamedAlgorithm::addBoardSnapshotEventListener(BoardSnapshotEventListener* l
 }
 
 void NamedAlgorithm::fireBoardSnapshotEvent(RoutingBoard* board) {
-  BoardSnapshotEvent* event = new BoardSnapshotEvent(this, board);
+  BoardSnapshotEvent* event = new (jrt::kOp) BoardSnapshotEvent(this, board);
   for (BoardSnapshotEventListener* listener : *boardSnapshotEventListeners) {
     listener->onBoardSnapshotEvent(event);
   }
@@ -55,7 +55,7 @@ bool NamedAlgorithm::hasBoardStatisticsReaders() {
 
 void NamedAlgorithm::fireBoardUpdatedEvent(
     BoardStatistics* boardStatistics, RouterCounters* routerCounters, RoutingBoard* board) {
-  BoardUpdatedEvent* event = new BoardUpdatedEvent(this, boardStatistics, routerCounters, board);
+  BoardUpdatedEvent* event = new (jrt::kOp) BoardUpdatedEvent(this, boardStatistics, routerCounters, board);
   for (BoardUpdatedEventListener* listener : *boardUpdatedEventListeners) {
     listener->onBoardUpdatedEvent(event);
   }

@@ -5,7 +5,7 @@
 namespace fr {
 
 OptimizerSettings* OptimizerSettings::clone() {
-  auto* r = new OptimizerSettings();
+  auto* r = new (jrt::kBoard) OptimizerSettings();
   r->enabled = enabled;
   r->algorithm = algorithm;
   r->maxPasses = maxPasses;

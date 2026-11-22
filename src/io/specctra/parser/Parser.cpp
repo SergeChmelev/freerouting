@@ -35,7 +35,7 @@ fr::Communication_SpecctraParserInfo_WriteResolution* Parser::readWriteSolution(
                      scopeParameter->scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    return new fr::Communication_SpecctraParserInfo_WriteResolution(resolutionString->value,
+    return new (jrt::kBoard) fr::Communication_SpecctraParserInfo_WriteResolution(resolutionString->value,
                                                                     resolutionValue);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Parser.read_write_solution: IO error scanning file", &e);
@@ -45,7 +45,7 @@ fr::Communication_SpecctraParserInfo_WriteResolution* Parser::readWriteSolution(
 
 jrt::Array<std::string>* Parser::readConstant(ReadScopeParameter* scopeParameter) {
   try {
-    auto* result = new jrt::Array<std::string>(2);
+    auto* result = new (jrt::kOp) jrt::Array<std::string>(2);
     scopeParameter->scanner->yybegin(SpecctraDsnStreamReader::NAME);
     jrt::Object* nextToken = scopeParameter->scanner->nextToken();
     auto* firstString = jrt::fast_cast<JString>(nextToken);

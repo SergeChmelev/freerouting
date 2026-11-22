@@ -53,14 +53,14 @@ class ReadScopeParameter : public virtual jrt::Object {
    * Warnings collected during DSN parsing (e.g. skipped wires, missing padstacks, degenerate
    * geometry). Callers can retrieve these via getWarnings() after the read completes.
    */
-  jrt::List<std::string>* warnings = new jrt::ArrayList<std::string>();
+  jrt::List<std::string>* warnings = new (jrt::kOp) jrt::ArrayList<std::string>();
 
   /**
    * Collection of elements of class PlaneInfo. The plane cannot be inserted directly into the
    * boards, because the layers may not be read completely.
    */
   jrt::Collection<ReadScopeParameter_PlaneInfo*>* planeList =
-      new jrt::LinkedList<ReadScopeParameter_PlaneInfo*>();
+      new (jrt::kOp) jrt::LinkedList<ReadScopeParameter_PlaneInfo*>();
 
   /**
    * Nets of the (wire (polygon ...)) copper areas of the wiring scope, by layer name, found before
@@ -68,7 +68,7 @@ class ReadScopeParameter : public virtual jrt::Object {
    * PORT NOTE: Java Map.of() (immutable empty map) -> empty HashMap.
    */
   jrt::Map<std::string, jrt::Set<std::string>*>* polygonWireNetsByLayer =
-      new jrt::HashMap<std::string, jrt::Set<std::string>*>();
+      new (jrt::kOp) jrt::HashMap<std::string, jrt::Set<std::string>*>();
 
   /**
    * False when the wiring scope is never read (metadata-only reads): power layers whose copper
@@ -88,7 +88,7 @@ class ReadScopeParameter : public virtual jrt::Object {
   jrt::Collection<ComponentPlacement*>* placementList;
 
   jrt::Collection<jrt::Array<std::string>*>* constants =
-      new jrt::LinkedList<jrt::Array<std::string>*>();
+      new (jrt::kOp) jrt::LinkedList<jrt::Array<std::string>*>();
 
   /**
    * The names of the via padstacks filled while reading the structure scope and evaluated after

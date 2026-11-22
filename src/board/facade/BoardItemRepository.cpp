@@ -50,7 +50,7 @@ BoardOutline* BoardItemRepository::findOutline() {
 Item* BoardItemRepository::getItem(int32_t id) {
   int64_t stamp = board->itemList->getVersion();
   if (idMap == nullptr || stamp != idMapStamp) {
-    idMap = new jrt::HashMap<int32_t, Item*>();
+    idMap = new (jrt::kBoard) jrt::HashMap<int32_t, Item*>();
     jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator =
         board->itemList->startReadObject();
     for (;;) {
@@ -96,7 +96,7 @@ int32_t BoardItemRepository::getPinCount() {
 }
 
 jrt::Collection<Item*>* BoardItemRepository::getItems() {
-  jrt::Collection<Item*>* result = new jrt::LinkedList<Item*>();
+  jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
@@ -108,7 +108,7 @@ jrt::Collection<Item*>* BoardItemRepository::getItems() {
 }
 
 jrt::Collection<ConductionArea*>* BoardItemRepository::getConductionAreas() {
-  jrt::Collection<ConductionArea*>* result = new jrt::LinkedList<ConductionArea*>();
+  jrt::Collection<ConductionArea*>* result = new (jrt::kOp) jrt::LinkedList<ConductionArea*>();
   for (Item* currentItem : *getItems()) {
     if (auto* area = jrt::fast_cast<ConductionArea>(currentItem)) {
       result->add(area);
@@ -118,7 +118,7 @@ jrt::Collection<ConductionArea*>* BoardItemRepository::getConductionAreas() {
 }
 
 jrt::Collection<Pin*>* BoardItemRepository::getPins() {
-  jrt::Collection<Pin*>* result = new jrt::LinkedList<Pin*>();
+  jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
   for (Item* currentItem : *getItems()) {
     if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
       result->add(pin);
@@ -128,7 +128,7 @@ jrt::Collection<Pin*>* BoardItemRepository::getPins() {
 }
 
 jrt::Collection<Pin*>* BoardItemRepository::getSmdPins() {
-  jrt::Collection<Pin*>* result = new jrt::LinkedList<Pin*>();
+  jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
   for (Item* currentItem : *getItems()) {
     if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
       if (pin->firstLayer() == pin->lastLayer()) {
@@ -140,7 +140,7 @@ jrt::Collection<Pin*>* BoardItemRepository::getSmdPins() {
 }
 
 jrt::Collection<Via*>* BoardItemRepository::getVias() {
-  jrt::Collection<Via*>* result = new jrt::LinkedList<Via*>();
+  jrt::Collection<Via*>* result = new (jrt::kOp) jrt::LinkedList<Via*>();
   for (Item* currentItem : *getItems()) {
     if (auto* via = jrt::fast_cast<Via>(currentItem)) {
       result->add(via);
@@ -150,7 +150,7 @@ jrt::Collection<Via*>* BoardItemRepository::getVias() {
 }
 
 jrt::Collection<Trace*>* BoardItemRepository::getTraces() {
-  jrt::Collection<Trace*>* result = new jrt::LinkedList<Trace*>();
+  jrt::Collection<Trace*>* result = new (jrt::kOp) jrt::LinkedList<Trace*>();
   for (Item* currentItem : *getItems()) {
     if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
       result->add(trace);
@@ -265,7 +265,7 @@ void BoardItemRepository::deleteAllTracksAndVias() {
 
 bool BoardItemRepository::isItemActivityDebugCandidate(Item* item) {
   IntBox* bounds = item->boundingBox();
-  IntBox* debugWindow = new IntBox(1620000, -1105000, 1930000, -1003000);
+  IntBox* debugWindow = new (jrt::kGeom) IntBox(1620000, -1105000, 1930000, -1003000);
   return bounds != nullptr && bounds->intersects(debugWindow);
 }
 
@@ -290,8 +290,8 @@ void BoardItemRepository::logTraceRemoval(Trace* trace) {
   }
   auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace);
   if (polylineTrace != nullptr && polylineTrace->cornerCount() == 2 &&
-      trace->firstCorner()->equals(new IntPoint(1885928, -1097274)) &&
-      trace->lastCorner()->equals(new IntPoint(1885928, -1098024))) {
+      trace->firstCorner()->equals(new (jrt::kGeom) IntPoint(1885928, -1097274)) &&
+      trace->lastCorner()->equals(new (jrt::kGeom) IntPoint(1885928, -1098024))) {
     FRLogger::trace("BasicBoard.remove_item", "compare_trace_remove_item",
                     "REMOVE_ITEM called on trace [7,8]",
                     "Net #" + jrt::str((*trace->netNumbers)[0]) + ",Trace #" +

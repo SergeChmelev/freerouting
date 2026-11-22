@@ -45,7 +45,7 @@ inline int32_t array(jrt::Array<T>*& target, jrt::Array<T>* source) {
 template <class T>
 inline int32_t list(jrt::List<T>*& target, jrt::List<T>* source) {
   if (source == nullptr) return 0;
-  target = new jrt::ArrayList<T>(static_cast<jrt::Collection<T>*>(source));
+  target = new (jrt::kOp) jrt::ArrayList<T>(static_cast<jrt::Collection<T>*>(source));
   return 1;
 }
 
@@ -53,7 +53,7 @@ inline int32_t list(jrt::List<T>*& target, jrt::List<T>* source) {
 template <class S>
 inline int32_t nested(S*& target, S* source) {
   if (source == nullptr) return 0;
-  if (target == nullptr) target = new S();
+  if (target == nullptr) target = new (jrt::kOp) S();
   return target->copyNewValuesFrom(source);
 }
 
@@ -68,15 +68,15 @@ inline int32_t objectArray(jrt::Array<S*>*& target, jrt::Array<S*>* source) {
   if (targetLength >= source->length) {
     for (int32_t i = 0; i < source->length; i++) {
       if ((*source)[i] != nullptr) {
-        if ((*target)[i] == nullptr) (*target)[i] = new S();
+        if ((*target)[i] == nullptr) (*target)[i] = new (jrt::kOp) S();
         (*target)[i]->copyNewValuesFrom((*source)[i]);
       }
     }
   } else {
-    auto* targetArray = new jrt::Array<S*>(source->length);
+    auto* targetArray = new (jrt::kOp) jrt::Array<S*>(source->length);
     for (int32_t i = 0; i < source->length; i++) {
       if ((*source)[i] != nullptr) {
-        S* targetElement = new S();
+        S* targetElement = new (jrt::kOp) S();
         targetElement->copyNewValuesFrom((*source)[i]);
         (*targetArray)[i] = targetElement;
       }

@@ -15,7 +15,7 @@ bool IntDirection::isOrthogonal() { return x == 0 || y == 0; }
 
 bool IntDirection::isDiagonal() { return jrt::Math::abs(x) == jrt::Math::abs(y); }
 
-Vector* IntDirection::getVector() { return new IntVector(x, y); }
+Vector* IntDirection::getVector() { return new (jrt::kGeom) IntVector(x, y); }
 
 int32_t IntDirection::compareTo(IntDirection* other) {
   if (y > 0) {
@@ -62,20 +62,20 @@ int32_t IntDirection::compareTo(Direction* otherDirection) {
 
 int32_t IntDirection::compareTo(BigIntDirection* other) { return -other->compareTo(this); }
 
-Direction* IntDirection::opposite() { return new IntDirection(-x, -y); }
+Direction* IntDirection::opposite() { return new (jrt::kGeom) IntDirection(-x, -y); }
 
 Direction* IntDirection::turn45Degree(int32_t factor) {
   int32_t n = jrt::Math::floorMod(factor, 8);
   switch (n) {
-    case 0: return new IntDirection(x, y);           // 0 degrees
-    case 1: return new IntDirection(x - y, x + y);   // 45 degrees
-    case 2: return new IntDirection(-y, x);          // 90 degrees
-    case 3: return new IntDirection(-x - y, x - y);  // 135 degrees
-    case 4: return new IntDirection(-x, -y);         // 180 degrees
-    case 5: return new IntDirection(y - x, -x - y);  // 225 degrees
-    case 6: return new IntDirection(y, -x);          // 270 degrees
-    case 7: return new IntDirection(x + y, y - x);   // 315 degrees
-    default: return new IntDirection(0, 0);
+    case 0: return new (jrt::kGeom) IntDirection(x, y);           // 0 degrees
+    case 1: return new (jrt::kGeom) IntDirection(x - y, x + y);   // 45 degrees
+    case 2: return new (jrt::kGeom) IntDirection(-y, x);          // 90 degrees
+    case 3: return new (jrt::kGeom) IntDirection(-x - y, x - y);  // 135 degrees
+    case 4: return new (jrt::kGeom) IntDirection(-x, -y);         // 180 degrees
+    case 5: return new (jrt::kGeom) IntDirection(y - x, -x - y);  // 225 degrees
+    case 6: return new (jrt::kGeom) IntDirection(y, -x);          // 270 degrees
+    case 7: return new (jrt::kGeom) IntDirection(x + y, y - x);   // 315 degrees
+    default: return new (jrt::kGeom) IntDirection(0, 0);
   }
 }
 

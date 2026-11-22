@@ -13,7 +13,7 @@ SesNumbers_Interval* SesNumbers_Interval::intersect(SesNumbers_Interval* other) 
   if (lower.compareTo(upper) > 0) {
     throw jrt::IOException("SES numeric recovery intervals do not intersect");
   }
-  return new SesNumbers_Interval(lower, upper);
+  return new (jrt::kOp) SesNumbers_Interval(lower, upper);
 }
 
 jrt::BigFraction SesNumbers::sessionScale(fr::BasicBoard* board, fr::Unit unit,
@@ -65,7 +65,7 @@ SesNumbers_Interval* SesNumbers::legacyInterval(double value) {
   }
   jrt::BigFraction center = jrt::BigFraction::from(value);
   jrt::BigFraction tolerance = jrt::BigFraction::from(4 * jrt::Math::ulp(value));
-  return new SesNumbers_Interval(center.subtract(tolerance), center.add(tolerance));
+  return new (jrt::kOp) SesNumbers_Interval(center.subtract(tolerance), center.add(tolerance));
 }
 
 jrt::BigFraction SesNumbers::recover(const jrt::BigDecimal& token, const jrt::BigFraction& scale) {
@@ -74,7 +74,7 @@ jrt::BigFraction SesNumbers::recover(const jrt::BigDecimal& token, const jrt::Bi
   if (token.scale() > 0) {
     jrt::BigFraction halfPlace = exact(token.ulp()).divide(static_cast<int64_t>(2));
     recovered =
-        simplest(new SesNumbers_Interval(external.subtract(halfPlace), external.add(halfPlace)));
+        simplest(new (jrt::kOp) SesNumbers_Interval(external.subtract(halfPlace), external.add(halfPlace)));
   }
   jrt::BigFraction value = recovered.multiply(scale);
   if (!legacyInterval(token.doubleValue() * scale.doubleValue())->contains(value)) {

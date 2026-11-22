@@ -52,7 +52,7 @@ class DefaultItemClearanceClasses : public virtual jrt::Object {
   /** Creates a new instance of DefaultItemClearanceClasses. */
   DefaultItemClearanceClasses()
       : clearanceClasses(
-            new jrt::Array<int32_t>(DefaultItemClearanceClasses_ItemClass_values()->length)) {
+            new (jrt::kOp) jrt::Array<int32_t>(DefaultItemClearanceClasses_ItemClass_values()->length)) {
     this->setAll(1);
   }
 

@@ -5,7 +5,7 @@
 namespace fr {
 
 RoutingCostSettings* RoutingCostSettings::clone() {
-  auto* r = new RoutingCostSettings();
+  auto* r = new (jrt::kBoard) RoutingCostSettings();
   r->preferredDirectionTraceCost = preferredDirectionTraceCost;
   r->undesiredDirectionTraceCost = undesiredDirectionTraceCost;
   r->defaultPreferredDirectionTraceCost = defaultPreferredDirectionTraceCost;

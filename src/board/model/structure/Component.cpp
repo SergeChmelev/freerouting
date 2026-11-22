@@ -55,7 +55,7 @@ FloatPoint* Component::getExactLocation() {
 }
 
 PlacementTransform* Component::placementTransform(bool rotateFirst) {
-  return new PlacementTransform(getExactLocation(), rotationInDegree, !onFront, rotateFirst);
+  return new (jrt::kGeom) PlacementTransform(getExactLocation(), rotationInDegree, !onFront, rotateFirst);
 }
 
 void Component::restorePose(Component* original) {
@@ -70,7 +70,7 @@ bool Component::isPlaced() { return exactLocation != nullptr || location != null
 void Component::translateBy(Vector* vector) {
   if (exactLocation != nullptr) {
     FloatPoint* vf = vector->toFloat();
-    exactLocation = new FloatPoint(exactLocation->x + vf->x, exactLocation->y + vf->y);
+    exactLocation = new (jrt::kGeom) FloatPoint(exactLocation->x + vf->x, exactLocation->y + vf->y);
     location = exactLocation->round();
   } else if (location != nullptr) {
     location = location->translateBy(vector);
@@ -142,7 +142,7 @@ void Component::changeSide(IntPoint* pole, bool flipStyleRotateFirst) {
   this->onFront = !this->onFront;
   if (exactLocation != nullptr) {
     this->exactLocation =
-        new FloatPoint(2 * pole->x - this->exactLocation->x, this->exactLocation->y);
+        new (jrt::kGeom) FloatPoint(2 * pole->x - this->exactLocation->x, this->exactLocation->y);
     this->location = this->exactLocation->round();
   } else if (this->location != nullptr) {
     this->location = this->location->mirrorVertical(static_cast<Point*>(pole));
@@ -158,14 +158,14 @@ int32_t Component::compareTo(jrt::Object* other) {
 }
 
 Component* Component::clone() {
-  auto* result = new Component(name, exactLocation, rotationInDegree, onFront, libPackageFront,
+  auto* result = new (jrt::kOp) Component(name, exactLocation, rotationInDegree, onFront, libPackageFront,
                                libPackageBack, id, positionFixed, partNumber);
   result->logicalPart = this->logicalPart;
   return result;
 }
 
 void Component::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("app.freerouting.board.model.structure.Component", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("app.freerouting.board.model.structure.Component", locale);
 
   printer->appendBold(tm->getText("component") + " ");
   printer->appendBold(this->name);

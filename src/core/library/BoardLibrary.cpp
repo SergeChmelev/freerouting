@@ -14,13 +14,13 @@
 namespace fr {
 
 BoardLibrary::BoardLibrary(Padstacks* padstacks, Packages* packages)
-    : logicalParts(new LogicalParts()) {
+    : logicalParts(new (jrt::kBoard) LogicalParts()) {
   this->padstacks = padstacks;
   this->packages = packages;
-  logicalParts = new LogicalParts();
+  logicalParts = new (jrt::kBoard) LogicalParts();
 }
 
-BoardLibrary::BoardLibrary() : logicalParts(new LogicalParts()) {}
+BoardLibrary::BoardLibrary() : logicalParts(new (jrt::kBoard) LogicalParts()) {}
 
 int32_t BoardLibrary::viaPadstackCount() {
   if (this->viaPadstacks == nullptr) {
@@ -50,9 +50,9 @@ Padstack* BoardLibrary::getViaPadstack(const std::string& name) {
 
 jrt::Array<Padstack*>* BoardLibrary::getViaPadstacks() {
   if (this->viaPadstacks == nullptr) {
-    return new jrt::Array<Padstack*>(0);
+    return new (jrt::kOp) jrt::Array<Padstack*>(0);
   }
-  auto* result = new jrt::Array<Padstack*>(viaPadstacks->size());
+  auto* result = new (jrt::kOp) jrt::Array<Padstack*>(viaPadstacks->size());
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = viaPadstacks->get(i);
   }
@@ -60,7 +60,7 @@ jrt::Array<Padstack*>* BoardLibrary::getViaPadstacks() {
 }
 
 void BoardLibrary::setViaPadstacks(jrt::Array<Padstack*>* padstacks) {
-  this->viaPadstacks = new jrt::ArrayList<Padstack*>(padstacks->toVector());
+  this->viaPadstacks = new (jrt::kBoard) jrt::ArrayList<Padstack*>(padstacks->toVector());
 }
 
 bool BoardLibrary::addViaPadstack(Padstack* padstack) {
@@ -69,7 +69,7 @@ bool BoardLibrary::addViaPadstack(Padstack* padstack) {
   }
 
   if (this->viaPadstacks == nullptr) {
-    this->viaPadstacks = new jrt::ArrayList<Padstack*>();
+    this->viaPadstacks = new (jrt::kBoard) jrt::ArrayList<Padstack*>();
   }
 
   this->viaPadstacks->add(padstack);

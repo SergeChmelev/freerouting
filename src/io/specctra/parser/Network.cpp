@@ -169,7 +169,7 @@ std::string Network_PlacedComponent::toString() {
 
 jrt::List<std::string>* Network::NON_WIRE_ITEM_CLASS_NAMES() {
   static jrt::List<std::string>* v =
-      new jrt::ArrayList<std::string>({"via", "smd", "pin", "area"});
+      new (jrt::kBoard) jrt::ArrayList<std::string>({"via", "smd", "pin", "area"});
   return v;
 }
 
@@ -323,7 +323,7 @@ void Network::writeCircuit(fr::NetClass* netClass, WriteScopeParameter* scopePar
 jrt::Collection<jrt::Collection<Net_Pin*>*>* Network::createOrderedSubnets(
     jrt::Collection<Net_Pin*>* pinList) {
   jrt::Collection<jrt::Collection<Net_Pin*>*>* result =
-      new jrt::LinkedList<jrt::Collection<Net_Pin*>*>();
+      new (jrt::kOp) jrt::LinkedList<jrt::Collection<Net_Pin*>*>();
   if (pinList->isEmpty()) {
     return result;
   }
@@ -332,7 +332,7 @@ jrt::Collection<jrt::Collection<Net_Pin*>*>* Network::createOrderedSubnets(
   Net_Pin* prevPin = it->next();
   while (it->hasNext()) {
     Net_Pin* nextPin = it->next();
-    jrt::Set<Net_Pin*>* currentSubnetPinList = new jrt::TreeSet<Net_Pin*>();
+    jrt::Set<Net_Pin*>* currentSubnetPinList = new (jrt::kOp) jrt::TreeSet<Net_Pin*>();
     currentSubnetPinList->add(prevPin);
     currentSubnetPinList->add(nextPin);
     result->add(currentSubnetPinList);
@@ -685,7 +685,7 @@ void Network::insertClassPairs(jrt::Collection<NetClass_ClassClass*>* classClass
   fr::BasicBoard* routingBoard = scopeParameter->boardHandling->getRoutingBoard();
   // Localize all participants before writing any pair. Otherwise an inherited item entry can
   // change unrelated net classes, or a later split can lose an earlier pair's clearance.
-  jrt::Set<fr::NetClass*>* preparedClasses = new jrt::LinkedHashSet<fr::NetClass*>();
+  jrt::Set<fr::NetClass*>* preparedClasses = new (jrt::kOp) jrt::LinkedHashSet<fr::NetClass*>();
   for (NetClass_ClassClass* classClass : *classClasses) {
     for (const std::string& name : *classClass->classNames) {
       fr::NetClass* netClass = fr::io::KiCadNetClassNames::resolveNetClass(routingBoard->rules, name);
@@ -694,9 +694,9 @@ void Network::insertClassPairs(jrt::Collection<NetClass_ClassClass*>* classClass
       }
     }
   }
-  jrt::List<Network_ClassPairRule*>* pairRules = new jrt::ArrayList<Network_ClassPairRule*>();
+  jrt::List<Network_ClassPairRule*>* pairRules = new (jrt::kOp) jrt::ArrayList<Network_ClassPairRule*>();
   for (NetClass_ClassClass* currentClassClass : *classClasses) {
-    jrt::List<fr::NetClass*>* classes = new jrt::ArrayList<fr::NetClass*>();
+    jrt::List<fr::NetClass*>* classes = new (jrt::kOp) jrt::ArrayList<fr::NetClass*>();
     for (const std::string& name : *currentClassClass->classNames) {
       fr::NetClass* netClass = fr::io::KiCadNetClassNames::resolveNetClass(routingBoard->rules, name);
       if (netClass != nullptr) {
@@ -755,13 +755,13 @@ void Network::prepareClassPairClearances(fr::BasicBoard* board, fr::NetClass* ne
   if (oldRule == nullptr) {
     return;
   }
-  jrt::Map<int32_t, int32_t>* viaClasses = new jrt::LinkedHashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* viaClasses = new (jrt::kOp) jrt::LinkedHashMap<int32_t, int32_t>();
   viaClasses->put(oldViaClass, netClass->defaultItemClearanceClasses->get(ItemClass::VIA));
   std::string ruleName = netClass->getName() + "_class_class";
   while (board->rules->getViaRule(ruleName) != nullptr) {
     ruleName += "_";
   }
-  fr::ViaRule* newRule = new fr::ViaRule(ruleName);
+  fr::ViaRule* newRule = new (jrt::kBoard) fr::ViaRule(ruleName);
   for (int32_t i = 0; i < oldRule->viaCount(); i++) {
     fr::ViaInfo* via = oldRule->getVia(i);
     int32_t localized = viaClasses->computeIfAbsent(
@@ -773,7 +773,7 @@ void Network::prepareClassPairClearances(fr::BasicBoard* board, fr::NetClass* ne
     while (board->rules->viaInfos->nameExists(viaName)) {
       viaName += "_";
     }
-    via = new fr::ViaInfo(viaName, via->getPadstack(), localized, via->attachSmdAllowed(),
+    via = new (jrt::kBoard) fr::ViaInfo(viaName, via->getPadstack(), localized, via->attachSmdAllowed(),
                           board->rules);
     board->rules->viaInfos->add(via);
     newRule->appendVia(via);
@@ -813,7 +813,7 @@ void Network::collectClassPairRules(NetClass_ClassClass* classClass, fr::NetClas
                                     jrt::List<Network_ClassPairRule*>* rules) {
   for (Rule* currentRule : *classClass->rules) {
     if (auto* clearance = jrt::fast_cast<Rule_ClearanceRule>(currentRule)) {
-      rules->add(new Network_ClassPairRule(firstClass, secondClass, clearance, -1));
+      rules->add(new (jrt::kOp) Network_ClassPairRule(firstClass, secondClass, clearance, -1));
     } else {
       FRLogger::warn("Network.insert_class_pair_info: unexpected rule");
     }
@@ -827,7 +827,7 @@ void Network::collectClassPairRules(NetClass_ClassClass* classClass, fr::NetClas
       }
       for (Rule* currentRule : *layerRule->rules) {
         if (auto* clearance = jrt::fast_cast<Rule_ClearanceRule>(currentRule)) {
-          rules->add(new Network_ClassPairRule(firstClass, secondClass, clearance, layerIndex));
+          rules->add(new (jrt::kOp) Network_ClassPairRule(firstClass, secondClass, clearance, layerIndex));
         } else {
           FRLogger::warn("Network.insert_class_pair_info: unexpected layer rule type");
         }
@@ -838,7 +838,7 @@ void Network::collectClassPairRules(NetClass_ClassClass* classClass, fr::NetClas
 
 jrt::Set<int32_t>* Network::effectiveClearanceClasses(fr::NetClass* netClass,
                                                       std::optional<ItemClass> type) {
-  jrt::Set<int32_t>* result = new jrt::LinkedHashSet<int32_t>();
+  jrt::Set<int32_t>* result = new (jrt::kOp) jrt::LinkedHashSet<int32_t>();
   if (!type.has_value()) {
     for (ItemClass item : *fr::DefaultItemClearanceClasses_ItemClass_values()) {
       if (item != ItemClass::NONE) {
@@ -875,7 +875,7 @@ jrt::Set<int32_t>* Network::mixedClearanceClasses(fr::ClearanceMatrix* matrix,
   }
   if (!type.has_value()) {
     // Java Set.of(x): an immutable one-element set.
-    jrt::Set<int32_t>* single = new jrt::LinkedHashSet<int32_t>();
+    jrt::Set<int32_t>* single = new (jrt::kOp) jrt::LinkedHashSet<int32_t>();
     single->add(getClearanceClass(matrix, netClass, itemName));
     return single;
   }
@@ -935,7 +935,7 @@ void Network::createDefaultClearanceClasses(fr::NetClass* netClass,
 
 void Network::createViaRule(jrt::Collection<std::string>* useVia, fr::NetClass* netClass,
                             fr::BasicBoard* board, bool attachAllowed) {
-  fr::ViaRule* newViaRule = new fr::ViaRule(netClass->getName());
+  fr::ViaRule* newViaRule = new (jrt::kBoard) fr::ViaRule(netClass->getName());
   int32_t defaultViaClClass = netClass->defaultItemClearanceClasses->get(ItemClass::VIA);
   for (const std::string& currentViaName : *useVia) {
     // PORT NOTE: currentViaName is never null in C++.
@@ -995,7 +995,7 @@ void Network::addClearanceRule(fr::BoardRules* rules, fr::NetClass* netClass,
     // Against the clearance class of another net class, the larger of the two net class
     // clearances applies, as in KiCad. Against any other class, the new class gets the maximum
     // of its own effective clearance and the default value that appendClass copied in.
-    jrt::Set<int32_t>* netClassClearanceClasses = new jrt::LinkedHashSet<int32_t>();
+    jrt::Set<int32_t>* netClassClearanceClasses = new (jrt::kOp) jrt::LinkedHashSet<int32_t>();
     for (int32_t i = 0; i < rules->netClasses->count(); i++) {
       netClassClearanceClasses->add(rules->netClasses->get(i)->getTraceClearanceClass());
     }
@@ -1071,10 +1071,10 @@ int32_t Network::getClearanceClass(fr::ClearanceMatrix* clearanceMatrix, fr::Net
 }
 
 void Network::insertComponents(ReadScopeParameter* scopeParameter) {
-  jrt::List<Network_PlacedComponent*>* components = new jrt::ArrayList<Network_PlacedComponent*>();
+  jrt::List<Network_PlacedComponent*>* components = new (jrt::kOp) jrt::ArrayList<Network_PlacedComponent*>();
   for (ComponentPlacement* nextLibComponent : *scopeParameter->placementList) {
     for (ComponentPlacement_ComponentLocation* nextComponent : *nextLibComponent->locations) {
-      components->add(new Network_PlacedComponent(nextLibComponent->libName, nextComponent));
+      components->add(new (jrt::kOp) Network_PlacedComponent(nextLibComponent->libName, nextComponent));
     }
   }
   // Allocation order determines item IDs and connected-set representatives before routing.
@@ -1100,7 +1100,7 @@ bool Network::insertLogicalParts(ReadScopeParameter* scopeParameter) {
       return false;
     }
     jrt::Array<fr::LogicalPart_PartPin*>* boardPartPins =
-        new jrt::Array<fr::LogicalPart_PartPin*>(nextPart->partPins->size());
+        new (jrt::kOp) jrt::Array<fr::LogicalPart_PartPin*>(nextPart->partPins->size());
     int32_t currentIndex = 0;
     for (PartLibrary_PartPin* currentPartPin : *nextPart->partPins) {
       int32_t pinIndex = libPackage->getPinIndex(currentPartPin->pinName);
@@ -1109,7 +1109,7 @@ bool Network::insertLogicalParts(ReadScopeParameter* scopeParameter) {
                        currentPartPin->pinName + "'");
         return false;
       }
-      (*boardPartPins)[currentIndex] = new fr::LogicalPart_PartPin(
+      (*boardPartPins)[currentIndex] = new (jrt::kBoard) fr::LogicalPart_PartPin(
           pinIndex, currentPartPin->pinName, currentPartPin->gateName,
           currentPartPin->gateSwapCode, currentPartPin->gatePinName,
           currentPartPin->gatePinSwapCode);
@@ -1206,7 +1206,7 @@ void Network::insertComponent(ComponentPlacement_ComponentLocation* location,
       return;
     }
     jrt::Collection<Net*>* pinNets = scopeParameter->netlist->getNets(location->name, currentPin->name);
-    jrt::Collection<int32_t>* pinNetNumbers = new jrt::LinkedList<int32_t>();
+    jrt::Collection<int32_t>* pinNetNumbers = new (jrt::kOp) jrt::LinkedList<int32_t>();
     for (Net* currentPinNet : *pinNets) {
       fr::Net* currentBoardNet =
           routingBoard->rules->nets->get(currentPinNet->id->name, currentPinNet->id->subnetNumber);
@@ -1217,7 +1217,7 @@ void Network::insertComponent(ComponentPlacement_ComponentLocation* location,
         pinNetNumbers->add(currentBoardNet->netNumber);
       }
     }
-    jrt::Array<int32_t>* netNumberArray = new jrt::Array<int32_t>(pinNetNumbers->size());
+    jrt::Array<int32_t>* netNumberArray = new (jrt::kOp) jrt::Array<int32_t>(pinNetNumbers->size());
     int32_t netIndex = 0;
     for (int32_t currentNetNumber : *pinNetNumbers) {
       (*netNumberArray)[netIndex] = currentNetNumber;
@@ -1268,7 +1268,7 @@ void Network::insertComponent(ComponentPlacement_ComponentLocation* location,
           fr::Shape* transformedAux = newPin->transformToBoard(aux);
           fr::Area* auxArea = nullptr;
           if (auto* polyShape = jrt::fast_cast<fr::PolylineShape>(transformedAux)) {
-            auxArea = new fr::PolylineArea(polyShape, new jrt::Array<fr::PolylineShape*>(0));
+            auxArea = new (jrt::kGeom) fr::PolylineArea(polyShape, new (jrt::kGeom) jrt::Array<fr::PolylineShape*>(0));
           } else if (transformedAux != nullptr) {
             auxArea = transformedAux;
           }
@@ -1401,12 +1401,12 @@ void Network::insertComponent(ComponentPlacement_ComponentLocation* location,
 }
 
 bool Network::readScope(ReadScopeParameter* scopeParameter) {
-  jrt::Collection<NetClass*>* classes = new jrt::LinkedList<NetClass*>();
+  jrt::Collection<NetClass*>* classes = new (jrt::kOp) jrt::LinkedList<NetClass*>();
   jrt::Collection<NetClass_ClassClass*>* classClassList =
-      new jrt::LinkedList<NetClass_ClassClass*>();
-  jrt::Collection<fr::ViaInfo*>* viaInfos = new jrt::LinkedList<fr::ViaInfo*>();
+      new (jrt::kOp) jrt::LinkedList<NetClass_ClassClass*>();
+  jrt::Collection<fr::ViaInfo*>* viaInfos = new (jrt::kOp) jrt::LinkedList<fr::ViaInfo*>();
   jrt::Collection<jrt::Collection<std::string>*>* viaRules =
-      new jrt::LinkedList<jrt::Collection<std::string>*>();
+      new (jrt::kOp) jrt::LinkedList<jrt::Collection<std::string>*>();
   jrt::Object* nextToken = nullptr;
   for (;;) {
     jrt::Object* prevToken = nextToken;
@@ -1468,7 +1468,7 @@ bool Network::readScope(ReadScopeParameter* scopeParameter) {
     if (scopeParameter->viaPadstackNames != nullptr) {
       scopeParameter->viaPadstackNames->addAll(n->useVia);
     } else {
-      scopeParameter->viaPadstackNames = new jrt::ArrayList<std::string>(n->useVia);
+      scopeParameter->viaPadstackNames = new (jrt::kOp) jrt::ArrayList<std::string>(n->useVia);
     }
   }
 
@@ -1478,7 +1478,7 @@ bool Network::readScope(ReadScopeParameter* scopeParameter) {
   // network DSN sections are properly instantiated .
   if (scopeParameter->viaPadstackNames != nullptr) {
     jrt::Array<fr::Padstack*>* viaPadstacks =
-        new jrt::Array<fr::Padstack*>(scopeParameter->viaPadstackNames->size());
+        new (jrt::kOp) jrt::Array<fr::Padstack*>(scopeParameter->viaPadstackNames->size());
     jrt::Iterator<std::string>* it = scopeParameter->viaPadstackNames->iterator();
     int32_t foundPadstackCount = 0;
     for (int32_t i = 0; i < viaPadstacks->length; i++) {
@@ -1498,7 +1498,7 @@ bool Network::readScope(ReadScopeParameter* scopeParameter) {
     if (foundPadstackCount != viaPadstacks->length) {
       // Some via padstacks were not found in the padstacks scope of the dsn-file.
       jrt::Array<fr::Padstack*>* correctedPadstacks =
-          new jrt::Array<fr::Padstack*>(foundPadstackCount);
+          new (jrt::kOp) jrt::Array<fr::Padstack*>(foundPadstackCount);
       jrt::arraycopy(viaPadstacks, 0, correctedPadstacks, 0, foundPadstackCount);
       viaPadstacks = correctedPadstacks;
     }
@@ -1539,11 +1539,11 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
     subnetNumber = integer->value;
   }
   bool pinOrderFound = false;
-  jrt::Collection<Net_Pin*>* pinList = new jrt::LinkedList<Net_Pin*>();
-  jrt::Collection<Rule*>* netRules = new jrt::LinkedList<Rule*>();
+  jrt::Collection<Net_Pin*>* pinList = new (jrt::kOp) jrt::LinkedList<Net_Pin*>();
+  jrt::Collection<Rule*>* netRules = new (jrt::kOp) jrt::LinkedList<Rule*>();
   Circuit_ReadScopeResult* netCircuit = nullptr;
   jrt::Collection<jrt::Collection<Net_Pin*>*>* subnetPinLists =
-      new jrt::LinkedList<jrt::Collection<Net_Pin*>*>();
+      new (jrt::kOp) jrt::LinkedList<jrt::Collection<Net_Pin*>*>();
   if (!scopeIsEmpty) {
     for (;;) {
       jrt::Object* prevToken = nextToken;
@@ -1573,7 +1573,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
             return false;
           }
         } else if (nextToken == Keyword::FROMTO()) {
-          jrt::Set<Net_Pin*>* currentSubnetPinList = new jrt::TreeSet<Net_Pin*>();
+          jrt::Set<Net_Pin*>* currentSubnetPinList = new (jrt::kOp) jrt::TreeSet<Net_Pin*>();
           if (!readNetPins(scanner, currentSubnetPinList)) {
             return false;
           }
@@ -1603,7 +1603,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
     }
   }
   for (jrt::Collection<Net_Pin*>* currentPinList : *subnetPinLists) {
-    Net_Id* netId = new Net_Id(netName, subnetNumber);
+    Net_Id* netId = new (jrt::kOp) Net_Id(netName, subnetNumber);
     if (!netList->contains(netId)) {
       Net* newNet = netList->addNet(netId);
       bool containsPlane = layerStructure->containsPlane(netName);
@@ -1626,7 +1626,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
       double min =
           (netCircuit->minLength > 0) ? coordinateTransform->dsnToBoard(netCircuit->minLength) : 0.0;
       if (max > 0 || min > 0) {
-        boardNet->setLengthConstraint(new fr::NetLengthConstraint(min, max));
+        boardNet->setLengthConstraint(new (jrt::kBoard) fr::NetLengthConstraint(min, max));
       }
       if (netCircuit->hasMeanderConstraint()) {
         boardNet->setMeanderConstraint(netCircuit->toMeanderConstraint(
@@ -1663,7 +1663,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
                            ? coordinateTransform->dsnToBoard(lengthRule->minLength)
                            : 0.0;
           if (max > 0 || min > 0) {
-            boardNet->setLengthConstraint(new fr::NetLengthConstraint(min, max));
+            boardNet->setLengthConstraint(new (jrt::kBoard) fr::NetLengthConstraint(min, max));
           }
         } else if (auto* meanderRule = jrt::fast_cast<Rule_MeanderRule>(currentObject)) {
           boardNet->setMeanderConstraint(

@@ -59,13 +59,13 @@ ShapeAndEntrySide::ShapeAndEntrySide(PolylineTrace* trace, int32_t index, bool o
     if (fromSideIndex >= 0) {
       FloatPoint* borderIntersection =
           currentCutLine->intersectionApprox(currentShape->borderLine(fromSideIndex));
-      currentFromSide = new ShapeEntrySide(fromSideIndex, borderIntersection);
+      currentFromSide = new (jrt::kBoard) ShapeEntrySide(fromSideIndex, borderIntersection);
     }
   }
   if (currentFromSide == nullptr && !inShoveCheck) {
     // In inShoveCheck, using this calculation may produce an undesired stackLevel > 1 in
     // ShapeTraceEntries.
-    currentFromSide = new ShapeEntrySide(trace->polyline(), index, currentShape);
+    currentFromSide = new (jrt::kBoard) ShapeEntrySide(trace->polyline(), index, currentShape);
   }
   this->shape = currentShape;
   this->fromSide = currentFromSide;

@@ -31,7 +31,7 @@ int32_t DsnFile::convertPlatedSlotKeepouts(fr::BasicBoard* routingBoard) {
   if (routingBoard == nullptr) {
     return 0;
   }
-  jrt::List<fr::ObstacleArea*>* slotKeepouts = new jrt::ArrayList<fr::ObstacleArea*>();
+  jrt::List<fr::ObstacleArea*>* slotKeepouts = new (jrt::kOp) jrt::ArrayList<fr::ObstacleArea*>();
   for (fr::Item* item : *routingBoard->getItems()) {
     if (typeid(*item) == typeid(fr::ObstacleArea) && item->getComponentId() <= 0 &&
         isInsideThroughHolePad(static_cast<fr::ObstacleArea*>(item), routingBoard)) {
@@ -57,7 +57,7 @@ int32_t DsnFile::removePinEnclosingKeepouts(fr::BasicBoard* routingBoard) {
   if (routingBoard == nullptr) {
     return 0;
   }
-  jrt::List<fr::ObstacleArea*>* pinBlockingKeepouts = new jrt::ArrayList<fr::ObstacleArea*>();
+  jrt::List<fr::ObstacleArea*>* pinBlockingKeepouts = new (jrt::kOp) jrt::ArrayList<fr::ObstacleArea*>();
   for (fr::Item* item : *routingBoard->getItems()) {
     if (typeid(*item) == typeid(fr::ObstacleArea) && item->getComponentId() <= 0 &&
         (!static_cast<fr::ObstacleArea*>(item)->name.has_value() ||
@@ -142,7 +142,7 @@ bool DsnFile::adjustPlaneAutorouteSettings(fr::BasicBoard* routingBoard) {
       return false;
     }
   }
-  auto* changedLayerArr = new jrt::Array<bool>(boardLayerStructure->layers->length);
+  auto* changedLayerArr = new (jrt::kOp) jrt::Array<bool>(boardLayerStructure->layers->length);
   jrt::Collection<fr::ConductionArea*>* conductionAreaList = routingBoard->getConductionAreas();
   bool nothingChanged = true;
 

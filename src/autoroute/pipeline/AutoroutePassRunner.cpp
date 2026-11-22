@@ -51,18 +51,18 @@ AutoroutePassRunner_FailedConnectionPair* AutoroutePassRunner_FailedConnectionPa
   if (connected->isEmpty() || unconnected->isEmpty()) {
     return nullptr;
   }
-  jrt::Set<int32_t>* a = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* a = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (Item* it : *connected) {
     a->add(it->getId());
   }
-  jrt::Set<int32_t>* b = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* b = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (Item* it : *unconnected) {
     b->add(it->getId());
   }
   int32_t minA = a->iterator()->next();
   int32_t minB = b->iterator()->next();
-  return minA <= minB ? new AutoroutePassRunner_FailedConnectionPair(netNo, a, b)
-                      : new AutoroutePassRunner_FailedConnectionPair(netNo, b, a);
+  return minA <= minB ? new (jrt::kOp) AutoroutePassRunner_FailedConnectionPair(netNo, a, b)
+                      : new (jrt::kOp) AutoroutePassRunner_FailedConnectionPair(netNo, b, a);
 }
 
 bool AutoroutePassRunner_FailedConnectionPair::equals(jrt::Object* o) {
@@ -130,7 +130,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
                *router->settings->autorouter->planeAsPriority) {
       // plane_as_priority: the plane pads drop into their planes before the signals take the
       // room around them (later passes already route plane items first).
-      jrt::List<Item*>* planeItems = new jrt::ArrayList<Item*>();
+      jrt::List<Item*>* planeItems = new (jrt::kOp) jrt::ArrayList<Item*>();
       BatchAutorouter* r = router;
       autorouteItemList->removeIf(
           [r, planeItems](Item* item) { return r->isPlaneItem(item, r->board) && planeItems->add(item); });
@@ -156,7 +156,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
         BatchAutorouter::isBenchmarkProfileEnabled() ? jrt::System::nanoTime() : 0;
     // The optimizer routes each candidate with a listener-less router: no one reads these.
     router->progressStatistics = router->hasBoardStatisticsReaders()
-                                     ? new BoardStatistics(router->board, std::nullopt, false)
+                                     ? new (jrt::kOp) BoardStatistics(router->board, std::nullopt, false)
                                      : nullptr;
     router->progressItemsSinceStatistics = 0;
     BoardStatistics* stats = router->progressStatistics;
@@ -165,7 +165,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
     }
 
     int32_t itemsToGoCount = autorouteItemList->size();
-    RouterCounters* routerCounters = new RouterCounters();
+    RouterCounters* routerCounters = new (jrt::kBoard) RouterCounters();
     routerCounters->phase = std::string("autoroute");
     routerCounters->passCount = passNo;
     routerCounters->queuedToBeRoutedCount = itemsToGoCount;
@@ -190,15 +190,15 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
     int32_t skipped = 0;
     jrt::Map<int32_t, IntBox*>* netCandidateBounds = buildPaddedNetBounds(autorouteItemList);
     jrt::Map<AutoroutePassRunner_FailedConnectionPair*, IntBox*>* zeroRipupFailedPairs =
-        new jrt::LinkedHashMap<AutoroutePassRunner_FailedConnectionPair*, IntBox*>();
-    jrt::Set<int32_t>* keptAwayNetsAttemptedInPass = new jrt::TreeSet<int32_t>();
+        new (jrt::kOp) jrt::LinkedHashMap<AutoroutePassRunner_FailedConnectionPair*, IntBox*>();
+    jrt::Set<int32_t>* keptAwayNetsAttemptedInPass = new (jrt::kOp) jrt::TreeSet<int32_t>();
     jrt::Map<int32_t, AutoroutePassRunner_NetPassProfile*>* netProfiles =
         BatchAutorouter::isBenchmarkProfileEnabled()
-            ? new jrt::LinkedHashMap<int32_t, AutoroutePassRunner_NetPassProfile*>()
+            ? new (jrt::kOp) jrt::LinkedHashMap<int32_t, AutoroutePassRunner_NetPassProfile*>()
             : nullptr;
     jrt::List<AutoroutePassRunner_ItemPassProfile*>* slowItemProfiles =
         BatchAutorouter::isBenchmarkProfileEnabled()
-            ? new jrt::ArrayList<AutoroutePassRunner_ItemPassProfile*>()
+            ? new (jrt::kOp) jrt::ArrayList<AutoroutePassRunner_ItemPassProfile*>()
             : nullptr;
     for (Item* currentItem : *autorouteItemList) {
       if (router->thread->isStopAutoRouterRequested()) {
@@ -222,8 +222,8 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
         router->totalItemsRouted++;
         router->board->startMarkingChangedArea();
 
-        jrt::TreeSet<Item*>* rippedItemList = new jrt::TreeSet<Item*>();
-        jrt::Map<Item*, int32_t>* rippedItemCosts = new jrt::LinkedHashMap<Item*, int32_t>();
+        jrt::TreeSet<Item*>* rippedItemList = new (jrt::kOp) jrt::TreeSet<Item*>();
+        jrt::Map<Item*, int32_t>* rippedItemCosts = new (jrt::kOp) jrt::LinkedHashMap<Item*, int32_t>();
         const int32_t netItemsBefore =
             router->board->getConnectableItems(currentItem->getNetNumber(i))->size();
         if (BatchAutorouter::isBenchmarkProfileEnabled()) {
@@ -244,7 +244,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
         }
         AutorouteAttemptResult* autorouterResult;
         if (failedPairKey != nullptr && zeroRipupFailedPairs->containsKey(failedPairKey)) {
-          autorouterResult = new AutorouteAttemptResult(
+          autorouterResult = new (jrt::kOp) AutorouteAttemptResult(
               AutorouteAttemptState::FAILED,
               "Skipped reverse attempt in same pass (pair already failed with 0 ripups).");
         } else {
@@ -266,7 +266,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
           std::string netName = routeNet != nullptr ? routeNet->name : "net#" + jrt::str(netNo);
           AutoroutePassRunner_NetPassProfile* np = netProfiles->computeIfAbsent(
               netNo, [netNo, netName](int32_t) {
-                return new AutoroutePassRunner_NetPassProfile(netNo, netName);
+                return new (jrt::kOp) AutoroutePassRunner_NetPassProfile(netNo, netName);
               });
           np->totalNanos += itemElapsedNanos;
           np->attempts++;
@@ -279,7 +279,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
           } else {
             np->skipped++;
           }
-          slowItemProfiles->add(new AutoroutePassRunner_ItemPassProfile(
+          slowItemProfiles->add(new (jrt::kOp) AutoroutePassRunner_ItemPassProfile(
               itemElapsedNanos,
               netNo,
               netName,
@@ -362,7 +362,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
     routerCounters->rippedCount = rippedItemCount;
     routerCounters->failedToBeRoutedCount = notRouted;
     routerCounters->routedCount = routed;
-    jrt::Set<int32_t>* currentIncompleteNets = new jrt::TreeSet<int32_t>();
+    jrt::Set<int32_t>* currentIncompleteNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
     routerCounters->incompleteCount =
         router->calculateIncompleteCount(router->board, currentIncompleteNets);
     if (!router->thread->isStopAutoRouterRequested()) {
@@ -400,7 +400,7 @@ bool AutoroutePassRunner::runSingleThread(int32_t passNo) {
 
 jrt::Map<int32_t, IntBox*>* AutoroutePassRunner::buildPaddedNetBounds(
     jrt::List<Item*>* autorouteItemList) {
-  jrt::Map<int32_t, IntBox*>* bounds = new jrt::LinkedHashMap<int32_t, IntBox*>();
+  jrt::Map<int32_t, IntBox*>* bounds = new (jrt::kOp) jrt::LinkedHashMap<int32_t, IntBox*>();
   for (Item* item : *autorouteItemList) {
     IntBox* box = item->boundingBox();
     for (int32_t i = 0; i < item->netCount(); i++) {
@@ -466,8 +466,8 @@ jrt::Comparator<Item*> AutoroutePassRunner::deterministicItemComparator(RoutingB
 
 void AutoroutePassRunner::reorderSingleThreadItems(jrt::List<Item*>* autorouteItemList,
                                                    int32_t passNo) {
-  jrt::List<Item*>* planeItems = new jrt::ArrayList<Item*>();
-  jrt::List<Item*>* signalItems = new jrt::ArrayList<Item*>();
+  jrt::List<Item*>* planeItems = new (jrt::kOp) jrt::ArrayList<Item*>();
+  jrt::List<Item*>* signalItems = new (jrt::kOp) jrt::ArrayList<Item*>();
   for (Item* item : *autorouteItemList) {
     if (router->isPlaneItem(item, router->board)) {
       planeItems->add(item);
@@ -491,13 +491,13 @@ void AutoroutePassRunner::reorderSingleThreadItems(jrt::List<Item*>* autorouteIt
     if (orderSeed.has_value()) {
       seed = seed * 31LL + *orderSeed;
     }
-    jrt::Collections::shuffle(signalItems, new jrt::Random(seed));
+    jrt::Collections::shuffle(signalItems, new (jrt::kOp) jrt::Random(seed));
     router->job->logDebug("Pass #" + jrt::str(passNo) + ": applied deterministic permutation to " +
                           jrt::str(signalItems->size()) + " signal items (stagnation count: " +
                           jrt::str(this->stagnationCount) + ").");
   } else if (!this->previousIncompleteNets->isEmpty()) {
-    jrt::List<Item*>* persistentItems = new jrt::ArrayList<Item*>();
-    jrt::List<Item*>* otherItems = new jrt::ArrayList<Item*>();
+    jrt::List<Item*>* persistentItems = new (jrt::kOp) jrt::ArrayList<Item*>();
+    jrt::List<Item*>* otherItems = new (jrt::kOp) jrt::ArrayList<Item*>();
     for (Item* item : *signalItems) {
       bool isPersistent = false;
       for (int32_t i = 0; i < item->netCount(); i++) {
@@ -528,9 +528,9 @@ void AutoroutePassRunner::reorderSingleThreadItems(jrt::List<Item*>* autorouteIt
 }
 
 void AutoroutePassRunner::priorityItemsFirst(jrt::List<Item*>* autorouteItemList) {
-  jrt::List<Item*>* planeItems = new jrt::ArrayList<Item*>();
-  jrt::List<Item*>* priorityItems = new jrt::ArrayList<Item*>();
-  jrt::List<Item*>* otherItems = new jrt::ArrayList<Item*>();
+  jrt::List<Item*>* planeItems = new (jrt::kOp) jrt::ArrayList<Item*>();
+  jrt::List<Item*>* priorityItems = new (jrt::kOp) jrt::ArrayList<Item*>();
+  jrt::List<Item*>* otherItems = new (jrt::kOp) jrt::ArrayList<Item*>();
   for (Item* item : *autorouteItemList) {
     if (router->isPlaneItem(item, router->board)) {
       planeItems->add(item);
@@ -563,7 +563,7 @@ void AutoroutePassRunner::keptAwayNetsLast(jrt::List<Item*>* signalItems) {
   if (router->ripupMemory->activeCount() == 0) {
     return;
   }
-  jrt::List<Item*>* keptAway = new jrt::ArrayList<Item*>();
+  jrt::List<Item*>* keptAway = new (jrt::kOp) jrt::ArrayList<Item*>();
   RipupMemory* memory = router->ripupMemory;
   signalItems->removeIf([memory, keptAway](Item* item) {
     for (int32_t i = 0; i < item->netCount(); i++) {
@@ -602,7 +602,7 @@ void AutoroutePassRunner::resolveKeptAwayOutcomes(jrt::Set<int32_t>* keptAwayNet
       continue;
     }
     bool routed = !incompleteNets->contains(netNo);
-    for (int32_t keptFromNet : *(new jrt::ArrayList<int32_t>(keptAwayFrom))) {
+    for (int32_t keptFromNet : *(new (jrt::kOp) jrt::ArrayList<int32_t>(keptAwayFrom))) {
       RipupMemory_Outcome outcome =
           router->ripupMemory->recordOutcome(netNo, keptFromNet, routed, passNo);
       std::string message;
@@ -635,8 +635,8 @@ void AutoroutePassRunner::resolveKeptAwayOutcomes(jrt::Set<int32_t>* keptAwayNet
 }
 
 int32_t AutoroutePassRunner::ripInCorridors(int32_t netNo, int32_t failedNetNo) {
-  jrt::Array<AirLine*>* airlines = (new DesignRulesChecker(router->board, nullptr))->getAllAirlines();
-  jrt::Set<Item*>* inTheWay = new jrt::TreeSet<Item*>();
+  jrt::Array<AirLine*>* airlines = (new (jrt::kOp) DesignRulesChecker(router->board, nullptr))->getAllAirlines();
+  jrt::Set<Item*>* inTheWay = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (int32_t ai = 0; ai < airlines->length; ai++) {
     AirLine* airline = (*airlines)[ai];
     if (airline == nullptr || airline->net == nullptr || airline->net->netNumber != failedNetNo) {
@@ -652,7 +652,7 @@ int32_t AutoroutePassRunner::ripInCorridors(int32_t netNo, int32_t failedNetNo) 
     }
   }
   if (!inTheWay->isEmpty()) {
-    router->board->removeItems(new jrt::ArrayList<Item*>(inTheWay));
+    router->board->removeItems(new (jrt::kOp) jrt::ArrayList<Item*>(inTheWay));
   }
   return inTheWay->size();
 }
@@ -738,7 +738,7 @@ void AutoroutePassRunner::logTraceRouteComparison(Item* currentItem,
                                                   AutorouteAttemptResult* result,
                                                   jrt::TreeSet<Item*>* rippedItemList,
                                                   int32_t netItemsBefore) {
-  DesignRulesChecker* innerDrc = new DesignRulesChecker(router->board, nullptr);
+  DesignRulesChecker* innerDrc = new (jrt::kOp) DesignRulesChecker(router->board, nullptr);
   innerDrc->calculateAllIncompletes();
   int32_t tempIncomp = innerDrc->getIncompleteCount();
   int32_t tempNetIncomp = innerDrc->getIncompleteCount(currentItem->getNetNumber(netIndex));
@@ -765,7 +765,7 @@ void AutoroutePassRunner::logNet94Items() {
                   "compare_trace_dump_net_items",
                   "Dump net 94 items",
                   "Net #94",
-                  new jrt::Array<Point*>(0));
+                  new (jrt::kGeom) jrt::Array<Point*>(0));
   for (Item* netItem : *router->board->getConnectableItems(94)) {
     if (auto* trace = jrt::fast_cast<Trace>(netItem)) {
       FRLogger::trace(
@@ -810,7 +810,7 @@ void AutoroutePassRunner::updateProgress(RouterCounters* counters,
       router->hasBoardStatisticsReaders()) {
     int64_t progressStatisticsStart =
         BatchAutorouter::isBenchmarkProfileEnabled() ? jrt::System::nanoTime() : 0;
-    router->progressStatistics = new BoardStatistics(router->board, std::nullopt, false);
+    router->progressStatistics = new (jrt::kOp) BoardStatistics(router->board, std::nullopt, false);
     router->progressItemsSinceStatistics = 0;
     if (BatchAutorouter::isBenchmarkProfileEnabled()) {
       router->profileBoardStatisticsNanos += jrt::System::nanoTime() - progressStatisticsStart;
@@ -849,7 +849,7 @@ jrt::Set<int32_t>* AutoroutePassRunner::ruleBlockedNets(RoutingBoard* board) {
   if (board->ruleBlockedPins == nullptr || board->ruleBlockedPins->isEmpty()) {
     return nullptr;
   }
-  jrt::Set<int32_t>* nets = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* nets = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (Pin* pin : *board->getPins()) {
     if (pin->netCount() == 1 && board->ruleBlockedPins->contains(pin->getId())) {
       nets->add(pin->getNetNumber(0));
@@ -875,7 +875,7 @@ jrt::List<Item*>* AutoroutePassRunner::failedNetRipItems(RoutingBoard* board, It
   int32_t offset = static_cast<int32_t>(jrt::Math::round(board->communication->coordinateTransform->dsnToBoard(
       Unit_scale(1500, Unit::UM, board->communication->unit))));
   IntBox* region = failedItem->boundingBox()->offset(offset);
-  jrt::List<Item*>* result = new jrt::ArrayList<Item*>();
+  jrt::List<Item*>* result = new (jrt::kOp) jrt::ArrayList<Item*>();
   for (Item* i : *items) {
     if ((jrt::fast_cast<Trace>(i) != nullptr || jrt::fast_cast<Via>(i) != nullptr) &&
         !i->isUserFixed() && i->netCount() == 1 &&
@@ -892,7 +892,7 @@ void AutoroutePassRunner::logTailRemoval(int32_t passNo, int32_t incompleteCount
                   std::string("Incompletes ") + (before ? "before" : "after") +
                       " remove_tails=" + jrt::str(incompleteCount),
                   "Autorouter pass #" + jrt::str(passNo),
-                  new jrt::Array<Point*>(0));
+                  new (jrt::kGeom) jrt::Array<Point*>(0));
 }
 
 void AutoroutePassRunner::logPassBreakdownProfile(
@@ -901,7 +901,7 @@ void AutoroutePassRunner::logPassBreakdownProfile(
     jrt::List<AutoroutePassRunner_ItemPassProfile*>* slowItemProfiles) {
   if (netProfiles != nullptr && !netProfiles->isEmpty()) {
     jrt::List<AutoroutePassRunner_NetPassProfile*>* sortedNets =
-        new jrt::ArrayList<AutoroutePassRunner_NetPassProfile*>(netProfiles->values());
+        new (jrt::kOp) jrt::ArrayList<AutoroutePassRunner_NetPassProfile*>(netProfiles->values());
     sortedNets->sort(jrt::reverseOrder<AutoroutePassRunner_NetPassProfile*>(
         jrt::comparingLong<AutoroutePassRunner_NetPassProfile*>(
             [](AutoroutePassRunner_NetPassProfile* n) { return n->totalNanos; })));

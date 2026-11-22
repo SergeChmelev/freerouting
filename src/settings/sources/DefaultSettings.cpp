@@ -12,7 +12,7 @@ RouterSettings* DefaultSettings::getSettings() {
   // undesiredDirectionTraceCost) are intentionally left null here. Their actual sizes must come
   // from the board file (via DsnFileSettings) and are finalised by
   // RouterSettings::applyBoardSpecificOptimizations() once the board is loaded.
-  RouterSettings* settings = new RouterSettings();
+  RouterSettings* settings = new (jrt::kBoard) RouterSettings();
 
   settings->autorouter->enabled = true;
   settings->autorouter->algorithm = RouterSettings::ALGORITHM_CURRENT;
@@ -24,7 +24,7 @@ RouterSettings* DefaultSettings::getSettings() {
   settings->viasAllowed = true;
   settings->automaticNeckdown = true;
   settings->autorouter->saveIntermediateStages = false;
-  settings->autorouter->ignoreNetClasses = new jrt::Array<std::string>(0);
+  settings->autorouter->ignoreNetClasses = new (jrt::kOp) jrt::Array<std::string>(0);
   settings->autorouter->startNecked = true;
   settings->autorouter->fallbackStrategies = DEFAULT_FALLBACK_STRATEGIES;
   settings->autorouter->exploreFallbackStrategies = DEFAULT_EXPLORE_FALLBACK_STRATEGIES;
@@ -46,7 +46,7 @@ RouterSettings* DefaultSettings::getSettings() {
   settings->meanderCornerStyle = DEFAULT_MEANDER_CORNER_STYLE;
   settings->meanderRadiusPercentage = DEFAULT_MEANDER_RADIUS_PERCENTAGE;
   settings->meanderSingleSided = DEFAULT_MEANDER_SINGLE_SIDED;
-  settings->planeNets = new jrt::Array<std::string>(0);
+  settings->planeNets = new (jrt::kOp) jrt::Array<std::string>(0);
   settings->planeAsObstacle = false;
   settings->neckWidthUm = DEFAULT_NECK_WIDTH_UM;
   settings->exactCopper = true;

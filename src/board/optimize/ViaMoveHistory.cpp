@@ -16,7 +16,7 @@ bool ViaMoveHistory::allowsMove(Via* via, Point* from, Point* to, int32_t accura
 
 void ViaMoveHistory::recordMove(Via* via, Point* from, Point* to, int32_t accuracy) {
   ViaMoveHistory_Track* track =
-      tracks->computeIfAbsent(via->getId(), [](int32_t) { return new ViaMoveHistory_Track(); });
+      tracks->computeIfAbsent(via->getId(), [](int32_t) { return new (jrt::kOp) ViaMoveHistory_Track(); });
   FloatPoint* fromPoint = from->toFloat();
   FloatPoint* toPoint = to->toFloat();
   if (track->locations->isEmpty()) {
@@ -28,7 +28,7 @@ void ViaMoveHistory::recordMove(Via* via, Point* from, Point* to, int32_t accura
   track->locations->add(toPoint);
 }
 
-ViaMoveHistory_Track::ViaMoveHistory_Track() : locations(new jrt::ArrayList<FloatPoint*>()) {}
+ViaMoveHistory_Track::ViaMoveHistory_Track() : locations(new (jrt::kOp) jrt::ArrayList<FloatPoint*>()) {}
 
 bool ViaMoveHistory_Track::isReturn(FloatPoint* from, FloatPoint* to, int32_t accuracy) {
   if (to->distance(from) <= accuracy) {

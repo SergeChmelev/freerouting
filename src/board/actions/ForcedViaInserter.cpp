@@ -52,7 +52,7 @@ ForcedPadRouter_CheckDrillResult ForcedViaInserter::checkLayer(
     return ForcedPadRouter_CheckDrillResult::NOT_DRILLABLE;
   }
   IntPoint* intLocation = jrt::fast_cast<IntPoint>(location);
-  ConvexShape* viaShape = new Circle(intLocation, jrt::d2i(jrt::Math::ceil(viaRadius)));
+  ConvexShape* viaShape = new (jrt::kOp) Circle(intLocation, jrt::d2i(jrt::Math::ceil(viaRadius)));
 
   double checkRadius = viaRadius +
                        0.5 * board->clearanceValue(clearanceClassIndex, clearanceClassIndex, layer) +
@@ -75,7 +75,7 @@ ForcedPadRouter_CheckDrillResult ForcedViaInserter::checkLayer(
     return ForcedPadRouter_CheckDrillResult::NOT_DRILLABLE;
   }
 
-  ForcedPadRouter* forcedPadRouter = new ForcedPadRouter(board);
+  ForcedPadRouter* forcedPadRouter = new (jrt::kOp) ForcedPadRouter(board);
   ForcedPadRouter_CheckDrillResult viaResult = forcedPadRouter->checkForcedPad(
       tileShape, fromSide, layer, netNumbers, clearanceClassIndex, attachSmdAllowed, nullptr,
       maxRecursionDepth, maxViaRecursionDepth, false, nullptr, false,
@@ -88,7 +88,7 @@ ForcedPadRouter_CheckDrillResult ForcedViaInserter::checkLayer(
     return viaResult;
   }
 
-  Circle* startTraceCircle = new Circle(intLocation, traceHalfWidth);
+  Circle* startTraceCircle = new (jrt::kOp) Circle(intLocation, traceHalfWidth);
   TileShape* startTraceShape;
   if (board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
     startTraceShape = startTraceCircle->boundingBox();
@@ -126,7 +126,7 @@ bool ForcedViaInserter::check(ViaInfo* viaInfo, Point* location, jrt::Array<int3
   bool attach = attachSmdAllowed.has_value() ? *attachSmdAllowed : viaInfo->attachSmdAllowed();
   Vector* translateVector = location->differenceBy(Point::ZERO());
   int32_t calcFromSideOffset = board->getMinTraceHalfWidth();
-  ForcedPadRouter* forcedPadRouter = new ForcedPadRouter(board);
+  ForcedPadRouter* forcedPadRouter = new (jrt::kOp) ForcedPadRouter(board);
   Padstack* viaPadstack = viaInfo->getPadstack();
   if (!HoleSpacing::clear(board, viaPadstack, location)) {
     return false;
@@ -185,7 +185,7 @@ bool ForcedViaInserter::check(ViaInfo* viaInfo, Point* location, jrt::Array<int3
     IntPoint* tracePoint = jrt::fast_cast<IntPoint>(location);
     if (tracePenHalfwidthArr != nullptr && i < tracePenHalfwidthArr->length &&
         (*tracePenHalfwidthArr)[i] > 0 && tracePoint != nullptr) {
-      Circle* startTraceCircle = new Circle(tracePoint, (*tracePenHalfwidthArr)[i]);
+      Circle* startTraceCircle = new (jrt::kOp) Circle(tracePoint, (*tracePenHalfwidthArr)[i]);
       TileShape* startTraceShape;
       if (board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
         startTraceShape = startTraceCircle->boundingBox();
@@ -223,7 +223,7 @@ bool ForcedViaInserter::insert(ViaInfo* viaInfo, Point* location, jrt::Array<int
   bool attach = attachSmdAllowed.has_value() ? *attachSmdAllowed : viaInfo->attachSmdAllowed();
   Vector* translateVector = location->differenceBy(Point::ZERO());
   int32_t calcFromSideOffset = board->getMinTraceHalfWidth();
-  ForcedPadRouter* forcedPadRouter = new ForcedPadRouter(board);
+  ForcedPadRouter* forcedPadRouter = new (jrt::kOp) ForcedPadRouter(board);
   Padstack* viaPadstack = viaInfo->getPadstack();
   if (!HoleSpacing::clear(board, viaPadstack, location)) {
     return false;
@@ -247,7 +247,7 @@ bool ForcedViaInserter::insert(ViaInfo* viaInfo, Point* location, jrt::Array<int
     Circle* startTraceCircle;
     IntPoint* point = jrt::fast_cast<IntPoint>(location);
     if ((*tracePenHalfwidthArr)[i] > 0 && point != nullptr) {
-      startTraceCircle = new Circle(point, (*tracePenHalfwidthArr)[i]);
+      startTraceCircle = new (jrt::kOp) Circle(point, (*tracePenHalfwidthArr)[i]);
     } else {
       startTraceCircle = nullptr;
     }
@@ -309,7 +309,7 @@ bool ForcedViaInserter::holeInSmdPad(RoutingBoard* board, Padstack* viaPadstack,
   if (drillRadius <= 0 || center == nullptr) {
     return false;
   }
-  Circle* hole = new Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius)));
+  Circle* hole = new (jrt::kOp) Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius)));
   for (int32_t layer = viaPadstack->fromLayer(); layer <= viaPadstack->toLayer(); layer++) {
     for (SearchTreeObject* found : *board->overlappingObjects(hole, layer)) {
       auto* pin = jrt::fast_cast<Pin>(found);
@@ -351,7 +351,7 @@ Shape* ForcedViaInserter::holeCheckShape(Padstack* padstack, Point* location,
   }
   // Inflate by the hole clearance itself and check with the null clearance class (0), so
   // the requirement is exact hole-to-copper spacing regardless of the neighbor's class.
-  return new Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius + holeClearance + 10)));
+  return new (jrt::kOp) Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius + holeClearance + 10)));
 }
 
 ShapeEntrySide* ForcedViaInserter::calculateFromSide(FloatPoint* viaLocation, TileShape* viaShape,
@@ -364,22 +364,22 @@ ShapeEntrySide* ForcedViaInserter::calculateFromSide(FloatPoint* viaLocation, Ti
     double borderY;
     switch (i) {
       case 0:
-        checkPoint = new FloatPoint(viaLocation->x, viaLocation->y - dist);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x, viaLocation->y - dist);
         borderX = viaLocation->x;
         borderY = viaBox->ll->y;
         break;
       case 1:
-        checkPoint = new FloatPoint(viaLocation->x + dist, viaLocation->y);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x + dist, viaLocation->y);
         borderX = viaBox->ur->x;
         borderY = viaLocation->y;
         break;
       case 2:
-        checkPoint = new FloatPoint(viaLocation->x, viaLocation->y + dist);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x, viaLocation->y + dist);
         borderX = viaLocation->x;
         borderY = viaBox->ur->y;
         break;
       default:  // i == 3
-        checkPoint = new FloatPoint(viaLocation->x - dist, viaLocation->y);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x - dist, viaLocation->y);
         borderX = viaBox->ll->x;
         borderY = viaLocation->y;
         break;
@@ -391,8 +391,8 @@ ShapeEntrySide* ForcedViaInserter::calculateFromSide(FloatPoint* viaLocation, Ti
       } else {
         fromSideIndex = 2 * i;
       }
-      FloatPoint* currentBorderPoint = new FloatPoint(borderX, borderY);
-      return new ShapeEntrySide(fromSideIndex, currentBorderPoint);
+      FloatPoint* currentBorderPoint = new (jrt::kGeom) FloatPoint(borderX, borderY);
+      return new (jrt::kBoard) ShapeEntrySide(fromSideIndex, currentBorderPoint);
     }
   }
   if (is90Degree) {
@@ -407,30 +407,30 @@ ShapeEntrySide* ForcedViaInserter::calculateFromSide(FloatPoint* viaLocation, Ti
     double borderY;
     switch (i) {
       case 0:
-        checkPoint = new FloatPoint(viaLocation->x + dist, viaLocation->y - dist);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x + dist, viaLocation->y - dist);
         borderX = viaLocation->x + borderDist;
         borderY = viaLocation->y - borderDist;
         break;
       case 1:
-        checkPoint = new FloatPoint(viaLocation->x + dist, viaLocation->y + dist);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x + dist, viaLocation->y + dist);
         borderX = viaLocation->x + borderDist;
         borderY = viaLocation->y + borderDist;
         break;
       case 2:
-        checkPoint = new FloatPoint(viaLocation->x - dist, viaLocation->y + dist);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x - dist, viaLocation->y + dist);
         borderX = viaLocation->x - borderDist;
         borderY = viaLocation->y + borderDist;
         break;
       default:  // i == 3
-        checkPoint = new FloatPoint(viaLocation->x - dist, viaLocation->y - dist);
+        checkPoint = new (jrt::kGeom) FloatPoint(viaLocation->x - dist, viaLocation->y - dist);
         borderX = viaLocation->x - borderDist;
         borderY = viaLocation->y - borderDist;
         break;
     }
     if (roomShape->contains(checkPoint)) {
       int32_t fromSideIndex = 2 * i + 1;
-      FloatPoint* currentBorderPoint = new FloatPoint(borderX, borderY);
-      return new ShapeEntrySide(fromSideIndex, currentBorderPoint);
+      FloatPoint* currentBorderPoint = new (jrt::kGeom) FloatPoint(borderX, borderY);
+      return new (jrt::kBoard) ShapeEntrySide(fromSideIndex, currentBorderPoint);
     }
   }
   return nullptr;
@@ -454,14 +454,14 @@ bool ForcedViaInserter::crowdsOwnPad(RoutingBoard* board, Padstack* viaPadstack,
       continue;
     }
     for (SearchTreeObject* found :
-         *board->overlappingObjects(new Circle(center, radius + reach), layer)) {
+         *board->overlappingObjects(new (jrt::kOp) Circle(center, radius + reach), layer)) {
       auto* pin = jrt::fast_cast<Pin>(found);
       if (pin != nullptr && pin->containsNet(netNumber) && !pin->viaMayAttach()) {
         Shape* pad = pin->getShapeOnLayer(layer);
         if (pad != nullptr) {
           int32_t clearance = board->rules->clearanceMatrix->getValue(
               pin->clearanceClassIndex(), viaClearanceClass, layer, false);
-          if (clearance > 0 && pad->intersects(new Circle(center, radius + clearance))) {
+          if (clearance > 0 && pad->intersects(new (jrt::kOp) Circle(center, radius + clearance))) {
             return true;
           }
         }

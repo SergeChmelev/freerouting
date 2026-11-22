@@ -9,13 +9,13 @@ namespace fr {
 FreeSpaceExpansionRoom::FreeSpaceExpansionRoom(TileShape* shape, int32_t layer) {
   this->shape = shape;
   this->layer = layer;
-  doors = new jrt::ArrayList<ExpansionDoor*>();  // ArrayList for better performance
+  doors = new (jrt::kOp) jrt::ArrayList<ExpansionDoor*>();  // ArrayList for better performance
 }
 
 void FreeSpaceExpansionRoom::addDoor(ExpansionDoor* door) { this->doors->add(door); }
 
 void FreeSpaceExpansionRoom::clearDoors() {
-  this->doors = new jrt::ArrayList<ExpansionDoor*>();  // ArrayList for better performance
+  this->doors = new (jrt::kOp) jrt::ArrayList<ExpansionDoor*>();  // ArrayList for better performance
 }
 
 void FreeSpaceExpansionRoom::resetDoors() {

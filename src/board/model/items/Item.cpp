@@ -58,9 +58,9 @@ namespace fr {
 Item::Item(jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex, int32_t id,
            int32_t componentId, FixedState fixedState, BasicBoard* board) {
   if (netNumbers == nullptr) {
-    this->netNumbers = new jrt::Array<int32_t>(0);
+    this->netNumbers = new (jrt::kBoard) jrt::Array<int32_t>(0);
   } else {
-    this->netNumbers = new jrt::Array<int32_t>(netNumbers->length);
+    this->netNumbers = new (jrt::kBoard) jrt::Array<int32_t>(netNumbers->length);
     jrt::arraycopy(netNumbers, 0, this->netNumbers, 0, netNumbers->length);
   }
   this->clearanceClassIndex_ = clearanceClassIndex;
@@ -176,7 +176,7 @@ TileShape* Item::getTreeShape(ShapeTree* tree, int32_t index) {
 
 jrt::Array<TileShape*>* Item::getPrecalculatedTreeShapes(ShapeTree* tree) {
   if (this->searchTreesInfo == nullptr) {
-    this->searchTreesInfo = new ItemSearchTreesInfo();
+    this->searchTreesInfo = new (jrt::kBoard) ItemSearchTreesInfo();
   }
   jrt::Array<TileShape*>* precalculatedTreeShapes =
       this->searchTreesInfo->getPrecalculatedTreeShapes(tree);
@@ -253,7 +253,7 @@ int32_t Item::clearanceViolationCount() {
 }
 
 jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
-  jrt::Collection<ClearanceViolation*>* result = new jrt::LinkedList<ClearanceViolation*>();
+  jrt::Collection<ClearanceViolation*>* result = new (jrt::kOp) jrt::LinkedList<ClearanceViolation*>();
   if (this->board == nullptr) {
     return result;
   }
@@ -269,7 +269,7 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
     // Erik Gavriluk (freerouting.net): test only items that are obstacles to this item
     jrt::Collection<ShapeTree_TreeEntry*>* currentOverlappingItems =
         drcTree->overlappingTreeEntriesWithClearance(currentTileShape, shapeLayer(i),
-                                                     new jrt::Array<int32_t>(0),
+                                                     new (jrt::kOp) jrt::Array<int32_t>(0),
                                                      this->clearanceClassIndex_, this, exactThis);
     for (ShapeTree_TreeEntry* currentEntry : *currentOverlappingItems) {
       auto* currentItem = jrt::fast_cast<Item>(currentEntry->object);
@@ -504,7 +504,7 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
             }
 
             ClearanceViolation* currentViolation =
-                new ClearanceViolation(this, currentItem, intersection, shapeLayer(i),
+                new (jrt::kOp) ClearanceViolation(this, currentItem, intersection, shapeLayer(i),
                                        minimumClearance, actualClearance);
             result->add(currentViolation);
           }
@@ -557,7 +557,7 @@ bool Item::outlineContainsTileShape(BoardOutline* outline, TileShape* tileShape)
 }
 
 jrt::Set<Item*>* Item::getAllContacts() {
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (jrt::fast_cast<Connectable>(this) == nullptr) {
     return result;
   }
@@ -579,7 +579,7 @@ jrt::Set<Item*>* Item::getAllContacts() {
 }
 
 jrt::Set<Item*>* Item::getAllContacts(int32_t layer) {
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (jrt::fast_cast<Connectable>(this) == nullptr) {
     return result;
   }
@@ -613,7 +613,7 @@ bool Item::isConnectedOnLayer(int32_t layer) {
   return !contactsOnLayer->isEmpty();
 }
 
-jrt::Set<Item*>* Item::getNormalContacts() { return new jrt::TreeSet<Item*>(); }
+jrt::Set<Item*>* Item::getNormalContacts() { return new (jrt::kOp) jrt::TreeSet<Item*>(); }
 
 jrt::Collection<Item*>* Item::normalContactsForWalk() {
   return board == nullptr ? static_cast<jrt::Collection<Item*>*>(getNormalContacts())
@@ -621,7 +621,7 @@ jrt::Collection<Item*>* Item::normalContactsForWalk() {
 }
 
 jrt::Set<Item*>* Item::getConnectedSet(int32_t netNumber, bool stopAtPlane) {
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (netNumber > 0 && !this->containsNet(netNumber)) {
     return result;
   }
@@ -677,7 +677,7 @@ bool Item::isCycleRecu(jrt::Set<Item*>* visitedItems, Item* searchItem, Item* co
 }
 
 jrt::Set<Item*>* Item::getUnconnectedSet(int32_t netNumber) {
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (netNumber > 0 && !this->containsNet(netNumber)) {
     return result;
   }
@@ -694,7 +694,7 @@ jrt::Set<Item*>* Item::getUnconnectedSet(int32_t netNumber) {
 
 jrt::Set<Item*>* Item::getConnectionItems(Item_StopConnectionOption stopOption) {
   jrt::Set<Item*>* contacts = this->getNormalContacts();
-  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (auto* trace = jrt::fast_cast<Trace>(this)) {
     if (trace->hasInteriorContacts()) {
       return result;
@@ -878,7 +878,7 @@ bool Item::removeFromNet(int32_t netNumber) {
   if (foundIndex < 0) {
     return false;
   }
-  auto* newNetNoArr = new jrt::Array<int32_t>(this->netNumbers->length - 1);
+  auto* newNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(this->netNumbers->length - 1);
   jrt::arraycopy(this->netNumbers, 0, newNetNoArr, 0, foundIndex);
   if (foundIndex < newNetNoArr->length) {
     // copy remaining elements if present
@@ -935,10 +935,10 @@ void Item::assignNetNo(int32_t netNumber) {
   }
   board->itemList->saveForUndo(this);
   if (netNumber <= 0) {
-    netNumbers = new jrt::Array<int32_t>(0);
+    netNumbers = new (jrt::kBoard) jrt::Array<int32_t>(0);
   } else {
     if (netNumbers->length == 0) {
-      netNumbers = new jrt::Array<int32_t>(1);
+      netNumbers = new (jrt::kBoard) jrt::Array<int32_t>(1);
     } else if (netNumbers->length > 1) {
       FRLogger::warn("Item.assign_net_no: unexpected netCount > 1");
     }
@@ -985,7 +985,7 @@ void Item::setSearchTreeEntries(jrt::Array<ShapeTree_Leaf*>* treeEntries, ShapeT
     return;
   }
   if (this->searchTreesInfo == nullptr) {
-    this->searchTreesInfo = new ItemSearchTreesInfo();
+    this->searchTreesInfo = new (jrt::kBoard) ItemSearchTreesInfo();
   }
   this->searchTreesInfo->setTreeEntries(treeEntries, tree);
 }
@@ -1010,7 +1010,7 @@ void Item::setPrecalculatedTreeShapes(jrt::Array<TileShape*>* shapes, ShapeSearc
 
 ItemAutorouteInfo* Item::getAutorouteInfo() {
   if (autorouteInfo == nullptr) {
-    autorouteInfo = new ItemAutorouteInfo(this);
+    autorouteInfo = new (jrt::kBoard) ItemAutorouteInfo(this);
   }
   return autorouteInfo;
 }
@@ -1023,7 +1023,7 @@ void Item::clearDerivedData() {
 }
 
 std::string Item::getNetHoverInfo(const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   std::string sb;
   for (int32_t i = 0; i < this->netCount(); i++) {
@@ -1037,7 +1037,7 @@ std::string Item::getNetHoverInfo(const std::string& locale) {
 }
 
 void Item::printNetInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   for (int32_t i = 0; i < this->netCount(); i++) {
     printer->append(", " + tm->getText("net") + " ");
@@ -1048,7 +1048,7 @@ void Item::printNetInfo(ItemInfoPrinter* printer, const std::string& locale) {
 
 void Item::printClearanceInfo(ItemInfoPrinter* printer, const std::string& locale) {
   if (this->clearanceClassIndex_ > 0) {
-    TextManager* tm = new TextManager(jrt::className(this), locale);
+    TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
     printer->append(", " + tm->getText("clearanceClass") + " ");
     std::string name = board->rules->clearanceMatrix->getName(this->clearanceClassIndex_);
@@ -1059,7 +1059,7 @@ void Item::printClearanceInfo(ItemInfoPrinter* printer, const std::string& local
 
 void Item::printFixedInfo(ItemInfoPrinter* printer, const std::string& locale) {
   if (this->fixedState != FixedState::UNFIXED) {
-    TextManager* tm = new TextManager(jrt::className(this), locale);
+    TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
     printer->append(", ");
     printer->append(tm->getText(FixedState_toString(this->fixedState)));
@@ -1069,7 +1069,7 @@ void Item::printFixedInfo(ItemInfoPrinter* printer, const std::string& locale) {
 void Item::printContactInfo(ItemInfoPrinter* printer, const std::string& locale) {
   jrt::Collection<Item*>* contacts = this->getNormalContacts();
   if (!contacts->isEmpty()) {
-    TextManager* tm = new TextManager(jrt::className(this), locale);
+    TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
     printer->append(", " + tm->getText("contacts") + " ");
     int32_t contactCount = contacts->size();
@@ -1080,11 +1080,11 @@ void Item::printContactInfo(ItemInfoPrinter* printer, const std::string& locale)
 void Item::printClearanceViolationInfo(ItemInfoPrinter* printer, const std::string& locale) {
   jrt::Collection<ClearanceViolation*>* clearanceViolations = this->clearanceViolations();
   if (!clearanceViolations->isEmpty()) {
-    TextManager* tm = new TextManager(jrt::className(this), locale);
+    TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
     printer->append(", ");
     int32_t violationCount = clearanceViolations->size();
-    auto* violations = new jrt::LinkedList<ItemInfoPrinter_Printable*>();
+    auto* violations = new (jrt::kOp) jrt::LinkedList<ItemInfoPrinter_Printable*>();
     for (ClearanceViolation* v : *clearanceViolations) {
       violations->add(v);
     }
@@ -1193,7 +1193,7 @@ std::string Item::toString() {
 }
 
 jrt::List<Net*>* Item::getAllNets() {
-  jrt::List<Net*>* nets = new jrt::ArrayList<Net*>();
+  jrt::List<Net*>* nets = new (jrt::kOp) jrt::ArrayList<Net*>();
   for (int32_t netNumber : *this->netNumbers) {
     Net* net = board->rules->nets->get(netNumber);
     if (net != nullptr) {

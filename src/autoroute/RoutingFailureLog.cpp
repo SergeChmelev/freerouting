@@ -7,7 +7,7 @@ namespace fr {
 RoutingFailureLog* RoutingFailureLog::deepCopy() { return deepCopy(nullptr); }
 
 RoutingFailureLog* RoutingFailureLog::deepCopy(jrt::IdentityHashMap<Item*, Item*>* itemMap) {
-  RoutingFailureLog* copy = new RoutingFailureLog();
+  RoutingFailureLog* copy = new (jrt::kBoard) RoutingFailureLog();
   for (auto* e : *this->failures->entrySet()) {
     RoutingFailureLog_ItemFailureInfo* src = e->getValue();
     Item* item = src->item;
@@ -17,7 +17,7 @@ RoutingFailureLog* RoutingFailureLog::deepCopy(jrt::IdentityHashMap<Item*, Item*
         item = mapped;
       }
     }
-    RoutingFailureLog_ItemFailureInfo* info = new RoutingFailureLog_ItemFailureInfo(*src);
+    RoutingFailureLog_ItemFailureInfo* info = new (jrt::kOp) RoutingFailureLog_ItemFailureInfo(*src);
     info->item = item;
     copy->failures->put(e->getKey(), info);
   }
@@ -25,7 +25,7 @@ RoutingFailureLog* RoutingFailureLog::deepCopy(jrt::IdentityHashMap<Item*, Item*
 }
 
 RoutingFailureLog::RoutingFailureLog() {
-  this->failures = new jrt::ConcurrentHashMap<int32_t, RoutingFailureLog_ItemFailureInfo*>();
+  this->failures = new (jrt::kBoard) jrt::ConcurrentHashMap<int32_t, RoutingFailureLog_ItemFailureInfo*>();
 }
 
 void RoutingFailureLog::recordFailure(Item* item, int32_t passNo, AutorouteAttemptState state,
@@ -38,7 +38,7 @@ void RoutingFailureLog::recordFailure(Item* item, int32_t passNo, AutorouteAttem
   int32_t key = item->getId();
   RoutingFailureLog_ItemFailureInfo* existing = failures->get(key);
   if (existing == nullptr) {
-    existing = new RoutingFailureLog_ItemFailureInfo(item);
+    existing = new (jrt::kOp) RoutingFailureLog_ItemFailureInfo(item);
   }
   existing->recordFailure(passNo, state, reason);
   failures->put(key, existing);
@@ -54,7 +54,7 @@ bool RoutingFailureLog::shouldSkip(Item* item) {
 }
 
 jrt::List<RoutingFailureLog_ItemFailureInfo*>* RoutingFailureLog::getUnroutableItems() {
-  jrt::List<RoutingFailureLog_ItemFailureInfo*>* unroutable = new jrt::ArrayList<RoutingFailureLog_ItemFailureInfo*>();
+  jrt::List<RoutingFailureLog_ItemFailureInfo*>* unroutable = new (jrt::kOp) jrt::ArrayList<RoutingFailureLog_ItemFailureInfo*>();
   for (RoutingFailureLog_ItemFailureInfo* info : *failures->values()) {
     if (info->shouldGiveUp()) {
       unroutable->add(info);

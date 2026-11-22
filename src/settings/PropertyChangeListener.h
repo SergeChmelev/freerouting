@@ -35,7 +35,7 @@ class LambdaPropertyChangeListener : public PropertyChangeListener {
 
 inline PropertyChangeListener* PropertyChangeListener::of(
     std::function<void(PropertyChangeEvent*)> f) {
-  return new detail::LambdaPropertyChangeListener(std::move(f));
+  return new (jrt::kOp) detail::LambdaPropertyChangeListener(std::move(f));
 }
 
 }  // namespace fr

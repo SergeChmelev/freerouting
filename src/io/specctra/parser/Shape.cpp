@@ -117,7 +117,7 @@ PolylinePath* Shape::readPolylinePathScope(IJFlexScanner* scanner,
     Layer* const layer = getLayer(layerStructure, layerName);
 
     jrt::Object* nextToken;
-    jrt::Collection<jrt::Object*>* cornerList = new jrt::LinkedList<jrt::Object*>();
+    jrt::Collection<jrt::Object*>* cornerList = new (jrt::kOp) jrt::LinkedList<jrt::Object*>();
     // read the width and the corners of the path
     for (;;) {
       nextToken = scanner->nextToken();
@@ -139,7 +139,7 @@ PolylinePath* Shape::readPolylinePathScope(IJFlexScanner* scanner,
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    jrt::Array<double>* corners = new jrt::Array<double>(cornerList->size() - 1);
+    jrt::Array<double>* corners = new (jrt::kOp) jrt::Array<double>(cornerList->size() - 1);
     for (int32_t i = 0; i < corners->length; i++) {
       nextObject = it->next();
       if (!tokenToDouble(nextObject, (*corners)[i])) {
@@ -148,7 +148,7 @@ PolylinePath* Shape::readPolylinePathScope(IJFlexScanner* scanner,
         return nullptr;
       }
     }
-    return new PolylinePath(layer, width, corners);
+    return new (jrt::kOp) PolylinePath(layer, width, corners);
   } catch (const jrt::IOException& e) {
     FRLogger::error("PolylinePath.read_scope: IO error scanning file", &e);
     return nullptr;
@@ -158,7 +158,7 @@ PolylinePath* Shape::readPolylinePathScope(IJFlexScanner* scanner,
 Shape_ReadAreaScopeResult* Shape::readAreaScope(IJFlexScanner* scanner,
                                                 LayerStructure* layerStructure,
                                                 bool skipWindowScopes) {
-  jrt::Collection<Shape*>* shapeList = new jrt::LinkedList<Shape*>();
+  jrt::Collection<Shape*>* shapeList = new (jrt::kOp) jrt::LinkedList<Shape*>();
   std::optional<std::string> clearanceClassName;
   std::optional<std::string> areaName;
   bool resultOk = true;
@@ -231,7 +231,7 @@ Shape_ReadAreaScopeResult* Shape::readAreaScope(IJFlexScanner* scanner,
   if (!resultOk) {
     return nullptr;
   }
-  return new Shape_ReadAreaScopeResult(areaName, shapeList, clearanceClassName);
+  return new (jrt::kOp) Shape_ReadAreaScopeResult(areaName, shapeList, clearanceClassName);
 }
 
 Rectangle* Shape::readRectangleScope(IJFlexScanner* scanner, LayerStructure* layerStructure) {
@@ -243,7 +243,7 @@ Rectangle* Shape::readRectangleScope(IJFlexScanner* scanner, LayerStructure* lay
     }
 
     jrt::Object* nextToken;
-    jrt::Array<double>* rectCoor = new jrt::Array<double>(4);
+    jrt::Array<double>* rectCoor = new (jrt::kOp) jrt::Array<double>(4);
     // fill the rectangle
     for (int32_t i = 0; i < 4; i++) {
       nextToken = scanner->nextToken();
@@ -264,7 +264,7 @@ Rectangle* Shape::readRectangleScope(IJFlexScanner* scanner, LayerStructure* lay
     if (rectLayer == nullptr) {
       return nullptr;
     }
-    return new Rectangle(rectLayer, rectCoor);
+    return new (jrt::kOp) Rectangle(rectLayer, rectCoor);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Shape.read_rectangle_scope: IO error scanning file", &e);
     return nullptr;
@@ -317,7 +317,7 @@ Polygon* Shape::readPolygonScope(IJFlexScanner* scanner, LayerStructure* layerSt
     // overread the aperture width
     nextToken = scanner->nextToken();
 
-    jrt::Collection<jrt::Object*>* coorList = new jrt::LinkedList<jrt::Object*>();
+    jrt::Collection<jrt::Object*>* coorList = new (jrt::kOp) jrt::LinkedList<jrt::Object*>();
 
     // read the coordinates of the polygon
     for (;;) {
@@ -340,7 +340,7 @@ Polygon* Shape::readPolygonScope(IJFlexScanner* scanner, LayerStructure* layerSt
     if (!layerOk) {
       return nullptr;
     }
-    jrt::Array<double>* coorArr = new jrt::Array<double>(coorList->size());
+    jrt::Array<double>* coorArr = new (jrt::kOp) jrt::Array<double>(coorList->size());
     jrt::Iterator<jrt::Object*>* it = coorList->iterator();
     for (int32_t i = 0; i < coorArr->length; i++) {
       jrt::Object* nextObject = it->next();
@@ -350,7 +350,7 @@ Polygon* Shape::readPolygonScope(IJFlexScanner* scanner, LayerStructure* layerSt
         return nullptr;
       }
     }
-    return new Polygon(polygonLayer, coorArr);
+    return new (jrt::kOp) Polygon(polygonLayer, coorArr);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Rectangle.read_scope: IO error scanning file", &e);
     return nullptr;
@@ -370,7 +370,7 @@ Circle* Shape::readCircleScope(IJFlexScanner* scanner, LayerStructure* layerStru
 
     // fill the coordinates
     jrt::Object* nextToken;
-    jrt::Array<double>* circleCoor = new jrt::Array<double>(3);
+    jrt::Array<double>* circleCoor = new (jrt::kOp) jrt::Array<double>(3);
     int32_t currentIndex = 0;
     for (;;) {
       nextToken = scanner->nextToken();
@@ -393,7 +393,7 @@ Circle* Shape::readCircleScope(IJFlexScanner* scanner, LayerStructure* layerStru
     if (circleLayer == nullptr) {
       return nullptr;
     }
-    return new Circle(circleLayer, circleCoor);
+    return new (jrt::kOp) Circle(circleLayer, circleCoor);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Shape.read_rectangle_scope: IO error scanning file", &e);
     return nullptr;
@@ -406,7 +406,7 @@ PolygonPath* Shape::readPolygonPathScope(IJFlexScanner* scanner, LayerStructure*
     Layer* layer = getLayer(layerStructure, layerName);
 
     jrt::Object* nextToken;
-    jrt::Collection<jrt::Object*>* cornerList = new jrt::LinkedList<jrt::Object*>();
+    jrt::Collection<jrt::Object*>* cornerList = new (jrt::kOp) jrt::LinkedList<jrt::Object*>();
     // read the width and the corners of the path
     for (;;) {
       nextToken = scanner->nextToken();
@@ -441,7 +441,7 @@ PolygonPath* Shape::readPolygonPathScope(IJFlexScanner* scanner, LayerStructure*
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    jrt::Array<double>* coordinateArr = new jrt::Array<double>(cornerList->size() - 1);
+    jrt::Array<double>* coordinateArr = new (jrt::kOp) jrt::Array<double>(cornerList->size() - 1);
     for (int32_t i = 0; i < coordinateArr->length; i++) {
       nextObject = it->next();
       if (!tokenToDouble(nextObject, (*coordinateArr)[i])) {
@@ -450,7 +450,7 @@ PolygonPath* Shape::readPolygonPathScope(IJFlexScanner* scanner, LayerStructure*
         return nullptr;
       }
     }
-    return new PolygonPath(layer, width, coordinateArr);
+    return new (jrt::kOp) PolygonPath(layer, width, coordinateArr);
   } catch (const jrt::IOException& e) {
     FRLogger::error("Shape.read_polygon_path_scope: IO error scanning file", &e);
     return nullptr;
@@ -477,7 +477,7 @@ fr::Area* Shape::transformAreaToBoard(jrt::Collection<Shape*>* area,
       FRLogger::warn("Shape.transform_area_to_board: PolylineShape expected");
       return nullptr;
     }
-    jrt::Array<fr::PolylineShape*>* holes = new jrt::Array<fr::PolylineShape*>(holeCount);
+    jrt::Array<fr::PolylineShape*>* holes = new (jrt::kGeom) jrt::Array<fr::PolylineShape*>(holeCount);
     for (int32_t i = 0; i < holes->length; i++) {
       fr::Shape* holeShape = it->next()->transformToBoard(coordinateTransform);
       if (jrt::fast_cast<fr::PolylineShape>(holeShape) == nullptr) {
@@ -486,7 +486,7 @@ fr::Area* Shape::transformAreaToBoard(jrt::Collection<Shape*>* area,
       }
       (*holes)[i] = jrt::fast_cast<fr::PolylineShape>(holeShape);
     }
-    result = new fr::PolylineArea(border, holes);
+    result = new (jrt::kGeom) fr::PolylineArea(border, holes);
   }
   return result;
 }
@@ -511,7 +511,7 @@ fr::Area* Shape::transformAreaToBoardRel(jrt::Collection<Shape*>* area,
       FRLogger::warn("Shape.transform_area_to_board_rel: PolylineShape expected");
       return nullptr;
     }
-    jrt::Array<fr::PolylineShape*>* holes = new jrt::Array<fr::PolylineShape*>(holeCount);
+    jrt::Array<fr::PolylineShape*>* holes = new (jrt::kGeom) jrt::Array<fr::PolylineShape*>(holeCount);
     for (int32_t i = 0; i < holes->length; i++) {
       fr::Shape* holeShape = it->next()->transformToBoardRel(coordinateTransform);
       if (jrt::fast_cast<fr::PolylineShape>(holeShape) == nullptr) {
@@ -520,7 +520,7 @@ fr::Area* Shape::transformAreaToBoardRel(jrt::Collection<Shape*>* area,
       }
       (*holes)[i] = jrt::fast_cast<fr::PolylineShape>(holeShape);
     }
-    result = new fr::PolylineArea(border, holes);
+    result = new (jrt::kGeom) fr::PolylineArea(border, holes);
   }
   return result;
 }

@@ -16,7 +16,7 @@ template <class T>
 class ArrayStack : public virtual jrt::Object {
  public:
   /** Creates a new ArrayStack with an initial capacity of maxStackDepth elements. */
-  explicit ArrayStack(int32_t maxStackDepth) : nodeArr(new jrt::Array<T>(maxStackDepth)) {}
+  explicit ArrayStack(int32_t maxStackDepth) : nodeArr(new (jrt::kOp) jrt::Array<T>(maxStackDepth)) {}
 
   /** Sets the stack to empty. */
   void reset() {
@@ -61,7 +61,7 @@ class ArrayStack : public virtual jrt::Object {
     int32_t newLength = jrt::Math::min(MAX_STACK_DEPTH, 4 * oldLength);
     FRLogger::debug("ArrayStack capacity grew from " + jrt::str(oldLength) + " to " +
                     jrt::str(newLength));
-    auto* newArray = new jrt::Array<T>(newLength);
+    auto* newArray = new (jrt::kOp) jrt::Array<T>(newLength);
     jrt::arraycopy(nodeArr, 0, newArray, 0, nodeArr->length);
     this->nodeArr = newArray;
   }

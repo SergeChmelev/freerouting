@@ -11,7 +11,7 @@
 namespace fr {
 
 OrthogonalBoundingDirections* OrthogonalBoundingDirections::INSTANCE() {
-  static OrthogonalBoundingDirections* v = new OrthogonalBoundingDirections();
+  static OrthogonalBoundingDirections* v = new (jrt::kGeom) OrthogonalBoundingDirections();
   return v;
 }
 

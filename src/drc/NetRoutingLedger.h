@@ -61,11 +61,11 @@ class NetRoutingLedger final : public virtual jrt::Object {
   jrt::List<ConductionArea*>* conductionAreas;
   bool built = false;
   jrt::Array<jrt::List<Item*>*>* itemsByNet = nullptr;
-  jrt::Array<int32_t>* incompleteByNet = new jrt::Array<int32_t>(0);
+  jrt::Array<int32_t>* incompleteByNet = new (jrt::kOp) jrt::Array<int32_t>(0);
   int32_t incompleteTotal = 0;
   /** PORT NOTE: field renamed (trailing _) - clashes with method maximumConnections(). */
   int32_t maximumConnections_ = 0;
-  jrt::Set<int32_t>* dirtyNets = new jrt::TreeSet<int32_t>();
+  jrt::Set<int32_t>* dirtyNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
   jrt::Map<Item*, jrt::Array<int32_t>*>* itemNets;
 
  public:
@@ -122,7 +122,7 @@ class NetRoutingLedger final : public virtual jrt::Object {
   void markNets(Item* item);
 
   static jrt::Array<jrt::List<Item*>*>* emptyLists() {
-    return new jrt::Array<jrt::List<Item*>*>(0);
+    return new (jrt::kOp) jrt::Array<jrt::List<Item*>*>(0);
   }
 };
 

@@ -83,14 +83,14 @@ std::string formatParenGrouped2(std::optional<float> value) {
 
 BatchOptimizer::BatchOptimizer(RoutingJob* job)
     : NamedAlgorithm(job->thread, job->board, job->routerSettings),
-      progressThrottler(new ProgressThrottler(1000)),
-      resultMap(new jrt::HashMap<int32_t, ItemRouteResult*>()),
-      workerBoardStates(new BatchOptimizer_WorkerBoardState()) {
+      progressThrottler(new (jrt::kBoard) ProgressThrottler(1000)),
+      resultMap(new (jrt::kOp) jrt::HashMap<int32_t, ItemRouteResult*>()),
+      workerBoardStates(new (jrt::kOp) BatchOptimizer_WorkerBoardState()) {
   this->job = job;
 }
 
 BatchOptimizer* BatchOptimizer::create(RoutingJob* job) {
-  BatchOptimizer* optimizer = new BatchOptimizer(job);
+  BatchOptimizer* optimizer = new (jrt::kOp) BatchOptimizer(job);
   normalizeAlgorithm(job, optimizer);
   return optimizer;
 }
@@ -202,7 +202,7 @@ bool BatchOptimizer::areAllViasMandatoryLayerTransitions(RoutingBoard* routingBo
     }
     int32_t netNo = via->getNetNumber(0);
     jrt::Set<Item*>* connected = via->getConnectedSet(netNo, true);
-    jrt::List<Pin*>* smdPins = new jrt::ArrayList<Pin*>();
+    jrt::List<Pin*>* smdPins = new (jrt::kOp) jrt::ArrayList<Pin*>();
     bool onlySmdPinsAndTraces = true;
     for (Item* item : *connected) {
       if (auto* pin = jrt::fast_cast<Pin>(item)) {
@@ -297,7 +297,7 @@ void BatchOptimizer::runBatchLoop() {
     phase->after->score = phase->after->optimizerScore;
     phase->passesCompleted = 0;
     this->fireTaskStateChangedEvent(
-        new TaskStateChangedEvent(this, TaskState::FINISHED, 0, this->board->getHash()));
+        new (jrt::kOp) TaskStateChangedEvent(this, TaskState::FINISHED, 0, this->board->getHash()));
     return;
   }
 
@@ -357,7 +357,7 @@ void BatchOptimizer::runBatchLoop() {
   }
 
   this->fireTaskStateChangedEvent(
-      new TaskStateChangedEvent(this, TaskState::STARTED, 0, this->board->getHash()));
+      new (jrt::kOp) TaskStateChangedEvent(this, TaskState::STARTED, 0, this->board->getHash()));
 
   double scoreImprovement = -1;
   int32_t currentPass = 0;
@@ -378,7 +378,7 @@ void BatchOptimizer::runBatchLoop() {
 
     std::string currentBoardHash = this->board->getHash();
     this->fireTaskStateChangedEvent(
-        new TaskStateChangedEvent(this, TaskState::RUNNING, currentPass, currentBoardHash));
+        new (jrt::kOp) TaskStateChangedEvent(this, TaskState::RUNNING, currentPass, currentBoardHash));
 
     bool withPreferredDirections = currentPass % 2 != 0;  // to create more variations
     optRoutePass(currentPass, withPreferredDirections);
@@ -515,7 +515,7 @@ void BatchOptimizer::runBatchLoop() {
   slideSteps();
 
   this->fireTaskStateChangedEvent(
-      new TaskStateChangedEvent(this, TaskState::FINISHED, currentPass, this->board->getHash()));
+      new (jrt::kOp) TaskStateChangedEvent(this, TaskState::FINISHED, currentPass, this->board->getHash()));
 
   // Session summary
   double sessionDurationSeconds = (jrt::System::currentTimeMillis() - sessionStartMs) / 1000.0;
@@ -535,7 +535,7 @@ void BatchOptimizer::runBatchLoop() {
   phase->totalAllocatedGb = allocMbUsed / 1024.0f;
   phase->peakHeapMb = peakHeapMb;
 
-  BoardStatistics* finalStats = new BoardStatistics(this->board);
+  BoardStatistics* finalStats = new (jrt::kOp) BoardStatistics(this->board);
   float finalRouterScore = finalStats->getRouterScore(job->routerSettings);
   float finalOptimizerScore = finalStats->getOptimizerScore(job->routerSettings);
   phase->after =
@@ -608,7 +608,7 @@ void BatchOptimizer::nudgeVias() {
           (jrt::System::nanoTime() - startNanos) / 1e9,
           static_cast<double>(AutorouteRuntimeMetrics::currentThreadCpuSeconds() - cpuStart)));
   if (result->acceptedMoves() > 0) {
-    this->fireBoardUpdatedEvent(new BoardStatistics(this->board), nullptr, this->board);
+    this->fireBoardUpdatedEvent(new (jrt::kOp) BoardStatistics(this->board), nullptr, this->board);
   }
 }
 
@@ -652,14 +652,14 @@ bool BatchOptimizer::slideSteps() {
   if (result->acceptedMoves() == 0) {
     return false;
   }
-  this->fireBoardUpdatedEvent(new BoardStatistics(this->board), nullptr, this->board);
+  this->fireBoardUpdatedEvent(new (jrt::kOp) BoardStatistics(this->board), nullptr, this->board);
   return true;
 }
 
 void BatchOptimizer::restoreIncumbentBoard() {
   this->board = this->bestBoard->deepCopy();
   this->job->board = this->board;
-  this->fireBoardUpdatedEvent(new BoardStatistics(this->board), nullptr, this->board);
+  this->fireBoardUpdatedEvent(new (jrt::kOp) BoardStatistics(this->board), nullptr, this->board);
 }
 
 std::optional<std::string> BatchOptimizer::optimizerCandidateRejectionReason(
@@ -691,8 +691,8 @@ double BatchOptimizer::scoreImprovementPercent(float before, float after) {
 BatchOptimizer_StopRuleView* BatchOptimizer::stopRuleScores(
     float before, float after, bool connectionsOpen) {
   return connectionsOpen && before <= 0
-      ? new BatchOptimizer_StopRuleView(0.0f, jrt::Math::max(0.0f, after), 0.0)
-      : new BatchOptimizer_StopRuleView(before, after, scoreImprovementPercent(before, after));
+      ? new (jrt::kOp) BatchOptimizer_StopRuleView(0.0f, jrt::Math::max(0.0f, after), 0.0)
+      : new (jrt::kOp) BatchOptimizer_StopRuleView(before, after, scoreImprovementPercent(before, after));
 }
 
 bool BatchOptimizer::finalBoardRegressed(
@@ -708,8 +708,8 @@ bool BatchOptimizer::finalBoardRegressed(
 }
 
 jrt::List<int32_t>* BatchOptimizer::prepareCandidateItems() {
-  jrt::List<int32_t>* itemIds = new jrt::ArrayList<int32_t>();
-  this->sortedRouteItems = new BatchOptimizer_ReadSortedRouteItems(this);
+  jrt::List<int32_t>* itemIds = new (jrt::kOp) jrt::ArrayList<int32_t>();
+  this->sortedRouteItems = new (jrt::kOp) BatchOptimizer_ReadSortedRouteItems(this);
 
   std::optional<ItemSelectionStrategy> strategy =
       this->settings->optimizer != nullptr ? this->settings->optimizer->itemSelectionStrategy
@@ -719,8 +719,8 @@ jrt::List<int32_t>* BatchOptimizer::prepareCandidateItems() {
   }
 
   if (strategy.value() == ItemSelectionStrategy::PRIORITIZED && !resultMap->isEmpty()) {
-    jrt::List<int32_t>* nonPrioritized = new jrt::ArrayList<int32_t>();
-    jrt::PriorityQueue<ItemRouteResult*>* pq = new jrt::PriorityQueue<ItemRouteResult*>();
+    jrt::List<int32_t>* nonPrioritized = new (jrt::kOp) jrt::ArrayList<int32_t>();
+    jrt::PriorityQueue<ItemRouteResult*>* pq = new (jrt::kOp) jrt::PriorityQueue<ItemRouteResult*>();
 
     for (Item* item = sortedRouteItems->next(); item != nullptr; item = sortedRouteItems->next()) {
       ItemRouteResult* r = resultMap->get(item->getId());
@@ -748,7 +748,7 @@ jrt::List<int32_t>* BatchOptimizer::prepareCandidateItems() {
 
 float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections) {
   BoardStatistics* boardStatisticsBefore = board->getStatistics();
-  RouterCounters* routerCounters = new RouterCounters();
+  RouterCounters* routerCounters = new (jrt::kBoard) RouterCounters();
   routerCounters->passCount = passNo;
   progressThrottler->reset();
   this->fireBoardUpdatedEvent(boardStatisticsBefore, routerCounters, this->board);
@@ -769,7 +769,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
     }
     if (candidateItemIds->size() > remaining) {
       // Java: new ArrayList<>(candidateItemIds.subList(0, remaining))
-      jrt::List<int32_t>* truncated = new jrt::ArrayList<int32_t>();
+      jrt::List<int32_t>* truncated = new (jrt::kOp) jrt::ArrayList<int32_t>();
       for (int32_t i = 0; i < remaining; i++) {
         truncated->add(candidateItemIds->get(i));
       }
@@ -845,7 +845,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
       }
 
       BatchOptimizer_OptimizeCandidateTask* task =
-          new BatchOptimizer_OptimizeCandidateTask(
+          new (jrt::kOp) BatchOptimizer_OptimizeCandidateTask(
               job,
               this->board,
               candidateItemIds->get(nextCandidate++),
@@ -922,7 +922,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
   }
 
   double routeoptimizerPassDuration = FRLogger::traceExit(optimizationPassId);
-  BoardStatistics* boardStatisticsAfter = new BoardStatistics(this->board);
+  BoardStatistics* boardStatisticsAfter = new (jrt::kOp) BoardStatistics(this->board);
   this->fireBoardUpdatedEvent(boardStatisticsAfter, routerCounters, this->board);
   job->logInfo(
       jrt::format(
@@ -942,7 +942,7 @@ ItemRouteResult* BatchOptimizer::optRouteItem(Item* item, bool withPreferredDire
   auto* routingBoard = jrt::fast_cast<RoutingBoard>(item->board);
   if (routingBoard == nullptr) {
     job->logWarning("The item to be optimized is not on a RoutingBoard.");
-    return new ItemRouteResult(item->getId());
+    return new (jrt::kOp) ItemRouteResult(item->getId());
   }
 
   double baseline =
@@ -999,14 +999,14 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
   double baseline =
       baselineTraceLength > 0 ? baselineTraceLength
                               : static_cast<double>(metricsBefore->totalWeightedLength());
-  RouterCounters* routerCountersBefore = new RouterCounters();
+  RouterCounters* routerCountersBefore = new (jrt::kBoard) RouterCounters();
   if (item->hasIgnoredNets()) {
-    return new ItemRouteResult(item->getId());
+    return new (jrt::kOp) ItemRouteResult(item->getId());
   }
   routerCountersBefore->incompleteCount = calculateIncompleteCount(routingBoard);
   jrt::Set<int32_t>* netsLeftUnroutedSet = netsLeftUnrouted(routingBoard, item);
 
-  jrt::Set<Item*>* rippedItems = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* rippedItems = new (jrt::kOp) jrt::TreeSet<Item*>();
   rippedItems->add(item);
 
   if (auto* currentTrace = jrt::fast_cast<Trace>(item)) {
@@ -1019,14 +1019,14 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
     }
   }
 
-  jrt::Set<Item*>* rippedConnections = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* rippedConnections = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (Item* currentItem : *rippedItems) {
     rippedConnections->addAll(currentItem->getConnectionItems(Item_StopConnectionOption::NONE));
   }
 
   for (Item* currentItem : *rippedConnections) {
     if (currentItem->isUserFixed() || currentItem->hasIgnoredNets()) {
-      return new ItemRouteResult(item->getId());
+      return new (jrt::kOp) ItemRouteResult(item->getId());
     }
   }
 
@@ -1061,11 +1061,11 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
       netsLeftUnroutedSet);
 
   BoardStatistics_OptimizerMetrics* metricsAfter = BoardStatistics_OptimizerMetrics::of(routingBoard);
-  RouterCounters* routerCountersAfter = new RouterCounters();
+  RouterCounters* routerCountersAfter = new (jrt::kBoard) RouterCounters();
   routerCountersAfter->incompleteCount = calculateIncompleteCount(routingBoard);
 
   ItemRouteResult* result =
-      new ItemRouteResult(
+      new (jrt::kOp) ItemRouteResult(
           item->getId(),
           metricsBefore->viaCount(),
           metricsAfter->viaCount(),
@@ -1104,7 +1104,7 @@ BatchOptimizer_CandidateResult* BatchOptimizer::replayWinner(
     bool withPreferredDirections,
     BoardStatistics_OptimizerMetrics* baselineMetrics) {
   BatchOptimizer_CandidateResult* replay =
-      (new BatchOptimizer_OptimizeCandidateTask(
+      (new (jrt::kOp) BatchOptimizer_OptimizeCandidateTask(
            job,
            this->board,
            winner->result->itemId(),
@@ -1208,7 +1208,7 @@ void BatchOptimizer_WorkerBoardState::finish(bool transferOwnership) {
 BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
   if ((thread != nullptr && thread->isStopRequested())
       || (deadlineMs.has_value() && jrt::System::currentTimeMillis() >= deadlineMs.value())) {
-    return new BatchOptimizer_CandidateResult(new ItemRouteResult(itemId), nullptr, nullptr, 0, 0);
+    return new (jrt::kOp) BatchOptimizer_CandidateResult(new (jrt::kOp) ItemRouteResult(itemId), nullptr, nullptr, 0, 0);
   }
 
   int64_t cpuStart = AutorouteRuntimeMetrics::currentThreadCpuNanos();
@@ -1223,12 +1223,12 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
     if (item == nullptr) {
       workerBoardState->finish(false);
       snapshotFinished = true;
-      return new BatchOptimizer_CandidateResult(new ItemRouteResult(itemId), nullptr, nullptr, 0, 0);
+      return new (jrt::kOp) BatchOptimizer_CandidateResult(new (jrt::kOp) ItemRouteResult(itemId), nullptr, nullptr, 0, 0);
     }
 
     FloatPoint* position = BatchOptimizer::getItemPosition(item);
 
-    RoutingJob* candidateJob = new RoutingJob();
+    RoutingJob* candidateJob = new (jrt::kBoard) RoutingJob();
     candidateJob->name = job->name;
     candidateJob->shortName = job->shortName;
     candidateJob->routerSettings = job->routerSettings->clone();
@@ -1267,9 +1267,9 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
     workerBoardState->finish(improved);
     snapshotFinished = true;
     if (improved) {
-      return new BatchOptimizer_CandidateResult(result, workerBoard, position, cpuUsed, allocUsed);
+      return new (jrt::kOp) BatchOptimizer_CandidateResult(result, workerBoard, position, cpuUsed, allocUsed);
     }
-    return new BatchOptimizer_CandidateResult(result, nullptr, position, cpuUsed, allocUsed);
+    return new (jrt::kOp) BatchOptimizer_CandidateResult(result, nullptr, position, cpuUsed, allocUsed);
   } catch (...) {
     // Java finally (exceptional path)
     if (!snapshotFinished) {
@@ -1285,14 +1285,14 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
 
 BatchOptimizer_ReadSortedRouteItems::BatchOptimizer_ReadSortedRouteItems(BatchOptimizer* outer)
     : outer(outer) {
-  minItemCoor = new FloatPoint(jrt::Integer::MIN_VALUE, jrt::Integer::MIN_VALUE);
+  minItemCoor = new (jrt::kGeom) FloatPoint(jrt::Integer::MIN_VALUE, jrt::Integer::MIN_VALUE);
   minItemLayer = -1;
 }
 
 Item* BatchOptimizer_ReadSortedRouteItems::next() {
   RoutingBoard* board = outer->board;
   Item* result = nullptr;
-  FloatPoint* currentMinCoor = new FloatPoint(jrt::Integer::MAX_VALUE, jrt::Integer::MAX_VALUE);
+  FloatPoint* currentMinCoor = new (jrt::kGeom) FloatPoint(jrt::Integer::MAX_VALUE, jrt::Integer::MAX_VALUE);
   int32_t currentMinLayer = jrt::Integer::MAX_VALUE;
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
   for (;;) {

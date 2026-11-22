@@ -54,7 +54,7 @@ bool ClearanceViolation::isOutlineOrKeepout(Item* item) {
 
 jrt::List<ClearanceViolation*>* ClearanceViolation::aggregateSortedBySeverity(
     jrt::Collection<Item*>* items) {
-  auto* violations = new jrt::ArrayList<ClearanceViolation*>();
+  auto* violations = new (jrt::kOp) jrt::ArrayList<ClearanceViolation*>();
   for (Item* item : *items) {
     violations->addAll(item->clearanceViolations());
   }
@@ -76,7 +76,7 @@ double ClearanceViolation::smallestClearance(jrt::Collection<Item*>* items) {
 }
 
 void ClearanceViolation::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("ClearanceViolation", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("ClearanceViolation", locale);
 
   printer->appendBold(tm->getText("clearance_violation_2"));
   printer->append(" " + tm->getText("at") + " ");

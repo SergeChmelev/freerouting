@@ -22,34 +22,34 @@ PlanarDelaunayTriangulation::PlanarDelaunayTriangulation(
     jrt::Collection<PlanarDelaunayTriangulation_Storable*>* objectList) {
   // PORT NOTE: Java uses a LinkedList; an ArrayList gives the same order and the same
   // Collections.shuffle result (the same swap sequence) without O(n^2) index access.
-  auto* cornerList = new jrt::ArrayList<PDT_Corner*>();
+  auto* cornerList = new (jrt::kOp) jrt::ArrayList<PDT_Corner*>();
   for (auto it = objectList->iterator(); it->hasNext();) {
     PlanarDelaunayTriangulation_Storable* currentObject = it->next();
     jrt::Array<Point*>* currentCorners = currentObject->getTriangulationCorners();
     for (Point* currentCorner : *currentCorners) {
-      cornerList->add(new PDT_Corner(currentObject, currentCorner));
+      cornerList->add(new (jrt::kOp) PDT_Corner(currentObject, currentCorner));
     }
   }
 
   // create a random permutation of the corners.
   // use a fixed seed to get reproducible result without cross-worker thread interference
-  jrt::Collections::shuffle<PDT_Corner*>(cornerList, new jrt::Random(seed));
+  jrt::Collections::shuffle<PDT_Corner*>(cornerList, new (jrt::kOp) jrt::Random(seed));
 
   // create a big triangle containing all corners in the list to start with.
 
   int32_t boundingCoor = Limits::CRIT_INT;
-  auto* boundingCorners = new jrt::Array<PDT_Corner*>(3);
-  (*boundingCorners)[0] = new PDT_Corner(nullptr, new IntPoint(boundingCoor, 0));
-  (*boundingCorners)[1] = new PDT_Corner(nullptr, new IntPoint(0, boundingCoor));
-  (*boundingCorners)[2] = new PDT_Corner(nullptr, new IntPoint(-boundingCoor, -boundingCoor));
+  auto* boundingCorners = new (jrt::kOp) jrt::Array<PDT_Corner*>(3);
+  (*boundingCorners)[0] = new (jrt::kOp) PDT_Corner(nullptr, new (jrt::kGeom) IntPoint(boundingCoor, 0));
+  (*boundingCorners)[1] = new (jrt::kOp) PDT_Corner(nullptr, new (jrt::kGeom) IntPoint(0, boundingCoor));
+  (*boundingCorners)[2] = new (jrt::kOp) PDT_Corner(nullptr, new (jrt::kGeom) IntPoint(-boundingCoor, -boundingCoor));
 
-  auto* edgeLines = new jrt::Array<PDT_Edge*>(3);
+  auto* edgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   for (int32_t i = 0; i < 2; i++) {
-    (*edgeLines)[i] = new PDT_Edge(this, (*boundingCorners)[i], (*boundingCorners)[i + 1]);
+    (*edgeLines)[i] = new (jrt::kOp) PDT_Edge(this, (*boundingCorners)[i], (*boundingCorners)[i + 1]);
   }
-  (*edgeLines)[2] = new PDT_Edge(this, (*boundingCorners)[2], (*boundingCorners)[0]);
+  (*edgeLines)[2] = new (jrt::kOp) PDT_Edge(this, (*boundingCorners)[2], (*boundingCorners)[0]);
 
-  auto* startTriangle = new PDT_Triangle(this, edgeLines, nullptr);
+  auto* startTriangle = new (jrt::kOp) PDT_Triangle(this, edgeLines, nullptr);
 
   // Set the left triangle of the edge lines to startTriangle.
   // The right triangles remains null.
@@ -59,8 +59,8 @@ PlanarDelaunayTriangulation::PlanarDelaunayTriangulation(
 
   // Initialize the search graph.
 
-  this->searchGraph = new PlanarDelaunayTriangulation_TriangleGraph(startTriangle);
-  this->degenerateEdges = new jrt::LinkedList<PDT_Edge*>();
+  this->searchGraph = new (jrt::kOp) PlanarDelaunayTriangulation_TriangleGraph(startTriangle);
+  this->degenerateEdges = new (jrt::kOp) jrt::LinkedList<PDT_Edge*>();
 
   // Insert the corners in the corner list into the search graph.
 
@@ -73,18 +73,18 @@ PlanarDelaunayTriangulation::PlanarDelaunayTriangulation(
 jrt::Collection<PlanarDelaunayTriangulation_ResultEdge*>*
 PlanarDelaunayTriangulation::getEdgeLines() {
   jrt::Collection<PlanarDelaunayTriangulation_ResultEdge*>* result =
-      new jrt::LinkedList<PlanarDelaunayTriangulation_ResultEdge*>();
+      new (jrt::kOp) jrt::LinkedList<PlanarDelaunayTriangulation_ResultEdge*>();
   for (auto it = this->degenerateEdges->iterator(); it->hasNext();) {
     PDT_Edge* currentEdge = it->next();
-    result->add(new PlanarDelaunayTriangulation_ResultEdge(
+    result->add(new (jrt::kOp) PlanarDelaunayTriangulation_ResultEdge(
         currentEdge->startCorner->coor, currentEdge->startCorner->object,
         currentEdge->endCorner->coor, currentEdge->endCorner->object));
   }
   if (this->searchGraph->anchor != nullptr) {
-    auto* resultEdges = new jrt::TreeSet<PDT_Edge*>();
+    auto* resultEdges = new (jrt::kOp) jrt::TreeSet<PDT_Edge*>();
     this->searchGraph->anchor->getLeafEdges(resultEdges);
     for (PDT_Edge* currentEdge : *resultEdges) {
-      result->add(new PlanarDelaunayTriangulation_ResultEdge(
+      result->add(new (jrt::kOp) PlanarDelaunayTriangulation_ResultEdge(
           currentEdge->startCorner->coor, currentEdge->startCorner->object,
           currentEdge->endCorner->coor, currentEdge->endCorner->object));
     }
@@ -121,7 +121,7 @@ bool PlanarDelaunayTriangulation::split(PDT_Triangle* triangle, PDT_Corner* corn
         if (corner->object == commonCorner->object) {
           return false;
         }
-        this->degenerateEdges->add(new PDT_Edge(this, corner, commonCorner));
+        this->degenerateEdges->add(new (jrt::kOp) PDT_Edge(this, corner, commonCorner));
         return true;
       }
       containingEdge = currentEdge;
@@ -351,7 +351,7 @@ bool PlanarDelaunayTriangulation_Edge::isLegal() {
 PDT_Edge* PlanarDelaunayTriangulation_Edge::flip() {
   // Create the flipped edge, so that the start corner of this edge is on the left
   // and the end corner of this edge on the right.
-  auto* flippedEdge = new PDT_Edge(outer, this->rightTriangle->oppositeCorner(this),
+  auto* flippedEdge = new (jrt::kOp) PDT_Edge(outer, this->rightTriangle->oppositeCorner(this),
                                    this->leftTriangle->oppositeCorner(this));
 
   PDT_Triangle* const firstParent = this->leftTriangle;
@@ -379,11 +379,11 @@ PDT_Edge* PlanarDelaunayTriangulation_Edge::flip() {
 
   // Create the left triangle of the flipped edge.
 
-  auto* currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  auto* currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = flippedEdge;
   (*currentEdgeLines)[1] = leftPrevEdge;
   (*currentEdgeLines)[2] = rightNextEdge;
-  auto* newLeftTriangle = new PDT_Triangle(outer, currentEdgeLines, firstParent);
+  auto* newLeftTriangle = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, firstParent);
   flippedEdge->leftTriangle = newLeftTriangle;
   if (leftPrevEdge->leftTriangle == this->leftTriangle) {
     leftPrevEdge->leftTriangle = newLeftTriangle;
@@ -398,11 +398,11 @@ PDT_Edge* PlanarDelaunayTriangulation_Edge::flip() {
 
   // Create the right triangle of the flipped edge.
 
-  currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = flippedEdge;
   (*currentEdgeLines)[1] = rightPrevEdge;
   (*currentEdgeLines)[2] = leftNextEdge;
-  auto* newRightTriangle = new PDT_Triangle(outer, currentEdgeLines, firstParent);
+  auto* newRightTriangle = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, firstParent);
   flippedEdge->rightTriangle = newRightTriangle;
   if (rightPrevEdge->leftTriangle == this->rightTriangle) {
     rightPrevEdge->leftTriangle = newRightTriangle;
@@ -471,7 +471,7 @@ PlanarDelaunayTriangulation_Triangle::PlanarDelaunayTriangulation_Triangle(
     PDT_Triangle* firstParent)
     : outer(outer), edgeLines(edgeLines), firstParent(firstParent) {
   // create an empty list for the children.
-  this->children = new jrt::LinkedList<PDT_Triangle*>();
+  this->children = new (jrt::kOp) jrt::LinkedList<PDT_Triangle*>();
 }
 
 bool PlanarDelaunayTriangulation_Triangle::isLeaf() { return this->children->isEmpty(); }
@@ -562,32 +562,32 @@ void PlanarDelaunayTriangulation_Triangle::getLeafEdges(jrt::Set<PDT_Edge*>* res
 
 jrt::Array<PDT_Triangle*>* PlanarDelaunayTriangulation_Triangle::splitAtInnerPoint(
     PDT_Corner* corner) {
-  auto* newEdges = new jrt::Array<PDT_Edge*>(3);
+  auto* newEdges = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   for (int32_t i = 0; i < 3; i++) {
-    (*newEdges)[i] = new PDT_Edge(outer, this->getCorner(i), corner);
+    (*newEdges)[i] = new (jrt::kOp) PDT_Edge(outer, this->getCorner(i), corner);
   }
 
-  auto* const newTriangles = new jrt::Array<PDT_Triangle*>(3);
+  auto* const newTriangles = new (jrt::kOp) jrt::Array<PDT_Triangle*>(3);
 
   // construct the 3 new triangles.
-  auto* currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  auto* currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
 
   (*currentEdgeLines)[0] = (*this->edgeLines)[0];
-  (*currentEdgeLines)[1] = new PDT_Edge(outer, this->getCorner(1), corner);
-  (*currentEdgeLines)[2] = new PDT_Edge(outer, corner, this->getCorner(0));
-  (*newTriangles)[0] = new PDT_Triangle(outer, currentEdgeLines, this);
+  (*currentEdgeLines)[1] = new (jrt::kOp) PDT_Edge(outer, this->getCorner(1), corner);
+  (*currentEdgeLines)[2] = new (jrt::kOp) PDT_Edge(outer, corner, this->getCorner(0));
+  (*newTriangles)[0] = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, this);
 
-  currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = (*this->edgeLines)[1];
-  (*currentEdgeLines)[1] = new PDT_Edge(outer, this->getCorner(2), corner);
+  (*currentEdgeLines)[1] = new (jrt::kOp) PDT_Edge(outer, this->getCorner(2), corner);
   (*currentEdgeLines)[2] = (*(*newTriangles)[0]->edgeLines)[1];
-  (*newTriangles)[1] = new PDT_Triangle(outer, currentEdgeLines, this);
+  (*newTriangles)[1] = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, this);
 
-  currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = (*this->edgeLines)[2];
   (*currentEdgeLines)[1] = (*(*newTriangles)[0]->edgeLines)[2];
   (*currentEdgeLines)[2] = (*(*newTriangles)[1]->edgeLines)[1];
-  (*newTriangles)[2] = new PDT_Triangle(outer, currentEdgeLines, this);
+  (*newTriangles)[2] = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, this);
 
   // Set the new neighbour triangles of the edge lines.
 
@@ -643,18 +643,18 @@ jrt::Array<PDT_Triangle*>* PlanarDelaunayTriangulation_Triangle::splitAtBorderPo
     return nullptr;
   }
 
-  auto* const newTriangles = new jrt::Array<PDT_Triangle*>(4);
+  auto* const newTriangles = new (jrt::kOp) jrt::Array<PDT_Triangle*>(4);
 
   PDT_Edge* firstCommonNewEdge;
   PDT_Edge* secondCommonNewEdge;
   // Construct the new edge lines that 2 split triangles of this triangle
   // will be on the left side of the new common touching edges.
   if (this == touchingEdge->leftTriangle) {
-    firstCommonNewEdge = new PDT_Edge(outer, touchingEdge->startCorner, corner);
-    secondCommonNewEdge = new PDT_Edge(outer, corner, touchingEdge->endCorner);
+    firstCommonNewEdge = new (jrt::kOp) PDT_Edge(outer, touchingEdge->startCorner, corner);
+    secondCommonNewEdge = new (jrt::kOp) PDT_Edge(outer, corner, touchingEdge->endCorner);
   } else {
-    firstCommonNewEdge = new PDT_Edge(outer, touchingEdge->endCorner, corner);
-    secondCommonNewEdge = new PDT_Edge(outer, corner, touchingEdge->startCorner);
+    firstCommonNewEdge = new (jrt::kOp) PDT_Edge(outer, touchingEdge->endCorner, corner);
+    secondCommonNewEdge = new (jrt::kOp) PDT_Edge(outer, corner, touchingEdge->startCorner);
   }
 
   // Construct the first split triangle of this triangle.
@@ -664,15 +664,15 @@ jrt::Array<PDT_Triangle*>* PlanarDelaunayTriangulation_Triangle::splitAtBorderPo
   // construct the splitting edge line of this triangle, so that the first split
   // triangle lies on the left side, and the second split triangle on the right side.
   if (this == prevEdge->leftTriangle) {
-    thisSplittingEdge = new PDT_Edge(outer, corner, prevEdge->startCorner);
+    thisSplittingEdge = new (jrt::kOp) PDT_Edge(outer, corner, prevEdge->startCorner);
   } else {
-    thisSplittingEdge = new PDT_Edge(outer, corner, prevEdge->endCorner);
+    thisSplittingEdge = new (jrt::kOp) PDT_Edge(outer, corner, prevEdge->endCorner);
   }
-  auto* currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  auto* currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = prevEdge;
   (*currentEdgeLines)[1] = firstCommonNewEdge;
   (*currentEdgeLines)[2] = thisSplittingEdge;
-  (*newTriangles)[0] = new PDT_Triangle(outer, currentEdgeLines, this);
+  (*newTriangles)[0] = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, this);
   if (this == prevEdge->leftTriangle) {
     prevEdge->setLeftTriangle((*newTriangles)[0]);
   } else {
@@ -684,11 +684,11 @@ jrt::Array<PDT_Triangle*>* PlanarDelaunayTriangulation_Triangle::splitAtBorderPo
   // Construct the second split triangle of this triangle.
 
   PDT_Edge* const nextEdge = (*this->edgeLines)[(thisTouchingEdgeNo + 1) % 3];
-  currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = thisSplittingEdge;
   (*currentEdgeLines)[1] = secondCommonNewEdge;
   (*currentEdgeLines)[2] = nextEdge;
-  (*newTriangles)[1] = new PDT_Triangle(outer, currentEdgeLines, this);
+  (*newTriangles)[1] = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, this);
   thisSplittingEdge->setRightTriangle((*newTriangles)[1]);
   secondCommonNewEdge->setLeftTriangle((*newTriangles)[1]);
   if (this == nextEdge->leftTriangle) {
@@ -703,15 +703,15 @@ jrt::Array<PDT_Triangle*>* PlanarDelaunayTriangulation_Triangle::splitAtBorderPo
   // construct the splitting edge line of neighbourToSplit, so that the first split
   // triangle lies on the left side, and the second split triangle on the right side.
   if (neighbourToSplit == neighbourNextEdge->leftTriangle) {
-    neighbourSplittingEdge = new PDT_Edge(outer, neighbourNextEdge->endCorner, corner);
+    neighbourSplittingEdge = new (jrt::kOp) PDT_Edge(outer, neighbourNextEdge->endCorner, corner);
   } else {
-    neighbourSplittingEdge = new PDT_Edge(outer, neighbourNextEdge->startCorner, corner);
+    neighbourSplittingEdge = new (jrt::kOp) PDT_Edge(outer, neighbourNextEdge->startCorner, corner);
   }
-  currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = neighbourSplittingEdge;
   (*currentEdgeLines)[1] = firstCommonNewEdge;
   (*currentEdgeLines)[2] = neighbourNextEdge;
-  (*newTriangles)[2] = new PDT_Triangle(outer, currentEdgeLines, neighbourToSplit);
+  (*newTriangles)[2] = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, neighbourToSplit);
   neighbourSplittingEdge->setLeftTriangle((*newTriangles)[2]);
   firstCommonNewEdge->setRightTriangle((*newTriangles)[2]);
   if (neighbourToSplit == neighbourNextEdge->leftTriangle) {
@@ -722,11 +722,11 @@ jrt::Array<PDT_Triangle*>* PlanarDelaunayTriangulation_Triangle::splitAtBorderPo
 
   // construct the second split triangle of neighbourToSplit
   prevEdge = (*neighbourToSplit->edgeLines)[(neighbourTouchingEdgeNo + 2) % 3];
-  currentEdgeLines = new jrt::Array<PDT_Edge*>(3);
+  currentEdgeLines = new (jrt::kOp) jrt::Array<PDT_Edge*>(3);
   (*currentEdgeLines)[0] = prevEdge;
   (*currentEdgeLines)[1] = secondCommonNewEdge;
   (*currentEdgeLines)[2] = neighbourSplittingEdge;
-  (*newTriangles)[3] = new PDT_Triangle(outer, currentEdgeLines, neighbourToSplit);
+  (*newTriangles)[3] = new (jrt::kOp) PDT_Triangle(outer, currentEdgeLines, neighbourToSplit);
   if (neighbourToSplit == prevEdge->leftTriangle) {
     prevEdge->setLeftTriangle((*newTriangles)[3]);
   } else {
@@ -784,7 +784,7 @@ void PlanarDelaunayTriangulation_Triangle::initializeIsOnTheLeftOfEdgeLineArray(
   if (this->isOnTheLeftOfEdgeLine != nullptr) {
     return;  // already initialized
   }
-  this->isOnTheLeftOfEdgeLine = new jrt::Array<bool>(3);
+  this->isOnTheLeftOfEdgeLine = new (jrt::kOp) jrt::Array<bool>(3);
   for (int32_t i = 0; i < 3; i++) {
     (*this->isOnTheLeftOfEdgeLine)[i] = (*this->edgeLines)[i]->leftTriangle == this;
   }

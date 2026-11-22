@@ -31,13 +31,13 @@ bool isBlank(const std::string& s) { return jrt::strip(s).empty(); }
 }  // namespace
 
 RouterSettings::RouterSettings() {
-  this->pcs = new PropertyChangeSupport(this);
-  this->optimizer = new OptimizerSettings();
-  this->scoring = new RoutingCostSettings();
-  this->routerScoring = new RouterScoreSettings();
-  this->optimizerScoring = new OptimizerScoreSettings();
-  this->fanout = new FanoutSettings();
-  this->autorouter = new AutorouterSettings();
+  this->pcs = new (jrt::kBoard) PropertyChangeSupport(this);
+  this->optimizer = new (jrt::kBoard) OptimizerSettings();
+  this->scoring = new (jrt::kBoard) RoutingCostSettings();
+  this->routerScoring = new (jrt::kBoard) RouterScoreSettings();
+  this->optimizerScoring = new (jrt::kBoard) OptimizerScoreSettings();
+  this->fanout = new (jrt::kBoard) FanoutSettings();
+  this->autorouter = new (jrt::kBoard) AutorouterSettings();
 }
 
 RouterSettings::RouterSettings(RoutingBoard* board) : RouterSettings() {
@@ -65,7 +65,7 @@ int32_t RouterSettings::normalizeMaxThreads(std::optional<int32_t> value) {
 
 void RouterSettings::addPropertyChangeListener(PropertyChangeListener* listener) {
   if (pcs == nullptr) {
-    pcs = new PropertyChangeSupport(this);
+    pcs = new (jrt::kBoard) PropertyChangeSupport(this);
   }
   pcs->addPropertyChangeListener(listener);
 }
@@ -78,7 +78,7 @@ void RouterSettings::removePropertyChangeListener(PropertyChangeListener* listen
 
 AutorouterSettings* RouterSettings::autorouterOrCreate() {
   if (this->autorouter == nullptr) {
-    this->autorouter = new AutorouterSettings();
+    this->autorouter = new (jrt::kBoard) AutorouterSettings();
   }
   return this->autorouter;
 }
@@ -213,7 +213,7 @@ void RouterSettings::applyBoardSpecificOptimizations(RoutingBoard* board) {
     }
   }
   if (scoring == nullptr) {
-    scoring = new RoutingCostSettings();
+    scoring = new (jrt::kBoard) RoutingCostSettings();
   }
   jrt::Array<double>* originalPrefCost = scoring->preferredDirectionTraceCost != nullptr
                                              ? scoring->preferredDirectionTraceCost->clone()
@@ -233,30 +233,30 @@ void RouterSettings::applyBoardSpecificOptimizations(RoutingBoard* board) {
   if (layers == nullptr || layers->length != layerCount) {
     boardSpecificTraceCostsApplied = false;
     jrt::Array<LayerSettings*>* oldLayers = layers;
-    layers = new jrt::Array<LayerSettings*>(layerCount);
+    layers = new (jrt::kBoard) jrt::Array<LayerSettings*>(layerCount);
     for (int32_t i = 0; i < layerCount; i++) {
       if (oldLayers != nullptr && i < oldLayers->length && (*oldLayers)[i] != nullptr) {
         (*layers)[i] = (*oldLayers)[i];
       } else {
-        (*layers)[i] = new LayerSettings();
+        (*layers)[i] = new (jrt::kBoard) LayerSettings();
       }
     }
   } else {
     // Ensure no elements inside the layers array are null
     for (int32_t i = 0; i < layerCount; i++) {
       if ((*layers)[i] == nullptr) {
-        (*layers)[i] = new LayerSettings();
+        (*layers)[i] = new (jrt::kBoard) LayerSettings();
       }
     }
   }
   if (scoring->preferredDirectionTraceCost == nullptr ||
       scoring->preferredDirectionTraceCost->length != layerCount) {
-    scoring->preferredDirectionTraceCost = new jrt::Array<double>(layerCount);
+    scoring->preferredDirectionTraceCost = new (jrt::kOp) jrt::Array<double>(layerCount);
     boardSpecificTraceCostsApplied = false;
   }
   if (scoring->undesiredDirectionTraceCost == nullptr ||
       scoring->undesiredDirectionTraceCost->length != layerCount) {
-    scoring->undesiredDirectionTraceCost = new jrt::Array<double>(layerCount);
+    scoring->undesiredDirectionTraceCost = new (jrt::kOp) jrt::Array<double>(layerCount);
     boardSpecificTraceCostsApplied = false;
   }
 
@@ -414,9 +414,9 @@ int32_t RouterSettings::getPriorityViaCosts() {
 jrt::List<NetClass*>* RouterSettings::resolveNetClasses(BoardRules* rules,
                                                         jrt::Array<std::string>* listed,
                                                         jrt::List<std::string>* unknown) {
-  jrt::List<std::string>* names = new jrt::ArrayList<std::string>();
+  jrt::List<std::string>* names = new (jrt::kOp) jrt::ArrayList<std::string>();
   if (listed == nullptr) {
-    return new jrt::ArrayList<NetClass*>();
+    return new (jrt::kOp) jrt::ArrayList<NetClass*>();
   }
   for (const std::string& name : *listed) {
     // PORT NOTE: Java's `name != null` check: a std::string element cannot be null.
@@ -424,7 +424,7 @@ jrt::List<NetClass*>* RouterSettings::resolveNetClasses(BoardRules* rules,
       names->add(jrt::trim(name));
     }
   }
-  jrt::List<NetClass*>* result = new jrt::ArrayList<NetClass*>();
+  jrt::List<NetClass*>* result = new (jrt::kOp) jrt::ArrayList<NetClass*>();
   for (int32_t i = 0; i < names->size(); i++) {
     NetClass* netClass = findNetClass(rules, names->get(i));
     std::string joined = names->get(i);
@@ -480,17 +480,17 @@ int32_t RouterSettings::getLayerCount() {
 void RouterSettings::setLayerCount(int32_t layerCount) {
   if (layers == nullptr || layers->length != layerCount) {
     boardSpecificTraceCostsApplied = false;
-    layers = new jrt::Array<LayerSettings*>(layerCount);
+    layers = new (jrt::kBoard) jrt::Array<LayerSettings*>(layerCount);
     for (int32_t i = 0; i < layerCount; i++) {
-      (*layers)[i] = new LayerSettings();
+      (*layers)[i] = new (jrt::kBoard) LayerSettings();
     }
     if (scoring == nullptr) {
-      scoring = new RoutingCostSettings();
+      scoring = new (jrt::kBoard) RoutingCostSettings();
     }
     // Initialize per-layer cost arrays with a neutral default so callers can
     // write individual entries without waiting for applyBoardSpecificOptimizations.
-    scoring->preferredDirectionTraceCost = new jrt::Array<double>(layerCount);
-    scoring->undesiredDirectionTraceCost = new jrt::Array<double>(layerCount);
+    scoring->preferredDirectionTraceCost = new (jrt::kOp) jrt::Array<double>(layerCount);
+    scoring->undesiredDirectionTraceCost = new (jrt::kOp) jrt::Array<double>(layerCount);
 
     for (int32_t i = 0; i < layerCount; i++) {
       (*layers)[i]->routable = true;
@@ -505,14 +505,14 @@ void RouterSettings::setLayerCount(int32_t layerCount) {
 }
 
 RouterSettings* RouterSettings::clone() {
-  auto* result = new RouterSettings();
+  auto* result = new (jrt::kBoard) RouterSettings();
   int32_t layerCount = this->getLayerCount();
   if (layerCount > 0) {
     result->setLayerCount(layerCount);
   }
   result->jobTimeoutString = this->jobTimeoutString;
   if (this->layers != nullptr) {
-    result->layers = new jrt::Array<LayerSettings*>(this->layers->length);
+    result->layers = new (jrt::kOp) jrt::Array<LayerSettings*>(this->layers->length);
     for (int32_t i = 0; i < this->layers->length; i++) {
       if ((*this->layers)[i] != nullptr) {
         (*result->layers)[i] = (*this->layers)[i]->clone();
@@ -520,7 +520,7 @@ RouterSettings* RouterSettings::clone() {
     }
   }
   if (this->validationWarnings != nullptr) {
-    result->validationWarnings = new jrt::ArrayList<std::string>(
+    result->validationWarnings = new (jrt::kOp) jrt::ArrayList<std::string>(
         static_cast<jrt::Collection<std::string>*>(this->validationWarnings));
   }
   result->copperToEdgeClearanceUm = this->copperToEdgeClearanceUm;
@@ -546,15 +546,15 @@ RouterSettings* RouterSettings::clone() {
 
   // Use proper clone() methods for nested objects
   result->optimizer =
-      this->optimizer != nullptr ? this->optimizer->clone() : new OptimizerSettings();
-  result->scoring = this->scoring != nullptr ? this->scoring->clone() : new RoutingCostSettings();
+      this->optimizer != nullptr ? this->optimizer->clone() : new (jrt::kBoard) OptimizerSettings();
+  result->scoring = this->scoring != nullptr ? this->scoring->clone() : new (jrt::kBoard) RoutingCostSettings();
   result->routerScoring =
-      this->routerScoring != nullptr ? this->routerScoring->clone() : new RouterScoreSettings();
+      this->routerScoring != nullptr ? this->routerScoring->clone() : new (jrt::kBoard) RouterScoreSettings();
   result->optimizerScoring = this->optimizerScoring != nullptr ? this->optimizerScoring->clone()
-                                                               : new OptimizerScoreSettings();
-  result->fanout = this->fanout != nullptr ? this->fanout->clone() : new FanoutSettings();
+                                                               : new (jrt::kBoard) OptimizerScoreSettings();
+  result->fanout = this->fanout != nullptr ? this->fanout->clone() : new (jrt::kBoard) FanoutSettings();
   result->autorouter =
-      this->autorouter != nullptr ? this->autorouter->clone() : new AutorouterSettings();
+      this->autorouter != nullptr ? this->autorouter->clone() : new (jrt::kBoard) AutorouterSettings();
   result->boardSpecificTraceCostsApplied = this->boardSpecificTraceCostsApplied;
 
   return result;
@@ -587,7 +587,7 @@ int32_t RouterSettings::getStartRipupCosts() {
 
 void RouterSettings::setStartRipupCosts(int32_t value) {
   if (scoring == nullptr) {
-    scoring = new RoutingCostSettings();
+    scoring = new (jrt::kBoard) RoutingCostSettings();
   }
   scoring->startRipupCosts = jrt::Math::max(value, 1);
 }
@@ -605,7 +605,7 @@ bool RouterSettings::getRunOptimizer() {
 
 void RouterSettings::setRunOptimizer(bool value) {
   if (optimizer == nullptr) {
-    optimizer = new OptimizerSettings();
+    optimizer = new (jrt::kBoard) OptimizerSettings();
   }
   optimizer->enabled = value;
 }
@@ -620,7 +620,7 @@ bool RouterSettings::isFanoutEnabled() {
 
 void RouterSettings::setFanoutEnabled(std::optional<bool> value) {
   if (this->fanout == nullptr) {
-    this->fanout = new FanoutSettings();
+    this->fanout = new (jrt::kBoard) FanoutSettings();
   }
   std::optional<bool> oldValue = this->fanout->enabled;
   this->fanout->enabled = value;
@@ -639,7 +639,7 @@ int32_t RouterSettings::getViaCosts() {
 
 void RouterSettings::setViaCosts(int32_t value) {
   if (scoring == nullptr) {
-    scoring = new RoutingCostSettings();
+    scoring = new (jrt::kBoard) RoutingCostSettings();
   }
   scoring->viaCosts = jrt::Math::max(value, 1);
 }
@@ -650,13 +650,13 @@ int32_t RouterSettings::getPlaneViaCosts() {
 
 void RouterSettings::setPlaneViaCosts(int32_t value) {
   if (scoring == nullptr) {
-    scoring = new RoutingCostSettings();
+    scoring = new (jrt::kBoard) RoutingCostSettings();
   }
   scoring->planeViaCosts = jrt::Math::max(value, 1);
 }
 
 jrt::Array<std::string>* RouterSettings::getPlaneNets() {
-  return planeNets != nullptr ? planeNets->clone() : new jrt::Array<std::string>(0);
+  return planeNets != nullptr ? planeNets->clone() : new (jrt::kOp) jrt::Array<std::string>(0);
 }
 
 void RouterSettings::setPlaneNets(jrt::Array<std::string>* value) {
@@ -690,7 +690,7 @@ void RouterSettings::setLayerActive(int32_t layer, bool value) {
     return;
   }
   if ((*layers)[layer] == nullptr) {
-    (*layers)[layer] = new LayerSettings();
+    (*layers)[layer] = new (jrt::kBoard) LayerSettings();
   }
   (*layers)[layer]->routable = value;
 }
@@ -713,7 +713,7 @@ void RouterSettings::setBendCost(int32_t layer, double value) {
     return;
   }
   if ((*layers)[layer] == nullptr) {
-    (*layers)[layer] = new LayerSettings();
+    (*layers)[layer] = new (jrt::kBoard) LayerSettings();
   }
   (*layers)[layer]->bendCost =
       jrt::Math::max(MIN_BEND_COST, jrt::Math::min(MAX_BEND_COST, value));
@@ -741,7 +741,7 @@ void RouterSettings::setPreferredDirectionIsHorizontal(int32_t layer, bool value
     return;
   }
   if ((*layers)[layer] == nullptr) {
-    (*layers)[layer] = new LayerSettings();
+    (*layers)[layer] = new (jrt::kBoard) LayerSettings();
   }
   (*layers)[layer]->preferredDirectionHorizontal = value;
 }
@@ -767,11 +767,11 @@ void RouterSettings::setPreferredDirectionTraceCosts(int32_t layer, double value
     return;
   }
   if (scoring == nullptr) {
-    scoring = new RoutingCostSettings();
+    scoring = new (jrt::kBoard) RoutingCostSettings();
   }
   if (scoring->preferredDirectionTraceCost == nullptr ||
       scoring->preferredDirectionTraceCost->length != this->getLayerCount()) {
-    scoring->preferredDirectionTraceCost = new jrt::Array<double>(this->getLayerCount());
+    scoring->preferredDirectionTraceCost = new (jrt::kOp) jrt::Array<double>(this->getLayerCount());
   }
   (*scoring->preferredDirectionTraceCost)[layer] = jrt::Math::max(value, 0.1);
   if (layers != nullptr && layer < layers->length && (*layers)[layer] != nullptr) {
@@ -834,11 +834,11 @@ void RouterSettings::setAgainstPreferredDirectionTraceCosts(int32_t layer, doubl
     return;
   }
   if (scoring == nullptr) {
-    scoring = new RoutingCostSettings();
+    scoring = new (jrt::kBoard) RoutingCostSettings();
   }
   if (scoring->undesiredDirectionTraceCost == nullptr ||
       scoring->undesiredDirectionTraceCost->length != this->getLayerCount()) {
-    scoring->undesiredDirectionTraceCost = new jrt::Array<double>(this->getLayerCount());
+    scoring->undesiredDirectionTraceCost = new (jrt::kOp) jrt::Array<double>(this->getLayerCount());
   }
   (*scoring->undesiredDirectionTraceCost)[layer] = jrt::Math::max(value, 0.1);
   if (layers != nullptr && layer < layers->length && (*layers)[layer] != nullptr) {
@@ -864,13 +864,13 @@ double RouterSettings::getVerticalTraceCosts(int32_t layer) {
 
 jrt::Array<AutorouteControl_ExpansionCostFactor*>* RouterSettings::getTraceCosts() {
   if (scoring == nullptr || scoring->preferredDirectionTraceCost == nullptr) {
-    return new jrt::Array<AutorouteControl_ExpansionCostFactor*>(0);
+    return new (jrt::kOp) jrt::Array<AutorouteControl_ExpansionCostFactor*>(0);
   }
-  auto* result = new jrt::Array<AutorouteControl_ExpansionCostFactor*>(
+  auto* result = new (jrt::kOp) jrt::Array<AutorouteControl_ExpansionCostFactor*>(
       scoring->preferredDirectionTraceCost->length);
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] =
-        new AutorouteControl_ExpansionCostFactor(getHorizontalTraceCosts(i), getVerticalTraceCosts(i));
+        new (jrt::kOp) AutorouteControl_ExpansionCostFactor(getHorizontalTraceCosts(i), getVerticalTraceCosts(i));
   }
   return result;
 }
@@ -955,7 +955,7 @@ int32_t RouterSettings::copyNewValuesFrom(RouterSettings* source) {
 }
 
 void RouterSettings::validateAgainstBoard(RoutingBoard* board) {
-  this->validationWarnings = new jrt::ArrayList<std::string>();
+  this->validationWarnings = new (jrt::kBoard) jrt::ArrayList<std::string>();
 
   // Validate maxPasses (0 means no limit)
   if (this->autorouter != nullptr && this->autorouter->maxPasses.has_value()) {
@@ -1042,7 +1042,7 @@ void RouterSettings::validateAgainstBoard(RoutingBoard* board) {
                                         this->autorouter->priorityNetClasses};
     const char* keys[] = {"ignoreNetClasses", "priorityNetClasses"};
     for (int32_t k = 0; k < 2; k++) {
-      jrt::List<std::string>* unknown = new jrt::ArrayList<std::string>();
+      jrt::List<std::string>* unknown = new (jrt::kOp) jrt::ArrayList<std::string>();
       resolveNetClasses(board->rules, lists[k], unknown);
       for (const std::string& netClassName : *unknown) {
         std::string warning = "Unknown net class '" + netClassName + "' specified in " +

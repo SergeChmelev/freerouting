@@ -18,7 +18,7 @@
 namespace fr {
 
 ShoveCheckCache*& ShoveCheckCache::CURRENT() {
-  static ShoveCheckCache* v = new ShoveCheckCache();
+  static ShoveCheckCache* v = new (jrt::kBoard) ShoveCheckCache();
   return v;
 }
 
@@ -126,7 +126,7 @@ ShoveCheckCache_Key::ShoveCheckCache_Key(TileShape* shape, ShapeEntrySide* fromS
     Simplex* x = jrt::fast_cast<Simplex>(shape);
     this->kind = 3;
     this->lineCount = x->borderLineCount();
-    this->coords = new jrt::Array<int32_t>(4 * this->lineCount);
+    this->coords = new (jrt::kOp) jrt::Array<int32_t>(4 * this->lineCount);
     for (int32_t i = 0; i < this->lineCount; i++) {
       Line* line = x->borderLine(i);
       IntPoint* a = jrt::fast_cast<IntPoint>(line->a);

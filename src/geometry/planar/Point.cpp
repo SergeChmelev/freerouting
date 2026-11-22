@@ -14,12 +14,12 @@ namespace fr {
 
 BigIntAux_RationalCoordinates* Point::exactCoordinates() {
   if (auto* integer = jrt::fast_cast<IntPoint>(this)) {
-    return new BigIntAux_RationalCoordinates(jrt::BigInteger::valueOf(integer->x),
+    return new (jrt::kOp) BigIntAux_RationalCoordinates(jrt::BigInteger::valueOf(integer->x),
                                              jrt::BigInteger::valueOf(integer->y),
                                              jrt::BigInteger::ONE());
   }
   auto* rational = jrt::fast_cast<RationalPoint>(this);
-  return new BigIntAux_RationalCoordinates(rational->x, rational->y, rational->z);
+  return new (jrt::kOp) BigIntAux_RationalCoordinates(rational->x, rational->y, rational->z);
 }
 
 IntPoint* Point::toIntegerExact() {
@@ -37,18 +37,18 @@ IntPoint* Point::toIntegerExact() {
       (*y)[0].abs().compareTo(Limits::CRIT_INT_BIG()) > 0) {
     throw jrt::IllegalArgumentException("The point is not a bounded integer board position");
   }
-  return new IntPoint((*x)[0].intValueExact(), (*y)[0].intValueExact());
+  return new (jrt::kGeom) IntPoint((*x)[0].intValueExact(), (*y)[0].intValueExact());
 }
 
 IntPoint* Point::ZERO() {
-  static IntPoint* v = new IntPoint(0, 0);
+  static IntPoint* v = new (jrt::kGeom) IntPoint(0, 0);
   return v;
 }
 
 Point* Point::getInstance(int32_t x, int32_t y) {
-  IntPoint* result = new IntPoint(x, y);
+  IntPoint* result = new (jrt::kGeom) IntPoint(x, y);
   if (jrt::Math::abs(x) > Limits::CRIT_INT || jrt::Math::abs(y) > Limits::CRIT_INT) {
-    return new RationalPoint(result);
+    return new (jrt::kGeom) RationalPoint(result);
   }
   return result;
 }
@@ -74,10 +74,10 @@ Point* Point::getInstance(const jrt::BigInteger& px, const jrt::BigInteger& py,
     if (x.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0 &&
         y.abs().compareTo(Limits::CRIT_INT_BIG()) <= 0) {
       // the Point fits into an IntPoint
-      return new IntPoint(x.intValue(), y.intValue());
+      return new (jrt::kGeom) IntPoint(x.intValue(), y.intValue());
     }
   }
-  return new RationalPoint(x, y, z);
+  return new (jrt::kGeom) RationalPoint(x, y, z);
 }
 
 Side* Point::sideOf(Point* p1, Point* p2) {

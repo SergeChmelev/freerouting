@@ -8,11 +8,11 @@
 namespace fr {
 
 ViaRule* ViaRule::EMPTY() {
-  static ViaRule* v = new ViaRule("empty");
+  static ViaRule* v = new (jrt::kBoard) ViaRule("empty");
   return v;
 }
 
-ViaRule::ViaRule(const std::string& name) : name(name), list(new jrt::LinkedList<ViaInfo*>()) {}
+ViaRule::ViaRule(const std::string& name) : name(name), list(new (jrt::kBoard) jrt::LinkedList<ViaInfo*>()) {}
 
 void ViaRule::appendVia(ViaInfo* via) { list->add(via); }
 
@@ -68,7 +68,7 @@ bool ViaRule::swap(ViaInfo* first, ViaInfo* second) {
 }
 
 void ViaRule::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("ViaRule", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("ViaRule", locale);
 
   printer->appendBold(tm->getText("via_rule_2") + " ");
   printer->appendBold(this->name);

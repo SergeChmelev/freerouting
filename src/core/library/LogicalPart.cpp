@@ -15,7 +15,7 @@ LogicalPart_PartPin* LogicalPart::getPin(int32_t pinIndex) {
 }
 
 void LogicalPart::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager("app.freerouting.core.library.LogicalPart", locale);
+  TextManager* tm = new (jrt::kBoard) TextManager("app.freerouting.core.library.LogicalPart", locale);
 
   printer->appendBold(tm->getText("logical_part_2") + " ");
   printer->appendBold(this->name);

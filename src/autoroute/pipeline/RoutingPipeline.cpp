@@ -18,14 +18,14 @@
 namespace fr {
 
 RoutingPipeline::RoutingPipeline(RoutingJob* job, std::function<BatchOptimizer*(RoutingJob*)> optimizerFactory)
-    : job(job), stageListeners(new jrt::ArrayList<RoutingPipeline_StageListener*>()) {
+    : job(job), stageListeners(new (jrt::kOp) jrt::ArrayList<RoutingPipeline_StageListener*>()) {
   normalizeRouterAlgorithm(job);
-  this->autorouter = new BatchAutorouter(job);
+  this->autorouter = new (jrt::kOp) BatchAutorouter(job);
   this->optimizer = job->routerSettings->getRunOptimizer() ? optimizerFactory(job) : nullptr;
 }
 
 RoutingPipeline* RoutingPipeline::create(RoutingJob* job) {
-  return new RoutingPipeline(job, [](RoutingJob* j) { return BatchOptimizer::create(j); });
+  return new (jrt::kOp) RoutingPipeline(job, [](RoutingJob* j) { return BatchOptimizer::create(j); });
 }
 
 RoutingPipeline* RoutingPipeline::createForGui(RoutingJob* job) { return create(job); }
@@ -118,7 +118,7 @@ void RoutingPipeline::runRoutingStage() {
       }
     }
     this->autorouter->runBatchLoop();
-    RoutingFallbackRunner* fallback = new RoutingFallbackRunner(this->autorouter);
+    RoutingFallbackRunner* fallback = new (jrt::kOp) RoutingFallbackRunner(this->autorouter);
     if (input != nullptr) {
       this->autorouter = fallback->run(this->job, this->autorouter, strategies, input);
     }

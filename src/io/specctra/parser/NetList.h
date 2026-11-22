@@ -28,7 +28,7 @@ class NetList : public virtual jrt::Object {
 
  private:
   /** The entries of this map are of type Net, the keys are the net_ids. */
-  jrt::Map<Net_Id*, Net*>* nets = new jrt::TreeMap<Net_Id*, Net*>();
+  jrt::Map<Net_Id*, Net*>* nets = new (jrt::kOp) jrt::TreeMap<Net_Id*, Net*>();
 };
 
 }  // namespace fr::dsn

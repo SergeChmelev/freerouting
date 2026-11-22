@@ -68,10 +68,10 @@ fr::io::BoardReadResult* DsnReader::readBoard(std::istream& inputStream,
   // Apply default implementations for nullable parameters so the board's
   // Communication object is fully initialised even in lightweight test scenarios.
   if (observers == nullptr) {
-    observers = new fr::BoardObserverAdaptor();
+    observers = new (jrt::kBoard) fr::BoardObserverAdaptor();
   }
   if (idGenerator == nullptr) {
-    idGenerator = new fr::ItemIdGenerator();
+    idGenerator = new (jrt::kBoard) fr::ItemIdGenerator();
   }
 
   // PORT NOTE: Java spools the stream to a temporary file so that the wiring pre-scan and the full
@@ -83,13 +83,13 @@ fr::io::BoardReadResult* DsnReader::readBoard(std::istream& inputStream,
     buffer << inputStream.rdbuf();
     if (inputStream.bad()) {
       closeQuietly(inputStream);
-      return new fr::io::BoardReadResult_IoError(jrt::IOException("error reading the DSN stream"));
+      return new (jrt::kOp) fr::io::BoardReadResult_IoError(jrt::IOException("error reading the DSN stream"));
     }
     spooled = buffer.str();
   }
 
   std::istringstream parseStream(spooled);
-  return readBoardFromStreams(parseStream, new StringStreamOpener(spooled), observers,
+  return readBoardFromStreams(parseStream, new (jrt::kOp) StringStreamOpener(spooled), observers,
                               idGenerator, designName, options);
 }
 
@@ -106,17 +106,17 @@ fr::io::BoardReadResult* DsnReader::readBoard(jrt::Array<int8_t>* dsnBytes,
                                               const std::optional<std::string>& designName,
                                               DsnReadOptions* options) {
   if (dsnBytes == nullptr || dsnBytes->length == 0) {
-    return new fr::io::BoardReadResult_ParseError("(pcb", "dsnBytes must not be null or empty");
+    return new (jrt::kOp) fr::io::BoardReadResult_ParseError("(pcb", "dsnBytes must not be null or empty");
   }
   if (observers == nullptr) {
-    observers = new fr::BoardObserverAdaptor();
+    observers = new (jrt::kBoard) fr::BoardObserverAdaptor();
   }
   if (idGenerator == nullptr) {
-    idGenerator = new fr::ItemIdGenerator();
+    idGenerator = new (jrt::kBoard) fr::ItemIdGenerator();
   }
   std::string text = arrayToString(dsnBytes);
   std::istringstream parseStream(text);
-  return readBoardFromStreams(parseStream, new StringStreamOpener(text), observers, idGenerator,
+  return readBoardFromStreams(parseStream, new (jrt::kOp) StringStreamOpener(text), observers, idGenerator,
                               designName, options);
 }
 
@@ -125,7 +125,7 @@ fr::io::BoardReadResult* DsnReader::readBoardFromStreams(
     fr::BoardObservers* observers, fr::IdGenerator* idGenerator,
     const std::optional<std::string>& designName, DsnReadOptions* options) {
   try {
-    auto* scanner = new SpecctraDsnStreamReader(parseStream);
+    auto* scanner = new (jrt::kOp) SpecctraDsnStreamReader(parseStream);
 
     // ---------------------------------------------------------------------
     // Validate the "(pcb <name>" header
@@ -147,7 +147,7 @@ fr::io::BoardReadResult* DsnReader::readBoardFromStreams(
         }
       }
       if (!ok) {
-        return new fr::io::BoardReadResult_ParseError(
+        return new (jrt::kOp) fr::io::BoardReadResult_ParseError(
             "(pcb", "Not a Specctra DSN file: expected '(pcb <name>' header");
       }
     }
@@ -167,7 +167,7 @@ fr::io::BoardReadResult* DsnReader::readBoardFromStreams(
     // Parse the body: the board is constructed inside ReadScopeParameter's shim
     // ---------------------------------------------------------------------
     DsnReadOptions* effectiveOptions = options != nullptr ? options : DsnReadOptions::DEFAULT();
-    auto* scopeParameter = new ReadScopeParameter(scanner, observers, idGenerator,
+    auto* scopeParameter = new (jrt::kOp) ReadScopeParameter(scanner, observers, idGenerator,
                                                   effectiveOptions->canonicalPlacementOrder());
     {
       std::unique_ptr<std::istream> scanStream = scanStreamOpener->open();
@@ -189,26 +189,26 @@ fr::io::BoardReadResult* DsnReader::readBoardFromStreams(
         FRLogger::warn("DSN file '" + effectiveDesignName + "' was loaded with " +
                        jrt::str(warnings->size()) + " warning(s).");
       }
-      return new fr::io::BoardReadResult_Success(board, nullptr, warnings);
+      return new (jrt::kOp) fr::io::BoardReadResult_Success(board, nullptr, warnings);
     } else if (!scopeParameter->boardOutlineOk) {
       jrt::List<std::string>* warnings = scopeParameter->getWarnings();
       if (!warnings->isEmpty()) {
         FRLogger::warn("DSN file '" + effectiveDesignName + "' was loaded with " +
                        jrt::str(warnings->size()) + " warning(s).");
       }
-      return new fr::io::BoardReadResult_OutlineMissing(board, nullptr, warnings);
+      return new (jrt::kOp) fr::io::BoardReadResult_OutlineMissing(board, nullptr, warnings);
     } else {
-      return new fr::io::BoardReadResult_ParseError("(pcb", "DSN structure parsing failed");
+      return new (jrt::kOp) fr::io::BoardReadResult_ParseError("(pcb", "DSN structure parsing failed");
     }
   } catch (const jrt::IOException& e) {
-    return new fr::io::BoardReadResult_IoError(e);
+    return new (jrt::kOp) fr::io::BoardReadResult_IoError(e);
   }
 }
 
 fr::io::BoardReadResult* DsnReader::readMetadata(std::istream& inputStream) {
-  fr::BoardObservers* observers = new fr::BoardObserverAdaptor();
-  fr::IdGenerator* idGenerator = new fr::ItemIdGenerator();
-  auto* scanner = new SpecctraDsnStreamReader(inputStream);
+  fr::BoardObservers* observers = new (jrt::kBoard) fr::BoardObserverAdaptor();
+  fr::IdGenerator* idGenerator = new (jrt::kBoard) fr::ItemIdGenerator();
+  auto* scanner = new (jrt::kOp) SpecctraDsnStreamReader(inputStream);
 
   // -----------------------------------------------------------------------
   // Validate the "(pcb <name>" header: same three-token check as readBoard
@@ -219,7 +219,7 @@ fr::io::BoardReadResult* DsnReader::readMetadata(std::istream& inputStream) {
       token = scanner->nextToken();
     } catch (const jrt::IOException& e) {
       closeQuietly(inputStream);
-      return new fr::io::BoardReadResult_IoError(e);
+      return new (jrt::kOp) fr::io::BoardReadResult_IoError(e);
     }
     bool ok = true;
     if (i == 0) {
@@ -230,7 +230,7 @@ fr::io::BoardReadResult* DsnReader::readMetadata(std::istream& inputStream) {
     }
     if (!ok) {
       closeQuietly(inputStream);
-      return new fr::io::BoardReadResult_ParseError(
+      return new (jrt::kOp) fr::io::BoardReadResult_ParseError(
           "(pcb", "Not a Specctra DSN file: expected '(pcb <name>' header");
     }
   }
@@ -239,7 +239,7 @@ fr::io::BoardReadResult* DsnReader::readMetadata(std::istream& inputStream) {
   // Custom PCB-level loop: only parse metadata-relevant scopes. Stop reading as soon as
   // (structure ...) ends, skipping all subsequent heavy scopes.
   // -----------------------------------------------------------------------
-  auto* scopeParameter = new ReadScopeParameter(scanner, observers, idGenerator);
+  auto* scopeParameter = new (jrt::kOp) ReadScopeParameter(scanner, observers, idGenerator);
   // The wiring is never read here: power layers whose copper comes as wire polygons cannot be
   // told apart from empty ones, so the layer types are not final.
   scopeParameter->wiringIsRead = false;
@@ -250,7 +250,7 @@ fr::io::BoardReadResult* DsnReader::readMetadata(std::istream& inputStream) {
       nextToken = scanner->nextToken();
     } catch (const jrt::IOException& e) {
       closeQuietly(inputStream);
-      return new fr::io::BoardReadResult_IoError(e);
+      return new (jrt::kOp) fr::io::BoardReadResult_IoError(e);
     }
     if (nextToken == nullptr || nextToken == static_cast<jrt::Object*>(Keyword::CLOSED_BRACKET())) {
       break;  // EOF or end of (pcb ...) scope
@@ -285,11 +285,11 @@ fr::io::BoardReadResult* DsnReader::readMetadata(std::istream& inputStream) {
     layerCount = scopeParameter->getBoard()->getLayerCount();
   }
 
-  auto* metadata = new fr::io::BoardMetadata(
+  auto* metadata = new (jrt::kOp) fr::io::BoardMetadata(
       scopeParameter->hostCad, scopeParameter->hostVersion, layerCount, scopeParameter->unit,
       scopeParameter->resolution, scopeParameter->snapAngle, scopeParameter->autorouteSettings);
 
-  return new fr::io::BoardReadResult_Success(scopeParameter->getBoard(), metadata,
+  return new (jrt::kOp) fr::io::BoardReadResult_Success(scopeParameter->getBoard(), metadata,
                                              scopeParameter->getWarnings());
 }
 

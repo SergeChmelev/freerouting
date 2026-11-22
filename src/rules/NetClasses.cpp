@@ -6,7 +6,7 @@
 
 namespace fr {
 
-NetClasses::NetClasses() : classArr(new jrt::ArrayList<NetClass*>()) {}
+NetClasses::NetClasses() : classArr(new (jrt::kBoard) jrt::ArrayList<NetClass*>()) {}
 
 int32_t NetClasses::count() { return classArr->size(); }
 
@@ -26,7 +26,7 @@ NetClass* NetClasses::get(const std::string& name) {
 
 NetClass* NetClasses::append(const std::string& name, LayerStructure* layerStructure,
                              ClearanceMatrix* clearanceMatrix, bool ignoredByAutorouter) {
-  NetClass* newClass = new NetClass(name, layerStructure, clearanceMatrix, ignoredByAutorouter);
+  NetClass* newClass = new (jrt::kBoard) NetClass(name, layerStructure, clearanceMatrix, ignoredByAutorouter);
   classArr->add(newClass);
   return newClass;
 }

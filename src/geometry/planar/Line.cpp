@@ -29,8 +29,8 @@ Line::Line(Point* a, Point* b) {
 }
 
 Line::Line(int32_t ax, int32_t ay, int32_t bx, int32_t by) {
-  this->a = new IntPoint(ax, ay);
-  this->b = new IntPoint(bx, by);
+  this->a = new (jrt::kGeom) IntPoint(ax, ay);
+  this->b = new (jrt::kGeom) IntPoint(bx, by);
   this->dir = nullptr;
 }
 
@@ -50,7 +50,7 @@ Line::Line(Point* a, Direction* dir) {
 
 Line* Line::capAt(Point* point) {
   try {
-    return new Line(point, direction()->turn45Degree(2));
+    return new (jrt::kGeom) Line(point, direction()->turn45Degree(2));
   } catch (const jrt::IllegalArgumentException& unsupportedPerpendicular) {
     if (point == nullptr || point->isInfinite()) {
       return nullptr;
@@ -67,8 +67,8 @@ Line* Line::capAt(Point* point) {
         continue;
       }
       try {
-        Line* cap = new Line(point, static_cast<Point*>(
-                                        new IntPoint(ax.intValueExact(), ay.intValueExact())));
+        Line* cap = new (jrt::kGeom) Line(point, static_cast<Point*>(
+                                        new (jrt::kGeom) IntPoint(ax.intValueExact(), ay.intValueExact())));
         if (!isParallel(cap)) {
           return cap;
         }
@@ -115,7 +115,7 @@ jrt::Array<IntPoint*>* Line::integerSupport(Point* first, Point* second) {
     x = (*constant)[0].multiply(dy.mod(modulus).modInverse(modulus)).mod(modulus);
     y = dy.multiply(x).subtract((*constant)[0]).divide(dx);
   }
-  auto* interval = new jrt::Array<std::optional<jrt::BigInteger>>(2);
+  auto* interval = new (jrt::kOp) jrt::Array<std::optional<jrt::BigInteger>>(2);
   restrictSupportParameter(interval, x, dx);
   restrictSupportParameter(interval, y, dy);
   if ((*interval)[0].value().compareTo((*interval)[1].value()) > 0) {
@@ -127,8 +127,8 @@ jrt::Array<IntPoint*>* Line::integerSupport(Point* first, Point* second) {
   step = step.max((*interval)[0].value()).min((*interval)[1].value());
   x = x.add(step.multiply(dx));
   y = y.add(step.multiply(dy));
-  IntPoint* p0 = new IntPoint(x.intValueExact(), y.intValueExact());
-  IntPoint* p1 = new IntPoint(x.add(dx).intValueExact(), y.add(dy).intValueExact());
+  IntPoint* p0 = new (jrt::kGeom) IntPoint(x.intValueExact(), y.intValueExact());
+  IntPoint* p1 = new (jrt::kGeom) IntPoint(x.add(dx).intValueExact(), y.add(dy).intValueExact());
   return jrt::Array<IntPoint*>::of({p0, p1});
 }
 
@@ -180,7 +180,7 @@ jrt::BigInteger Line::floorDivide(const jrt::BigInteger& pNumerator,
 
 Line* Line::getInstance(Point* a, Direction* dir) {
   Point* b = a->translateBy(dir->getVector());
-  return new Line(a, b);
+  return new (jrt::kGeom) Line(a, b);
 }
 
 int32_t Line::getId() { return 31 * a->getId() + b->getId(); }
@@ -295,62 +295,62 @@ bool Line::overlaps(Line* other) {
   return sideOf(other->a) == Side::COLLINEAR() && sideOf(other->b) == Side::COLLINEAR();
 }
 
-Line* Line::opposite() { return new Line(b, a); }
+Line* Line::opposite() { return new (jrt::kGeom) Line(b, a); }
 
 Point* Line::intersection(Line* other) {
   IntVector* delta1 = jrt::fast_cast<IntVector>(b->differenceBy(a));
   IntVector* delta2 = jrt::fast_cast<IntVector>(other->b->differenceBy(other->a));
   if (delta1->x == 0) {  // this line is vertical
     if (delta2->y == 0) {  // other line is horizontal
-      return new IntPoint(jrt::fast_cast<IntPoint>(this->a)->x,
+      return new (jrt::kGeom) IntPoint(jrt::fast_cast<IntPoint>(this->a)->x,
                           jrt::fast_cast<IntPoint>(other->a)->y);
     }
     if (delta2->x == delta2->y) {  // other line is right diagonal
       int32_t thisX = jrt::fast_cast<IntPoint>(this->a)->x;
       IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
-      return new IntPoint(thisX, otherA->y + thisX - otherA->x);
+      return new (jrt::kGeom) IntPoint(thisX, otherA->y + thisX - otherA->x);
     }
     if (delta2->x == -delta2->y) {  // other line is left diagonal
       int32_t thisX = jrt::fast_cast<IntPoint>(this->a)->x;
       IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
-      return new IntPoint(thisX, otherA->y + otherA->x - thisX);
+      return new (jrt::kGeom) IntPoint(thisX, otherA->y + otherA->x - thisX);
     }
   } else if (delta1->y == 0) {  // this line is horizontal
     if (delta2->x == 0) {  // other line is vertical
-      return new IntPoint(jrt::fast_cast<IntPoint>(other->a)->x,
+      return new (jrt::kGeom) IntPoint(jrt::fast_cast<IntPoint>(other->a)->x,
                           jrt::fast_cast<IntPoint>(this->a)->y);
     }
     if (delta2->x == delta2->y) {  // other line is right diagonal
       int32_t thisYcoordinate = jrt::fast_cast<IntPoint>(this->a)->y;
       IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
-      return new IntPoint(otherA->x + thisYcoordinate - otherA->y, thisYcoordinate);
+      return new (jrt::kGeom) IntPoint(otherA->x + thisYcoordinate - otherA->y, thisYcoordinate);
     }
     if (delta2->x == -delta2->y) {  // other line is left diagonal
       int32_t thisYcoordinate = jrt::fast_cast<IntPoint>(this->a)->y;
       IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
-      return new IntPoint(otherA->x + otherA->y - thisYcoordinate, thisYcoordinate);
+      return new (jrt::kGeom) IntPoint(otherA->x + otherA->y - thisYcoordinate, thisYcoordinate);
     }
   } else if (delta1->x == delta1->y) {  // this line is right diagonal
     if (delta2->x == 0) {  // other line is vertical
       int32_t otherX = jrt::fast_cast<IntPoint>(other->a)->x;
       IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
-      return new IntPoint(otherX, thisA->y + otherX - thisA->x);
+      return new (jrt::kGeom) IntPoint(otherX, thisA->y + otherX - thisA->x);
     }
     if (delta2->y == 0) {  // other line is horizontal
       int32_t otherY = jrt::fast_cast<IntPoint>(other->a)->y;
       IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
-      return new IntPoint(thisA->x + otherY - thisA->y, otherY);
+      return new (jrt::kGeom) IntPoint(thisA->x + otherY - thisA->y, otherY);
     }
   } else if (delta1->x == -delta1->y) {  // this line is left diagonal
     if (delta2->x == 0) {  // other line is vertical
       int32_t otherX = jrt::fast_cast<IntPoint>(other->a)->x;
       IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
-      return new IntPoint(otherX, thisA->y + thisA->x - otherX);
+      return new (jrt::kGeom) IntPoint(otherX, thisA->y + thisA->x - otherX);
     }
     if (delta2->y == 0) {  // other line is horizontal
       int32_t otherY = jrt::fast_cast<IntPoint>(other->a)->y;
       IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
-      return new IntPoint(thisA->x + thisA->y - otherY, otherY);
+      return new (jrt::kGeom) IntPoint(thisA->x + thisA->y - otherY, otherY);
     }
   }
   jrt::BigInteger det1 = jrt::BigInteger::valueOf(
@@ -376,12 +376,12 @@ Point* Line::intersection(Line* other) {
       isY = isY.divide(det);
       if (jrt::Math::abs(isX.doubleValue()) <= Limits::CRIT_INT &&
           jrt::Math::abs(isY.doubleValue()) <= Limits::CRIT_INT) {
-        return new IntPoint(isX.intValue(), isY.intValue());
+        return new (jrt::kGeom) IntPoint(isX.intValue(), isY.intValue());
       }
       det = jrt::BigInteger::ONE();
     }
   }
-  return new RationalPoint(isX, isY, det);
+  return new (jrt::kGeom) RationalPoint(isX, isY, det);
 }
 
 FloatPoint* Line::intersectionApprox(Line* other) {
@@ -406,7 +406,7 @@ FloatPoint* Line::intersectionApprox(Line* other) {
     isX = (d2x * det1 - d1x * det2) / det;
     isY = (d2y * det1 - d1y * det2) / det;
   }
-  return new FloatPoint(isX, isY);
+  return new (jrt::kGeom) FloatPoint(isX, isY);
 }
 
 Point* Line::perpendicularProjection(Point* point) { return point->perpendicularProjection(this); }
@@ -420,10 +420,10 @@ Line* Line::translate(double dist) {
   IntPoint* newA;
   if (vxvx <= vyvy) {
     int32_t relX = jrt::l2i(jrt::Math::round((dist * length) / v->y));
-    newA = new IntPoint(ai->x - relX, ai->y);
+    newA = new (jrt::kGeom) IntPoint(ai->x - relX, ai->y);
   } else {
     int32_t relY = jrt::l2i(jrt::Math::round((dist * length) / v->x));
-    newA = new IntPoint(ai->x, ai->y + relY);
+    newA = new (jrt::kGeom) IntPoint(ai->x, ai->y + relY);
   }
   return Line::getInstance(newA, direction());
 }
@@ -434,7 +434,7 @@ Line* Line::translateBy(Vector* vector) {
   }
   Point* newA = a->translateBy(vector);
   Point* newB = b->translateBy(vector);
-  return new Line(newA, newB);
+  return new (jrt::kGeom) Line(newA, newB);
 }
 
 bool Line::isOrthogonal() { return direction()->isOrthogonal(); }
@@ -560,19 +560,19 @@ Direction* Line::perpendicularDirection(Point* fromPoint) {
 Line* Line::turn90Degree(int32_t factor, IntPoint* pole) {
   Point* newA = a->turn90Degree(factor, pole);
   Point* newB = b->turn90Degree(factor, pole);
-  return new Line(newA, newB);
+  return new (jrt::kGeom) Line(newA, newB);
 }
 
 Line* Line::mirrorVertical(IntPoint* pole) {
   Point* newA = b->mirrorVertical(pole);
   Point* newB = a->mirrorVertical(pole);
-  return new Line(newA, newB);
+  return new (jrt::kGeom) Line(newA, newB);
 }
 
 Line* Line::mirrorHorizontal(IntPoint* pole) {
   Point* newA = b->mirrorHorizontal(pole);
   Point* newB = a->mirrorHorizontal(pole);
-  return new Line(newA, newB);
+  return new (jrt::kGeom) Line(newA, newB);
 }
 
 float Line::length() {

@@ -77,7 +77,7 @@ bool InteractiveSession::changeLayer(int32_t newLayer) {
   if (changeLayerSucceeded) {
     bool connectedToPlane = false;
     int32_t oldLayer = layer_;
-    auto* selectionFilter = new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::VIAS);
+    auto* selectionFilter = new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::VIAS);
     jrt::Set<Item*>* pickedItems = board_->pickItems(route_->getLastCorner(), oldLayer, selectionFilter);
     Via* newVia = nullptr;
     for (Item* currentVia : *pickedItems) {
@@ -157,14 +157,14 @@ Item* InteractiveSession::startOk(IntPoint* location) {
 }
 
 jrt::Array<int32_t>* InteractiveSession::getRouteNetNumbersAtTiePin(Pin* pin, int32_t layer) {
-  auto* netNumberList = new jrt::TreeSet<int32_t>();
+  auto* netNumberList = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (int32_t i = 0; i < pin->netCount(); i++) netNumberList->add(pin->getNetNumber(i));
   for (Item* currentContact : *pin->getNormalContacts()) {
     if (currentContact->firstLayer() <= layer && currentContact->lastLayer() >= layer) {
       for (int32_t i = 0; i < currentContact->netCount(); i++) netNumberList->remove(currentContact->getNetNumber(i));
     }
   }
-  auto* result = new jrt::Array<int32_t>(netNumberList->size());
+  auto* result = new (jrt::kOp) jrt::Array<int32_t>(netNumberList->size());
   int32_t currentInd = 0;
   for (int32_t n : *netNumberList) (*result)[currentInd++] = n;
   return result;
@@ -181,12 +181,12 @@ bool InteractiveSession::startRoute(FloatPoint* floatLocation) {
   if (tiePin != nullptr && netCount > 1) {
     routeNetNoArr = getRouteNetNumbersAtTiePin(tiePin, layer_);
   } else {
-    routeNetNoArr = new jrt::Array<int32_t>(netCount);
+    routeNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(netCount);
     for (int32_t i = 0; i < netCount; i++) (*routeNetNoArr)[i] = pickedItem->getNetNumber(i);
   }
   if (routeNetNoArr->length == 0) return false;
-  auto* traceHalfWidths = new jrt::Array<int32_t>(board_->getLayerCount());
-  auto* layerActiveArr = new jrt::Array<bool>(traceHalfWidths->length);
+  auto* traceHalfWidths = new (jrt::kOp) jrt::Array<int32_t>(board_->getLayerCount());
+  auto* layerActiveArr = new (jrt::kOp) jrt::Array<bool>(traceHalfWidths->length);
   for (int32_t i = 0; i < traceHalfWidths->length; i++) {
     (*traceHalfWidths)[i] = getTraceHalfwidth((*routeNetNoArr)[0], i);
     (*layerActiveArr)[i] = false;
@@ -227,7 +227,7 @@ bool InteractiveSession::startRoute(FloatPoint* floatLocation) {
                  !currentNet->getNetClass()->getPullTight();
   board_->generateSnapshot();
   jrt::Set<Item*>* routingTargetSet = pickedItem->getUnconnectedSet(-1);
-  route_ = new Route(location, layer_, traceHalfWidths, layerActiveArr, routeNetNoArr, traceClearanceClass,
+  route_ = new (jrt::kOp) Route(location, layer_, traceHalfWidths, layerActiveArr, routeNetNoArr, traceClearanceClass,
                      getViaRule((*routeNetNoArr)[0]), pushEnabled, tracePullTightRegionWidth,
                      tracePullTightAccuracy, pickedItem, routingTargetSet, board_, stitchRoute_,
                      automaticNeckdown, viaSnapToSmdCenter, highlightRoutingObstacle);
@@ -258,7 +258,7 @@ bool InteractiveSession::startDrag(FloatPoint* location) {
   int32_t pickLayer = currentLayer;
   bool itemFound = false;
   Item* itemToMove = nullptr;
-  auto* filter = new ItemSelectionFilter();
+  auto* filter = new (jrt::kOp) ItemSelectionFilter();
   for (int32_t i = 0; i < tryCount && itemToMove == nullptr; i++) {
     if (i == 0 || pickLayer != currentLayer) {
       jrt::Set<Item*>* foundItems = board_->pickItems(location->round(), pickLayer, filter);
@@ -281,17 +281,17 @@ bool InteractiveSession::startDrag(FloatPoint* location) {
   }
   if (!itemFound) {
     // MakeSpaceState: an invisible trace of the hidden net pushes the traces aside.
-    auto* shoveTraceWidthArr = new jrt::Array<int32_t>(board_->getLayerCount());
-    auto* layerActiveArr = new jrt::Array<bool>(shoveTraceWidthArr->length);
+    auto* shoveTraceWidthArr = new (jrt::kOp) jrt::Array<int32_t>(board_->getLayerCount());
+    auto* layerActiveArr = new (jrt::kOp) jrt::Array<bool>(shoveTraceWidthArr->length);
     int32_t shoveTraceWidth = jrt::Math::min(100, board_->getMinTraceHalfWidth() / 10);
     shoveTraceWidth = jrt::Math::max(shoveTraceWidth, 5);
     for (int32_t i = 0; i < shoveTraceWidthArr->length; i++) {
       (*shoveTraceWidthArr)[i] = shoveTraceWidth;
       (*layerActiveArr)[i] = true;
     }
-    auto* routeNetNoArr = new jrt::Array<int32_t>(1);
+    auto* routeNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(1);
     (*routeNetNoArr)[0] = Nets::hidden_net_number;
-    makeSpace_ = new Route(location->round(), layer_, shoveTraceWidthArr, layerActiveArr, routeNetNoArr, 0,
+    makeSpace_ = new (jrt::kOp) Route(location->round(), layer_, shoveTraceWidthArr, layerActiveArr, routeNetNoArr, 0,
                            ViaRule::EMPTY(), true, tracePullTightRegionWidth, tracePullTightAccuracy,
                            nullptr, nullptr, board_, false, false, false, highlightRoutingObstacle);
     message_ = "making space";
@@ -319,7 +319,7 @@ bool InteractiveSession::dragItemMoveTo(FloatPoint* toLocation) {
   double length = relCoor->lengthApprox();
   bool shoveOk = false;
   for (int32_t i = 0; i < 2; i++) {
-    moveComponent = new MoveComponent(dragItem_, relCoor, 99, 5);
+    moveComponent = new (jrt::kOp) MoveComponent(dragItem_, relCoor, 99, 5);
     if (moveComponent->check()) {
       shoveOk = true;
       break;
@@ -338,7 +338,7 @@ bool InteractiveSession::dragItemMoveTo(FloatPoint* toLocation) {
   }
   if (!moveComponent->insert(tracePullTightRegionWidth, tracePullTightAccuracy)) {
     // Java returns the parent state; DragState.mouseDragged then undoes the partial move.
-    jrt::Set<int32_t>* changedNets = new jrt::TreeSet<int32_t>();
+    jrt::Set<int32_t>* changedNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
     board_->undo(changedNets);
     endDrag();
     return true;
@@ -371,12 +371,12 @@ void InteractiveSession::endDrag() {
 
 bool InteractiveSession::mousePressed(double x, double y) {
   if (mode_ != Mode::Drag || dragging()) return false;  // DragMenuState.mousePressed
-  return startDrag(new FloatPoint(x, y));
+  return startDrag(new (jrt::kGeom) FloatPoint(x, y));
 }
 
 bool InteractiveSession::mouseDragged(double x, double y) {
-  if (dragItem_ != nullptr) return dragItemMoveTo(new FloatPoint(x, y));
-  if (makeSpace_ != nullptr) return makeSpaceMoveTo(new FloatPoint(x, y));
+  if (dragItem_ != nullptr) return dragItemMoveTo(new (jrt::kGeom) FloatPoint(x, y));
+  if (makeSpace_ != nullptr) return makeSpaceMoveTo(new (jrt::kGeom) FloatPoint(x, y));
   return false;
 }
 
@@ -390,16 +390,16 @@ bool InteractiveSession::mouseReleased() {
 bool InteractiveSession::mouseMoved(double x, double y) {
   if (route_ == nullptr) return false;
   if (stitchRoute_) {
-    route_->calcNearestTargetPoint(new FloatPoint(x, y));  // StitchRouteState.mouseMoved
+    route_->calcNearestTargetPoint(new (jrt::kGeom) FloatPoint(x, y));  // StitchRouteState.mouseMoved
     return false;
   }
-  return addCorner(new FloatPoint(x, y));  // DynamicRouteState.mouseMoved
+  return addCorner(new (jrt::kGeom) FloatPoint(x, y));  // DynamicRouteState.mouseMoved
 }
 
 bool InteractiveSession::leftClicked(double x, double y) {
   if (mode_ != Mode::Route) return false;
-  if (route_ == nullptr) return startRoute(new FloatPoint(x, y));  // RouteMenuState
-  if (stitchRoute_) return addCorner(new FloatPoint(x, y));         // StitchRouteState
+  if (route_ == nullptr) return startRoute(new (jrt::kGeom) FloatPoint(x, y));  // RouteMenuState
+  if (stitchRoute_) return addCorner(new (jrt::kGeom) FloatPoint(x, y));         // StitchRouteState
   endRoute();                                                         // DynamicRouteState
   message_.clear();
   return false;
@@ -434,12 +434,12 @@ bool InteractiveSession::cancel() {
 
 bool InteractiveSession::undo() {
   if (routing() || dragging()) return false;
-  return board_->undo(new jrt::TreeSet<int32_t>());
+  return board_->undo(new (jrt::kOp) jrt::TreeSet<int32_t>());
 }
 
 bool InteractiveSession::redo() {
   if (routing() || dragging()) return false;
-  return board_->redo(new jrt::TreeSet<int32_t>());
+  return board_->redo(new (jrt::kOp) jrt::TreeSet<int32_t>());
 }
 
 }  // namespace fr

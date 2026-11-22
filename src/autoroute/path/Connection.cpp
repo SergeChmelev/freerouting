@@ -17,7 +17,7 @@ Connection* Connection::get(Item* item) {
     return precalculatedConnection;
   }
   jrt::Set<Item*>* contacts = item->getNormalContacts();
-  jrt::Set<Item*>* connectionItems = new jrt::TreeSet<Item*>();
+  jrt::Set<Item*>* connectionItems = new (jrt::kOp) jrt::TreeSet<Item*>();
   connectionItems->add(item);
 
   Point* startPoint = nullptr;
@@ -109,7 +109,7 @@ Connection* Connection::get(Item* item) {
       prevContactLayer = nextContactLayer;
     }
   }
-  Connection* result = new Connection(startPoint, startLayer, endPoint, endLayer, connectionItems);
+  Connection* result = new (jrt::kOp) Connection(startPoint, startLayer, endPoint, endLayer, connectionItems);
   for (Item* currentItem : *connectionItems) {
     currentItem->getAutorouteInfo()->setPrecalculatedConnection(result);
   }

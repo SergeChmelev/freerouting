@@ -21,7 +21,7 @@ namespace {
 // PORT NOTE: Java returns IntOctagon[] where the C++ signature is TileShape[] (no array
 // covariance in C++); this copies the elements into a TileShape* array.
 jrt::Array<TileShape*>* toTileShapeArray(jrt::Array<IntOctagon*>* arr) {
-  auto* result = new jrt::Array<TileShape*>(arr->length);
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(arr->length);
   for (int32_t i = 0; i < arr->length; i++) {
     (*result)[i] = (*arr)[i];
   }
@@ -31,7 +31,7 @@ jrt::Array<TileShape*>* toTileShapeArray(jrt::Array<IntOctagon*>* arr) {
 
 IntOctagon* IntOctagon::EMPTY() {
   static IntOctagon* v =
-      new IntOctagon(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT,
+      new (jrt::kGeom) IntOctagon(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT,
                      Limits::CRIT_INT, -Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT);
   return v;
 }
@@ -45,7 +45,7 @@ bool IntOctagon::isBounded() { return true; }
 
 bool IntOctagon::cornerIsBounded(int32_t no) { return true; }
 
-IntBox* IntOctagon::boundingBox() { return new IntBox(leftX, bottomY, rightX, topY); }
+IntBox* IntOctagon::boundingBox() { return new (jrt::kGeom) IntBox(leftX, bottomY, rightX, topY); }
 
 int32_t IntOctagon::dimension() {
   if (this == EMPTY() || this->isEmpty()) {
@@ -67,22 +67,22 @@ int32_t IntOctagon::dimension() {
 IntPoint* IntOctagon::corner(int32_t no) {
   switch (no) {
     case 0:
-      return new IntPoint(lowerLeftDiagonalX - bottomY, bottomY);  // lower-left (bottom horizontal)
+      return new (jrt::kGeom) IntPoint(lowerLeftDiagonalX - bottomY, bottomY);  // lower-left (bottom horizontal)
     case 1:
-      return new IntPoint(lowerRightDiagonalX + bottomY,
+      return new (jrt::kGeom) IntPoint(lowerRightDiagonalX + bottomY,
                           bottomY);  // lower-right (bottom horizontal)
     case 2:
-      return new IntPoint(rightX, rightX - lowerRightDiagonalX);  // bottom-right vertical
+      return new (jrt::kGeom) IntPoint(rightX, rightX - lowerRightDiagonalX);  // bottom-right vertical
     case 3:
-      return new IntPoint(rightX, upperRightDiagonalX - rightX);  // top-right vertical
+      return new (jrt::kGeom) IntPoint(rightX, upperRightDiagonalX - rightX);  // top-right vertical
     case 4:
-      return new IntPoint(upperRightDiagonalX - topY, topY);  // upper-right (top horizontal)
+      return new (jrt::kGeom) IntPoint(upperRightDiagonalX - topY, topY);  // upper-right (top horizontal)
     case 5:
-      return new IntPoint(upperLeftDiagonalX + topY, topY);  // upper-left (top horizontal)
+      return new (jrt::kGeom) IntPoint(upperLeftDiagonalX + topY, topY);  // upper-left (top horizontal)
     case 6:
-      return new IntPoint(leftX, leftX - upperLeftDiagonalX);  // top-left vertical
+      return new (jrt::kGeom) IntPoint(leftX, leftX - upperLeftDiagonalX);  // top-left vertical
     case 7:
-      return new IntPoint(leftX, lowerLeftDiagonalX - leftX);  // bottom-left vertical
+      return new (jrt::kGeom) IntPoint(leftX, lowerLeftDiagonalX - leftX);  // bottom-left vertical
     default:
       throw jrt::IllegalArgumentException("IntOctagon.corner: no out of range");
   }
@@ -172,24 +172,24 @@ int32_t IntOctagon::borderLineCount() { return 8; }
 Line* IntOctagon::borderLine(int32_t no) {
   switch (no) {
     case 0:
-      return new Line(0, bottomY, 1, bottomY);  // lower boundary line
+      return new (jrt::kGeom) Line(0, bottomY, 1, bottomY);  // lower boundary line
     case 1:
-      return new Line(lowerRightDiagonalX, 0, lowerRightDiagonalX + 1,
+      return new (jrt::kGeom) Line(lowerRightDiagonalX, 0, lowerRightDiagonalX + 1,
                       1);  // lower right boundary line
     case 2:
-      return new Line(rightX, 0, rightX, 1);  // right boundary line
+      return new (jrt::kGeom) Line(rightX, 0, rightX, 1);  // right boundary line
     case 3:
-      return new Line(upperRightDiagonalX, 0, upperRightDiagonalX - 1,
+      return new (jrt::kGeom) Line(upperRightDiagonalX, 0, upperRightDiagonalX - 1,
                       1);  // upper right boundary line
     case 4:
-      return new Line(0, topY, -1, topY);  // upper boundary line
+      return new (jrt::kGeom) Line(0, topY, -1, topY);  // upper boundary line
     case 5:
-      return new Line(upperLeftDiagonalX, 0, upperLeftDiagonalX - 1,
+      return new (jrt::kGeom) Line(upperLeftDiagonalX, 0, upperLeftDiagonalX - 1,
                       -1);  // upper left boundary line
     case 6:
-      return new Line(leftX, 0, leftX, -1);  // left boundary line
+      return new (jrt::kGeom) Line(leftX, 0, leftX, -1);  // left boundary line
     case 7:
-      return new Line(lowerLeftDiagonalX, 0, lowerLeftDiagonalX + 1,
+      return new (jrt::kGeom) Line(lowerLeftDiagonalX, 0, lowerLeftDiagonalX + 1,
                       -1);  // lower left boundary line
     default:
       throw jrt::IllegalArgumentException("IntOctagon.borderLine: no out of range");
@@ -205,7 +205,7 @@ IntOctagon* IntOctagon::translateBy(Vector* relCoor) {
     return this;
   }
   IntVector* relativeCoordinate = relCoor->toIntegerExact();
-  return new IntOctagon(leftX + relativeCoordinate->x, bottomY + relativeCoordinate->y,
+  return new (jrt::kGeom) IntOctagon(leftX + relativeCoordinate->x, bottomY + relativeCoordinate->y,
                         rightX + relativeCoordinate->x, topY + relativeCoordinate->y,
                         upperLeftDiagonalX + relativeCoordinate->x - relativeCoordinate->y,
                         lowerRightDiagonalX + relativeCoordinate->x - relativeCoordinate->y,
@@ -234,7 +234,7 @@ IntOctagon* IntOctagon::offset(double distance) {
   }
   int32_t diaWidth = jrt::l2i(jrt::Math::round(Limits::sqrt2 * distance));
   IntOctagon* result =
-      new IntOctagon(leftX - width, bottomY - width, rightX + width, topY + width,
+      new (jrt::kGeom) IntOctagon(leftX - width, bottomY - width, rightX + width, topY + width,
                      upperLeftDiagonalX - diaWidth, lowerRightDiagonalX + diaWidth,
                      lowerLeftDiagonalX - diaWidth, upperRightDiagonalX + diaWidth);
   return result->normalize();
@@ -257,7 +257,7 @@ bool IntOctagon::contains(FloatPoint* point) {
 RegularTileShape* IntOctagon::union_(RegularTileShape* other) { return other->union_(this); }
 
 IntOctagon* IntOctagon::union_(IntOctagon* other) {
-  return new IntOctagon(jrt::Math::min(leftX, other->leftX),
+  return new (jrt::kGeom) IntOctagon(jrt::Math::min(leftX, other->leftX),
                         jrt::Math::min(bottomY, other->bottomY),
                         jrt::Math::max(rightX, other->rightX), jrt::Math::max(topY, other->topY),
                         jrt::Math::min(upperLeftDiagonalX, other->upperLeftDiagonalX),
@@ -273,7 +273,7 @@ TileShape* IntOctagon::intersection(TileShape* other) { return other->intersecti
 Simplex* IntOctagon::intersection(Simplex* other) { return other->intersection(this); }
 
 IntOctagon* IntOctagon::intersection(IntOctagon* other) {
-  IntOctagon* result = new IntOctagon(
+  IntOctagon* result = new (jrt::kGeom) IntOctagon(
       jrt::Math::max(leftX, other->leftX), jrt::Math::max(bottomY, other->bottomY),
       jrt::Math::min(rightX, other->rightX), jrt::Math::min(topY, other->topY),
       jrt::Math::max(upperLeftDiagonalX, other->upperLeftDiagonalX),
@@ -431,7 +431,7 @@ IntOctagon* IntOctagon::normalize() {
       lowerRightDiagonalX == newLrx && upperRightDiagonalX == newUrx) {
     return this;
   }
-  return new IntOctagon(newLx, newLy, newRx, newUy, newUlx, newLrx, newLlx, newUrx);
+  return new (jrt::kGeom) IntOctagon(newLx, newLy, newRx, newUy, newUlx, newLrx, newLlx, newUrx);
 }
 
 bool IntOctagon::isNormalized() {
@@ -448,11 +448,11 @@ Simplex* IntOctagon::toSimplex() {
     return Simplex::EMPTY();
   }
   if (precalculatedToSimplex == nullptr) {
-    auto* lines = new jrt::Array<Line*>(8);
+    auto* lines = new (jrt::kGeom) jrt::Array<Line*>(8);
     for (int32_t i = 0; i < 8; i++) {
       (*lines)[i] = borderLine(i);
     }
-    Simplex* currentSimplex = new Simplex(lines);
+    Simplex* currentSimplex = new (jrt::kGeom) Simplex(lines);
     precalculatedToSimplex = currentSimplex->removeRedundantLines();
   }
   return precalculatedToSimplex;
@@ -767,17 +767,17 @@ IntPoint* IntOctagon::borderPoint(IntPoint* point, FortyfiveDegreeDirection dir)
       resultY = 0;
       break;
   }
-  return new IntPoint(resultX, resultY);
+  return new (jrt::kGeom) IntPoint(resultX, resultY);
 }
 
 jrt::Array<IntPoint*>* IntOctagon::nearestBorderProjections(IntPoint* point,
                                                             int32_t maxResultPoints) {
   if (!this->contains(point) || maxResultPoints <= 0) {
-    return new jrt::Array<IntPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<IntPoint*>(0);
   }
   maxResultPoints = jrt::Math::min(maxResultPoints, 8);
-  auto* result = new jrt::Array<IntPoint*>(maxResultPoints);
-  auto* minDist = new jrt::Array<double>(maxResultPoints);
+  auto* result = new (jrt::kGeom) jrt::Array<IntPoint*>(maxResultPoints);
+  auto* minDist = new (jrt::kOp) jrt::Array<double>(maxResultPoints);
   for (int32_t i = 0; i < maxResultPoints; i++) {
     (*minDist)[i] = jrt::Double::MAX_VALUE;
   }
@@ -915,59 +915,59 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
 
   if (this->isEmpty() || c->dimension() < this->dimension()) {
     // there is only an overlap at the border
-    auto* result = new jrt::Array<IntOctagon*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<IntOctagon*>(1);
     (*result)[0] = d->toIntOctagon();
     return toTileShapeArray(result);
   }
 
-  auto* boxes = new jrt::Array<IntBox*>(4);
+  auto* boxes = new (jrt::kGeom) jrt::Array<IntBox*>(4);
 
   // construct left box
 
-  (*boxes)[0] = new IntBox(d->ll->x, c->lowerLeftDiagonalX - c->leftX, c->leftX,
+  (*boxes)[0] = new (jrt::kGeom) IntBox(d->ll->x, c->lowerLeftDiagonalX - c->leftX, c->leftX,
                            c->leftX - c->upperLeftDiagonalX);
 
   // construct right box
 
-  (*boxes)[1] = new IntBox(c->rightX, c->rightX - c->lowerRightDiagonalX, d->ur->x,
+  (*boxes)[1] = new (jrt::kGeom) IntBox(c->rightX, c->rightX - c->lowerRightDiagonalX, d->ur->x,
                            c->upperRightDiagonalX - c->rightX);
 
   // construct lower box
 
-  (*boxes)[2] = new IntBox(c->lowerLeftDiagonalX - c->bottomY, d->ll->y,
+  (*boxes)[2] = new (jrt::kGeom) IntBox(c->lowerLeftDiagonalX - c->bottomY, d->ll->y,
                            c->lowerRightDiagonalX + c->bottomY, c->bottomY);
 
   // construct upper box
 
-  (*boxes)[3] = new IntBox(c->upperLeftDiagonalX + c->topY, c->topY,
+  (*boxes)[3] = new (jrt::kGeom) IntBox(c->upperLeftDiagonalX + c->topY, c->topY,
                            c->upperRightDiagonalX - c->topY, d->ur->y);
 
-  auto* octagons = new jrt::Array<IntOctagon*>(4);
+  auto* octagons = new (jrt::kGeom) jrt::Array<IntOctagon*>(4);
 
   // construct upper left octagon
 
   IntOctagon* currentOct =
-      new IntOctagon(d->ll->x, (*boxes)[0]->ur->y, (*boxes)[3]->ll->x, d->ur->y,
+      new (jrt::kGeom) IntOctagon(d->ll->x, (*boxes)[0]->ur->y, (*boxes)[3]->ll->x, d->ur->y,
                      -Limits::CRIT_INT, c->upperLeftDiagonalX, -Limits::CRIT_INT, Limits::CRIT_INT);
   (*octagons)[0] = currentOct->normalize();
 
   // construct lower left octagon
 
-  currentOct = new IntOctagon(d->ll->x, d->ll->y, (*boxes)[2]->ll->x, (*boxes)[0]->ll->y,
+  currentOct = new (jrt::kGeom) IntOctagon(d->ll->x, d->ll->y, (*boxes)[2]->ll->x, (*boxes)[0]->ll->y,
                               -Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT,
                               c->lowerLeftDiagonalX);
   (*octagons)[1] = currentOct->normalize();
 
   // construct lower right octagon
 
-  currentOct = new IntOctagon((*boxes)[2]->ur->x, d->ll->y, d->ur->x, (*boxes)[1]->ll->y,
+  currentOct = new (jrt::kGeom) IntOctagon((*boxes)[2]->ur->x, d->ll->y, d->ur->x, (*boxes)[1]->ll->y,
                               c->lowerRightDiagonalX, Limits::CRIT_INT, -Limits::CRIT_INT,
                               Limits::CRIT_INT);
   (*octagons)[2] = currentOct->normalize();
 
   // construct upper right octagon
 
-  currentOct = new IntOctagon((*boxes)[3]->ur->x, (*boxes)[1]->ur->y, d->ur->x, d->ur->y,
+  currentOct = new (jrt::kGeom) IntOctagon((*boxes)[3]->ur->x, (*boxes)[1]->ur->y, d->ur->x, d->ur->y,
                               -Limits::CRIT_INT, Limits::CRIT_INT, c->upperRightDiagonalX,
                               Limits::CRIT_INT);
   (*octagons)[3] = currentOct->normalize();
@@ -979,8 +979,8 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   if (b->ur->x - b->ll->x > o->topY - o->bottomY) {
     // switch the horizontal upper left divide line to vertical
 
-    (*boxes)[0] = new IntBox(b->ll->x, b->ll->y, b->ur->x, o->topY);
-    currentOct = new IntOctagon(b->ur->x, o->bottomY, o->rightX, o->topY, o->upperLeftDiagonalX,
+    (*boxes)[0] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, b->ur->x, o->topY);
+    currentOct = new (jrt::kGeom) IntOctagon(b->ur->x, o->bottomY, o->rightX, o->topY, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[0] = currentOct->normalize();
@@ -991,8 +991,8 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   if (b->ur->y - b->ll->y > o->rightX - o->leftX) {
     // switch the vertical upper left divide line to horizontal
 
-    (*boxes)[3] = new IntBox(o->leftX, b->ll->y, b->ur->x, b->ur->y);
-    currentOct = new IntOctagon(o->leftX, o->bottomY, o->rightX, b->ll->y, o->upperLeftDiagonalX,
+    (*boxes)[3] = new (jrt::kGeom) IntBox(o->leftX, b->ll->y, b->ur->x, b->ur->y);
+    currentOct = new (jrt::kGeom) IntOctagon(o->leftX, o->bottomY, o->rightX, b->ll->y, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[0] = currentOct->normalize();
@@ -1002,8 +1002,8 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   if (b->ur->y - b->ll->y > o->rightX - o->leftX) {
     // switch the vertical upper right divide line to horizontal
 
-    (*boxes)[3] = new IntBox(b->ll->x, b->ll->y, o->rightX, b->ur->y);
-    currentOct = new IntOctagon(o->leftX, o->bottomY, o->rightX, o->topY, o->upperLeftDiagonalX,
+    (*boxes)[3] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, o->rightX, b->ur->y);
+    currentOct = new (jrt::kGeom) IntOctagon(o->leftX, o->bottomY, o->rightX, o->topY, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[3] = currentOct->normalize();
@@ -1013,8 +1013,8 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   if (b->ur->x - b->ll->x > o->topY - o->bottomY) {
     // switch the horizontal upper right divide line to vertical
 
-    (*boxes)[1] = new IntBox(b->ll->x, b->ll->y, b->ur->x, o->topY);
-    currentOct = new IntOctagon(o->leftX, o->bottomY, b->ll->x, o->topY, o->upperLeftDiagonalX,
+    (*boxes)[1] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, b->ur->x, o->topY);
+    currentOct = new (jrt::kGeom) IntOctagon(o->leftX, o->bottomY, b->ll->x, o->topY, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[3] = currentOct->normalize();
@@ -1024,8 +1024,8 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   if (b->ur->x - b->ll->x > o->topY - o->bottomY) {
     // switch the horizontal lower right divide line to vertical
 
-    (*boxes)[1] = new IntBox(b->ll->x, o->bottomY, b->ur->x, b->ur->y);
-    currentOct = new IntOctagon(o->leftX, o->bottomY, b->ll->x, o->topY, o->upperLeftDiagonalX,
+    (*boxes)[1] = new (jrt::kGeom) IntBox(b->ll->x, o->bottomY, b->ur->x, b->ur->y);
+    currentOct = new (jrt::kGeom) IntOctagon(o->leftX, o->bottomY, b->ll->x, o->topY, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[2] = currentOct->normalize();
@@ -1035,8 +1035,8 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   if (b->ur->y - b->ll->y > o->rightX - o->leftX) {
     // switch the vertical lower right divide line to horizontal
 
-    (*boxes)[2] = new IntBox(b->ll->x, b->ll->y, o->rightX, b->ur->y);
-    currentOct = new IntOctagon(o->leftX, b->ur->y, o->rightX, o->topY, o->upperLeftDiagonalX,
+    (*boxes)[2] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, o->rightX, b->ur->y);
+    currentOct = new (jrt::kGeom) IntOctagon(o->leftX, b->ur->y, o->rightX, o->topY, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[2] = currentOct->normalize();
@@ -1046,8 +1046,8 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   if (b->ur->y - b->ll->y > o->rightX - o->leftX) {
     // switch the vertical lower  left divide line to horizontal
 
-    (*boxes)[2] = new IntBox(o->leftX, b->ll->y, b->ur->x, b->ur->y);
-    currentOct = new IntOctagon(o->leftX, b->ur->y, o->rightX, o->topY, o->upperLeftDiagonalX,
+    (*boxes)[2] = new (jrt::kGeom) IntBox(o->leftX, b->ll->y, b->ur->x, b->ur->y);
+    currentOct = new (jrt::kGeom) IntOctagon(o->leftX, b->ur->y, o->rightX, o->topY, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[1] = currentOct->normalize();
@@ -1056,14 +1056,14 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntBox* d) {
   o = (*octagons)[1];
   if (b->ur->x - b->ll->x > o->topY - o->bottomY) {
     // switch the horizontal lower left divide line to vertical
-    (*boxes)[0] = new IntBox(b->ll->x, o->bottomY, b->ur->x, b->ur->y);
-    currentOct = new IntOctagon(b->ur->x, o->bottomY, o->rightX, o->topY, o->upperLeftDiagonalX,
+    (*boxes)[0] = new (jrt::kGeom) IntBox(b->ll->x, o->bottomY, b->ur->x, b->ur->y);
+    currentOct = new (jrt::kGeom) IntOctagon(b->ur->x, o->bottomY, o->rightX, o->topY, o->upperLeftDiagonalX,
                                 o->lowerRightDiagonalX, o->lowerLeftDiagonalX,
                                 o->upperRightDiagonalX);
     (*octagons)[1] = currentOct->normalize();
   }
 
-  auto* result = new jrt::Array<IntOctagon*>(8);
+  auto* result = new (jrt::kGeom) jrt::Array<IntOctagon*>(8);
 
   // add the 4 boxes to the result
   for (int32_t i = 0; i < 4; i++) {
@@ -1080,58 +1080,58 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
 
   if (this->isEmpty() || c->dimension() < this->dimension()) {
     // there is only an overlap at the border
-    auto* result = new jrt::Array<IntOctagon*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<IntOctagon*>(1);
     (*result)[0] = d;
     return toTileShapeArray(result);
   }
 
-  auto* result = new jrt::Array<IntOctagon*>(8);
+  auto* result = new (jrt::kGeom) jrt::Array<IntOctagon*>(8);
 
   int32_t tmp = c->lowerLeftDiagonalX - c->leftX;
 
-  (*result)[0] = new IntOctagon(d->leftX, tmp, c->leftX, c->leftX - c->upperLeftDiagonalX,
+  (*result)[0] = new (jrt::kGeom) IntOctagon(d->leftX, tmp, c->leftX, c->leftX - c->upperLeftDiagonalX,
                                 d->upperLeftDiagonalX, d->lowerRightDiagonalX,
                                 d->lowerLeftDiagonalX, d->upperRightDiagonalX);
 
   int32_t tmp2 = c->lowerLeftDiagonalX - c->bottomY;
 
-  (*result)[1] = new IntOctagon(d->leftX, d->bottomY, tmp2, tmp, d->upperLeftDiagonalX,
+  (*result)[1] = new (jrt::kGeom) IntOctagon(d->leftX, d->bottomY, tmp2, tmp, d->upperLeftDiagonalX,
                                 d->lowerRightDiagonalX, d->lowerLeftDiagonalX,
                                 c->lowerLeftDiagonalX);
 
   tmp = c->lowerRightDiagonalX + c->bottomY;
 
-  (*result)[2] = new IntOctagon(tmp2, d->bottomY, tmp, c->bottomY, d->upperLeftDiagonalX,
+  (*result)[2] = new (jrt::kGeom) IntOctagon(tmp2, d->bottomY, tmp, c->bottomY, d->upperLeftDiagonalX,
                                 d->lowerRightDiagonalX, d->lowerLeftDiagonalX,
                                 d->upperRightDiagonalX);
 
   tmp2 = c->rightX - c->lowerRightDiagonalX;
 
-  (*result)[3] = new IntOctagon(tmp, d->bottomY, d->rightX, tmp2, c->lowerRightDiagonalX,
+  (*result)[3] = new (jrt::kGeom) IntOctagon(tmp, d->bottomY, d->rightX, tmp2, c->lowerRightDiagonalX,
                                 d->lowerRightDiagonalX, d->lowerLeftDiagonalX,
                                 d->upperRightDiagonalX);
 
   tmp = c->upperRightDiagonalX - c->rightX;
 
-  (*result)[4] = new IntOctagon(c->rightX, tmp2, d->rightX, tmp, d->upperLeftDiagonalX,
+  (*result)[4] = new (jrt::kGeom) IntOctagon(c->rightX, tmp2, d->rightX, tmp, d->upperLeftDiagonalX,
                                 d->lowerRightDiagonalX, d->lowerLeftDiagonalX,
                                 d->upperRightDiagonalX);
 
   tmp2 = c->upperRightDiagonalX - c->topY;
 
-  (*result)[5] = new IntOctagon(tmp2, tmp, d->rightX, d->topY, d->upperLeftDiagonalX,
+  (*result)[5] = new (jrt::kGeom) IntOctagon(tmp2, tmp, d->rightX, d->topY, d->upperLeftDiagonalX,
                                 d->lowerRightDiagonalX, c->upperRightDiagonalX,
                                 d->upperRightDiagonalX);
 
   tmp = c->upperLeftDiagonalX + c->topY;
 
-  (*result)[6] = new IntOctagon(tmp, c->topY, tmp2, d->topY, d->upperLeftDiagonalX,
+  (*result)[6] = new (jrt::kGeom) IntOctagon(tmp, c->topY, tmp2, d->topY, d->upperLeftDiagonalX,
                                 d->lowerRightDiagonalX, d->lowerLeftDiagonalX,
                                 d->upperRightDiagonalX);
 
   tmp2 = c->leftX - c->upperLeftDiagonalX;
 
-  (*result)[7] = new IntOctagon(d->leftX, tmp2, tmp, d->topY, d->upperLeftDiagonalX,
+  (*result)[7] = new (jrt::kGeom) IntOctagon(d->leftX, tmp2, tmp, d->topY, d->upperLeftDiagonalX,
                                 c->upperLeftDiagonalX, d->lowerLeftDiagonalX,
                                 d->upperRightDiagonalX);
 
@@ -1146,12 +1146,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr1->rightX - curr1->leftXValue(curr1->topY) >
           curr2->upperYValue(curr1->rightX) - curr2->bottomY) {
     // switch the horizontal upper left divide line to vertical
-    curr1 = new IntOctagon(jrt::Math::min(curr1->leftX, curr2->leftX), curr1->bottomY,
+    curr1 = new (jrt::kGeom) IntOctagon(jrt::Math::min(curr1->leftX, curr2->leftX), curr1->bottomY,
                            curr1->rightX, curr2->topY, curr2->upperLeftDiagonalX,
                            curr1->lowerRightDiagonalX, curr1->lowerLeftDiagonalX,
                            curr2->upperRightDiagonalX);
 
-    curr2 = new IntOctagon(curr1->rightX, curr2->bottomY, curr2->rightX, curr2->topY,
+    curr2 = new (jrt::kGeom) IntOctagon(curr1->rightX, curr2->bottomY, curr2->rightX, curr2->topY,
                            curr2->upperLeftDiagonalX, curr2->lowerRightDiagonalX,
                            curr2->lowerLeftDiagonalX, curr2->upperRightDiagonalX);
 
@@ -1164,12 +1164,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr2->upperYValue(curr1->rightX) - curr2->bottomY >
           curr1->rightX - curr1->leftXValue(curr2->bottomY)) {
     // switch the vertical upper left divide line to horizontal
-    curr2 = new IntOctagon(curr1->leftX, curr2->bottomY, curr2->rightX,
+    curr2 = new (jrt::kGeom) IntOctagon(curr1->leftX, curr2->bottomY, curr2->rightX,
                            jrt::Math::max(curr2->topY, curr1->topY), curr1->upperLeftDiagonalX,
                            curr2->lowerRightDiagonalX, curr1->lowerLeftDiagonalX,
                            curr2->upperRightDiagonalX);
 
-    curr1 = new IntOctagon(curr1->leftX, curr1->bottomY, curr1->rightX, curr2->bottomY,
+    curr1 = new (jrt::kGeom) IntOctagon(curr1->leftX, curr1->bottomY, curr1->rightX, curr2->bottomY,
                            curr1->upperLeftDiagonalX, curr1->lowerRightDiagonalX,
                            curr1->lowerLeftDiagonalX, curr1->upperRightDiagonalX);
 
@@ -1182,12 +1182,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr2->upperYValue(curr1->rightX) - curr1->bottomY >
           curr2->rightXValue(curr1->bottomY) - curr2->leftX) {
     // switch the vertical upper right divide line to horizontal
-    curr1 = new IntOctagon(curr1->leftX, curr1->bottomY, curr2->rightX,
+    curr1 = new (jrt::kGeom) IntOctagon(curr1->leftX, curr1->bottomY, curr2->rightX,
                            jrt::Math::max(curr2->topY, curr1->topY), curr1->upperLeftDiagonalX,
                            curr2->lowerRightDiagonalX, curr1->lowerLeftDiagonalX,
                            curr2->upperRightDiagonalX);
 
-    curr2 = new IntOctagon(curr2->leftX, curr2->bottomY, curr2->rightX, curr1->bottomY,
+    curr2 = new (jrt::kGeom) IntOctagon(curr2->leftX, curr2->bottomY, curr2->rightX, curr1->bottomY,
                            curr2->upperLeftDiagonalX, curr2->lowerRightDiagonalX,
                            curr2->lowerLeftDiagonalX, curr2->upperRightDiagonalX);
 
@@ -1200,12 +1200,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr2->rightXValue(curr2->topY) - curr2->leftX >
           curr1->upperYValue(curr2->leftX) - curr2->topY) {
     // switch the horizontal upper right divide line to vertical
-    curr2 = new IntOctagon(curr2->leftX, curr2->bottomY,
+    curr2 = new (jrt::kGeom) IntOctagon(curr2->leftX, curr2->bottomY,
                            jrt::Math::max(curr2->rightX, curr1->rightX), curr1->topY,
                            curr1->upperLeftDiagonalX, curr2->lowerRightDiagonalX,
                            curr2->lowerLeftDiagonalX, curr1->upperRightDiagonalX);
 
-    curr1 = new IntOctagon(curr1->leftX, curr1->bottomY, curr2->leftX, curr1->topY,
+    curr1 = new (jrt::kGeom) IntOctagon(curr1->leftX, curr1->bottomY, curr2->leftX, curr1->topY,
                            curr1->upperLeftDiagonalX, curr1->lowerRightDiagonalX,
                            curr1->lowerLeftDiagonalX, curr1->upperRightDiagonalX);
 
@@ -1218,12 +1218,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr1->rightXValue(curr1->bottomY) - curr1->leftX >
           curr1->bottomY - curr2->lowerYValue(curr1->leftX)) {
     // switch the horizontal lower right divide line to vertical
-    curr1 = new IntOctagon(curr1->leftX, curr2->bottomY,
+    curr1 = new (jrt::kGeom) IntOctagon(curr1->leftX, curr2->bottomY,
                            jrt::Math::max(curr2->rightX, curr1->rightX), curr1->topY,
                            curr1->upperLeftDiagonalX, curr2->lowerRightDiagonalX,
                            curr2->lowerLeftDiagonalX, curr1->upperRightDiagonalX);
 
-    curr2 = new IntOctagon(curr2->leftX, curr2->bottomY, curr1->leftX, curr2->topY,
+    curr2 = new (jrt::kGeom) IntOctagon(curr2->leftX, curr2->bottomY, curr1->leftX, curr2->topY,
                            curr2->upperLeftDiagonalX, curr2->lowerRightDiagonalX,
                            curr2->lowerLeftDiagonalX, curr2->upperRightDiagonalX);
 
@@ -1238,12 +1238,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr2->topY - curr2->lowerYValue(curr2->rightX) >
           curr1->rightXValue(curr2->topY) - curr2->rightX) {
     // switch the vertical lower right divide line to horizontal
-    curr2 = new IntOctagon(curr2->leftX, jrt::Math::min(curr1->bottomY, curr2->bottomY),
+    curr2 = new (jrt::kGeom) IntOctagon(curr2->leftX, jrt::Math::min(curr1->bottomY, curr2->bottomY),
                            curr1->rightX, curr2->topY, curr2->upperLeftDiagonalX,
                            curr1->lowerRightDiagonalX, curr2->lowerLeftDiagonalX,
                            curr1->upperRightDiagonalX);
 
-    curr1 = new IntOctagon(curr1->leftX, curr2->topY, curr1->rightX, curr1->topY,
+    curr1 = new (jrt::kGeom) IntOctagon(curr1->leftX, curr2->topY, curr1->rightX, curr1->topY,
                            curr1->upperLeftDiagonalX, curr1->lowerRightDiagonalX,
                            curr1->lowerLeftDiagonalX, curr1->upperRightDiagonalX);
 
@@ -1258,12 +1258,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr1->topY - curr1->lowerYValue(curr1->leftX) >
           curr1->leftX - curr2->leftXValue(curr1->topY)) {
     // switch the vertical lower left divide line to horizontal
-    curr1 = new IntOctagon(curr2->leftX, jrt::Math::min(curr1->bottomY, curr2->bottomY),
+    curr1 = new (jrt::kGeom) IntOctagon(curr2->leftX, jrt::Math::min(curr1->bottomY, curr2->bottomY),
                            curr1->rightX, curr1->topY, curr2->upperLeftDiagonalX,
                            curr1->lowerRightDiagonalX, curr2->lowerLeftDiagonalX,
                            curr1->upperRightDiagonalX);
 
-    curr2 = new IntOctagon(curr2->leftX, curr1->topY, curr2->rightX, curr2->topY,
+    curr2 = new (jrt::kGeom) IntOctagon(curr2->leftX, curr1->topY, curr2->rightX, curr2->topY,
                            curr2->upperLeftDiagonalX, curr2->lowerRightDiagonalX,
                            curr2->lowerLeftDiagonalX, curr2->upperRightDiagonalX);
 
@@ -1278,12 +1278,12 @@ jrt::Array<TileShape*>* IntOctagon::cutoutFrom(IntOctagon* d) {
       curr2->rightX - curr2->leftXValue(curr2->bottomY) >
           curr2->bottomY - curr1->lowerYValue(curr2->rightX)) {
     // switch the horizontal lower left divide line to vertical
-    curr2 = new IntOctagon(jrt::Math::min(curr2->leftX, curr1->leftX), curr1->bottomY,
+    curr2 = new (jrt::kGeom) IntOctagon(jrt::Math::min(curr2->leftX, curr1->leftX), curr1->bottomY,
                            curr2->rightX, curr2->topY, curr2->upperLeftDiagonalX,
                            curr1->lowerRightDiagonalX, curr1->lowerLeftDiagonalX,
                            curr2->upperRightDiagonalX);
 
-    curr1 = new IntOctagon(curr2->rightX, curr1->bottomY, curr1->rightX, curr1->topY,
+    curr1 = new (jrt::kGeom) IntOctagon(curr2->rightX, curr1->bottomY, curr1->rightX, curr1->topY,
                            curr1->upperLeftDiagonalX, curr1->lowerRightDiagonalX,
                            curr1->lowerLeftDiagonalX, curr1->upperRightDiagonalX);
 

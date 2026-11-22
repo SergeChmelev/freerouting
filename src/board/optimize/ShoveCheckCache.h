@@ -80,7 +80,7 @@ class ShoveCheckCache final : public virtual jrt::Object {
   static ShoveCheckCache*& CURRENT();
 
   jrt::Map<ShoveCheckCache_Key*, ShoveCheckCache_Entry*>* entries =
-      new jrt::HashMap<ShoveCheckCache_Key*, ShoveCheckCache_Entry*>();
+      new (jrt::kBoard) jrt::HashMap<ShoveCheckCache_Key*, ShoveCheckCache_Entry*>();
   /** PORT NOTE: Java WeakReference<RoutingBoard> -> plain pointer (only compared by identity). */
   RoutingBoard* owner = nullptr;
   int64_t stamp = jrt::Long::MIN_VALUE;

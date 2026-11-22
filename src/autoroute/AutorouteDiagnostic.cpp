@@ -18,7 +18,7 @@ class LambdaAutorouteDiagnosticSink : public AutorouteDiagnostic_Sink {
 
 AutorouteDiagnostic_Sink* AutorouteDiagnostic_Sink::of(
     std::function<void(AutorouteDiagnostic*)> f) {
-  return new LambdaAutorouteDiagnosticSink(std::move(f));
+  return new (jrt::kOp) LambdaAutorouteDiagnosticSink(std::move(f));
 }
 
 AutorouteDiagnostic::AutorouteDiagnostic(AutorouteDiagnostic_Kind kind, TileShape* shape,

@@ -57,7 +57,7 @@ class ComponentOutline : public Item {
 
  protected:
   jrt::Array<TileShape*>* calculateTreeShapes(ShapeSearchTree* searchTree) override {
-    return new jrt::Array<TileShape*>(0);
+    return new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
 
  public:

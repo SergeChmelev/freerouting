@@ -48,7 +48,7 @@ bool RulesReader::read(std::istream& in, const std::string& designName, fr::Basi
     return false;
   }
 
-  IJFlexScanner* scanner = new SpecctraDsnStreamReader(in);
+  IJFlexScanner* scanner = new (jrt::kOp) SpecctraDsnStreamReader(in);
 
   // Java `finally` block: runs on every exit of the try statement below.
   auto finallyBlock = [&]() {
@@ -89,7 +89,7 @@ bool RulesReader::read(std::istream& in, const std::string& designName, fr::Basi
       // non-fatal: continue reading
     }
 
-    auto* layerStructure = new LayerStructure(board->layerStructure);
+    auto* layerStructure = new (jrt::kOp) LayerStructure(board->layerStructure);
     fr::io::CoordinateTransform* coordinateTransform = board->communication->coordinateTransform;
 
     // Parse all top-level scopes in the rules body
@@ -169,7 +169,7 @@ fr::RouterSettings* RulesReader::readRouterSettings(std::istream& in) {
       return nullptr;
     }
     std::string bytes = buffer.str();
-    data = new jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
+    data = new (jrt::kOp) jrt::Array<int8_t>(static_cast<int32_t>(bytes.size()));
     for (std::size_t i = 0; i < bytes.size(); i++) {
       (*data)[static_cast<int32_t>(i)] = static_cast<int8_t>(bytes[i]);
     }
@@ -182,7 +182,7 @@ fr::RouterSettings* RulesReader::readRouterSettings(std::istream& in) {
   LayerStructure* layerStructure = discoverLayerStructure(data);
   std::istringstream dataStream(
       std::string(reinterpret_cast<const char*>(data->data()), static_cast<std::size_t>(data->length)));
-  IJFlexScanner* scanner = new SpecctraDsnStreamReader(dataStream);
+  IJFlexScanner* scanner = new (jrt::kOp) SpecctraDsnStreamReader(dataStream);
   try {
     // Validate header
     jrt::Object* currentToken = scanner->nextToken();
@@ -222,10 +222,10 @@ fr::RouterSettings* RulesReader::readRouterSettings(std::istream& in) {
 }
 
 LayerStructure* RulesReader::discoverLayerStructure(jrt::Array<int8_t>* data) {
-  auto* layerNames = new jrt::LinkedHashSet<std::string>();
+  auto* layerNames = new (jrt::kOp) jrt::LinkedHashSet<std::string>();
   std::istringstream dataStream(
       std::string(reinterpret_cast<const char*>(data->data()), static_cast<std::size_t>(data->length)));
-  IJFlexScanner* scanner = new SpecctraDsnStreamReader(dataStream);
+  IJFlexScanner* scanner = new (jrt::kOp) SpecctraDsnStreamReader(dataStream);
   try {
     jrt::Object* token = nullptr;
     for (;;) {
@@ -254,12 +254,12 @@ LayerStructure* RulesReader::discoverLayerStructure(jrt::Array<int8_t>* data) {
     layerNames->add("B.Cu");
   }
 
-  auto* list = new jrt::ArrayList<Layer*>();
+  auto* list = new (jrt::kOp) jrt::ArrayList<Layer*>();
   int32_t idx = 0;
   for (const std::string& name : *layerNames) {
-    list->add(new Layer(name, idx++, true));
+    list->add(new (jrt::kOp) Layer(name, idx++, true));
   }
-  return new LayerStructure(static_cast<jrt::Collection<Layer*>*>(list));
+  return new (jrt::kOp) LayerStructure(static_cast<jrt::Collection<Layer*>*>(list));
 }
 
 void RulesReader::applyRules(jrt::Collection<Rule*>* rules, fr::BasicBoard* board,

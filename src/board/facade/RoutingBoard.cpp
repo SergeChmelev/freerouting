@@ -100,7 +100,7 @@ RoutingBoard::RoutingBoard(IntBox* boundingBox, LayerStructure* layerStructure,
                            BoardRules* rules, Communication* boardCommunication)
     : BasicBoard(boundingBox, layerStructure, outlineShapes, outlineClClassNo, rules,
                  boardCommunication) {
-  this->failureLog = new RoutingFailureLog();
+  this->failureLog = new (jrt::kBoard) RoutingFailureLog();
 }
 
 RoutingBoard::RoutingBoard(BasicBoard_CopyTag tag, RoutingBoard* source)
@@ -216,7 +216,7 @@ bool RoutingBoard::moveDrillItem(DrillItem* drillItem, Vector* vector, int32_t m
     }
   }
 
-  jrt::Array<IntOctagon*>* tidyRegion = new jrt::Array<IntOctagon*>(1);
+  jrt::Array<IntOctagon*>* tidyRegion = new (jrt::kGeom) jrt::Array<IntOctagon*>(1);
   bool calculateTidyRegion;
   if (tidyWidth < jrt::Integer::MAX_VALUE) {
     (*tidyRegion)[0] = IntOctagon::EMPTY();
@@ -239,7 +239,7 @@ bool RoutingBoard::moveDrillItem(DrillItem* drillItem, Vector* vector, int32_t m
     jrt::Array<int32_t>* netNumbers = drillItem->netNumbers;
     optNetNoArr = netNumbers;
   } else {
-    optNetNoArr = new jrt::Array<int32_t>(0);
+    optNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(0);
   }
   optChangedArea(optNetNoArr, finalTidyRegion, pullTightAccuracy, nullptr, nullptr,
                  pullTightTimeLimit);
@@ -271,7 +271,7 @@ bool RoutingBoard::forcedVia(ViaInfo* viaInfo, Point* location, jrt::Array<int32
     if (maxRecursionDepth <= 0) {
       optNetNoArr = netNumbers;
     } else {
-      optNetNoArr = new jrt::Array<int32_t>(0);
+      optNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(0);
     }
     this->optChangedArea(optNetNoArr, tidyClipShape, pullTightAccuracy, nullptr, nullptr,
                          pullTightTimeLimit);
@@ -291,7 +291,7 @@ Point* RoutingBoard::insertForcedTraceSegment(Point* fromCorner, Point* toCorner
   if (fromCorner->equals(toCorner)) {
     return toCorner;
   }
-  Polyline* insertPolyline = new Polyline(fromCorner, toCorner);
+  Polyline* insertPolyline = new (jrt::kGeom) Polyline(fromCorner, toCorner);
   Point* okPoint = insertForcedTracePolyline(
       insertPolyline, halfWidth, layer, netNumbers, clearanceClassIndex, maxRecursionDepth,
       maxViaRecursionDepth, maxSpringOverRecursionDepth, tidyWidth, pullTightAccuracy, withCheck,
@@ -318,13 +318,13 @@ bool RoutingBoard::checkForcedTracePolyline(Polyline* polyline, int32_t halfWidt
   jrt::Array<TileShape*>* traceShapes =
       polyline->offsetShapes(compensatedHalfWidth, 0, polyline->lines->length - 1);
   bool orthogonalMode = rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE;
-  TraceShover* shoveTraceAlgo = new TraceShover(this);
+  TraceShover* shoveTraceAlgo = new (jrt::kOp) TraceShover(this);
   for (int32_t i = 0; i < traceShapes->length; i++) {
     TileShape* currentTraceShape = (*traceShapes)[i];
     if (orthogonalMode) {
       currentTraceShape = currentTraceShape->boundingBox();
     }
-    ShapeEntrySide* fromSide = new ShapeEntrySide(polyline, i + 1, currentTraceShape);
+    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(polyline, i + 1, currentTraceShape);
 
     bool checkShoveOk = shoveTraceAlgo->check(currentTraceShape, fromSide, nullptr, layer,
                                               netNumbers, clearanceClassIndex, maxRecursionDepth,
@@ -379,7 +379,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
   // If so, its geometry will be used to cut off dog ears of the check shape.
   Trace* pickedTrace = nullptr;
   ItemSelectionFilter* filter =
-      new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+      new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
   jrt::Set<Item*>* pickedItems = this->pickItems(fromCorner, layer, filter);
   if (traceOn && netNumbers != nullptr && netNumbers->length > 0) {
     FRLogger::trace("compare_trace_insert_forced_sub net=" + jrt::str((*netNumbers)[0]) +
@@ -400,7 +400,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
   ShapeSearchTree* searchTree = searchTreeManager->getDefaultTree();
   int32_t compensatedHalfWidth =
       halfWidth + searchTree->clearanceCompensationValue(clearanceClassIndex, layer);
-  TraceShover* shoveTraceAlgo = new TraceShover(this);
+  TraceShover* shoveTraceAlgo = new (jrt::kOp) TraceShover(this);
   Polyline* newPolyline = shoveTraceAlgo->springOverObstacles(
       polyline, compensatedHalfWidth, layer, netNumbers, clearanceClassIndex, nullptr);
   if (newPolyline == nullptr) {
@@ -440,7 +440,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
     if (orthogonalMode) {
       currentTraceShape = currentTraceShape->boundingBox();
     }
-    ShapeEntrySide* fromSide = new ShapeEntrySide(
+    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(
         combinedPolyline, combinedPolyline->cornerCount() - traceShapes->length - 1 + i,
         currentTraceShape);
     if (withCheck) {
@@ -531,7 +531,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
         lastTraceShape = lastTraceShape->boundingBox();
       }
     }
-    ShapeEntrySide* fromSide = new ShapeEntrySide(combinedPolyline, shapeIndex, lastTraceShape);
+    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(combinedPolyline, shapeIndex, lastTraceShape);
     bool checkShoveOk = shoveTraceAlgo->check(lastTraceShape, fromSide, nullptr, layer, netNumbers,
                                               clearanceClassIndex, maxRecursionDepth,
                                               maxViaRecursionDepth, maxSpringOverRecursionDepth,
@@ -590,7 +590,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
   if (maxRecursionDepth <= 0) {
     optNetNoArr = netNumbers;
   } else {
-    optNetNoArr = new jrt::Array<int32_t>(0);
+    optNetNoArr = new (jrt::kOp) jrt::Array<int32_t>(0);
   }
   TraceTightener* pullTightAlgo = TraceTightener::getInstance(
       this, optNetNoArr, tidyRegion, pullTightAccuracy, nullptr, -1, newCorner, layer);
@@ -618,7 +618,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
       }
       // otherwise the new corner may no more be contained in the new trace after optimizing
       ItemSelectionFilter* itemFilter =
-          new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+          new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
       jrt::Set<Item*>* currentPickedItems = this->pickItems(newCorner, layer, itemFilter);
       newTrace = nullptr;
       if (!currentPickedItems->isEmpty()) {
@@ -641,7 +641,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
   // necessary, pull tight is called here.
   if (traceOn && netNumbers != nullptr && netNumbers->length > 0) {
     ItemSelectionFilter* dbgFilter =
-        new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+        new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
     jrt::Set<Item*>* dbgBefore = this->pickItems(newCorner, layer, dbgFilter);
     FRLogger::trace("compare_trace_insert_forced_sub net=" + jrt::str((*netNumbers)[0]) +
                     ", step=before_pull_tight, pickedAtEndCorner=" + jrt::str(dbgBefore->size()) +
@@ -653,7 +653,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
   }
   if (traceOn && netNumbers != nullptr && netNumbers->length > 0) {
     ItemSelectionFilter* dbgFilter =
-        new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+        new (jrt::kOp) ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
     jrt::Set<Item*>* dbgAfter = this->pickItems(newCorner, layer, dbgFilter);
     FRLogger::trace("compare_trace_insert_forced_sub net=" + jrt::str((*netNumbers)[0]) +
                     ", step=after_pull_tight, pickedAtEndCorner=" + jrt::str(dbgAfter->size()) +
@@ -669,7 +669,7 @@ AutorouteEngine* RoutingBoard::initAutoroute(int32_t netNumber, int32_t traceCle
       this->autorouteEngine->autorouteSearchTree->compensatedClearanceClassNo !=
           traceClearanceClassIndex) {
     this->autorouteEngine =
-        new AutorouteEngine(this, traceClearanceClassIndex, retainAutorouteDatabase);
+        new (jrt::kBoard) AutorouteEngine(this, traceClearanceClassIndex, retainAutorouteDatabase);
   }
   this->autorouteEngine->initConnection(netNumber, stoppableThread, timeLimit);
   return this->autorouteEngine;
@@ -694,14 +694,14 @@ AutorouteAttemptResult* RoutingBoard::autoroute(Item* item, RouterSettings* rout
                                                 int32_t viaCosts, Stoppable* stoppableThread,
                                                 TimeLimit* timeLimit) {
   if (jrt::fast_cast<Connectable>(item) == nullptr || item->netCount() == 0) {
-    return new AutorouteAttemptResult(AutorouteAttemptState::NO_CONNECTIONS,
+    return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::NO_CONNECTIONS,
                                       "The item '" + jrt::str(item) + "' is not connectable.");
   }
   if (item->netCount() > 1) {
     FRLogger::warn("RoutingBoard.autoroute: netCount > 1 not yet implemented");
   }
   int32_t routeNetNo = item->getNetNumber(0);
-  AutorouteControl* ctrlSettings = new AutorouteControl(this, routeNetNo, routerSettings, viaCosts,
+  AutorouteControl* ctrlSettings = new (jrt::kOp) AutorouteControl(this, routeNetNo, routerSettings, viaCosts,
                                                         routerSettings->getTraceCosts());
   ctrlSettings->removeUnconnectedVias = false;
   jrt::Set<Item*>* routeStartSet = item->getConnectedSet(routeNetNo);
@@ -709,15 +709,15 @@ AutorouteAttemptResult* RoutingBoard::autoroute(Item* item, RouterSettings* rout
   jrt::Set<Item*>* routeDestSet = item->getUnconnectedSet(routeNetNo);
   if (routeNet != nullptr && routeNet->containsPlane() &&
       ConductionArea::coversAllPlanesOfNet(routeStartSet, routeDestSet, routeNetNo)) {
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::CONNECTED_TO_PLANE,
         "The item '" + jrt::str(item) + "' is connected to every plane of its net.");
   }
   if (routeDestSet->isEmpty()) {
-    return new AutorouteAttemptResult(AutorouteAttemptState::ALREADY_CONNECTED,
+    return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::ALREADY_CONNECTED,
                                       "The item '" + jrt::str(item) + "' is already connected.");
   }
-  jrt::TreeSet<Item*>* rippedItemList = new jrt::TreeSet<Item*>();
+  jrt::TreeSet<Item*>* rippedItemList = new (jrt::kOp) jrt::TreeSet<Item*>();
   AutorouteEngine* currentAutorouteEngine =
       initAutoroute(item->getNetNumber(0), ctrlSettings->traceClearanceClassIndex,
                     stoppableThread, timeLimit, false);
@@ -736,11 +736,11 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
                                              int32_t ripupCosts, Stoppable* stoppableThread,
                                              TimeLimit* timeLimit) {
   if (pin->firstLayer() != pin->lastLayer() || pin->netCount() != 1) {
-    return new AutorouteAttemptResult(AutorouteAttemptState::ALREADY_CONNECTED,
+    return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::ALREADY_CONNECTED,
                                       "The pin '" + jrt::str(pin) + "' is already connected.");
   }
   if (pin->hasIgnoredNets()) {
-    return new AutorouteAttemptResult(
+    return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::SKIPPED,
         "The pin '" + jrt::str(pin) + "' belongs to an ignored net class.");
   }
@@ -749,17 +749,17 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
   jrt::Set<Item*>* pinConnectedSet = pin->getConnectedSet(pinNetNo);
   for (Item* currentItem : *pinConnectedSet) {
     if (currentItem->firstLayer() != pinLayer || currentItem->lastLayer() != pinLayer) {
-      return new AutorouteAttemptResult(AutorouteAttemptState::ALREADY_CONNECTED,
+      return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::ALREADY_CONNECTED,
                                         "The pin '" + jrt::str(pin) + "' is already connected.");
     }
   }
   jrt::Set<Item*>* unconnectedSet = pin->getUnconnectedSet(pinNetNo);
   if (unconnectedSet->isEmpty()) {
-    return new AutorouteAttemptResult(AutorouteAttemptState::NO_UNCONNECTED_NETS,
+    return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::NO_UNCONNECTED_NETS,
                                       "The pin '" + jrt::str(pin) + "' is already connected.");
   }
   FloatPoint* pinCenter = pin->getCenter()->toFloat();
-  jrt::List<Item*>* sortedUnconnectedList = new jrt::ArrayList<Item*>(unconnectedSet);
+  jrt::List<Item*>* sortedUnconnectedList = new (jrt::kOp) jrt::ArrayList<Item*>(unconnectedSet);
   sortedUnconnectedList->sort([pinCenter](Item* item1, Item* item2) -> int32_t {
     IntBox* box1 = item1->boundingBox();
     double cx1 = (box1->ll->x + box1->ur->x) / 2.0;
@@ -792,7 +792,7 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
       planeNet ? routerSettings->getPlaneViaCosts()
                : (routedFirst ? routerSettings->getPriorityViaCosts()
                               : routerSettings->getViaCosts());
-  AutorouteControl* ctrlSettings = new AutorouteControl(this, pinNetNo, routerSettings,
+  AutorouteControl* ctrlSettings = new (jrt::kOp) AutorouteControl(this, pinNetNo, routerSettings,
                                                         fanoutViaCosts,
                                                         routerSettings->getTraceCosts());
   ctrlSettings->isFanout = true;
@@ -827,7 +827,7 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
     ctrlSettings->ripupAllowed = true;
     ctrlSettings->ripupCosts = ripupCosts;
   }
-  jrt::TreeSet<Item*>* rippedItemList = new jrt::TreeSet<Item*>();
+  jrt::TreeSet<Item*>* rippedItemList = new (jrt::kOp) jrt::TreeSet<Item*>();
   AutorouteEngine* currentAutorouteEngine = initAutoroute(
       pinNetNo, ctrlSettings->traceClearanceClassIndex, stoppableThread, timeLimit, false);
 
@@ -835,7 +835,7 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
   // plane_as_priority: the pin first drops into its plane through a via of its own.
   if (planeNet && routerSettings->autorouter != nullptr &&
       routerSettings->autorouter->planeAsPriority.value_or(false)) {
-    jrt::Set<Item*>* planes = new jrt::HashSet<Item*>();
+    jrt::Set<Item*>* planes = new (jrt::kOp) jrt::HashSet<Item*>();
     for (Item* target : *unconnectedSet) {
       if (isPlaneOnPowerLayer(target)) {
         planes->add(target);
@@ -873,7 +873,7 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
       // 1. Try to route to the closest target first
       Item* closestTarget = sortedUnconnectedList->get(0);
       result = currentAutorouteEngine->autorouteConnection(
-          pinConnectedSet, new jrt::HashSet<Item*>({closestTarget}), ctrlSettings,
+          pinConnectedSet, new (jrt::kOp) jrt::HashSet<Item*>({closestTarget}), ctrlSettings,
           rippedItemList, nullptr);  // null: costs not needed here
 
       // 2. If that fails and we have other targets, fall back to searching the entire
@@ -899,7 +899,7 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
                                                          ctrlSettings, rippedItemList, nullptr);
   }
   if (result == nullptr) {
-    result = new AutorouteAttemptResult(AutorouteAttemptState::FAILED,
+    result = new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::FAILED,
                                         "No target items to route connection.");
   }
 
@@ -914,7 +914,7 @@ AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSet
 jrt::Set<Item*>* RoutingBoard::planeEscapeObstacles(Pin* pin, int32_t netNo,
                                                     jrt::Set<Item*>* connectedSet,
                                                     jrt::Set<Item*>* destinations) {
-  jrt::Set<Item*>* open = new jrt::HashSet<Item*>(connectedSet);
+  jrt::Set<Item*>* open = new (jrt::kOp) jrt::HashSet<Item*>(connectedSet);
   open->addAll(destinations);
   for (Item* destination : *destinations) {
     if (auto* sharedPin = jrt::fast_cast<Pin>(destination)) {
@@ -926,7 +926,7 @@ jrt::Set<Item*>* RoutingBoard::planeEscapeObstacles(Pin* pin, int32_t netNo,
       open->addAll(other->getConnectedSet(netNo, true));
     }
   }
-  jrt::Set<Item*>* obstacles = new jrt::HashSet<Item*>();
+  jrt::Set<Item*>* obstacles = new (jrt::kOp) jrt::HashSet<Item*>();
   for (Item* other : *getItems()) {
     if (other->containsNet(netNo) && jrt::fast_cast<ConductionArea>(other) == nullptr &&
         !open->contains(other)) {
@@ -944,7 +944,7 @@ bool RoutingBoard::isPlaneOnPowerLayer(Item* item) {
 ViaRule* RoutingBoard::fanoutFallbackViaRule(ViaRule* netRule, ViaRule* boardRule,
                                              std::optional<int32_t> netViaClearance,
                                              BoardRules* rules) {
-  ViaRule* combined = new ViaRule(netRule->name + "_fallback");
+  ViaRule* combined = new (jrt::kBoard) ViaRule(netRule->name + "_fallback");
   for (int32_t i = 0; i < netRule->viaCount(); i++) {
     combined->appendVia(netRule->getVia(i));
   }
@@ -964,7 +964,7 @@ ViaRule* RoutingBoard::fanoutFallbackViaRule(ViaRule* netRule, ViaRule* boardRul
         }
       }
       if (!present) {
-        combined->appendVia(new ViaInfo(boardVia->getName(), boardVia->getPadstack(),
+        combined->appendVia(new (jrt::kBoard) ViaInfo(boardVia->getName(), boardVia->getPadstack(),
                                         *netViaClearance, boardVia->attachSmdAllowed(), rules));
       }
     } else if (!combined->contains(boardVia)) {
@@ -1041,7 +1041,7 @@ bool RoutingBoard::containsTraceTails(jrt::Collection<Item*>* items,
 
 bool RoutingBoard::removeTraceTails(int32_t netNumber,
                                     Item_StopConnectionOption stopConnectionOption) {
-  jrt::TreeSet<Item*>* stubSet = new jrt::TreeSet<Item*>();
+  jrt::TreeSet<Item*>* stubSet = new (jrt::kOp) jrt::TreeSet<Item*>();
   jrt::Collection<Item*>* boardItems = this->getItems();
   for (Item* currentItem : *boardItems) {
     if (!currentItem->isRoutable()) {
@@ -1073,7 +1073,7 @@ bool RoutingBoard::removeTraceTails(int32_t netNumber,
       stubSet->add(currentItem);
     }
   }
-  jrt::TreeSet<Item*>* stubConnections = new jrt::TreeSet<Item*>();
+  jrt::TreeSet<Item*>* stubConnections = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (Item* currentItem : *stubSet) {
     int32_t itemContactCount = currentItem->getNormalContacts()->size();
     if (itemContactCount == 1) {
@@ -1223,11 +1223,11 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
 int32_t RoutingBoard::connectNetlessPadsToTheirFootprintsNet(jrt::Array<int32_t>* tiePadsOut) {
   int32_t assigned = 0;
   int32_t tiePads = 0;
-  for (Pin* pin : *new jrt::ArrayList<Pin*>(getPins())) {
+  for (Pin* pin : *new (jrt::kOp) jrt::ArrayList<Pin*>(getPins())) {
     if (pin->netCount() != 0) {
       continue;
     }
-    jrt::TreeSet<int32_t>* nets = new jrt::TreeSet<int32_t>();
+    jrt::TreeSet<int32_t>* nets = new (jrt::kOp) jrt::TreeSet<int32_t>();
     bool ownFootprint = true;
     for (Pin* other : *pin->overlappingNettedPins()) {
       ownFootprint &= (other->getComponentId() == pin->getComponentId());
@@ -1256,7 +1256,7 @@ int32_t RoutingBoard::connectNetlessPadsToTheirFootprintsNet(jrt::Array<int32_t>
 }
 
 int32_t RoutingBoard::connectNetlessPadsToTheirFootprintsNet() {
-  return connectNetlessPadsToTheirFootprintsNet(new jrt::Array<int32_t>(1));
+  return connectNetlessPadsToTheirFootprintsNet(new (jrt::kOp) jrt::Array<int32_t>(1));
 }
 
 int32_t RoutingBoard::connectNetlessPads(bool kicadBoard, bool fixKicadFootprints,
@@ -1270,17 +1270,17 @@ int32_t RoutingBoard::connectNetlessPads(bool kicadBoard, bool fixKicadFootprint
   if (!fixKicadFootprints) {
     return 0;
   }
-  jrt::List<Pin*>* netless = new jrt::ArrayList<Pin*>();
+  jrt::List<Pin*>* netless = new (jrt::kOp) jrt::ArrayList<Pin*>();
   for (Pin* p : *getPins()) {
     if (p->netCount() == 0) {
       netless->add(p);
     }
   }
-  jrt::Map<Pin*, int32_t>* index = new jrt::IdentityHashMap<Pin*, int32_t>();
+  jrt::Map<Pin*, int32_t>* index = new (jrt::kOp) jrt::IdentityHashMap<Pin*, int32_t>();
   for (int32_t i = 0; i < netless->size(); i++) {
     index->put(netless->get(i), i);
   }
-  jrt::Array<int32_t>* parent = new jrt::Array<int32_t>(netless->size());
+  jrt::Array<int32_t>* parent = new (jrt::kOp) jrt::Array<int32_t>(netless->size());
   for (int32_t i = 0; i < parent->length; i++) {
     (*parent)[i] = i;
   }
@@ -1295,16 +1295,16 @@ int32_t RoutingBoard::connectNetlessPads(bool kicadBoard, bool fixKicadFootprint
       }
     }
   }
-  jrt::Map<int32_t, jrt::List<Pin*>*>* groups = new jrt::HashMap<int32_t, jrt::List<Pin*>*>();
+  jrt::Map<int32_t, jrt::List<Pin*>*>* groups = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
   for (int32_t i = 0; i < netless->size(); i++) {
     int32_t root = findRoot(parent, i);
     groups
         ->computeIfAbsent(root,
-                          [](int32_t) -> jrt::List<Pin*>* { return new jrt::ArrayList<Pin*>(); })
+                          [](int32_t) -> jrt::List<Pin*>* { return new (jrt::kOp) jrt::ArrayList<Pin*>(); })
         ->add(netless->get(i));
   }
   jrt::List<RoutingBoard_PinNetAssignment*>* assignments =
-      new jrt::ArrayList<RoutingBoard_PinNetAssignment*>();
+      new (jrt::kOp) jrt::ArrayList<RoutingBoard_PinNetAssignment*>();
   for (jrt::List<Pin*>* members : *groups->values()) {
     int32_t component = members->getFirst()->getComponentId();
     bool mismatchComponent = false;
@@ -1317,7 +1317,7 @@ int32_t RoutingBoard::connectNetlessPads(bool kicadBoard, bool fixKicadFootprint
     if (mismatchComponent) {
       continue;
     }
-    jrt::List<Pin*>* netted = new jrt::ArrayList<Pin*>();
+    jrt::List<Pin*>* netted = new (jrt::kOp) jrt::ArrayList<Pin*>();
     for (Pin* m : *members) {
       netted->addAll(m->copperOverlappingPins([](Pin* o) { return o->netCount() != 0; }));
     }
@@ -1335,7 +1335,7 @@ int32_t RoutingBoard::connectNetlessPads(bool kicadBoard, bool fixKicadFootprint
     }
     if (valid) {
       for (Pin* m : *members) {
-        assignments->add(new RoutingBoard_PinNetAssignment(m, firstNet));
+        assignments->add(new (jrt::kBoard) RoutingBoard_PinNetAssignment(m, firstNet));
       }
     }
   }
@@ -1355,12 +1355,12 @@ int32_t RoutingBoard::findRoot(jrt::Array<int32_t>* parent, int32_t i) {
 int32_t RoutingBoard::clusterNetTies() {
   // 1. Group pins by component ID (excluding board pins with componentId <= 0)
   jrt::Map<int32_t, jrt::List<Pin*>*>* pinsByComponent =
-      new jrt::HashMap<int32_t, jrt::List<Pin*>*>();
+      new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
   for (Pin* pin : *getPins()) {
     if (pin->getComponentId() > 0) {
       pinsByComponent
           ->computeIfAbsent(pin->getComponentId(),
-                            [](int32_t) -> jrt::List<Pin*>* { return new jrt::ArrayList<Pin*>(); })
+                            [](int32_t) -> jrt::List<Pin*>* { return new (jrt::kOp) jrt::ArrayList<Pin*>(); })
           ->add(pin);
     }
   }
@@ -1374,7 +1374,7 @@ int32_t RoutingBoard::clusterNetTies() {
       continue;
     }
 
-    jrt::Array<int32_t>* parent = new jrt::Array<int32_t>(count);
+    jrt::Array<int32_t>* parent = new (jrt::kOp) jrt::Array<int32_t>(count);
     for (int32_t i = 0; i < count; i++) {
       (*parent)[i] = i;
     }
@@ -1399,12 +1399,12 @@ int32_t RoutingBoard::clusterNetTies() {
     }
 
     // Group pin indices by their root representative
-    jrt::Map<int32_t, jrt::List<Pin*>*>* groups = new jrt::HashMap<int32_t, jrt::List<Pin*>*>();
+    jrt::Map<int32_t, jrt::List<Pin*>*>* groups = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
     for (int32_t i = 0; i < count; i++) {
       int32_t root = findRoot(parent, i);
       groups
           ->computeIfAbsent(root,
-                            [](int32_t) -> jrt::List<Pin*>* { return new jrt::ArrayList<Pin*>(); })
+                            [](int32_t) -> jrt::List<Pin*>* { return new (jrt::kOp) jrt::ArrayList<Pin*>(); })
           ->add(compPins->get(i));
     }
 
@@ -1443,7 +1443,7 @@ bool RoutingBoard::pinsOverlapCopper(Pin* p1, Pin* p2) {
 
 jrt::List<Item*>* RoutingBoard::getShoveCacheObstacles() {
   if (shoveCacheObstacles == nullptr) {
-    shoveCacheObstacles = new jrt::ArrayList<Item*>();
+    shoveCacheObstacles = new (jrt::kBoard) jrt::ArrayList<Item*>();
   }
   return shoveCacheObstacles;
 }
@@ -1454,13 +1454,13 @@ bool RoutingBoard::undo(jrt::Set<int32_t>* changedNets) { return getUndoFacade()
 
 bool RoutingBoard::redo(jrt::Set<int32_t>* changedNets) { return getUndoFacade()->redo(changedNets); }
 
-BoardStatistics* RoutingBoard::getStatistics() { return new BoardStatistics(this); }
+BoardStatistics* RoutingBoard::getStatistics() { return new (jrt::kOp) BoardStatistics(this); }
 
 RoutingBoard* RoutingBoard::deepCopy() { return getUndoFacade()->deepCopy(); }
 
 BasicBoard* RoutingBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {
-  RoutingBoard* copy = new RoutingBoard(BasicBoard_CopyTag{}, this);
-  if (itemMap == nullptr) itemMap = new jrt::IdentityHashMap<Item*, Item*>();
+  RoutingBoard* copy = new (jrt::kBoard) RoutingBoard(BasicBoard_CopyTag{}, this);
+  if (itemMap == nullptr) itemMap = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
   copy->copyItemListFrom(this, itemMap);
   // PORT NOTE: Java serialization makes the failure log's records point at the copied items;
   // re-copy it now that the old->new item map exists.
@@ -1471,21 +1471,21 @@ BasicBoard* RoutingBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>*
 
 RoutingBoardOperations* RoutingBoard::getOperations() {
   if (operations == nullptr) {
-    operations = new RoutingBoardOperations(this);
+    operations = new (jrt::kBoard) RoutingBoardOperations(this);
   }
   return operations;
 }
 
 RoutingBoardSearchFacade* RoutingBoard::getSearchFacade() {
   if (searchFacade == nullptr) {
-    searchFacade = new RoutingBoardSearchFacade(this);
+    searchFacade = new (jrt::kBoard) RoutingBoardSearchFacade(this);
   }
   return searchFacade;
 }
 
 RoutingBoardUndoFacade* RoutingBoard::getUndoFacade() {
   if (undoFacade == nullptr) {
-    undoFacade = new RoutingBoardUndoFacade(this);
+    undoFacade = new (jrt::kBoard) RoutingBoardUndoFacade(this);
   }
   return undoFacade;
 }

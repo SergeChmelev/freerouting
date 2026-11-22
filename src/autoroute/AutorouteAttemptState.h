@@ -36,7 +36,7 @@ inline std::string AutorouteAttemptState_toString(AutorouteAttemptState e) {
   return AutorouteAttemptState_name(e);
 }
 inline jrt::Array<AutorouteAttemptState>* AutorouteAttemptState_values() {
-  auto* a = new jrt::Array<AutorouteAttemptState>(9);
+  auto* a = new (jrt::kOp) jrt::Array<AutorouteAttemptState>(9);
   for (int32_t i = 0; i < 9; ++i) (*a)[i] = static_cast<AutorouteAttemptState>(i);
   return a;
 }

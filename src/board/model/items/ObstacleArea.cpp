@@ -49,13 +49,13 @@ ObstacleArea::ObstacleArea(Area* area, int32_t layer, Vector* translation, doubl
                            int32_t groupId, const std::optional<std::string>& name,
                            FixedState fixedState, BasicBoard* board)
     : ObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
-                   new jrt::Array<int32_t>(0), clearanceClassIndex, id, groupId, name, fixedState,
+                   new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex, id, groupId, name, fixedState,
                    board) {}
 
 Item* ObstacleArea::copy(int32_t id) {
-  auto* copiedNetNos = new jrt::Array<int32_t>(netNumbers->length);
+  auto* copiedNetNos = new (jrt::kOp) jrt::Array<int32_t>(netNumbers->length);
   jrt::arraycopy(netNumbers, 0, copiedNetNos, 0, netNumbers->length);
-  return new ObstacleArea(relativeArea, layer, translation, rotationInDegree, sideChanged,
+  return new (jrt::kBoard) ObstacleArea(relativeArea, layer, translation, rotationInDegree, sideChanged,
                           copiedNetNos, clearanceClassIndex(), id, getComponentId(), name,
                           getFixedState(), board);
 }
@@ -196,7 +196,7 @@ bool ObstacleArea::isSelectedByFilter(ItemSelectionFilter* filter) {
 }
 
 void ObstacleArea::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->appendBold(tm->getText("keepout"));
   int32_t cmpNo = this->getComponentId();
@@ -211,7 +211,7 @@ void ObstacleArea::printInfo(ItemInfoPrinter* printer, const std::string& locale
 }
 
 void ObstacleArea::printShapeInfo(ItemInfoPrinter* printer, const std::string& locale) {
-  TextManager* tm = new TextManager(jrt::className(this), locale);
+  TextManager* tm = new (jrt::kBoard) TextManager(jrt::className(this), locale);
 
   printer->append(" " + tm->getText("at") + " ");
   FloatPoint* center = this->getArea()->getBorder()->centreOfGravity();

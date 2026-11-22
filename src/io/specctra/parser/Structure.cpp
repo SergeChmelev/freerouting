@@ -103,10 +103,10 @@ std::string removeQuotes(const std::string& s) {
 // -------------------------------------------------------------------------------------------------
 
 Structure_BoardConstructionInfo::Structure_BoardConstructionInfo()
-    : layerInfo(new jrt::LinkedList<Layer*>()),
-      outlineShapes(new jrt::LinkedList<Shape*>()),
-      defaultRules(new jrt::LinkedList<Rule*>()),
-      layerDependentRules(new jrt::LinkedList<Structure_LayerRule*>()) {}
+    : layerInfo(new (jrt::kOp) jrt::LinkedList<Layer*>()),
+      outlineShapes(new (jrt::kOp) jrt::LinkedList<Shape*>()),
+      defaultRules(new (jrt::kOp) jrt::LinkedList<Rule*>()),
+      layerDependentRules(new (jrt::kOp) jrt::LinkedList<Structure_LayerRule*>()) {}
 
 Structure_OutlineShape::Structure_OutlineShape(fr::PolylineShape* shape) : shape(shape) {
   boundingBox = shape->boundingBox();
@@ -235,7 +235,7 @@ void Structure::writeBoundaries(WriteScopeParameter* scopeParameter) {
   scopeParameter->file->write("boundary");
   fr::IntBox* bounds = scopeParameter->board->getBoundingBox();
   jrt::Array<double>* rectCoor = scopeParameter->coordinateTransform->boardToDsn(bounds);
-  Rectangle* boundingRectangle = new Rectangle(Layer::PCB(), rectCoor);
+  Rectangle* boundingRectangle = new (jrt::kOp) Rectangle(Layer::PCB(), rectCoor);
   boundingRectangle->writeScope(scopeParameter->file, scopeParameter->identifierType);
   scopeParameter->file->endScope();
   // lookup the outline in the board
@@ -323,12 +323,12 @@ void Structure::writeKeepoutScope(WriteScopeParameter* scopeParameter, fr::Obsta
   fr::Area* keepoutArea = keepout->getArea();
   int32_t layerIndex = keepout->getLayer();
   fr::Layer* boardLayer = (*scopeParameter->board->layerStructure->layers)[layerIndex];
-  Layer* const keepoutLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
+  Layer* const keepoutLayer = new (jrt::kOp) Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
   if (auto* shape = jrt::fast_cast<fr::Shape>(keepoutArea)) {
     boundaryShape = shape;
-    holes = new jrt::Array<fr::Shape*>(0);
+    holes = new (jrt::kOp) jrt::Array<fr::Shape*>(0);
   } else {
     boundaryShape = keepoutArea->getBorder();
     holes = keepoutArea->getHoles();
@@ -428,7 +428,7 @@ bool Structure::readLayerScope(IJFlexScanner* scanner,
 
     std::string layerString = scanner->nextString();
 
-    jrt::Collection<std::string>* netNames = new jrt::LinkedList<std::string>();
+    jrt::Collection<std::string>* netNames = new (jrt::kOp) jrt::LinkedList<std::string>();
     jrt::Object* nextToken = scanner->nextToken();
     while (nextToken != Keyword::CLOSED_BRACKET()) {
       if (nextToken != Keyword::OPEN_BRACKET()) {
@@ -468,7 +468,7 @@ bool Structure::readLayerScope(IJFlexScanner* scanner,
       } else if (nextToken == Keyword::RULE()) {
         jrt::Collection<Rule*>* currentRules = Rule::readScope(scanner);
         boardConstructionInfo->layerDependentRules->add(
-            new Structure_LayerRule(layerString, currentRules));
+            new (jrt::kOp) Structure_LayerRule(layerString, currentRules));
       } else if (nextToken == Keyword::USE_NET()) {
         for (;;) {
           scanner->yybegin(SpecctraDsnStreamReader::NAME);
@@ -490,7 +490,7 @@ bool Structure::readLayerScope(IJFlexScanner* scanner,
     }
     if (layerOk) {
       Layer* const currentLayer =
-          new Layer(layerString, boardConstructionInfo->foundLayerCount, isSignal, netNames);
+          new (jrt::kOp) Layer(layerString, boardConstructionInfo->foundLayerCount, isSignal, netNames);
       boardConstructionInfo->layerInfo->add(currentLayer);
       ++boardConstructionInfo->foundLayerCount;
     }
@@ -503,8 +503,8 @@ bool Structure::readLayerScope(IJFlexScanner* scanner,
 
 jrt::Collection<std::string>* Structure::readViaPadstacks(IJFlexScanner* scanner) {
   try {
-    jrt::Collection<std::string>* normalVias = new jrt::LinkedList<std::string>();
-    jrt::Collection<std::string>* spareVias = new jrt::LinkedList<std::string>();
+    jrt::Collection<std::string>* normalVias = new (jrt::kOp) jrt::LinkedList<std::string>();
+    jrt::Collection<std::string>* spareVias = new (jrt::kOp) jrt::LinkedList<std::string>();
     for (;;) {
       jrt::Object* nextToken = scanner->nextToken();
       if (nextToken == Keyword::CLOSED_BRACKET()) {
@@ -625,7 +625,7 @@ void Structure::insertMissingPowerPlanes(jrt::Collection<Layer*>* layerInfo, Net
     }
     if (!conductionAreaFound && !currentLayer->netNames->isEmpty()) {
       std::string currentNetName = currentLayer->netNames->iterator()->next();
-      Net_Id* currentNetId = new Net_Id(currentNetName, 1);
+      Net_Id* currentNetId = new (jrt::kOp) Net_Id(currentNetName, 1);
       if (!netlist->contains(currentNetId)) {
         Net* newNet = netlist->addNet(currentNetId);
         if (newNet != nullptr) {
@@ -641,7 +641,7 @@ void Structure::insertMissingPowerPlanes(jrt::Collection<Layer*>* layerInfo, Net
           continue;
         }
       }
-      jrt::Array<int32_t>* netNumbers = new jrt::Array<int32_t>(1);
+      jrt::Array<int32_t>* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
       (*netNumbers)[0] = currentNet->netNumber;
       board->insertConductionArea(board->boundingBox, currentLayer->no, netNumbers,
                                   fr::BoardRules::clearanceClassNone(), false,
@@ -653,10 +653,10 @@ void Structure::insertMissingPowerPlanes(jrt::Collection<Layer*>* layerInfo, Net
 jrt::Collection<fr::PolylineShape*>* Structure::separateHoles(
     jrt::Collection<fr::PolylineShape*>* outlineShapes) {
   jrt::Array<Structure_OutlineShape*>* shapes =
-      new jrt::Array<Structure_OutlineShape*>(outlineShapes->size());
+      new (jrt::kOp) jrt::Array<Structure_OutlineShape*>(outlineShapes->size());
   jrt::Iterator<fr::PolylineShape*>* it = outlineShapes->iterator();
   for (int32_t i = 0; i < shapes->length; i++) {
-    (*shapes)[i] = new Structure_OutlineShape(it->next());
+    (*shapes)[i] = new (jrt::kOp) Structure_OutlineShape(it->next());
   }
   for (int32_t i = 0; i < shapes->length; i++) {
     Structure_OutlineShape* currentShape = (*shapes)[i];
@@ -672,7 +672,7 @@ jrt::Collection<fr::PolylineShape*>* Structure::separateHoles(
       currentShape->isHole = otherShape->containsAllCorners(currentShape);
     }
   }
-  jrt::Collection<fr::PolylineShape*>* holeList = new jrt::LinkedList<fr::PolylineShape*>();
+  jrt::Collection<fr::PolylineShape*>* holeList = new (jrt::kOp) jrt::LinkedList<fr::PolylineShape*>();
   for (int32_t i = 0; i < shapes->length; i++) {
     if ((*shapes)[i]->isHole) {
       outlineShapes->remove((*shapes)[i]->shape);
@@ -768,7 +768,7 @@ bool Structure::setClearanceRule(Rule_ClearanceRule* rule, int32_t layerIndex,
       result = true;
       continue;
     }
-    jrt::Array<std::string>* currentPair = new jrt::Array<std::string>(2);
+    jrt::Array<std::string>* currentPair = new (jrt::kOp) jrt::Array<std::string>(2);
     if (rule->clearanceClassPairs->size() == 2) {
       jrt::Iterator<std::string>* iterator = rule->clearanceClassPairs->iterator();
       (*currentPair)[0] = iterator->next();
@@ -971,20 +971,20 @@ void Structure::insertKeepout(fr::BasicBoard* board, fr::Area* area, int32_t lay
 }
 
 bool Structure::readScope(ReadScopeParameter* scopeParameter) {
-  Structure_BoardConstructionInfo* boardConstructionInfo = new Structure_BoardConstructionInfo();
+  Structure_BoardConstructionInfo* boardConstructionInfo = new (jrt::kOp) Structure_BoardConstructionInfo();
 
   // If true, components on the back side are rotated before mirroring
   // The correct location is the scope PlaceControl, but Electra writes it here.
   bool flipStyleRotateFirst = false;
 
   jrt::Collection<Shape_ReadAreaScopeResult*>* keepoutList =
-      new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
+      new (jrt::kOp) jrt::LinkedList<Shape_ReadAreaScopeResult*>();
   jrt::Collection<Shape_ReadAreaScopeResult*>* viaKeepoutList =
-      new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
+      new (jrt::kOp) jrt::LinkedList<Shape_ReadAreaScopeResult*>();
   jrt::Collection<Shape_ReadAreaScopeResult*>* wireKeepoutList =
-      new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
+      new (jrt::kOp) jrt::LinkedList<Shape_ReadAreaScopeResult*>();
   jrt::Collection<Shape_ReadAreaScopeResult*>* placeKeepoutList =
-      new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
+      new (jrt::kOp) jrt::LinkedList<Shape_ReadAreaScopeResult*>();
 
   jrt::Object* nextToken = nullptr;
   for (;;) {
@@ -1013,7 +1013,7 @@ bool Structure::readScope(ReadScopeParameter* scopeParameter) {
                                 scopeParameter->stringQuote);
         if (scopeParameter->layerStructure != nullptr) {
           // correct the layerStructure because another layer isr read
-          scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+          scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
         }
       } else if (nextToken == Keyword::VIA()) {
         scopeParameter->viaPadstackNames = readViaPadstacks(scopeParameter->scanner);
@@ -1021,36 +1021,36 @@ bool Structure::readScope(ReadScopeParameter* scopeParameter) {
         addAllNonNull(boardConstructionInfo->defaultRules, Rule::readScope(scopeParameter->scanner));
       } else if (nextToken == Keyword::KEEPOUT()) {
         if (scopeParameter->layerStructure == nullptr) {
-          scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+          scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
         }
         keepoutList->add(
             Shape::readAreaScope(scopeParameter->scanner, scopeParameter->layerStructure, false));
       } else if (nextToken == Keyword::VIA_KEEPOUT()) {
         if (scopeParameter->layerStructure == nullptr) {
-          scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+          scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
         }
         viaKeepoutList->add(
             Shape::readAreaScope(scopeParameter->scanner, scopeParameter->layerStructure, false));
       } else if (nextToken == Keyword::WIRE_KEEPOUT()) {
         if (scopeParameter->layerStructure == nullptr) {
-          scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+          scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
         }
         wireKeepoutList->add(
             Shape::readAreaScope(scopeParameter->scanner, scopeParameter->layerStructure, false));
       } else if (nextToken == Keyword::PLACE_KEEPOUT()) {
         if (scopeParameter->layerStructure == nullptr) {
-          scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+          scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
         }
         placeKeepoutList->add(
             Shape::readAreaScope(scopeParameter->scanner, scopeParameter->layerStructure, false));
       } else if (nextToken == Keyword::PLANE_SCOPE()) {
         if (scopeParameter->layerStructure == nullptr) {
-          scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+          scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
         }
         Keyword::PLANE_SCOPE()->readScope(scopeParameter);
       } else if (nextToken == Keyword::AUTOROUTE_SETTINGS()) {
         if (scopeParameter->layerStructure == nullptr) {
-          scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+          scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
         }
         scopeParameter->autorouteSettings =
             AutorouteSettings::readScope(scopeParameter->scanner, scopeParameter->layerStructure);
@@ -1117,7 +1117,7 @@ bool Structure::readScope(ReadScopeParameter* scopeParameter) {
 
   // insert the planes.
   for (ReadScopeParameter_PlaneInfo* planeInfo : *scopeParameter->planeList) {
-    Net_Id* netId = new Net_Id(planeInfo->netName, 1);
+    Net_Id* netId = new (jrt::kOp) Net_Id(planeInfo->netName, 1);
     if (!scopeParameter->netlist->contains(netId)) {
       Net* newNet = scopeParameter->netlist->addNet(netId);
       if (newNet != nullptr) {
@@ -1147,7 +1147,7 @@ bool Structure::readScope(ReadScopeParameter* scopeParameter) {
         clearanceClassIndex = currentNet->getNetClass()->defaultItemClearanceClasses->get(
             fr::DefaultItemClearanceClasses_ItemClass::AREA);
       }
-      jrt::Array<int32_t>* netNumbers = new jrt::Array<int32_t>(1);
+      jrt::Array<int32_t>* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
       (*netNumbers)[0] = currentNet->netNumber;
       fr::ConductionArea* insertedPlane =
           board->insertConductionArea(planeArea, currentLayer->no, netNumbers,
@@ -1180,14 +1180,14 @@ bool Structure::readScope(ReadScopeParameter* scopeParameter) {
 
 void Structure::promotePowerLayersWithoutPlane(
     ReadScopeParameter* scopeParameter, Structure_BoardConstructionInfo* boardConstructionInfo) {
-  jrt::Set<int32_t>* layersWithPlane = new jrt::HashSet<int32_t>();
+  jrt::Set<int32_t>* layersWithPlane = new (jrt::kOp) jrt::HashSet<int32_t>();
   for (ReadScopeParameter_PlaneInfo* planeInfo : *scopeParameter->planeList) {
     for (Shape* planeShape : *planeInfo->area->shapeList) {
       layersWithPlane->add(planeShape->layer->no);
     }
   }
   jrt::List<Layer*>* updatedLayers =
-      new jrt::ArrayList<Layer*>(boardConstructionInfo->layerInfo->size());
+      new (jrt::kOp) jrt::ArrayList<Layer*>(boardConstructionInfo->layerInfo->size());
   bool changed = false;
   for (Layer* currentLayer : *boardConstructionInfo->layerInfo) {
     if (currentLayer->isSignal || !currentLayer->netNames->isEmpty() ||
@@ -1204,7 +1204,7 @@ void Structure::promotePowerLayersWithoutPlane(
                      "' is declared as a power layer and its copper is given as wire polygon(s) of"
                      " net(s) " +
                      jrt::str(wireNets) + " in the wiring. It stays a plane layer.");
-      updatedLayers->add(new Layer(currentLayer->name, currentLayer->no, false, wireNets));
+      updatedLayers->add(new (jrt::kOp) Layer(currentLayer->name, currentLayer->no, false, wireNets));
       changed = true;
     } else {
       std::string message = "Layer '" + currentLayer->name +
@@ -1216,7 +1216,7 @@ void Structure::promotePowerLayersWithoutPlane(
         FRLogger::debug(message);
       }
       updatedLayers->add(
-          new Layer(currentLayer->name, currentLayer->no, true, currentLayer->netNames));
+          new (jrt::kOp) Layer(currentLayer->name, currentLayer->no, true, currentLayer->netNames));
       changed = true;
     }
   }
@@ -1252,7 +1252,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
     boardConstructionInfo->boundingShape = boundingBox;
   }
   Rectangle* boundingBox = boardConstructionInfo->boundingShape->boundingBox();
-  jrt::Array<fr::Layer*>* boardLayerArr = new jrt::Array<fr::Layer*>(layerCount);
+  jrt::Array<fr::Layer*>* boardLayerArr = new (jrt::kOp) jrt::Array<fr::Layer*>(layerCount);
   jrt::Iterator<Layer*>* it = boardConstructionInfo->layerInfo->iterator();
   for (int32_t i = 0; i < layerCount; i++) {
     Layer* const currentLayer = it->next();
@@ -1261,10 +1261,10 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
                      scopeParameter->scanner->getScopeIdentifier() + "'");
       return false;
     }
-    (*boardLayerArr)[i] = new fr::Layer(currentLayer->name, currentLayer->isSignal);
+    (*boardLayerArr)[i] = new (jrt::kOp) fr::Layer(currentLayer->name, currentLayer->isSignal);
   }
-  fr::LayerStructure* const boardLayerStructure = new fr::LayerStructure(boardLayerArr);
-  scopeParameter->layerStructure = new LayerStructure(boardConstructionInfo->layerInfo);
+  fr::LayerStructure* const boardLayerStructure = new (jrt::kOp) fr::LayerStructure(boardLayerArr);
+  scopeParameter->layerStructure = new (jrt::kOp) LayerStructure(boardConstructionInfo->layerInfo);
 
   // Calculate an approximate scaling between dsn coordinates and board
   // coordinates.
@@ -1285,7 +1285,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
     maxCoor /= 10.0;
   }
 
-  scopeParameter->coordinateTransform = new fr::io::CoordinateTransform(scaleFactor, 0, 0);
+  scopeParameter->coordinateTransform = new (jrt::kBoard) fr::io::CoordinateTransform(scaleFactor, 0, 0);
 
   fr::IntBox* bounds =
       jrt::fast_cast<fr::IntBox>(boundingBox->transformToBoard(scopeParameter->coordinateTransform));
@@ -1295,7 +1295,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
   bounds = bounds->offset(1000);
 
   jrt::Collection<fr::PolylineShape*>* boardOutlineShapes =
-      new jrt::LinkedList<fr::PolylineShape*>();
+      new (jrt::kOp) jrt::LinkedList<fr::PolylineShape*>();
   for (Shape* currentShape : *boardConstructionInfo->outlineShapes) {
     if (auto* currentPath = jrt::fast_cast<PolygonPath>(currentShape)) {
       if (currentPath->width != 0) {
@@ -1303,7 +1303,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
         // not
         // implemented
         // for shapes, which are not convex.
-        currentShape = new PolygonPath(currentPath->layer, 0, currentPath->coordinateArr);
+        currentShape = new (jrt::kOp) PolygonPath(currentPath->layer, 0, currentPath->coordinateArr);
       }
     }
     fr::Shape* transformed = currentShape->transformToBoard(scopeParameter->coordinateTransform);
@@ -1328,13 +1328,13 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
   jrt::Collection<fr::PolylineShape*>* const holeShapes = separateHoles(boardOutlineShapes);
   fr::ClearanceMatrix* clearanceMatrix =
       fr::ClearanceMatrix::getDefaultInstance(boardLayerStructure, 0);
-  fr::BoardRules* boardRules = new fr::BoardRules(boardLayerStructure, clearanceMatrix);
+  fr::BoardRules* boardRules = new (jrt::kBoard) fr::BoardRules(boardLayerStructure, clearanceMatrix);
   fr::Communication_SpecctraParserInfo* specctraParserInfo =
-      new fr::Communication_SpecctraParserInfo(
+      new (jrt::kBoard) fr::Communication_SpecctraParserInfo(
           scopeParameter->stringQuote, scopeParameter->hostCad, scopeParameter->hostVersion,
           scopeParameter->constants, scopeParameter->writeResolution,
           scopeParameter->dsnFileGeneratedByHost);
-  fr::Communication* boardCommunication = new fr::Communication(
+  fr::Communication* boardCommunication = new (jrt::kBoard) fr::Communication(
       scopeParameter->unit, scopeParameter->resolution, specctraParserInfo,
       scopeParameter->coordinateTransform, scopeParameter->idGenerator, scopeParameter->observers);
 
@@ -1345,7 +1345,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
   }
 
   jrt::Array<fr::PolylineShape*>* outlineShapes =
-      new jrt::Array<fr::PolylineShape*>(boardOutlineShapes->size());
+      new (jrt::kGeom) jrt::Array<fr::PolylineShape*>(boardOutlineShapes->size());
   jrt::Iterator<fr::PolylineShape*>* it2 = boardOutlineShapes->iterator();
   for (int32_t i = 0; i < outlineShapes->length; i++) {
     (*outlineShapes)[i] = it2->next();

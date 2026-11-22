@@ -126,7 +126,7 @@ void Wiring::writeWireScope(WriteScopeParameter* scopeParameter, fr::Trace* wire
   }
   int32_t layerIndex = currentWire->getLayer();
   fr::Layer* boardLayer = (*scopeParameter->board->layerStructure->layers)[layerIndex];
-  Layer* currentLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
+  Layer* currentLayer = new (jrt::kOp) Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   const double wireWidth =
       scopeParameter->coordinateTransform->boardToDsn(2 * currentWire->getHalfWidth());
   fr::Net* wireNet = nullptr;
@@ -142,17 +142,17 @@ void Wiring::writeWireScope(WriteScopeParameter* scopeParameter, fr::Trace* wire
 
   if (scopeParameter->compatMode) {
     jrt::Array<fr::Point*>* corners = currentWire->polyline()->corners();
-    auto* floatCornerArr = new jrt::Array<fr::FloatPoint*>(corners->length);
+    auto* floatCornerArr = new (jrt::kGeom) jrt::Array<fr::FloatPoint*>(corners->length);
     for (int32_t i = 0; i < corners->length; i++) {
       (*floatCornerArr)[i] = (*corners)[i]->toFloat();
     }
     jrt::Array<double>* coors = scopeParameter->coordinateTransform->boardToDsn(floatCornerArr);
-    auto* currentPath = new PolygonPath(currentLayer, wireWidth, coors);
+    auto* currentPath = new (jrt::kOp) PolygonPath(currentLayer, wireWidth, coors);
     currentPath->writeScope(scopeParameter->file, scopeParameter->identifierType);
   } else {
     jrt::Array<double>* coors =
         scopeParameter->coordinateTransform->boardToDsn(currentWire->polyline()->lines);
-    auto* currentPath = new PolylinePath(currentLayer, wireWidth, coors);
+    auto* currentPath = new (jrt::kOp) PolylinePath(currentLayer, wireWidth, coors);
     currentPath->writeScope(scopeParameter->file, scopeParameter->identifierType);
   }
   writeNet(wireNet, scopeParameter->file, scopeParameter->identifierType);
@@ -174,12 +174,12 @@ void Wiring::writeConductionAreaScope(WriteScopeParameter* scopeParameter,
   fr::Area* currentArea = conductionArea->getArea();
   int32_t layerIndex = conductionArea->getLayer();
   fr::Layer* boardLayer = (*scopeParameter->board->layerStructure->layers)[layerIndex];
-  Layer* conductionLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
+  Layer* conductionLayer = new (jrt::kOp) Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
   if (auto* shape = jrt::fast_cast<fr::Shape>(currentArea)) {
     boundaryShape = shape;
-    holes = new jrt::Array<fr::Shape*>(0);
+    holes = new (jrt::kOp) jrt::Array<fr::Shape*>(0);
   } else {
     boundaryShape = currentArea->getBorder();
     holes = currentArea->getHoles();
@@ -225,7 +225,7 @@ void Wiring::writeFixedState(fr::IndentFileWriter* file, fr::FixedState fixedSta
 }
 
 jrt::Collection<fr::Net*>* Wiring::getSubnets(Net_Id* netId, fr::BoardRules* rules) {
-  jrt::Collection<fr::Net*>* foundNets = new jrt::LinkedList<fr::Net*>();
+  jrt::Collection<fr::Net*>* foundNets = new (jrt::kOp) jrt::LinkedList<fr::Net*>();
   if (netId != nullptr) {
     if (netId->subnetNumber > 0) {
       fr::Net* foundNet = rules->nets->get(netId->name, netId->subnetNumber);
@@ -241,7 +241,7 @@ jrt::Collection<fr::Net*>* Wiring::getSubnets(Net_Id* netId, fr::BoardRules* rul
 
 bool Wiring::viaExists(fr::IntPoint* location, fr::Padstack* padstack,
                        jrt::Array<int32_t>* netNumbers, fr::BasicBoard* board) {
-  auto* filter = new fr::ItemSelectionFilter(fr::ItemSelectionFilter_SelectableChoices::VIAS);
+  auto* filter = new (jrt::kOp) fr::ItemSelectionFilter(fr::ItemSelectionFilter_SelectableChoices::VIAS);
   int32_t fromLayer = padstack->fromLayer();
   int32_t toLayer = padstack->toLayer();
   jrt::Collection<fr::Item*>* pickedItems = board->pickItems(location, padstack->fromLayer(), filter);
@@ -296,7 +296,7 @@ Net_Id* Wiring::readNetId(IJFlexScanner* scanner) {
       FRLogger::warn("Wiring.read_net_id: closing bracket expected at '" +
                      scanner->getScopeIdentifier() + "'");
     }
-    return new Net_Id(netName, subnetNumber);
+    return new (jrt::kOp) Net_Id(netName, subnetNumber);
   } catch (const jrt::IOException& e) {
     FRLogger::error("DsnFile.read_string_scope: IO error scanning file", &e);
     return nullptr;
@@ -350,7 +350,7 @@ bool Wiring::readScope(ReadScopeParameter* scopeParameter) {
 }
 
 void Wiring::connectWireEndsInsidePads(fr::BasicBoard* board) {
-  auto* wires = new jrt::LinkedList<fr::Trace*>();
+  auto* wires = new (jrt::kOp) jrt::LinkedList<fr::Trace*>();
   wires->addAll(board->getTraces());
   for (fr::Trace* wire : *wires) {
     connectEndToEnclosingPad(board, wire, wire->firstCorner());
@@ -363,7 +363,7 @@ void Wiring::connectEndToEnclosingPad(fr::BasicBoard* board, fr::Trace* wire, fr
   if (pad == nullptr || pad->getCenter()->equals(end) || isConnected(wire, pad)) {
     return;
   }
-  auto* stub = new fr::Polyline(end, pad->getCenter());
+  auto* stub = new (jrt::kGeom) fr::Polyline(end, pad->getCenter());
   int32_t layer = wire->getLayer();
   int32_t halfWidth = wire->getHalfWidth();
   int32_t clearanceClass = wire->clearanceClassIndex();
@@ -401,7 +401,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
   fr::FixedState fixed = fr::FixedState::UNFIXED;
   Path* path = nullptr;         // Used, if a trace is read.
   Shape* borderShape = nullptr;  // Used, if a conduction area is read.
-  jrt::Collection<Shape*>* holeList = new jrt::LinkedList<Shape*>();
+  jrt::Collection<Shape*>* holeList = new (jrt::kOp) jrt::LinkedList<Shape*>();
   jrt::Object* nextToken = nullptr;
   for (;;) {
     jrt::Object* prevToken = nextToken;
@@ -474,7 +474,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
 
   fr::NetClass* netClass = board->rules->getDefaultNetClass();
   jrt::Collection<fr::Net*>* foundNets = getSubnets(netId, board->rules);
-  auto* netNumbers = new jrt::Array<int32_t>(foundNets->size());
+  auto* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(foundNets->size());
   int32_t currentIndex = 0;
   for (fr::Net* currentNet : *foundNets) {
     (*netNumbers)[currentIndex] = currentNet->netNumber;
@@ -512,7 +512,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
       clearanceClassIndex = netClass->defaultItemClearanceClasses->get(
           fr::DefaultItemClearanceClasses_ItemClass::AREA);
     }
-    jrt::Collection<Shape*>* area = new jrt::LinkedList<Shape*>();
+    jrt::Collection<Shape*>* area = new (jrt::kOp) jrt::LinkedList<Shape*>();
     area->add(borderShape);
     area->addAll(holeList);
     fr::Area* conductionArea =
@@ -524,8 +524,8 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
       clearanceClassIndex = netClass->defaultItemClearanceClasses->get(
           fr::DefaultItemClearanceClasses_ItemClass::TRACE);
     }
-    auto* corners = new jrt::Array<fr::Point*>(path->coordinateArr->length / 2);
-    auto* currentPoint = new jrt::Array<double>(2);
+    auto* corners = new (jrt::kGeom) jrt::Array<fr::Point*>(path->coordinateArr->length / 2);
+    auto* currentPoint = new (jrt::kOp) jrt::Array<double>(2);
     for (int32_t i = 0; i < corners->length; i++) {
       (*currentPoint)[0] = (*path->coordinateArr)[2 * i];
       (*currentPoint)[1] = (*path->coordinateArr)[2 * i + 1];
@@ -542,7 +542,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
       (*corners)[i] = currentCorner->round();
     }
 
-    auto* polygon = new fr::Polygon(corners);
+    auto* polygon = new (jrt::kOp) fr::Polygon(corners);
 
     // if it doesn't have two different points, it's not a valid polygon, so we must skip it
     jrt::Array<fr::Point*>* polygonCorners = polygon->cornerArray();
@@ -559,7 +559,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
     }
     bool isDegenerate = polygonCorners->length < 2 || !hasDistinctCorner;
     if (!isDegenerate) {
-      auto* tracePolyline = new fr::Polyline(polygon);
+      auto* tracePolyline = new (jrt::kGeom) fr::Polyline(polygon);
       // Traces are not yet normalized here because cycles may be removed premature.
       result = board->insertTraceWithoutCleaning(tracePolyline, layerIndex, halfWidth, netNumbers,
                                                  clearanceClassIndex, fixed);
@@ -576,8 +576,8 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
       clearanceClassIndex = netClass->defaultItemClearanceClasses->get(
           fr::DefaultItemClearanceClasses_ItemClass::TRACE);
     }
-    auto* lines = new jrt::Array<fr::Line*>(path->coordinateArr->length / 4);
-    auto* currentPoint = new jrt::Array<double>(2);
+    auto* lines = new (jrt::kGeom) jrt::Array<fr::Line*>(path->coordinateArr->length / 4);
+    auto* currentPoint = new (jrt::kOp) jrt::Array<double>(2);
     for (int32_t i = 0; i < lines->length; i++) {
       (*currentPoint)[0] = (*path->coordinateArr)[4 * i];
       (*currentPoint)[1] = (*path->coordinateArr)[4 * i + 1];
@@ -585,9 +585,9 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
       (*currentPoint)[0] = (*path->coordinateArr)[4 * i + 2];
       (*currentPoint)[1] = (*path->coordinateArr)[4 * i + 3];
       fr::FloatPoint* currentB = scopeParameter->coordinateTransform->dsnToBoard(currentPoint);
-      (*lines)[i] = new fr::Line(currentA->round(), currentB->round());
+      (*lines)[i] = new (jrt::kGeom) fr::Line(currentA->round(), currentB->round());
     }
-    auto* tracePolyline = new fr::Polyline(lines);
+    auto* tracePolyline = new (jrt::kGeom) fr::Polyline(lines);
     result = board->insertTraceWithoutCleaning(tracePolyline, layerIndex, halfWidth, netNumbers,
                                                clearanceClassIndex, fixed);
   } else {
@@ -635,7 +635,7 @@ bool Wiring::readViaScope(ReadScopeParameter* scopeParameter) {
     std::string padstackName = padstackNameToken->value;
     scopeParameter->scanner->setScopeIdentifier(padstackName);
     // read the location
-    auto* location = new jrt::Array<double>(2);
+    auto* location = new (jrt::kOp) jrt::Array<double>(2);
     for (int32_t i = 0; i < 2; i++) {
       nextToken = scopeParameter->scanner->nextToken();
       if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
@@ -697,7 +697,7 @@ bool Wiring::readViaScope(ReadScopeParameter* scopeParameter) {
       FRLogger::warn(msg);
       scopeParameter->warnings->add(msg);
     }
-    auto* netNumbers = new jrt::Array<int32_t>(foundNets->size());
+    auto* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(foundNets->size());
     int32_t currentIndex = 0;
     for (fr::Net* currentNet : *foundNets) {
       (*netNumbers)[currentIndex++] = currentNet->netNumber;

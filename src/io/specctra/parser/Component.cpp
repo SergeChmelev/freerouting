@@ -31,7 +31,7 @@ ComponentPlacement* Component::readScope(IJFlexScanner* scanner) {
                    scanner->getScopeIdentifier() + "'");
     return nullptr;
   }
-  ComponentPlacement* componentPlacement = new ComponentPlacement(name->value);
+  ComponentPlacement* componentPlacement = new (jrt::kOp) ComponentPlacement(name->value);
   jrt::Object* prevToken = nextToken;
   nextToken = scanner->nextToken();
   while (nextToken != CLOSED_BRACKET() && nextToken != nullptr) {
@@ -178,18 +178,18 @@ fr::ObstacleArea* Component::getKeepout(fr::BasicBoard* board, int32_t component
 ComponentPlacement_ComponentLocation* Component::readPlaceScope(IJFlexScanner* scanner) {
   try {
     jrt::Map<std::string, ComponentPlacement_ItemClearanceInfo*>* pinInfos =
-        new jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
+        new (jrt::kOp) jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
     jrt::Map<std::string, ComponentPlacement_ItemClearanceInfo*>* keepoutInfos =
-        new jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
+        new (jrt::kOp) jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
     jrt::Map<std::string, ComponentPlacement_ItemClearanceInfo*>* viaKeepoutInfos =
-        new jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
+        new (jrt::kOp) jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
     jrt::Map<std::string, ComponentPlacement_ItemClearanceInfo*>* placeKeepoutInfos =
-        new jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
+        new (jrt::kOp) jrt::TreeMap<std::string, ComponentPlacement_ItemClearanceInfo*>();
 
     std::string name = scanner->nextString(true);
 
     jrt::Object* nextToken;
-    jrt::Array<double>* location = new jrt::Array<double>(2);
+    jrt::Array<double>* location = new (jrt::kOp) jrt::Array<double>(2);
     for (int32_t i = 0; i < 2; i++) {
       nextToken = scanner->nextToken();
       if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
@@ -198,7 +198,7 @@ ComponentPlacement_ComponentLocation* Component::readPlaceScope(IJFlexScanner* s
         (*location)[i] = integer->value;
       } else if (nextToken == CLOSED_BRACKET()) {
         // component is not yet placed
-        return new ComponentPlacement_ComponentLocation(name, nullptr, true, 0, false, pinInfos,
+        return new (jrt::kOp) ComponentPlacement_ComponentLocation(name, nullptr, true, 0, false, pinInfos,
                                                         keepoutInfos, viaKeepoutInfos,
                                                         placeKeepoutInfos, std::nullopt);
       } else {
@@ -274,7 +274,7 @@ ComponentPlacement_ComponentLocation* Component::readPlaceScope(IJFlexScanner* s
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    return new ComponentPlacement_ComponentLocation(name, location, isFront, rotation,
+    return new (jrt::kOp) ComponentPlacement_ComponentLocation(name, location, isFront, rotation,
                                                     positionFixed, pinInfos, keepoutInfos,
                                                     viaKeepoutInfos, placeKeepoutInfos,
                                                     partNumber);
@@ -317,7 +317,7 @@ ComponentPlacement_ItemClearanceInfo* Component::readItemClearanceInfo(IJFlexSca
                    scanner->getScopeIdentifier() + "'");
     return nullptr;
   }
-  return new ComponentPlacement_ItemClearanceInfo(name->value, clClassName);
+  return new (jrt::kOp) ComponentPlacement_ItemClearanceInfo(name->value, clClassName);
 }
 
 bool Component::readLockType(IJFlexScanner* scanner) {

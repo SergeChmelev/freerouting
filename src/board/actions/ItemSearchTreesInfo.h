@@ -30,7 +30,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
 
  public:
   /** Creates a new instance of ItemSearchTreeEntries. */
-  ItemSearchTreesInfo() { this->treeList = new jrt::LinkedList<ItemSearchTreesInfo_SearchTreeInfo*>(); }
+  ItemSearchTreesInfo() { this->treeList = new (jrt::kOp) jrt::LinkedList<ItemSearchTreesInfo_SearchTreeInfo*>(); }
 
   /**
    * Returns the tree entries for the tree with identification number treeNo, or null, if for this
@@ -53,7 +53,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
         return;
       }
     }
-    auto* newTreeInfo = new ItemSearchTreesInfo_SearchTreeInfo(tree);
+    auto* newTreeInfo = new (jrt::kOp) ItemSearchTreesInfo_SearchTreeInfo(tree);
     newTreeInfo->entryArr = treeEntries;
     this->treeList->add(newTreeInfo);
   }
@@ -79,7 +79,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
         return;
       }
     }
-    auto* newTreeInfo = new ItemSearchTreesInfo_SearchTreeInfo(tree);
+    auto* newTreeInfo = new (jrt::kOp) ItemSearchTreesInfo_SearchTreeInfo(tree);
     newTreeInfo->precalculatedTreeShapes = tileShapes;
     this->treeList->add(newTreeInfo);
   }

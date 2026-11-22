@@ -83,7 +83,7 @@ bool MazeTraceShover::checkShoveTraceLine(
     }
     bool shoveIntoDirectionOfTraceStart =
         doorCenter->distanceSquare(corner2) < doorCenter->distanceSquare(corner1);
-    shoveLineSegment = new LineSegment(tracePolyline, traceCornerNo + 1);
+    shoveLineSegment = new (jrt::kGeom) LineSegment(tracePolyline, traceCornerNo + 1);
     if (shoveIntoDirectionOfTraceStart) {
       // shove from the endpoint to the start point of the line segment
       shoveLineSegment = shoveLineSegment->opposite();
@@ -130,32 +130,32 @@ bool MazeTraceShover::checkShoveTraceLine(
     Direction* perpendicularDirection = shoveTraceLine->direction()->turn45Degree(2);
     if (sideOfTraceLine == Side::ON_THE_LEFT()) {
       if (shoveToTheLeft) {
-        Line* startClosingLine = new Line(shrinkedLineSegment->b->round(), perpendicularDirection);
+        Line* startClosingLine = new (jrt::kGeom) Line(shrinkedLineSegment->b->round(), perpendicularDirection);
         shoveLineSegment =
-            new LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1],
+            new (jrt::kGeom) LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1],
                             (*tracePolyline->lines)[traceCornerNo + 2]);
       } else {
-        Line* startClosingLine = new Line(shrinkedLineSegment->a->round(), perpendicularDirection);
+        Line* startClosingLine = new (jrt::kGeom) Line(shrinkedLineSegment->a->round(), perpendicularDirection);
         shoveLineSegment =
-            new LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1]->opposite(),
+            new (jrt::kGeom) LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1]->opposite(),
                             (*tracePolyline->lines)[traceCornerNo]->opposite());
       }
     } else {
       if (shoveToTheLeft) {
-        Line* startClosingLine = new Line(shrinkedLineSegment->b->round(), perpendicularDirection);
+        Line* startClosingLine = new (jrt::kGeom) Line(shrinkedLineSegment->b->round(), perpendicularDirection);
         shoveLineSegment =
-            new LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1]->opposite(),
+            new (jrt::kGeom) LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1]->opposite(),
                             (*tracePolyline->lines)[traceCornerNo]->opposite());
       } else {
-        Line* startClosingLine = new Line(shrinkedLineSegment->a->round(), perpendicularDirection);
+        Line* startClosingLine = new (jrt::kGeom) Line(shrinkedLineSegment->a->round(), perpendicularDirection);
         shoveLineSegment =
-            new LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1],
+            new (jrt::kGeom) LineSegment(startClosingLine, (*tracePolyline->lines)[traceCornerNo + 1],
                             (*tracePolyline->lines)[traceCornerNo + 2]);
       }
     }
   }
   int32_t traceHalfWidth = (*ctrl->traceHalfWidth)[traceLayer];
-  jrt::Array<int32_t>* netNumbers = new jrt::Array<int32_t>(1);
+  jrt::Array<int32_t>* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*netNumbers)[0] = ctrl->netNumber;
 
   double shoveWidth = board->checkTraceSegment(shoveLineSegment, traceLayer, netNumbers,
@@ -226,7 +226,7 @@ bool MazeTraceShover::checkShoveTraceLine(
       if (addLinkDoor) {
         jrt::Array<FloatLine*>* lineSections =
             currentDoor->getSectionSegments(compensatedTraceHalfWidth);
-        toDoorList->add(new MazeTraceShover_DoorSection(currentDoor, 0, (*lineSections)[0]));
+        toDoorList->add(new (jrt::kOp) MazeTraceShover_DoorSection(currentDoor, 0, (*lineSections)[0]));
       }
     } else if (!segmentIstPoint) {
       // now currentDoor is 1-dimensional
@@ -279,7 +279,7 @@ bool MazeTraceShover::checkShoveTraceLine(
           FloatPoint* currentSectionProjection =
               currentSectionNearestCorner->projectionApprox(shoveLine);
           if (currentSectionProjection->distance(fromCorner) <= shoveWidth) {
-            toDoorList->add(new MazeTraceShover_DoorSection(currentDoor, i, currentLineSection));
+            toDoorList->add(new (jrt::kOp) MazeTraceShover_DoorSection(currentDoor, i, currentLineSection));
           }
         }
       }

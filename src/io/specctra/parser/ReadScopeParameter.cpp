@@ -30,7 +30,7 @@ void ReadScopeParameter_MinimalBoardManager::createBoard(
           fr::DefaultItemClearanceClasses_ItemClass::AREA);
     }
   }
-  board = new fr::RoutingBoard(boundingBox, layerStructure, outlineShapes, outlineClearanceNo,
+  board = new (jrt::kBoard) fr::RoutingBoard(boundingBox, layerStructure, outlineShapes, outlineClearanceNo,
                                rules, boardCommunication);
 }
 
@@ -42,17 +42,17 @@ ReadScopeParameter::ReadScopeParameter(IJFlexScanner* scanner, BoardObservers* o
                                        IdGenerator* idGenerator, bool canonicalPlacementOrder)
     : scanner(scanner),
       boardHandling(nullptr),
-      netlist(new NetList()),
+      netlist(new (jrt::kOp) NetList()),
       observers(observers),
       idGenerator(idGenerator),
       canonicalPlacementOrder(canonicalPlacementOrder),
-      planesWithInheritedClearance(new jrt::ArrayList<fr::ConductionArea*>()),
-      placementList(new jrt::LinkedList<ComponentPlacement*>()),
+      planesWithInheritedClearance(new (jrt::kOp) jrt::ArrayList<fr::ConductionArea*>()),
+      placementList(new (jrt::kOp) jrt::LinkedList<ComponentPlacement*>()),
       snapAngle(fr::AngleRestriction::FORTYFIVE_DEGREE),
-      logicalPartMappings(new jrt::LinkedList<PartLibrary_LogicalPartMapping*>()),
-      logicalParts(new jrt::LinkedList<PartLibrary_LogicalPart*>()),
+      logicalPartMappings(new (jrt::kOp) jrt::LinkedList<PartLibrary_LogicalPartMapping*>()),
+      logicalParts(new (jrt::kOp) jrt::LinkedList<PartLibrary_LogicalPart*>()),
       unit(fr::Unit::MIL) {
-  boardHandling = new ReadScopeParameter_MinimalBoardManager();
+  boardHandling = new (jrt::kOp) ReadScopeParameter_MinimalBoardManager();
 }
 
 fr::BasicBoard* ReadScopeParameter::getBoard() { return boardHandling->getRoutingBoard(); }

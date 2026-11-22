@@ -22,7 +22,7 @@
 namespace fr {
 
 jrt::Random* PolygonShape::randomGenerator() {
-  static jrt::Random* v = new jrt::Random(seed);
+  static jrt::Random* v = new (jrt::kBoard) jrt::Random(seed);
   return v;
 }
 
@@ -79,7 +79,7 @@ PolygonShape::PolygonShape(Polygon* polygon) {
     }
   }
   int32_t newCornerCount = lastCornerNo - firstCornerNo + 1;
-  auto* result = new jrt::Array<Point*>(newCornerCount);
+  auto* result = new (jrt::kGeom) jrt::Array<Point*>(newCornerCount);
   int32_t currentCornerNo = 0;
   for (int32_t i = startCornerNo; i <= lastCornerNo; i++) {
     (*result)[currentCornerNo] = (*currentCorners)[i];
@@ -92,7 +92,7 @@ PolygonShape::PolygonShape(Polygon* polygon) {
   corners = result;
 }
 
-PolygonShape::PolygonShape(jrt::Array<Point*>* corners) : PolygonShape(new Polygon(corners)) {}
+PolygonShape::PolygonShape(jrt::Array<Point*>* corners) : PolygonShape(new (jrt::kOp) Polygon(corners)) {}
 
 Point* PolygonShape::corner(int32_t no) {
   if (no < 0 || no >= corners->length) {
@@ -184,7 +184,7 @@ double PolygonShape::borderDistance(FloatPoint* point) {
   for (Point* corner : *corners) {
     FloatPoint* currentCorner = corner->toFloat();
     result =
-        jrt::Math::min(result, (new FloatLine(prevCorner, currentCorner))->segmentDistance(point));
+        jrt::Math::min(result, (new (jrt::kGeom) FloatLine(prevCorner, currentCorner))->segmentDistance(point));
     prevCorner = currentCorner;
   }
   return result;
@@ -248,11 +248,11 @@ PolygonShape* PolygonShape::translateBy(Vector* vector) {
   if (vector->equals(Vector::ZERO())) {
     return this;
   }
-  auto* newCorners = new jrt::Array<Point*>(corners->length);
+  auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*newCorners)[i] = (*corners)[i]->translateBy(vector);
   }
-  return new PolygonShape(newCorners);
+  return new (jrt::kGeom) PolygonShape(newCorners);
 }
 
 RegularTileShape* PolygonShape::boundingShape(ShapeBoundingDirections* dirs) {
@@ -273,10 +273,10 @@ IntBox* PolygonShape::boundingBox() {
       ury = jrt::Math::max(ury, current->y);
     }
     IntPoint* lowerLeft =
-        new IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
+        new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::floor(llx)), jrt::d2i(jrt::Math::floor(lly)));
     IntPoint* upperRight =
-        new IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
-    precalculatedBoundingBox = new IntBox(lowerLeft, upperRight);
+        new (jrt::kGeom) IntPoint(jrt::d2i(jrt::Math::ceil(urx)), jrt::d2i(jrt::Math::ceil(ury)));
+    precalculatedBoundingBox = new (jrt::kGeom) IntBox(lowerLeft, upperRight);
   }
   return precalculatedBoundingBox;
 }
@@ -306,7 +306,7 @@ IntOctagon* PolygonShape::boundingOctagon() {
       llx = jrt::Math::min(llx, tmp);
       urx = jrt::Math::max(urx, tmp);
     }
-    precalculatedBoundingOctagon = new IntOctagon(
+    precalculatedBoundingOctagon = new (jrt::kGeom) IntOctagon(
         jrt::d2i(jrt::Math::floor(lx)), jrt::d2i(jrt::Math::floor(ly)),
         jrt::d2i(jrt::Math::ceil(rx)), jrt::d2i(jrt::Math::ceil(uy)),
         jrt::d2i(jrt::Math::floor(ulx)), jrt::d2i(jrt::Math::ceil(lrx)),
@@ -339,14 +339,14 @@ bool PolygonShape::isConvex() {
   }
   // check, if the sum of the interior angles is at most 2 * pi
 
-  Line* firstLine = new Line((*corners)[corners->length - 1], (*corners)[0]);
-  Line* currentLine = new Line((*corners)[0], (*corners)[1]);
+  Line* firstLine = new (jrt::kGeom) Line((*corners)[corners->length - 1], (*corners)[0]);
+  Line* currentLine = new (jrt::kGeom) Line((*corners)[0], (*corners)[1]);
   IntDirection* firstDirection = jrt::fast_cast<IntDirection>(firstLine->direction());
   IntDirection* currentDirection = jrt::fast_cast<IntDirection>(currentLine->direction());
   double lastDet = firstDirection->determinant(currentDirection);
 
   for (int32_t ind2 = 2; ind2 < corners->length; ind2++) {
-    currentLine = new Line(currentLine->b, (*corners)[ind2]);
+    currentLine = new (jrt::kGeom) Line(currentLine->b, (*corners)[ind2]);
     currentDirection = jrt::fast_cast<IntDirection>(currentLine->direction());
     double currentDet = firstDirection->determinant(currentDirection);
     if (lastDet <= 0 && currentDet > 0) {
@@ -373,13 +373,13 @@ PolygonShape* PolygonShape::convexHull() {
     }
     if (nextPoint->sideOf(prevPoint, currentPoint) != Side::ON_THE_LEFT()) {
       // skip currentPoint;
-      auto* newCorners = new jrt::Array<Point*>(corners->length - 1);
+      auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(corners->length - 1);
       jrt::arraycopy(corners, 0, newCorners, 0, ind);
       if (ind < newCorners->length) {
         // copy remaining elements if present
         jrt::arraycopy(corners, ind + 1, newCorners, ind, newCorners->length - ind);
       }
-      PolygonShape* result = new PolygonShape(newCorners);
+      PolygonShape* result = new (jrt::kGeom) PolygonShape(newCorners);
       return result->convexHull();
     }
     prevPoint = currentPoint;
@@ -390,12 +390,12 @@ PolygonShape* PolygonShape::convexHull() {
 
 TileShape* PolygonShape::boundingTile() {
   PolygonShape* hull = convexHull();
-  auto* boundingLines = new jrt::Array<Line*>(hull->corners->length);
+  auto* boundingLines = new (jrt::kGeom) jrt::Array<Line*>(hull->corners->length);
   for (int32_t i = 0; i < boundingLines->length - 1; i++) {
-    (*boundingLines)[i] = new Line((*hull->corners)[i], (*hull->corners)[i + 1]);
+    (*boundingLines)[i] = new (jrt::kGeom) Line((*hull->corners)[i], (*hull->corners)[i + 1]);
   }
   (*boundingLines)[boundingLines->length - 1] =
-      new Line((*hull->corners)[hull->corners->length - 1], (*hull->corners)[0]);
+      new (jrt::kGeom) Line((*hull->corners)[hull->corners->length - 1], (*hull->corners)[0]);
   return TileShape::getInstance(boundingLines);
 }
 
@@ -447,7 +447,7 @@ Line* PolygonShape::borderLine(int32_t no) {
   } else {
     nextCorner = (*corners)[no + 1];
   }
-  return new Line((*corners)[no], nextCorner);
+  return new (jrt::kGeom) Line((*corners)[no], nextCorner);
 }
 
 FloatPoint* PolygonShape::nearestPointApprox(FloatPoint* fromPoint) {
@@ -466,38 +466,38 @@ FloatPoint* PolygonShape::nearestPointApprox(FloatPoint* fromPoint) {
 }
 
 PolygonShape* PolygonShape::turn90Degree(int32_t factor, IntPoint* pole) {
-  auto* newCorners = new jrt::Array<Point*>(corners->length);
+  auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*newCorners)[i] = (*corners)[i]->turn90Degree(factor, pole);
   }
-  return new PolygonShape(newCorners);
+  return new (jrt::kGeom) PolygonShape(newCorners);
 }
 
 PolygonShape* PolygonShape::rotateApprox(double angle, FloatPoint* pole) {
   if (angle == 0) {
     return this;
   }
-  auto* newCorners = new jrt::Array<Point*>(corners->length);
+  auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*newCorners)[i] = (*corners)[i]->toFloat()->rotate(angle, pole)->round();
   }
-  return new PolygonShape(newCorners);
+  return new (jrt::kGeom) PolygonShape(newCorners);
 }
 
 PolygonShape* PolygonShape::mirrorVertical(IntPoint* pole) {
-  auto* newCorners = new jrt::Array<Point*>(corners->length);
+  auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*newCorners)[i] = (*corners)[i]->mirrorVertical(pole);
   }
-  return new PolygonShape(newCorners);
+  return new (jrt::kGeom) PolygonShape(newCorners);
 }
 
 PolygonShape* PolygonShape::mirrorHorizontal(IntPoint* pole) {
-  auto* newCorners = new jrt::Array<Point*>(corners->length);
+  auto* newCorners = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*newCorners)[i] = (*corners)[i]->mirrorHorizontal(pole);
   }
-  return new PolygonShape(newCorners);
+  return new (jrt::kGeom) PolygonShape(newCorners);
 }
 
 void PolygonShape::reuseConvexPiecesOf(PolygonShape* source) {
@@ -533,7 +533,7 @@ jrt::Array<TileShape*>* PolygonShape::splitToConvex() {
       // split failed, maybe the polygon has selfontersections
       return nullptr;
     }
-    precalculatedConvexPieces = new jrt::Array<TileShape*>(convexPieces->size());
+    precalculatedConvexPieces = new (jrt::kGeom) jrt::Array<TileShape*>(convexPieces->size());
     jrt::Iterator<PolygonShape*>* it = convexPieces->iterator();
     for (int32_t i = 0; i < precalculatedConvexPieces->length; i++) {
       PolygonShape* currentPiece = it->next();
@@ -573,13 +573,13 @@ jrt::Collection<PolygonShape*>* PolygonShape::splitToConvexRecu() {
     currentCorner = nextCorner;
     startCornerNo = (startCornerNo + 1) % corners->length;
   }
-  jrt::Collection<PolygonShape*>* result = new jrt::LinkedList<PolygonShape*>();
+  jrt::Collection<PolygonShape*>* result = new (jrt::kOp) jrt::LinkedList<PolygonShape*>();
   if (concaveCornerNo < 0) {
     // no concave corner found, this shape is already convex
     result->add(this);
     return result;
   }
-  PolygonShape_DivisionPoint* d = new PolygonShape_DivisionPoint(this, concaveCornerNo);
+  PolygonShape_DivisionPoint* d = new (jrt::kGeom) PolygonShape_DivisionPoint(this, concaveCornerNo);
   if (d->projection == nullptr) {
     // projection not found, maybe polygon has selfintersections
     return nullptr;
@@ -592,7 +592,7 @@ jrt::Collection<PolygonShape*>* PolygonShape::splitToConvexRecu() {
     cornerCount += corners->length;
   }
   ++cornerCount;
-  auto* firstArr = new jrt::Array<Point*>(cornerCount);
+  auto* firstArr = new (jrt::kGeom) jrt::Array<Point*>(cornerCount);
   int32_t cornerInd = concaveCornerNo;
 
   for (int32_t i = 0; i < cornerCount - 1; i++) {
@@ -605,15 +605,15 @@ jrt::Collection<PolygonShape*>* PolygonShape::splitToConvexRecu() {
     cornerCount += corners->length;
   }
   cornerCount += 2;
-  auto* lastArr = new jrt::Array<Point*>(cornerCount);
+  auto* lastArr = new (jrt::kGeom) jrt::Array<Point*>(cornerCount);
   (*lastArr)[0] = d->projection->round();
   cornerInd = d->cornerNoAfterProjection;
   for (int32_t i = 1; i < cornerCount; i++) {
     (*lastArr)[i] = (*corners)[cornerInd];
     cornerInd = (cornerInd + 1) % corners->length;
   }
-  PolygonShape* lastPiece = new PolygonShape(lastArr);
-  PolygonShape* firstPiece = new PolygonShape(firstArr);
+  PolygonShape* lastPiece = new (jrt::kGeom) PolygonShape(lastArr);
+  PolygonShape* firstPiece = new (jrt::kGeom) PolygonShape(firstArr);
   jrt::Collection<PolygonShape*>* c1 = firstPiece->splitToConvexRecu();
   if (c1 == nullptr) {
     return nullptr;
@@ -694,7 +694,7 @@ PolygonShape_DivisionPoint::PolygonShape_DivisionPoint(PolygonShape* outer,
       }
 
       if (concaveCorner->y >= minY && concaveCorner->y <= maxY) {
-        Line* currentLine = new Line(cornerBeforeCurrProjection, cornerAfterCurrProjection);
+        Line* currentLine = new (jrt::kGeom) Line(cornerBeforeCurrProjection, cornerAfterCurrProjection);
         double xintersection = currentLine->functionInYValueApprox(concaveCorner->y);
         currentDistance = jrt::Math::abs(xintersection - concaveCorner->x);
         // Make sure, that the new shape will not be concave at the projection point.
@@ -708,7 +708,7 @@ PolygonShape_DivisionPoint::PolygonShape_DivisionPoint(PolygonShape* outer,
         if (projectionOk) {
           minProjectionDist = currentDistance;
           cornerNoAfterMinProjection = cornerNoAfterCurrProjection;
-          minProjection = new FloatPoint(xintersection, concaveCorner->y);
+          minProjection = new (jrt::kGeom) FloatPoint(xintersection, concaveCorner->y);
         }
       }
     }
@@ -725,7 +725,7 @@ PolygonShape_DivisionPoint::PolygonShape_DivisionPoint(PolygonShape* outer,
         maxX = cornerBeforeProjectionApprox->x;
       }
       if (concaveCorner->x >= minX && concaveCorner->x <= maxX) {
-        Line* currentLine = new Line(cornerBeforeCurrProjection, cornerAfterCurrProjection);
+        Line* currentLine = new (jrt::kGeom) Line(cornerBeforeCurrProjection, cornerAfterCurrProjection);
         double yintersection = currentLine->functionValueApprox(concaveCorner->x);
         currentDistance = jrt::Math::abs(yintersection - concaveCorner->y);
         // make sure, that the new shape will be convex at the projection point
@@ -739,7 +739,7 @@ PolygonShape_DivisionPoint::PolygonShape_DivisionPoint(PolygonShape* outer,
         if (projectionOk) {
           minProjectionDist = currentDistance;
           cornerNoAfterMinProjection = cornerNoAfterCurrProjection;
-          minProjection = new FloatPoint(concaveCorner->x, yintersection);
+          minProjection = new (jrt::kGeom) FloatPoint(concaveCorner->x, yintersection);
         }
       }
     }

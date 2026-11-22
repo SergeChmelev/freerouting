@@ -38,12 +38,12 @@ TileShape* ForcedPadRouter::calcCheckShapeForFromSide(TileShape* shape, Point* s
   FloatPoint* shapeCenterFloat = shapeCenter->toFloat();
   FloatPoint* offsetProjection = shapeCenterFloat->projectionApprox(borderLine);
   // Make sure, that direction restrictions are retained.
-  jrt::Array<Line*>* lines = new jrt::Array<Line*>(3);
+  jrt::Array<Line*>* lines = new (jrt::kGeom) jrt::Array<Line*>(3);
   Direction* currentDirection = borderLine->direction();
-  (*lines)[0] = new Line(shapeCenter, currentDirection);
-  (*lines)[1] = new Line(shapeCenter, currentDirection->turn45Degree(2));
-  (*lines)[2] = new Line(offsetProjection->round(), currentDirection);
-  Polyline* checkLine = new Polyline(lines);
+  (*lines)[0] = new (jrt::kGeom) Line(shapeCenter, currentDirection);
+  (*lines)[1] = new (jrt::kGeom) Line(shapeCenter, currentDirection->turn45Degree(2));
+  (*lines)[2] = new (jrt::kGeom) Line(offsetProjection->round(), currentDirection);
+  Polyline* checkLine = new (jrt::kGeom) Polyline(lines);
   return checkLine->offsetShape(1, 0);
 }
 
@@ -230,11 +230,11 @@ ForcedPadRouter_CheckDrillResult ForcedPadRouter::checkForcedPad(
     return ForcedPadRouter_CheckDrillResult::NOT_DRILLABLE;
   }
   ShapeSearchTree* searchTree = this->board->searchTreeManager->getDefaultTree();
-  ShapeTraceEntries* shapeEntries = new ShapeTraceEntries(padShape, layer, netNumbers,
+  ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(padShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   // with the pad's copper (a via's circle), items whose copper clears it are no obstacles.
   jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      padShape, layer, new jrt::Array<int32_t>(0), clearanceClassIndex, exactPadShape);
+      padShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex, exactPadShape);
 
   if (ignoreItems != nullptr) {
     obstacles->removeAll(ignoreItems);
@@ -261,7 +261,7 @@ ForcedPadRouter_CheckDrillResult ForcedPadRouter::checkForcedPad(
       return ForcedPadRouter_CheckDrillResult::NOT_DRILLABLE;
     }
     Vector* delta = (*newViaCenter)[0]->differenceBy(currentShoveVia->getCenter());
-    jrt::Collection<Item*>* checkIgnoreItems = new jrt::LinkedList<Item*>();
+    jrt::Collection<Item*>* checkIgnoreItems = new (jrt::kOp) jrt::LinkedList<Item*>();
     if (!DrillItemMover::check(currentShoveVia, delta, maxRecursionDepth,
                                maxViaRecursionDepth - 1, checkIgnoreItems, this->board,
                                timeLimit)) {
@@ -289,7 +289,7 @@ ForcedPadRouter_CheckDrillResult ForcedPadRouter::checkForcedPad(
     this->board->setShoveFailingObstacle(shapeEntries->getFoundObstacle());
     return ForcedPadRouter_CheckDrillResult::NOT_DRILLABLE;
   }
-  TraceShover* shoveTraceAlgo = new TraceShover(board);
+  TraceShover* shoveTraceAlgo = new (jrt::kOp) TraceShover(board);
   bool isOrthogonalMode = jrt::fast_cast<IntBox>(padShape) != nullptr;
   for (;;) {
     PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
@@ -308,7 +308,7 @@ ForcedPadRouter_CheckDrillResult ForcedPadRouter::checkForcedPad(
       }
       if (isInFront) {
         ShapeAndEntrySide* current =
-            new ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
+            new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
         if (!shoveTraceAlgo->check(current->shape, current->fromSide, currentDirection, layer,
                                    currentSubstituteTrace->netNumbers,
                                    currentSubstituteTrace->clearanceClassIndex(),
@@ -359,10 +359,10 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
     return false;
   }
   ShapeSearchTree* searchTree = this->board->searchTreeManager->getDefaultTree();
-  ShapeTraceEntries* shapeEntries = new ShapeTraceEntries(padShape, layer, netNumbers,
+  ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(padShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      padShape, layer, new jrt::Array<int32_t>(0), clearanceClassIndex, exactPadShape);
+      padShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex, exactPadShape);
   if (ignoreItems != nullptr) {
     obstacles->removeAll(ignoreItems);
   }
@@ -384,7 +384,7 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
   bool tailsExistBefore = board->containsTraceTails(obstacles, netNumbers);
   shapeEntries->cutoutTraces(obstacles);
   bool isOrthogonalMode = jrt::fast_cast<IntBox>(padShape) != nullptr;
-  TraceShover* shoveTraceAlgo = new TraceShover(this->board);
+  TraceShover* shoveTraceAlgo = new (jrt::kOp) TraceShover(this->board);
   for (;;) {
     PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
     if (currentSubstituteTrace == nullptr) {
@@ -396,7 +396,7 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
     jrt::Array<int32_t>* currentNetNumbers = currentSubstituteTrace->netNumbers;
     for (int32_t i = 0; i < currentSubstituteTrace->tileShapeCount(); i++) {
       ShapeAndEntrySide* current =
-          new ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
+          new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
       if (!shoveTraceAlgo->insert(current->shape, current->fromSide, layer, currentNetNumbers,
                                   currentSubstituteTrace->clearanceClassIndex(), ignoreItems,
                                   maxRecursionDepth - 1, maxViaRecursionDepth, 0)) {
@@ -408,7 +408,7 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
     }
     jrt::Array<Point*>* endCorners = nullptr;
     if (!tailsExistBefore) {
-      endCorners = new jrt::Array<Point*>(2);
+      endCorners = new (jrt::kGeom) jrt::Array<Point*>(2);
       (*endCorners)[0] = currentSubstituteTrace->firstCorner();
       (*endCorners)[1] = currentSubstituteTrace->lastCorner();
     }
@@ -443,20 +443,20 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
 
 ShapeEntrySide* ForcedPadRouter::calcFromSide(TileShape* shape, Point* shapeCenter, int32_t layer,
                                               int32_t offset, int32_t clearanceClassIndex) {
-  jrt::Array<int32_t>* emptyArr = new jrt::Array<int32_t>(0);
+  jrt::Array<int32_t>* emptyArr = new (jrt::kOp) jrt::Array<int32_t>(0);
   TileShape* offsetShape = jrt::fast_cast<TileShape>(shape->offset(offset));
   for (int32_t i = 0; i < offsetShape->borderLineCount(); i++) {
     TileShape* checkShape = calcCheckShapeForFromSide(shape, shapeCenter, offsetShape->borderLine(i));
 
     if (board->checkTraceShape(checkShape, layer, emptyArr, clearanceClassIndex, nullptr)) {
-      return new ShapeEntrySide(i, nullptr);
+      return new (jrt::kBoard) ShapeEntrySide(i, nullptr);
     }
   }
   // try second check without clearance
   for (int32_t i = 0; i < offsetShape->borderLineCount(); i++) {
     TileShape* checkShape = calcCheckShapeForFromSide(shape, shapeCenter, offsetShape->borderLine(i));
     if (board->checkTraceShape(checkShape, layer, emptyArr, 0, nullptr)) {
-      return new ShapeEntrySide(i, nullptr);
+      return new (jrt::kBoard) ShapeEntrySide(i, nullptr);
     }
   }
   return ShapeEntrySide::NOT_CALCULATED();

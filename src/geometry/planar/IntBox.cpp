@@ -20,13 +20,13 @@ namespace fr {
 
 IntBox* IntBox::EMPTY() {
   static IntBox* v =
-      new IntBox(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT);
+      new (jrt::kGeom) IntBox(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT);
   return v;
 }
 
 IntBox::IntBox(int32_t lowerLeftX, int32_t lowerLeftY, int32_t upperRightX,
                int32_t upperRightY)
-    : ll(new IntPoint(lowerLeftX, lowerLeftY)), ur(new IntPoint(upperRightX, upperRightY)) {}
+    : ll(new (jrt::kGeom) IntPoint(lowerLeftX, lowerLeftY)), ur(new (jrt::kGeom) IntPoint(upperRightX, upperRightY)) {}
 
 std::string IntBox::toString() {
   return "IntBox(ll=" + jrt::str(ll) + ", ur=" + jrt::str(ur) + ")";
@@ -55,13 +55,13 @@ IntPoint* IntBox::corner(int32_t no) {
     return ll;
   }
   if (no == 1) {
-    return new IntPoint(ur->x, ll->y);
+    return new (jrt::kGeom) IntPoint(ur->x, ll->y);
   }
   if (no == 2) {
     return ur;
   }
   if (no == 3) {
-    return new IntPoint(ll->x, ur->y);
+    return new (jrt::kGeom) IntPoint(ll->x, ur->y);
   }
   throw jrt::IllegalArgumentException("IntBox.corner: no out of range");
 }
@@ -107,13 +107,13 @@ FloatPoint* IntBox::nearestPoint(FloatPoint* fromPoint) {
     y = fromPoint->y;
   }
 
-  return new FloatPoint(x, y);
+  return new (jrt::kGeom) FloatPoint(x, y);
 }
 
 jrt::Array<IntPoint*>* IntBox::nearestBorderProjections(IntPoint* point,
                                                         int32_t maxResultPoints) {
   if (maxResultPoints <= 0) {
-    return new jrt::Array<IntPoint*>(0);
+    return new (jrt::kGeom) jrt::Array<IntPoint*>(0);
   }
   maxResultPoints = jrt::Math::min(maxResultPoints, 2);
   int32_t lowerHorizontalDifference = point->x - ll->x;
@@ -163,10 +163,10 @@ jrt::Array<IntPoint*>* IntBox::nearestBorderProjections(IntPoint* point,
     secondNearestProjectionX = point->x;
     secondNearestProjectionY = ur->y;
   }
-  auto* result = new jrt::Array<IntPoint*>(maxResultPoints);
-  (*result)[0] = new IntPoint(nearestProjectionX, nearestProjectionY);
+  auto* result = new (jrt::kGeom) jrt::Array<IntPoint*>(maxResultPoints);
+  (*result)[0] = new (jrt::kGeom) IntPoint(nearestProjectionX, nearestProjectionY);
   if (result->length > 1) {
-    (*result)[1] = new IntPoint(secondNearestProjectionX, secondNearestProjectionY);
+    (*result)[1] = new (jrt::kGeom) IntPoint(secondNearestProjectionX, secondNearestProjectionY);
   }
 
   return result;
@@ -213,7 +213,7 @@ IntBox* IntBox::union_(IntBox* other) {
   int32_t lowerLeftY = jrt::Math::min(ll->y, other->ll->y);
   int32_t upperRightX = jrt::Math::max(ur->x, other->ur->x);
   int32_t upperRightY = jrt::Math::max(ur->y, other->ur->y);
-  return new IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
+  return new (jrt::kGeom) IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
 }
 
 IntOctagon* IntBox::union_(IntOctagon* other) { return other->union_(toIntOctagon()); }
@@ -235,7 +235,7 @@ IntBox* IntBox::intersection(IntBox* other) {
   int32_t upperRightX = jrt::Math::min(ur->x, other->ur->x);
   int32_t lowerLeftY = jrt::Math::max(ll->y, other->ll->y);
   int32_t upperRightY = jrt::Math::min(ur->y, other->ur->y);
-  return new IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
+  return new (jrt::kGeom) IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
 }
 
 TileShape* IntBox::intersection(TileShape* other) { return other->intersection(this); }
@@ -299,7 +299,7 @@ IntBox* IntBox::translateBy(Vector* relCoor) {
   IntVector* translation = relCoor->toIntegerExact();
   IntPoint* newLl = jrt::fast_cast<IntPoint>(ll->translateBy(translation));
   IntPoint* newUr = jrt::fast_cast<IntPoint>(ur->translateBy(translation));
-  return new IntBox(newLl, newUr);
+  return new (jrt::kGeom) IntBox(newLl, newUr);
 }
 
 IntBox* IntBox::turn90Degree(int32_t factor, IntPoint* pole) {
@@ -310,19 +310,19 @@ IntBox* IntBox::turn90Degree(int32_t factor, IntPoint* pole) {
   int32_t lowerLeftY = jrt::Math::min(p1->y, p2->y);
   int32_t upperRightX = jrt::Math::max(p1->x, p2->x);
   int32_t upperRightY = jrt::Math::max(p1->y, p2->y);
-  return new IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
+  return new (jrt::kGeom) IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
 }
 
 Line* IntBox::borderLine(int32_t no) {
   switch (no) {
     case 0:
-      return new Line(0, ll->y, 1, ll->y);  // lower boundary line
+      return new (jrt::kGeom) Line(0, ll->y, 1, ll->y);  // lower boundary line
     case 1:
-      return new Line(ur->x, 0, ur->x, 1);  // right boundary line
+      return new (jrt::kGeom) Line(ur->x, 0, ur->x, 1);  // right boundary line
     case 2:
-      return new Line(0, ur->y, -1, ur->y);  // upper boundary line
+      return new (jrt::kGeom) Line(0, ur->y, -1, ur->y);  // upper boundary line
     case 3:
-      return new Line(ll->x, 0, ll->x, -1);  // left boundary line
+      return new (jrt::kGeom) Line(ll->x, 0, ll->x, -1);  // left boundary line
     default:
       throw jrt::IllegalArgumentException("IntBox.borderLine: no out of range");
   }
@@ -338,9 +338,9 @@ IntBox* IntBox::offset(double dist) {
     return this;
   }
   int32_t roundedDistance = jrt::l2i(jrt::Math::round(dist));
-  IntPoint* lowerLeft = new IntPoint(ll->x - roundedDistance, ll->y - roundedDistance);
-  IntPoint* upperRight = new IntPoint(ur->x + roundedDistance, ur->y + roundedDistance);
-  return new IntBox(lowerLeft, upperRight);
+  IntPoint* lowerLeft = new (jrt::kGeom) IntPoint(ll->x - roundedDistance, ll->y - roundedDistance);
+  IntPoint* upperRight = new (jrt::kGeom) IntPoint(ur->x + roundedDistance, ur->y + roundedDistance);
+  return new (jrt::kGeom) IntBox(lowerLeft, upperRight);
 }
 
 IntBox* IntBox::horizontalOffset(double dist) {
@@ -348,9 +348,9 @@ IntBox* IntBox::horizontalOffset(double dist) {
     return this;
   }
   int32_t roundedDistance = jrt::l2i(jrt::Math::round(dist));
-  IntPoint* lowerLeft = new IntPoint(ll->x - roundedDistance, ll->y);
-  IntPoint* upperRight = new IntPoint(ur->x + roundedDistance, ur->y);
-  return new IntBox(lowerLeft, upperRight);
+  IntPoint* lowerLeft = new (jrt::kGeom) IntPoint(ll->x - roundedDistance, ll->y);
+  IntPoint* upperRight = new (jrt::kGeom) IntPoint(ur->x + roundedDistance, ur->y);
+  return new (jrt::kGeom) IntBox(lowerLeft, upperRight);
 }
 
 IntBox* IntBox::verticalOffset(double dist) {
@@ -358,9 +358,9 @@ IntBox* IntBox::verticalOffset(double dist) {
     return this;
   }
   int32_t roundedDistance = jrt::l2i(jrt::Math::round(dist));
-  IntPoint* lowerLeft = new IntPoint(ll->x, ll->y - roundedDistance);
-  IntPoint* upperRight = new IntPoint(ur->x, ur->y + roundedDistance);
-  return new IntBox(lowerLeft, upperRight);
+  IntPoint* lowerLeft = new (jrt::kGeom) IntPoint(ll->x, ll->y - roundedDistance);
+  IntPoint* upperRight = new (jrt::kGeom) IntPoint(ur->x, ur->y + roundedDistance);
+  return new (jrt::kGeom) IntBox(lowerLeft, upperRight);
 }
 
 IntBox* IntBox::shrink(int32_t width) {
@@ -382,7 +382,7 @@ IntBox* IntBox::shrink(int32_t width) {
     lowerLeftY = (this->ll->y + this->ur->y) / 2;
     upperRightY = lowerLeftY;
   }
-  return new IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
+  return new (jrt::kGeom) IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
 }
 
 Side* IntBox::compare(RegularTileShape* other, int32_t edgeIndex) {
@@ -444,22 +444,22 @@ Side* IntBox::compare(IntOctagon* other, int32_t edgeIndex) {
 }
 
 IntOctagon* IntBox::toIntOctagon() {
-  return new IntOctagon(ll->x, ll->y, ur->x, ur->y, ll->x - ur->y, ur->x - ll->y, ll->x + ll->y,
+  return new (jrt::kGeom) IntOctagon(ll->x, ll->y, ur->x, ur->y, ll->x - ur->y, ur->x - ll->y, ll->x + ll->y,
                         ur->x + ur->y);
 }
 
 Simplex* IntBox::toSimplex() {
   jrt::Array<Line*>* lines;
   if (isEmpty()) {
-    lines = new jrt::Array<Line*>(0);
+    lines = new (jrt::kGeom) jrt::Array<Line*>(0);
   } else {
-    lines = new jrt::Array<Line*>(4);
+    lines = new (jrt::kGeom) jrt::Array<Line*>(4);
     (*lines)[0] = Line::getInstance(ll, IntDirection::RIGHT());
     (*lines)[1] = Line::getInstance(ur, IntDirection::UP());
     (*lines)[2] = Line::getInstance(ur, IntDirection::LEFT());
     (*lines)[3] = Line::getInstance(ll, IntDirection::DOWN());
   }
-  return new Simplex(lines);
+  return new (jrt::kGeom) Simplex(lines);
 }
 
 bool IntBox::isContainedIn(IntBox* other) {
@@ -512,13 +512,13 @@ IntBox* IntBox::nearestPart(IntBox* fromBox) {
   } else {
     urY = jrt::Math::max(fromBox->ll->y, this->ur->y);
   }
-  return new IntBox(llX, llY, urX, urY);
+  return new (jrt::kGeom) IntBox(llX, llY, urX, urY);
 }
 
 jrt::Array<TileShape*>* IntBox::divideIntoSections(double maxSectionWidth) {
   // PORT NOTE: Java returns IntBox[] (array covariance); C++ returns a TileShape* array.
   if (maxSectionWidth <= 0) {
-    return new jrt::Array<TileShape*>(0);
+    return new (jrt::kGeom) jrt::Array<TileShape*>(0);
   }
   double length = this->ur->x - this->ll->x;
   double height = this->ur->y - this->ll->y;
@@ -526,7 +526,7 @@ jrt::Array<TileShape*>* IntBox::divideIntoSections(double maxSectionWidth) {
   int32_t ycount = jrt::d2i(jrt::Math::ceil(height / maxSectionWidth));
   int32_t sectionLengthX = jrt::d2i(jrt::Math::ceil(length / xcount));
   int32_t sectionLengthY = jrt::d2i(jrt::Math::ceil(height / ycount));
-  auto* result = new jrt::Array<TileShape*>(xcount * ycount);
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(xcount * ycount);
   int32_t currentIndex = 0;
   for (int32_t j = 0; j < ycount; j++) {
     int32_t currentLowerLeftY = this->ll->y + j * sectionLengthY;
@@ -545,7 +545,7 @@ jrt::Array<TileShape*>* IntBox::divideIntoSections(double maxSectionWidth) {
         currentUpperRightX = currentLowerLeftX + sectionLengthX;
       }
       (*result)[currentIndex] =
-          new IntBox(currentLowerLeftX, currentLowerLeftY, currentUpperRightX, currentUpperRightY);
+          new (jrt::kGeom) IntBox(currentLowerLeftX, currentLowerLeftY, currentUpperRightX, currentUpperRightY);
       ++currentIndex;
     }
   }
@@ -554,7 +554,7 @@ jrt::Array<TileShape*>* IntBox::divideIntoSections(double maxSectionWidth) {
 
 jrt::Array<TileShape*>* IntBox::cutout(TileShape* shape) {
   jrt::Array<TileShape*>* tmpResult = shape->cutoutFrom(this);
-  auto* result = new jrt::Array<TileShape*>(tmpResult->length);
+  auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(tmpResult->length);
   for (int32_t i = 0; i < result->length; i++) {
     (*result)[i] = (*tmpResult)[i]->simplify();
   }
@@ -566,20 +566,20 @@ jrt::Array<TileShape*>* IntBox::cutoutFrom(IntBox* d) {
   IntBox* c = this->intersection(d);
   if (this->isEmpty() || c->dimension() < this->dimension()) {
     // there is only an overlap at the border
-    auto* result = new jrt::Array<TileShape*>(1);
+    auto* result = new (jrt::kGeom) jrt::Array<TileShape*>(1);
     (*result)[0] = d;
     return result;
   }
 
-  auto* result = new jrt::Array<IntBox*>(4);
+  auto* result = new (jrt::kGeom) jrt::Array<IntBox*>(4);
 
-  (*result)[0] = new IntBox(d->ll->x, d->ll->y, c->ur->x, c->ll->y);
+  (*result)[0] = new (jrt::kGeom) IntBox(d->ll->x, d->ll->y, c->ur->x, c->ll->y);
 
-  (*result)[1] = new IntBox(d->ll->x, c->ll->y, c->ll->x, d->ur->y);
+  (*result)[1] = new (jrt::kGeom) IntBox(d->ll->x, c->ll->y, c->ll->x, d->ur->y);
 
-  (*result)[2] = new IntBox(c->ur->x, d->ll->y, d->ur->x, c->ur->y);
+  (*result)[2] = new (jrt::kGeom) IntBox(c->ur->x, d->ll->y, d->ur->x, c->ur->y);
 
-  (*result)[3] = new IntBox(c->ll->x, c->ur->y, d->ur->x, d->ur->y);
+  (*result)[3] = new (jrt::kGeom) IntBox(c->ll->x, c->ur->y, d->ur->x, d->ur->y);
 
   // now the division will be optimised, so that the cumulative
   // circumference will be minimal.
@@ -589,32 +589,32 @@ jrt::Array<TileShape*>* IntBox::cutoutFrom(IntBox* d) {
   if (c->ll->x - d->ll->x > c->ll->y - d->ll->y) {
     // switch left dividing line to lower
     b = (*result)[0];
-    (*result)[0] = new IntBox(c->ll->x, b->ll->y, b->ur->x, b->ur->y);
+    (*result)[0] = new (jrt::kGeom) IntBox(c->ll->x, b->ll->y, b->ur->x, b->ur->y);
     b = (*result)[1];
-    (*result)[1] = new IntBox(b->ll->x, d->ll->y, b->ur->x, b->ur->y);
+    (*result)[1] = new (jrt::kGeom) IntBox(b->ll->x, d->ll->y, b->ur->x, b->ur->y);
   }
   if (d->ur->y - c->ur->y > c->ll->x - d->ll->x) {
     // switch upper dividing line to the left
     b = (*result)[1];
-    (*result)[1] = new IntBox(b->ll->x, b->ll->y, b->ur->x, c->ur->y);
+    (*result)[1] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, b->ur->x, c->ur->y);
     b = (*result)[3];
-    (*result)[3] = new IntBox(d->ll->x, b->ll->y, b->ur->x, b->ur->y);
+    (*result)[3] = new (jrt::kGeom) IntBox(d->ll->x, b->ll->y, b->ur->x, b->ur->y);
   }
   if (d->ur->x - c->ur->x > d->ur->y - c->ur->y) {
     // switch right dividing line to upper
     b = (*result)[2];
-    (*result)[2] = new IntBox(b->ll->x, b->ll->y, b->ur->x, d->ur->y);
+    (*result)[2] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, b->ur->x, d->ur->y);
     b = (*result)[3];
-    (*result)[3] = new IntBox(b->ll->x, b->ll->y, c->ur->x, b->ur->y);
+    (*result)[3] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, c->ur->x, b->ur->y);
   }
   if (c->ll->y - d->ll->y > d->ur->x - c->ur->x) {
     // switch lower dividing line to the left
     b = (*result)[0];
-    (*result)[0] = new IntBox(b->ll->x, b->ll->y, d->ur->x, b->ur->y);
+    (*result)[0] = new (jrt::kGeom) IntBox(b->ll->x, b->ll->y, d->ur->x, b->ur->y);
     b = (*result)[2];
-    (*result)[2] = new IntBox(b->ll->x, c->ll->y, b->ur->x, b->ur->y);
+    (*result)[2] = new (jrt::kGeom) IntBox(b->ll->x, c->ll->y, b->ur->x, b->ur->y);
   }
-  auto* converted = new jrt::Array<TileShape*>(4);
+  auto* converted = new (jrt::kGeom) jrt::Array<TileShape*>(4);
   for (int32_t i = 0; i < 4; i++) {
     (*converted)[i] = (*result)[i];
   }

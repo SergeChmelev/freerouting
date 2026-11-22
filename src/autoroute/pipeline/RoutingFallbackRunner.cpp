@@ -48,7 +48,7 @@ std::string RoutingFallbackRunner_Attempt::toString() {
 }
 
 RoutingFallbackRunner::RoutingFallbackRunner(BatchAutorouter* listenerSource)
-    : passLoopStarts(new jrt::LinkedHashMap<std::string, RoutingFallback_Outcome*>()),
+    : passLoopStarts(new (jrt::kOp) jrt::LinkedHashMap<std::string, RoutingFallback_Outcome*>()),
       listenerSource(listenerSource) {}
 
 BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* defaultRouter,
@@ -67,8 +67,8 @@ BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* de
   bool fanoutRuns = job->routerSettings->isFanoutEnabled() && !job->board->getSmdPins()->isEmpty();
   jrt::List<RoutingFallback_Strategy*>* applicable =
       RoutingFallback::applicable(strategies, job->routerSettings, fanoutRuns);
-  jrt::List<RoutingFallback_Strategy*>* continuations = new jrt::ArrayList<RoutingFallback_Strategy*>();
-  jrt::List<RoutingFallback_Strategy*>* alternatives = new jrt::ArrayList<RoutingFallback_Strategy*>();
+  jrt::List<RoutingFallback_Strategy*>* continuations = new (jrt::kOp) jrt::ArrayList<RoutingFallback_Strategy*>();
+  jrt::List<RoutingFallback_Strategy*>* alternatives = new (jrt::kOp) jrt::ArrayList<RoutingFallback_Strategy*>();
   for (RoutingFallback_Strategy* strategy : *applicable) {
     if (strategy->continueBest) {
       continuations->add(strategy);
@@ -89,7 +89,7 @@ BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* de
   }
   ClearanceBaseline* defaultClearance = RoutingFallback::captureClearance(job->board, best->violations);
   RoutingFallbackRunner_Attempt* bestAttempt =
-      new RoutingFallbackRunner_Attempt(best, job->board, defaultRouter, defaultClearance);
+      new (jrt::kOp) RoutingFallbackRunner_Attempt(best, job->board, defaultRouter, defaultClearance);
   RoutingBoard* continuedFrom = nullptr;
   if (residual && !alternatives->isEmpty()) {
     bestAttempt = runContinuations(job, bestAttempt, automaticContinuations(job));
@@ -128,7 +128,7 @@ BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* de
       break;
     }
   }
-  jrt::List<RoutingFallback_Strategy*>* after = new jrt::ArrayList<RoutingFallback_Strategy*>(continuations);
+  jrt::List<RoutingFallback_Strategy*>* after = new (jrt::kOp) jrt::ArrayList<RoutingFallback_Strategy*>(continuations);
   if (continuedFrom != nullptr && bestAttempt->board_ == continuedFrom) {
     if (!bestAttempt->outcome_->isCompleteAndClean()) {
       job->logInfo(
@@ -159,9 +159,9 @@ BatchAutorouter* RoutingFallbackRunner::explore(RoutingJob* job, BatchAutorouter
   if (!RoutingSupervisor::explores(job->routerSettings) || stopped(job)) {
     return incumbent;
   }
-  RoutingSupervisor* supervisor = new RoutingSupervisor();
+  RoutingSupervisor* supervisor = new (jrt::kOp) RoutingSupervisor();
   RoutingFallback_Outcome* best = RoutingFallback_Outcome::of("incumbent", job->board, job->routerSettings);
-  RoutingFallbackRunner_Attempt* bestAttempt = new RoutingFallbackRunner_Attempt(best, job->board, incumbent, nullptr);
+  RoutingFallbackRunner_Attempt* bestAttempt = new (jrt::kOp) RoutingFallbackRunner_Attempt(best, job->board, incumbent, nullptr);
   RouterSettings* jobSettings = job->routerSettings;
   int32_t round = 0;
   while (!bestAttempt->outcome_->isCompleteAndClean() && !supervisor->explorationExhausted(jobSettings) &&
@@ -251,8 +251,8 @@ RoutingFallbackRunner_Attempt* RoutingFallbackRunner::runAttempt(RoutingJob* job
       attempt->router_->lastStopReason == BatchAutorouter_StopReason::REPEATED) {
     RoutingFallback_Outcome* repeated = getByHash(this->passLoopStarts, attempt->router_->passLoopStartHash);
     if (repeated != nullptr) {
-      return new RoutingFallbackRunner_Attempt(
-          new RoutingFallback_Outcome(strategy->name, repeated->unrouted, repeated->newOrChanged, repeated->violations,
+      return new (jrt::kOp) RoutingFallbackRunner_Attempt(
+          new (jrt::kOp) RoutingFallback_Outcome(strategy->name, repeated->unrouted, repeated->newOrChanged, repeated->violations,
                                       repeated->score, repeated->designBlocked),
           job->board, attempt->router_, attempt->baseline_);
     }
@@ -283,7 +283,7 @@ RoutingFallbackRunner_Attempt* RoutingFallbackRunner::runPrepared(RoutingJob* jo
     router->runBatchLoop();
     RoutingFallback_Outcome* outcome = RoutingFallback_Outcome::of(strategyName, job->board, savedSettings);
     ClearanceBaseline* baseline = RoutingFallback::captureClearance(job->board, outcome->violations);
-    result = new RoutingFallbackRunner_Attempt(outcome, job->board, router, baseline);
+    result = new (jrt::kOp) RoutingFallbackRunner_Attempt(outcome, job->board, router, baseline);
   } catch (const jrt::RuntimeException& e) {
     job->board = savedBoard;
     job->logError("Routing fallback attempt '" + strategyName + "' failed and was discarded.", &e);
@@ -315,7 +315,7 @@ bool RoutingFallbackRunner::stopped(RoutingJob* job) {
 }
 
 jrt::List<RoutingFallback_Strategy*>* RoutingFallbackRunner::automaticContinuations(RoutingJob* job) {
-  jrt::List<RoutingFallback_Strategy*>* result = new jrt::ArrayList<RoutingFallback_Strategy*>();
+  jrt::List<RoutingFallback_Strategy*>* result = new (jrt::kOp) jrt::ArrayList<RoutingFallback_Strategy*>();
   RoutingFallback_Strategy* continueStrategy = RoutingFallback::find("continue");
   if (continueStrategy != nullptr) {
     result->add(continueStrategy);

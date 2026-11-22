@@ -36,14 +36,14 @@ RoutingFallback_Outcome* RoutingFallback_Outcome::of(const std::string& strategy
 
 RoutingFallback_Outcome* RoutingFallback_Outcome::of(const std::string& strategy, RoutingBoard* board,
                                                      RouterSettings* scoring, ClearanceBaseline* incumbent) {
-  BoardStatistics* statistics = new BoardStatistics(board);
+  BoardStatistics* statistics = new (jrt::kOp) BoardStatistics(board);
   int32_t incomplete =
       statistics->connections->incompleteCount.has_value() ? *statistics->connections->incompleteCount : 0;
   int32_t blocked = 0;
   if (incomplete > 0) {
-    jrt::Array<AirLine*>* airlines = (new DesignRulesChecker(board, nullptr))->getAllAirlines();
+    jrt::Array<AirLine*>* airlines = (new (jrt::kOp) DesignRulesChecker(board, nullptr))->getAllAirlines();
     blocked = DesignBlocks::blockedAirlines(
-                  new jrt::ArrayList<AirLine*>(std::vector<AirLine*>(airlines->begin(), airlines->end())))
+                  new (jrt::kOp) jrt::ArrayList<AirLine*>(std::vector<AirLine*>(airlines->begin(), airlines->end())))
                   ->size();
     statistics->connections->designBlockedCount = blocked > 0 ? std::optional<int32_t>(blocked) : std::nullopt;
   }
@@ -53,7 +53,7 @@ RoutingFallback_Outcome* RoutingFallback_Outcome::of(const std::string& strategy
   int32_t changed = newOrChangedCount(violationCount, exemptionBaseline(incumbent, board->clearanceBaseline),
                                       RoutingFallback::violationsOf(board));
   statistics->clearanceViolations->newOrChangedCount = changed;
-  return new RoutingFallback_Outcome(strategy, incomplete, changed, violationCount,
+  return new (jrt::kOp) RoutingFallback_Outcome(strategy, incomplete, changed, violationCount,
                                      statistics->getRouterScore(scoring), blocked);
 }
 
@@ -88,25 +88,25 @@ std::string RoutingFallback_Outcome::toString() {
 // ---- RoutingFallback ----
 
 jrt::List<RoutingFallback_Strategy*>* RoutingFallback::KNOWN() {
-  static jrt::List<RoutingFallback_Strategy*>* v = new jrt::ArrayList<RoutingFallback_Strategy*>({
-      new RoutingFallback_Strategy(
+  static jrt::List<RoutingFallback_Strategy*>* v = new (jrt::kBoard) jrt::ArrayList<RoutingFallback_Strategy*>({
+      new (jrt::kOp) RoutingFallback_Strategy(
           "no-neck", false, [](RouterSettings* settings) { settings->setNeckWidthUm(0); }, false, false),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy(
           "continue-auto-neck", false, [](RouterSettings* settings) { settings->setNeckWidthUm(150); }, false,
           false),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy(
           "continue-fine-neck", false,
           [](RouterSettings* settings) {
             settings->setNeckWidthUm(jrt::Math::min(settings->getNeckWidthUm(), static_cast<double>(100)));
           },
           true, false),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy(
           "fanout-retry", true, [](RouterSettings* settings) { settings->fanout->retryWithoutEscapeWindow = true; },
           false, true),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy(
           "short-escape", true, [](RouterSettings* settings) { settings->fanout->minEscapeLengthMm = 0.0; }, false,
           true),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy(
           "open-escape", true,
           [](RouterSettings* settings) {
             settings->fanout->minEscapeLengthMm = 0.0;
@@ -114,13 +114,13 @@ jrt::List<RoutingFallback_Strategy*>* RoutingFallback::KNOWN() {
             settings->autorouter->smdNetViaCostFactor = 1.0;
           },
           false, false),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy(
           "direct-first", true, [](RouterSettings* settings) { settings->fanout->strategy = "direct_first"; }, false,
           false),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy(
           "no-fanout", true, [](RouterSettings* settings) { settings->setFanoutEnabled(false); }, false, false),
-      new RoutingFallback_Strategy("continue", false, [](RouterSettings*) {}, false, false),
-      new RoutingFallback_Strategy(
+      new (jrt::kOp) RoutingFallback_Strategy("continue", false, [](RouterSettings*) {}, false, false),
+      new (jrt::kOp) RoutingFallback_Strategy(
           "continue-no-neck", false, [](RouterSettings* settings) { settings->setNeckWidthUm(0); }, false, false),
   });
   return v;
@@ -129,7 +129,7 @@ jrt::List<RoutingFallback_Strategy*>* RoutingFallback::KNOWN() {
 jrt::List<RoutingFallback_Strategy*>* RoutingFallback::applicable(jrt::List<RoutingFallback_Strategy*>* strategies,
                                                                   RouterSettings* settings, bool fanoutRuns) {
   bool necking = settings->getNeckWidthUm() > 0;
-  jrt::List<RoutingFallback_Strategy*>* result = new jrt::ArrayList<RoutingFallback_Strategy*>();
+  jrt::List<RoutingFallback_Strategy*>* result = new (jrt::kOp) jrt::ArrayList<RoutingFallback_Strategy*>();
   for (RoutingFallback_Strategy* strategy : *strategies) {
     if (strategy->needsFanout && !fanoutRuns) {
       continue;
@@ -153,7 +153,7 @@ jrt::List<RoutingFallback_Strategy*>* RoutingFallback::applicable(jrt::List<Rout
 
 jrt::List<RoutingFallback_Strategy*>* RoutingFallback::parse(RouterSettings* settings,
                                                              std::function<void(const std::string&)> unknown) {
-  jrt::List<RoutingFallback_Strategy*>* result = new jrt::ArrayList<RoutingFallback_Strategy*>();
+  jrt::List<RoutingFallback_Strategy*>* result = new (jrt::kOp) jrt::ArrayList<RoutingFallback_Strategy*>();
   std::optional<std::string> spec =
       settings->autorouter != nullptr ? settings->autorouter->fallbackStrategies : std::nullopt;
   // Java isBlank(): empty or only whitespace -> strip() is empty
@@ -168,7 +168,7 @@ jrt::List<RoutingFallback_Strategy*>* RoutingFallback::parse(RouterSettings* set
       continue;
     }
     if (jrt::equalsIgnoreCase("none", name)) {
-      return new jrt::ArrayList<RoutingFallback_Strategy*>();
+      return new (jrt::kOp) jrt::ArrayList<RoutingFallback_Strategy*>();
     }
     RoutingFallback_Strategy* known = find(name);
     if (known == nullptr) {
@@ -216,7 +216,7 @@ ClearanceBaseline* RoutingFallback::captureClearance(RoutingBoard* board, int32_
   if (violations == 0) {
     return nullptr;
   }
-  return new ClearanceBaseline(violationsOf(board));
+  return new (jrt::kOp) ClearanceBaseline(violationsOf(board));
 }
 
 int32_t RoutingFallback::newOrChangedClearance(RoutingBoard* candidate, int32_t violations,
@@ -231,7 +231,7 @@ int32_t RoutingFallback::newOrChangedClearance(RoutingBoard* candidate, int32_t 
 }
 
 jrt::Collection<ClearanceViolation*>* RoutingFallback::violationsOf(RoutingBoard* board) {
-  return (new DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
+  return (new (jrt::kOp) DesignRulesChecker(board, nullptr))->getAllClearanceViolations();
 }
 
 }  // namespace fr

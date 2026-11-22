@@ -5,22 +5,22 @@
 namespace fr {
 
 jrt::Map<std::string, int64_t>* PerformanceProfiler::timings() {
-  static jrt::Map<std::string, int64_t>* v = new jrt::ConcurrentHashMap<std::string, int64_t>();
+  static jrt::Map<std::string, int64_t>* v = new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, int64_t>();
   return v;
 }
 
 jrt::Map<std::string, int64_t>* PerformanceProfiler::counts() {
-  static jrt::Map<std::string, int64_t>* v = new jrt::ConcurrentHashMap<std::string, int64_t>();
+  static jrt::Map<std::string, int64_t>* v = new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, int64_t>();
   return v;
 }
 
 jrt::Deque<PerformanceProfiler_Invocation*>* PerformanceProfiler::stack() {
-  static jrt::Deque<PerformanceProfiler_Invocation*>* v = new jrt::ArrayDeque<PerformanceProfiler_Invocation*>();
+  static jrt::Deque<PerformanceProfiler_Invocation*>* v = new (jrt::kBoard) jrt::ArrayDeque<PerformanceProfiler_Invocation*>();
   return v;
 }
 
 jrt::List<PerformanceProfiler_PassInfo*>* PerformanceProfiler::passHistory() {
-  static jrt::List<PerformanceProfiler_PassInfo*>* v = new jrt::ArrayList<PerformanceProfiler_PassInfo*>();
+  static jrt::List<PerformanceProfiler_PassInfo*>* v = new (jrt::kBoard) jrt::ArrayList<PerformanceProfiler_PassInfo*>();
   return v;
 }
 
@@ -30,7 +30,7 @@ PerformanceProfiler_ConfigInfo*& PerformanceProfiler::configInfo() {
 }
 
 void PerformanceProfiler::start(const std::string& section) {
-  stack()->push(new PerformanceProfiler_Invocation(section, jrt::System::nanoTime()));
+  stack()->push(new (jrt::kOp) PerformanceProfiler_Invocation(section, jrt::System::nanoTime()));
 }
 
 void PerformanceProfiler::end(const std::string& section) {
@@ -50,13 +50,13 @@ void PerformanceProfiler::end(const std::string& section) {
 
 void PerformanceProfiler::recordPass(int32_t passNo, int32_t unroutedItems, int64_t durationMs,
                                      int32_t ripupCost) {
-  passHistory()->add(new PerformanceProfiler_PassInfo(passNo, unroutedItems, durationMs, ripupCost));
+  passHistory()->add(new (jrt::kOp) PerformanceProfiler_PassInfo(passNo, unroutedItems, durationMs, ripupCost));
 }
 
 void PerformanceProfiler::recordConfiguration(int32_t viaCosts, int32_t planeViaCosts,
                                               jrt::Array<double>* preferredCosts,
                                               jrt::Array<double>* againstCosts) {
-  configInfo() = new PerformanceProfiler_ConfigInfo(viaCosts, planeViaCosts, preferredCosts, againstCosts);
+  configInfo() = new (jrt::kOp) PerformanceProfiler_ConfigInfo(viaCosts, planeViaCosts, preferredCosts, againstCosts);
 }
 
 void PerformanceProfiler::printResults() {
@@ -75,7 +75,7 @@ void PerformanceProfiler::printResults() {
   }
 
   jrt::ArrayList<jrt::MapEntry<std::string, int64_t>*>* sorted =
-      new jrt::ArrayList<jrt::MapEntry<std::string, int64_t>*>();
+      new (jrt::kOp) jrt::ArrayList<jrt::MapEntry<std::string, int64_t>*>();
   for (auto* e : *timings()->entrySet()) {
     sorted->add(e);
   }

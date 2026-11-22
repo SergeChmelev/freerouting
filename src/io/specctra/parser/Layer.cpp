@@ -11,12 +11,12 @@
 namespace fr::dsn {
 
 Layer* Layer::PCB() {
-  static Layer* v = new Layer("pcb", -1, false);
+  static Layer* v = new (jrt::kBoard) Layer("pcb", -1, false);
   return v;
 }
 
 Layer* Layer::SIGNAL() {
-  static Layer* v = new Layer("signal", -1, true);
+  static Layer* v = new (jrt::kBoard) Layer("signal", -1, true);
   return v;
 }
 

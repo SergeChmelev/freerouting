@@ -26,7 +26,7 @@ namespace {
 
 /** PORT NOTE: Java arrays are covariant (IntPoint[] is a Point[]); the C++ port copies. */
 jrt::Array<Point*>* asPointArray(jrt::Array<IntPoint*>* corners) {
-  auto* result = new jrt::Array<Point*>(corners->length);
+  auto* result = new (jrt::kGeom) jrt::Array<Point*>(corners->length);
   for (int32_t i = 0; i < corners->length; i++) {
     (*result)[i] = (*corners)[i];
   }
@@ -44,11 +44,11 @@ StepSlider::StepSlider(RoutingBoard* board, int32_t pullTightAccuracy, Stoppable
     : board(board),
       pullTightAccuracy(pullTightAccuracy),
       stoppable(stoppable),
-      zones(new jrt::ArrayList<ConductionArea*>(board->getConductionAreas())) {}
+      zones(new (jrt::kOp) jrt::ArrayList<ConductionArea*>(board->getConductionAreas())) {}
 
 StepSlider_Result* StepSlider::run(RoutingBoard* board, int32_t pullTightAccuracy,
                                    Stoppable* stoppable) {
-  return (new StepSlider(board, pullTightAccuracy, stoppable))->run();
+  return (new (jrt::kOp) StepSlider(board, pullTightAccuracy, stoppable))->run();
 }
 
 StepSlider_Result* StepSlider::run() {
@@ -62,7 +62,7 @@ StepSlider_Result* StepSlider::run() {
   while (violationsAllowed == 0 && passes < MAX_PASSES && !isStopRequested()) {
     ++passes;
     int32_t acceptedInThisPass = 0;
-    jrt::List<int32_t>* traceIds = new jrt::ArrayList<int32_t>();
+    jrt::List<int32_t>* traceIds = new (jrt::kOp) jrt::ArrayList<int32_t>();
     for (Trace* trace : *board->getTraces()) {
       if (jrt::fast_cast<PolylineTrace>(trace) != nullptr) {
         traceIds->add(trace->getId());
@@ -129,19 +129,19 @@ StepSlider_Result* StepSlider::run() {
     }
   }
   StepSlider_Cost* end = cost();
-  return new StepSlider_Result(passes, tried, accepted, start->length(), end->length(),
+  return new (jrt::kOp) StepSlider_Result(passes, tried, accepted, start->length(), end->length(),
                                start->bends(), end->bends(), start->vias(), end->vias(),
                                incompleteAtStart, board->routingLedger()->incompleteCount(),
                                violationsAllowed, clearanceViolationCount(board));
 }
 
 jrt::List<jrt::Array<Point*>*>* StepSlider::moves(PolylineTrace* trace) {
-  jrt::List<jrt::Array<Point*>*>* result = new jrt::ArrayList<jrt::Array<Point*>*>();
+  jrt::List<jrt::Array<Point*>*>* result = new (jrt::kOp) jrt::ArrayList<jrt::Array<Point*>*>();
   int32_t cornerCount = trace->cornerCount();
   if (cornerCount < 4) {
     return result;
   }
-  jrt::Array<IntPoint*>* corners = new jrt::Array<IntPoint*>(cornerCount);
+  jrt::Array<IntPoint*>* corners = new (jrt::kGeom) jrt::Array<IntPoint*>(cornerCount);
   for (int32_t i = 0; i < cornerCount; i++) {
     auto* corner = jrt::fast_cast<IntPoint>(trace->polyline()->corner(i));
     if (corner == nullptr) {
@@ -184,7 +184,7 @@ void StepSlider::addIfPromising(jrt::List<jrt::Array<Point*>*>* result,
 
 jrt::Array<Point*>* StepSlider::slide(jrt::Array<IntPoint*>* corners, int32_t k, int32_t shift,
                                       Vector* step) {
-  jrt::List<Point*>* moved = new jrt::ArrayList<Point*>(corners->length + 1);
+  jrt::List<Point*>* moved = new (jrt::kOp) jrt::ArrayList<Point*>(corners->length + 1);
   int32_t keptBefore = shift > 0 ? k : k + shift;
   int32_t from = shift > 0 ? k + 2 : k + shift;
   int32_t to = shift > 0 ? k + shift : k - 1;
@@ -203,7 +203,7 @@ jrt::Array<Point*>* StepSlider::slide(jrt::Array<IntPoint*>* corners, int32_t k,
 }
 
 jrt::Array<Point*>* StepSlider::withoutCollinearCorners(jrt::List<Point*>* corners) {
-  jrt::ArrayList<Point*>* result = new jrt::ArrayList<Point*>(corners->size());
+  jrt::ArrayList<Point*>* result = new (jrt::kOp) jrt::ArrayList<Point*>(corners->size());
   for (Point* corner : *corners) {
     if (!result->isEmpty() && result->getLast()->equals(corner)) {
       continue;
@@ -251,7 +251,7 @@ bool StepSlider::insert(int32_t traceId, jrt::Array<Point*>* corners) {
     return false;
   }
   try {
-    Polyline* polyline = new Polyline(corners);
+    Polyline* polyline = new (jrt::kGeom) Polyline(corners);
     if (polyline->cornerCount() < 2) {
       return false;
     }
@@ -317,7 +317,7 @@ bool StepSlider::traceEntersZone(PolylineTrace* trace) {
 }
 
 jrt::Map<int32_t, int32_t>* StepSlider::traceSignatures() {
-  jrt::Map<int32_t, int32_t>* result = new jrt::HashMap<int32_t, int32_t>();
+  jrt::Map<int32_t, int32_t>* result = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
   if (zones->isEmpty()) {
     return result;
   }
@@ -378,7 +378,7 @@ StepSlider_Cost* StepSlider::cost() {
       ++vias;
     }
   }
-  return new StepSlider_Cost(length, bends, vias);
+  return new (jrt::kOp) StepSlider_Cost(length, bends, vias);
 }
 
 }  // namespace fr

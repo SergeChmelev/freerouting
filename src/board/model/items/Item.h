@@ -326,7 +326,7 @@ class Item : public virtual SearchTreeObject,
   virtual bool isTail() { return false; }
 
   /** Returns all corners of this item, which are used for displaying the ratsnest. */
-  virtual jrt::Array<Point*>* getRatsnestCorners() { return new jrt::Array<Point*>(0); }
+  virtual jrt::Array<Point*>* getRatsnestCorners() { return new (jrt::kGeom) jrt::Array<Point*>(0); }
 
   /** Test function checking the item for inconsistencies. */
   virtual bool validate();

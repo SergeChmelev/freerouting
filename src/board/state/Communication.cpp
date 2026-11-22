@@ -16,18 +16,18 @@ Communication* Communication::copyForBoard() {
     // TODO(port): only ItemIdGenerator is used as IdGenerator in the port.
     throw jrt::IllegalStateException("Communication.copyForBoard: unsupported IdGenerator");
   }
-  return new Communication(this->unit, this->resolution, this->specctraParserInfo,
+  return new (jrt::kBoard) Communication(this->unit, this->resolution, this->specctraParserInfo,
                            this->coordinateTransform, idCopy,
                            // Java Communication.readObject: observers = new BoardObserverAdaptor().
-                           new BoardObserverAdaptor());
+                           new (jrt::kBoard) BoardObserverAdaptor());
 }
 
 Communication::Communication()
     : Communication(Unit::MIL, 1,
-                    new Communication_SpecctraParserInfo("\"", std::nullopt, std::nullopt, nullptr,
+                    new (jrt::kBoard) Communication_SpecctraParserInfo("\"", std::nullopt, std::nullopt, nullptr,
                                                          nullptr, false),
-                    new io::CoordinateTransform(1, 0, 0), new ItemIdGenerator(),
-                    new BoardObserverAdaptor()) {}
+                    new (jrt::kBoard) io::CoordinateTransform(1, 0, 0), new (jrt::kBoard) ItemIdGenerator(),
+                    new (jrt::kBoard) BoardObserverAdaptor()) {}
 
 bool Communication::hostCadIsFusion() {
   if (specctraParserInfo == nullptr || !specctraParserInfo->hostCad.has_value()) {

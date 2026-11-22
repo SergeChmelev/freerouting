@@ -70,7 +70,7 @@ void MazeExpansionEngine::expandToDrill(ExpansionDrill* drill, MazeListElement* 
     }
   }
   FloatPoint* nearestPoint = shrinkedDrillShape->nearestPointApprox(compareCorner);
-  FloatLine* shapeEntry = new FloatLine(nearestPoint, nearestPoint);
+  FloatLine* shapeEntry = new (jrt::kGeom) FloatLine(nearestPoint, nearestPoint);
   int32_t sectionIndex = layer - drill->firstLayer;
   double expansionValue =
       fromElement->expansionValue + addCosts +
@@ -88,7 +88,7 @@ void MazeExpansionEngine::expandToDrill(ExpansionDrill* drill, MazeListElement* 
   }
   double sortingValue =
       expansionValue + search->destinationDistance->calculateWithPrepaidVia(nearestPoint, layer);
-  MazeListElement* newElement = new MazeListElement(
+  MazeListElement* newElement = new (jrt::kOp) MazeListElement(
       drill, sectionIndex, newBacktrackDoor, newSectionNoOfBacktrackDoor, expansionValue,
       sortingValue, nullptr, shapeEntry, fromElement->roomRipped,
       MazeSearchElement_Adjustment::NONE, false);
@@ -115,7 +115,7 @@ void MazeExpansionEngine::expandToDrillPage(DrillPage* drillPage, MazeListElemen
                                      (*ctrl->traceCosts)[layer]->horizontal(),
                                      (*ctrl->traceCosts)[layer]->vertical()) +
       search->destinationDistance->calculateWithPrepaidVia(nearestPoint, layer);
-  MazeListElement* newElement = new MazeListElement(
+  MazeListElement* newElement = new (jrt::kOp) MazeListElement(
       drillPage, layer, fromElement->door, fromElement->sectionNoOfDoor, expansionValue,
       sortingValue, fromElement->nextRoom, fromElement->shapeEntry, fromElement->roomRipped,
       MazeSearchElement_Adjustment::NONE, false);
@@ -335,7 +335,7 @@ void MazeExpansionEngine::expandToOtherLayers(MazeListElement* listElement) {
     double sortingValue =
         expansionValue + search->destinationDistance->calculate(shapeEntryMiddle, toLayer);
     int32_t currentRoomIndex = toLayer - currentDrill->firstLayer;
-    MazeListElement* newElement = new MazeListElement(
+    MazeListElement* newElement = new (jrt::kOp) MazeListElement(
         currentDrill, currentRoomIndex, currentDrill, listElement->sectionNoOfDoor, expansionValue,
         sortingValue, (*currentDrill->roomArr)[currentRoomIndex], listElement->shapeEntry,
         roomRipped, MazeSearchElement_Adjustment::NONE, false);

@@ -45,7 +45,7 @@ void UndoableObjects_NodeIterator::remove() {
 
 UndoableObjects* UndoableObjects::copyMapped(
     std::function<UndoableObjects_Storable*(UndoableObjects_Storable*)> mapObject) {
-  auto* result = new UndoableObjects();
+  auto* result = new (jrt::kBoard) UndoableObjects();
   result->stackLevel = this->stackLevel;
   result->redoPossible = this->redoPossible;
   result->version = this->version;
@@ -53,7 +53,7 @@ UndoableObjects* UndoableObjects::copyMapped(
 
   // Node copies, memoized by node identity so that shared nodes (undo/redo chains, delete
   // lists) stay shared in the copy. Links are filled in iteratively (no deep recursion).
-  auto* nodeCopies = new jrt::IdentityHashMap<UONode*, UONode*>();
+  auto* nodeCopies = new (jrt::kOp) jrt::IdentityHashMap<UONode*, UONode*>();
   std::vector<UONode*> pending;
   auto getCopy = [&](UONode* original) -> UONode* {
     if (original == nullptr) {
@@ -63,7 +63,7 @@ UndoableObjects* UndoableObjects::copyMapped(
     if (existing != nullptr) {
       return existing;
     }
-    auto* copy = new UONode(mapObject(original->object), original->level);
+    auto* copy = new (jrt::kBoard) UONode(mapObject(original->object), original->level);
     nodeCopies->put(original, copy);
     pending.push_back(original);
     return copy;
@@ -74,7 +74,7 @@ UndoableObjects* UndoableObjects::copyMapped(
     result->objects->put(mapObject(entry->getKey()), nodeCopy);
   }
   for (auto* deleteList : *this->deletedObjectsStack) {
-    jrt::Collection<UONode*>* listCopy = new jrt::LinkedList<UONode*>();
+    jrt::Collection<UONode*>* listCopy = new (jrt::kOp) jrt::LinkedList<UONode*>();
     for (auto it = deleteList->iterator(); it->hasNext();) {
       listCopy->add(getCopy(it->next()));
     }
@@ -92,12 +92,12 @@ UndoableObjects* UndoableObjects::copyMapped(
 
 UndoableObjects::UndoableObjects() {
   stackLevel = 0;
-  objects = new jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UONode*>();
-  deletedObjectsStack = new jrt::ArrayList<jrt::Collection<UONode*>*>();
+  objects = new (jrt::kBoard) jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UONode*>();
+  deletedObjectsStack = new (jrt::kBoard) jrt::ArrayList<jrt::Collection<UONode*>*>();
 }
 
 jrt::Iterator<UONode*>* UndoableObjects::startReadObject() {
-  return new UndoableObjects_NodeIterator(objects);
+  return new (jrt::kOp) UndoableObjects_NodeIterator(objects);
 }
 
 UndoableObjects_Storable* UndoableObjects::readObject(jrt::Iterator<UONode*>* it) {
@@ -115,7 +115,7 @@ void UndoableObjects::insert(UndoableObjects_Storable* object) {
   disableRedo();
   ++version;
   ++contentVersion;
-  auto* currentUndoableObject = new UONode(object, stackLevel);
+  auto* currentUndoableObject = new (jrt::kBoard) UONode(object, stackLevel);
   objects->put(object, currentUndoableObject);
 }
 
@@ -164,7 +164,7 @@ bool UndoableObjects::delete_(UndoableObjects_Storable* object) {
 
 void UndoableObjects::generateSnapshot() {
   disableRedo();
-  jrt::Collection<UONode*>* currentDeletedObjectsList = new jrt::LinkedList<UONode*>();
+  jrt::Collection<UONode*>* currentDeletedObjectsList = new (jrt::kOp) jrt::LinkedList<UONode*>();
   deletedObjectsStack->add(currentDeletedObjectsList);
   ++stackLevel;
   ++version;
@@ -328,7 +328,7 @@ void UndoableObjects::saveForUndo(UndoableObjects_Storable* object) {
   }
   if (currentNode->level < this->stackLevel) {
     auto* oldNode =
-        new UONode(jrt::fast_cast<UndoableObjects_Storable>(object->clone()), currentNode->level);
+        new (jrt::kBoard) UONode(jrt::fast_cast<UndoableObjects_Storable>(object->clone()), currentNode->level);
     oldNode->undoObject = currentNode->undoObject;
     oldNode->redoObject = currentNode;
     currentNode->undoObject = oldNode;

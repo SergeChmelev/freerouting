@@ -75,21 +75,21 @@ class BoardStatistics : public virtual jrt::Object {
  public:
   std::optional<std::string> host;
   std::optional<std::string> unit;
-  BoardStatisticsBoard* board = new BoardStatisticsBoard();
-  BoardStatisticsLayers* layers = new BoardStatisticsLayers();
-  BoardStatisticsItems* items = new BoardStatisticsItems();
-  BoardStatisticsComponents* components = new BoardStatisticsComponents();
-  BoardStatisticsPads* pads = new BoardStatisticsPads();
-  BoardStatisticsNets* nets = new BoardStatisticsNets();
-  BoardStatisticsConnections* connections = new BoardStatisticsConnections();
-  BoardStatisticsTraces* traces = new BoardStatisticsTraces();
-  BoardStatisticsBends* bends = new BoardStatisticsBends();
-  BoardStatisticsVias* vias = new BoardStatisticsVias();
+  BoardStatisticsBoard* board = new (jrt::kOp) BoardStatisticsBoard();
+  BoardStatisticsLayers* layers = new (jrt::kOp) BoardStatisticsLayers();
+  BoardStatisticsItems* items = new (jrt::kOp) BoardStatisticsItems();
+  BoardStatisticsComponents* components = new (jrt::kOp) BoardStatisticsComponents();
+  BoardStatisticsPads* pads = new (jrt::kOp) BoardStatisticsPads();
+  BoardStatisticsNets* nets = new (jrt::kOp) BoardStatisticsNets();
+  BoardStatisticsConnections* connections = new (jrt::kOp) BoardStatisticsConnections();
+  BoardStatisticsTraces* traces = new (jrt::kOp) BoardStatisticsTraces();
+  BoardStatisticsBends* bends = new (jrt::kOp) BoardStatisticsBends();
+  BoardStatisticsVias* vias = new (jrt::kOp) BoardStatisticsVias();
   BoardStatisticsClearanceViolations* clearanceViolations =
-      new BoardStatisticsClearanceViolations();
-  BoardStatisticsDifficulty* difficulty = new BoardStatisticsDifficulty();
-  BoardStatisticsBounds* bounds = new BoardStatisticsBounds();
-  BoardStatistics_BoardStatisticsFanout* fanout = new BoardStatistics_BoardStatisticsFanout();
+      new (jrt::kOp) BoardStatisticsClearanceViolations();
+  BoardStatisticsDifficulty* difficulty = new (jrt::kOp) BoardStatisticsDifficulty();
+  BoardStatisticsBounds* bounds = new (jrt::kOp) BoardStatisticsBounds();
+  BoardStatistics_BoardStatisticsFanout* fanout = new (jrt::kOp) BoardStatistics_BoardStatisticsFanout();
 
   /** Creates empty board statistics. */
   BoardStatistics() {}

@@ -31,7 +31,7 @@ std::string stripTrailing(const std::string& s) {
 }  // namespace
 
 std::string AutorouteUnroutedReport::build(RoutingBoard* board) {
-  DesignRulesChecker* tempDrc = new DesignRulesChecker(board, nullptr);
+  DesignRulesChecker* tempDrc = new (jrt::kOp) DesignRulesChecker(board, nullptr);
   tempDrc->calculateAllIncompletes();
   jrt::Array<AirLine*>* airlines = tempDrc->getAllAirlines();
 
@@ -40,7 +40,7 @@ std::string AutorouteUnroutedReport::build(RoutingBoard* board) {
   }
 
   jrt::Map<std::string, jrt::List<std::string>*>* byNet =
-      new jrt::LinkedHashMap<std::string, jrt::List<std::string>*>();
+      new (jrt::kOp) jrt::LinkedHashMap<std::string, jrt::List<std::string>*>();
   for (AirLine* airline : *airlines) {
     std::string netName = airline->net != nullptr ? airline->net->name : std::string("(unknown net)");
     std::string fromDesc = describeItem(board, airline->fromItem);
@@ -49,7 +49,7 @@ std::string AutorouteUnroutedReport::build(RoutingBoard* board) {
         ->computeIfAbsent(
             netName,
             [](const std::string&) -> jrt::List<std::string>* {
-              return new jrt::ArrayList<std::string>();
+              return new (jrt::kOp) jrt::ArrayList<std::string>();
             })
         ->add("    - " + fromDesc + "  ->  " + toDesc);
   }

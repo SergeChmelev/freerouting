@@ -7,7 +7,7 @@
 namespace fr::dsn {
 
 LayerStructure::LayerStructure(jrt::Collection<Layer*>* layerList) {
-  layers = new jrt::Array<Layer*>(layerList->size());
+  layers = new (jrt::kOp) jrt::Array<Layer*>(layerList->size());
   jrt::Iterator<Layer*>* it = layerList->iterator();
   for (int32_t i = 0; i < layers->length; i++) {
     (*layers)[i] = it->next();
@@ -15,10 +15,10 @@ LayerStructure::LayerStructure(jrt::Collection<Layer*>* layerList) {
 }
 
 LayerStructure::LayerStructure(fr::LayerStructure* boardLayerStructure) {
-  layers = new jrt::Array<Layer*>(boardLayerStructure->layers->length);
+  layers = new (jrt::kOp) jrt::Array<Layer*>(boardLayerStructure->layers->length);
   for (int32_t i = 0; i < layers->length; i++) {
     fr::Layer* boardLayer = (*boardLayerStructure->layers)[i];
-    (*layers)[i] = new Layer(boardLayer->name, i, boardLayer->isSignal);
+    (*layers)[i] = new (jrt::kOp) Layer(boardLayer->name, i, boardLayer->isSignal);
   }
 }
 

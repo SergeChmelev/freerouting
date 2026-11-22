@@ -18,9 +18,9 @@ namespace fr {
 bool RoutingBoardUndoFacade::undo(jrt::Set<int32_t>* changedNets) {
   board->components->undo(board->communication->observers);
   jrt::Collection<UndoableObjects_Storable*>* cancelledObjects =
-      new jrt::LinkedList<UndoableObjects_Storable*>();
+      new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   jrt::Collection<UndoableObjects_Storable*>* restoredObjects =
-      new jrt::LinkedList<UndoableObjects_Storable*>();
+      new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   bool result = board->itemList->undo(cancelledObjects, restoredObjects);
   applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
   return result;
@@ -29,9 +29,9 @@ bool RoutingBoardUndoFacade::undo(jrt::Set<int32_t>* changedNets) {
 bool RoutingBoardUndoFacade::redo(jrt::Set<int32_t>* changedNets) {
   board->components->redo(board->communication->observers);
   jrt::Collection<UndoableObjects_Storable*>* cancelledObjects =
-      new jrt::LinkedList<UndoableObjects_Storable*>();
+      new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   jrt::Collection<UndoableObjects_Storable*>* restoredObjects =
-      new jrt::LinkedList<UndoableObjects_Storable*>();
+      new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   bool result = board->itemList->redo(cancelledObjects, restoredObjects);
   applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
   return result;
@@ -47,16 +47,16 @@ RoutingBoard* RoutingBoardUndoFacade::deepCopy() {
   // after logging an exception; the C++ copy does not fail.
   ClearanceBaseline* clearanceBaseline;
   NetRoutingLedger_Counts* ledgerCounts;
-  auto* itemMap = new jrt::IdentityHashMap<Item*, Item*>();
+  auto* itemMap = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
   BasicBoard* copied = board->copyAsDeserialized(itemMap);
-  jrt::List<ConductionArea*>* writtenPlanes = new jrt::ArrayList<ConductionArea*>();
+  jrt::List<ConductionArea*>* writtenPlanes = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
   for (auto* entry : *itemMap->entrySet()) {
     if (auto* plane = jrt::fast_cast<ConductionArea>(entry->getKey())) {
       writtenPlanes->add(plane);
     }
   }
   jrt::List<FastPlaneConnectivityGrid_FractureMemo*>* planeMemos =
-      new jrt::ArrayList<FastPlaneConnectivityGrid_FractureMemo*>();
+      new (jrt::kOp) jrt::ArrayList<FastPlaneConnectivityGrid_FractureMemo*>();
   for (ConductionArea* plane : *writtenPlanes) {
     planeMemos->add(plane->fractureMemoForCopy());
   }
