@@ -97,9 +97,9 @@ bool PartLibrary::readScope(ReadScopeParameter* scopeParameter) {
     if (prevToken == OPEN_BRACKET()) {
       // "logicalPart".equals(nextToken instanceof Keyword k ? k.getName() : nextToken)
       bool isLogicalPartName = false;
-      if (auto* k = dynamic_cast<Keyword*>(nextToken)) {
+      if (auto* k = jrt::fast_cast<Keyword>(nextToken)) {
         isLogicalPartName = k->getName() == "logicalPart";
-      } else if (auto* s = dynamic_cast<JString*>(nextToken)) {
+      } else if (auto* s = jrt::fast_cast<JString>(nextToken)) {
         isLogicalPartName = s->value == "logicalPart";
       }
       if (nextToken == LOGICAL_PART_MAPPING()) {
@@ -126,7 +126,7 @@ bool PartLibrary::readScope(ReadScopeParameter* scopeParameter) {
 PartLibrary_LogicalPartMapping* PartLibrary::readLogicalPartMapping(IJFlexScanner* scanner) {
   try {
     jrt::Object* nextToken = scanner->nextToken();
-    auto* name = dynamic_cast<JString*>(nextToken);
+    auto* name = jrt::fast_cast<JString>(nextToken);
     if (name == nullptr) {
       FRLogger::warn("PartLibrary.read_logical_part_mapping: string expected at '" +
                      scanner->getScopeIdentifier() + "'");
@@ -152,7 +152,7 @@ PartLibrary_LogicalPartMapping* PartLibrary::readLogicalPartMapping(IJFlexScanne
       if (nextToken == CLOSED_BRACKET()) {
         break;
       }
-      auto* componentName = dynamic_cast<JString*>(nextToken);
+      auto* componentName = jrt::fast_cast<JString>(nextToken);
       if (componentName == nullptr) {
         FRLogger::warn("PartLibrary.read_logical_part_mapping: string expected at '" +
                        scanner->getScopeIdentifier() + "'");
@@ -183,7 +183,7 @@ PartLibrary_LogicalPart* PartLibrary::readLogicalPart(IJFlexScanner* scanner) {
     FRLogger::error("PartLibrary.read_logical_part: IO error scanning file", &e);
     return nullptr;
   }
-  auto* partName = dynamic_cast<JString*>(nextToken);
+  auto* partName = jrt::fast_cast<JString>(nextToken);
   if (partName == nullptr) {
     FRLogger::warn("PartLibrary.read_logical_part: string expected at '" +
                    scanner->getScopeIdentifier() + "'");
@@ -230,7 +230,7 @@ PartLibrary_PartPin* PartLibrary::readPartPin(IJFlexScanner* scanner) {
   try {
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     jrt::Object* nextToken = scanner->nextToken();
-    auto* pinName = dynamic_cast<JString*>(nextToken);
+    auto* pinName = jrt::fast_cast<JString>(nextToken);
     if (pinName == nullptr) {
       FRLogger::warn("PartLibrary.read_part_pin: string expected at '" +
                      scanner->getScopeIdentifier() + "'");
@@ -238,14 +238,14 @@ PartLibrary_PartPin* PartLibrary::readPartPin(IJFlexScanner* scanner) {
     }
     scanner->setScopeIdentifier(pinName->value);
     nextToken = scanner->nextToken();
-    if (dynamic_cast<JInteger*>(nextToken) == nullptr) {
+    if (jrt::fast_cast<JInteger>(nextToken) == nullptr) {
       FRLogger::warn("PartLibrary.read_part_pin: integer expected at '" +
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     nextToken = scanner->nextToken();
-    auto* gateName = dynamic_cast<JString*>(nextToken);
+    auto* gateName = jrt::fast_cast<JString>(nextToken);
     if (gateName == nullptr) {
       FRLogger::warn("PartLibrary.read_part_pin: string expected at '" +
                      scanner->getScopeIdentifier() + "'");
@@ -253,15 +253,15 @@ PartLibrary_PartPin* PartLibrary::readPartPin(IJFlexScanner* scanner) {
     }
     scanner->setScopeIdentifier(gateName->value);
     nextToken = scanner->nextToken();
-    if (dynamic_cast<JInteger*>(nextToken) == nullptr) {
+    if (jrt::fast_cast<JInteger>(nextToken) == nullptr) {
       FRLogger::warn("PartLibrary.read_part_pin: integer expected at '" +
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    const int32_t gateSwapCode = dynamic_cast<JInteger*>(nextToken)->value;
+    const int32_t gateSwapCode = jrt::fast_cast<JInteger>(nextToken)->value;
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     nextToken = scanner->nextToken();
-    auto* gatePinName = dynamic_cast<JString*>(nextToken);
+    auto* gatePinName = jrt::fast_cast<JString>(nextToken);
     if (gatePinName == nullptr) {
       FRLogger::warn("PartLibrary.read_part_pin: string expected at '" +
                      scanner->getScopeIdentifier() + "'");
@@ -269,12 +269,12 @@ PartLibrary_PartPin* PartLibrary::readPartPin(IJFlexScanner* scanner) {
     }
     scanner->setScopeIdentifier(gatePinName->value);
     nextToken = scanner->nextToken();
-    if (dynamic_cast<JInteger*>(nextToken) == nullptr) {
+    if (jrt::fast_cast<JInteger>(nextToken) == nullptr) {
       FRLogger::warn("PartLibrary.read_part_pin: integer expected at '" +
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
-    int32_t gatePinSwapCode = dynamic_cast<JInteger*>(nextToken)->value;
+    int32_t gatePinSwapCode = jrt::fast_cast<JInteger>(nextToken)->value;
     // overread subgates
     do {
       nextToken = scanner->nextToken();

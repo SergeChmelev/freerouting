@@ -44,7 +44,7 @@ static_assert(BatchAutorouter::BOARD_RANK_LIMIT == BoardHistory::MAX_HISTORY_SIZ
 
 bool BatchAutorouter_NetPlanes::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<BatchAutorouter_NetPlanes*>(o);
+  auto* other = jrt::fast_cast<BatchAutorouter_NetPlanes>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(all_, other->all_) && jrt::equalsOf(withPins_, other->withPins_) &&
          jrt::equalsOf(fracturedIslandPins_, other->fracturedIslandPins_);
@@ -236,16 +236,16 @@ int32_t BatchAutorouter::autoroutePassesForOptimizingItem(RoutingJob* job, int32
 }
 
 jrt::Array<Point*>* BatchAutorouter::getImpactedPoints(Item* item) {
-  if (auto* trace = dynamic_cast<Trace*>(item)) {
+  if (auto* trace = jrt::fast_cast<Trace>(item)) {
     return jrt::Array<Point*>::of({trace->firstCorner(), trace->lastCorner()});
   }
-  if (auto* via = dynamic_cast<Via*>(item)) {
+  if (auto* via = jrt::fast_cast<Via>(item)) {
     return jrt::Array<Point*>::of({via->getCenter()});
   }
-  if (auto* pin = dynamic_cast<Pin*>(item)) {
+  if (auto* pin = jrt::fast_cast<Pin>(item)) {
     return jrt::Array<Point*>::of({pin->getCenter()});
   }
-  if (auto* drillItem = dynamic_cast<DrillItem*>(item)) {
+  if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
     return jrt::Array<Point*>::of({drillItem->getCenter()});
   }
   return new jrt::Array<Point*>(0);
@@ -257,7 +257,7 @@ AutorouteAttemptResult* BatchAutorouter::enforceStrictDrc(RoutingBoard* board, i
   bool hasViolation = false;
   for (Item* currentItem : *board->getConnectableItems(routeNetNo)) {
     if (currentItem->getId() <= maxItemIdBefore ||
-        !(dynamic_cast<Trace*>(currentItem) != nullptr || dynamic_cast<Via*>(currentItem) != nullptr)) {
+        !(jrt::fast_cast<Trace>(currentItem) != nullptr || jrt::fast_cast<Via>(currentItem) != nullptr)) {
       continue;
     }
     newItems->add(currentItem);
@@ -300,8 +300,8 @@ jrt::List<Item*>* BatchAutorouter::getAutorouteItems(RoutingBoard* board) {
     if (currentObject == nullptr) {
       break;
     }
-    auto* currentItem = dynamic_cast<Item*>(currentObject);
-    if (dynamic_cast<Connectable*>(currentObject) != nullptr && currentItem != nullptr) {
+    auto* currentItem = jrt::fast_cast<Item>(currentObject);
+    if (jrt::fast_cast<Connectable>(currentObject) != nullptr && currentItem != nullptr) {
       // This is a connectable item, like PolylineTrace or Pin
       if (!currentItem->isRoutable()) {
         if (!handledItems->contains(currentItem)) {

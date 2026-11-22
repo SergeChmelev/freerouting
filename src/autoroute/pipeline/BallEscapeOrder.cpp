@@ -13,7 +13,7 @@ namespace fr {
 
 bool BallEscapeOrder_Entry::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<BallEscapeOrder_Entry*>(o);
+  auto* other = jrt::fast_cast<BallEscapeOrder_Entry>(o);
   if (other == nullptr) return false;
   return ringKey_ == other->ringKey_ && position_ == other->position_ &&
          jrt::equalsOf(item_, other->item_);
@@ -136,7 +136,7 @@ int32_t BallEscapeOrder::moveToFront(jrt::List<Item*>* items) {
   jrt::List<Item*>* rest = new jrt::ArrayList<Item*>(items->size());
   for (int32_t i = 0; i < items->size(); i++) {
     Item* item = items->get(i);
-    auto* pin = dynamic_cast<Pin*>(item);
+    auto* pin = jrt::fast_cast<Pin>(item);
     std::optional<int32_t> ring = (pin != nullptr) ? getRing(pin->getId()) : std::nullopt;
     if (ring.has_value()) {
       int32_t ringKey = outerFirst ? *ring : -*ring;

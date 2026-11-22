@@ -109,7 +109,7 @@ bool BoardLibrary::isUsed(Padstack* padstack, BasicBoard* board) {
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* item = dynamic_cast<DrillItem*>(currentItem)) {
+    if (auto* item = jrt::fast_cast<DrillItem>(currentItem)) {
       if (item->getPadstack() == padstack) {
         return true;
       }

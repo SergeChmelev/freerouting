@@ -49,14 +49,57 @@ class Object {
 
 std::string className(Object* o);  // demangled dynamic class name, without namespaces
 
+// ---------------------------------------------------------------------------------------------
+// fast_cast<T>(p): drop-in replacement for dynamic_cast<T*>(p) on polymorphic pointers.
+// libstdc++'s dynamic_cast is slow on the virtual-inheritance hierarchies of the port (DAG walk
+// plus strcmp of type names). For a given source vtable pointer the object layout is fixed
+// (construction vtables are distinct too), so the result offset is cached per vptr.
+// Single-threaded by design (like the rest of the port).
+// ---------------------------------------------------------------------------------------------
+template <class T, class U>
+struct FastCastCache {
+  static constexpr int kSlots = 256;  // power of two
+  static constexpr ptrdiff_t kFail = PTRDIFF_MIN;
+  const void* keys[kSlots] = {};
+  ptrdiff_t offsets[kSlots] = {};
+};
+
+template <class T, class U>
+inline T* fast_cast(U* p) {
+  static_assert(std::is_polymorphic_v<U>, "fast_cast needs a polymorphic source type");
+  if (p == nullptr) return nullptr;
+  if constexpr (std::is_base_of_v<T, U>) {
+    return p;  // upcast: implicit conversion (also through virtual bases)
+  } else {
+    static FastCastCache<T, U> cache;
+    const void* vptr = *reinterpret_cast<const void* const*>(p);
+    auto h = (reinterpret_cast<uintptr_t>(vptr) >> 4) & (FastCastCache<T, U>::kSlots - 1);
+    for (int probe = 0; probe < 8; ++probe) {
+      auto i = (h + probe) & (FastCastCache<T, U>::kSlots - 1);
+      if (cache.keys[i] == vptr) {
+        ptrdiff_t off = cache.offsets[i];
+        if (off == FastCastCache<T, U>::kFail) return nullptr;
+        return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + off);
+      }
+      if (cache.keys[i] == nullptr) {
+        T* r = dynamic_cast<T*>(p);
+        cache.keys[i] = vptr;
+        cache.offsets[i] = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : FastCastCache<T, U>::kFail;
+        return r;
+      }
+    }
+    return dynamic_cast<T*>(p);  // table region full: uncached
+  }
+}
+
 // Java `instanceof` / checked cast helpers.
 template <class T, class U>
 inline bool instanceof(U* p) {
-  return dynamic_cast<T*>(p) != nullptr;
+  return fast_cast<T>(p) != nullptr;
 }
 template <class T, class U>
 inline T* as(U* p) {
-  return dynamic_cast<T*>(p);
+  return fast_cast<T>(p);
 }
 
 // ---------------------------------------------------------------------------------------------

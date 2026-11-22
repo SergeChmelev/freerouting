@@ -24,7 +24,7 @@ bool IntVector::equals(jrt::Object* other) {
   if (typeid(*this) != typeid(*other)) {
     return false;
   }
-  IntVector* otherVector = dynamic_cast<IntVector*>(other);
+  IntVector* otherVector = jrt::fast_cast<IntVector>(other);
   return x == otherVector->x && y == otherVector->y;
 }
 

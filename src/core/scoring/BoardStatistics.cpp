@@ -256,22 +256,22 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->items->otherCount = 0;
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
     (*this->items->totalCount)++;
-    if (dynamic_cast<Trace*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Trace>(currentItem) != nullptr) {
       (*this->items->traceCount)++;
-    } else if (dynamic_cast<Via*>(currentItem) != nullptr) {
+    } else if (jrt::fast_cast<Via>(currentItem) != nullptr) {
       (*this->items->viaCount)++;
-    } else if (dynamic_cast<ConductionArea*>(currentItem) != nullptr) {
+    } else if (jrt::fast_cast<ConductionArea>(currentItem) != nullptr) {
       (*this->items->conductionAreaCount)++;
-    } else if (dynamic_cast<Pin*>(currentItem) != nullptr) {
+    } else if (jrt::fast_cast<Pin>(currentItem) != nullptr) {
       (*this->items->pinCount)++;
-    } else if (dynamic_cast<DrillItem*>(currentItem) != nullptr) {
+    } else if (jrt::fast_cast<DrillItem>(currentItem) != nullptr) {
       (*this->items->drillItemCount)++;
-    } else if (dynamic_cast<ComponentOutline*>(currentItem) != nullptr) {
+    } else if (jrt::fast_cast<ComponentOutline>(currentItem) != nullptr) {
       (*this->items->componentOutlineCount)++;
     } else {
       (*this->items->otherCount)++;
@@ -331,7 +331,7 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->traces->totalAngledLength = 0.0f;
   for (Trace* trace : *board->getTraces()) {
     // Calculate segments for this trace
-    if (auto* polylineTrace = dynamic_cast<PolylineTrace*>(trace)) {
+    if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
       Polyline* polyline = polylineTrace->polyline();
       int32_t cornerCount = polyline->cornerCount();
       // Number of segments is cornerCount - 1
@@ -364,7 +364,7 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* currentTrace = dynamic_cast<Trace*>(currentItem)) {
+    if (auto* currentTrace = jrt::fast_cast<Trace>(currentItem)) {
       FixedState fixedState = currentTrace->getFixedState();
       if (fixedState == FixedState::UNFIXED || fixedState == FixedState::SHOVE_FIXED) {
         double weightedTraceLength =
@@ -394,7 +394,7 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->bends->fortyFiveDegreeCount = 0;
   this->bends->otherAngleCount = 0;
   for (Trace* trace : *board->getTraces()) {
-    if (auto* polylineTrace = dynamic_cast<PolylineTrace*>(trace)) {
+    if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
       // Polyline traces can have bends between consecutive line segments
       Polyline* polyline = polylineTrace->polyline();
       int32_t cornerCount = polyline->cornerCount();
@@ -701,21 +701,21 @@ bool BoardStatistics::isConnectedToWholeNet(
 bool BoardStatistics::isPinEscaped(Pin* pin) {
   jrt::Set<Item*>* contacts = pin->getNormalContacts();
   for (Item* contact : *contacts) {
-    if (auto* trace = dynamic_cast<Trace*>(contact)) {
+    if (auto* trace = jrt::fast_cast<Trace>(contact)) {
       if (trace->clearanceViolations()->isEmpty()) {
         return true;
       }
-    } else if (auto* via = dynamic_cast<Via*>(contact)) {
+    } else if (auto* via = jrt::fast_cast<Via>(contact)) {
       if (via->clearanceViolations()->isEmpty()) {
         jrt::Set<Item*>* viaContacts = via->getNormalContacts();
         for (Item* viaContact : *viaContacts) {
-          if (dynamic_cast<Trace*>(viaContact) != nullptr ||
-              dynamic_cast<ConductionArea*>(viaContact) != nullptr) {
+          if (jrt::fast_cast<Trace>(viaContact) != nullptr ||
+              jrt::fast_cast<ConductionArea>(viaContact) != nullptr) {
             return true;
           }
         }
       }
-    } else if (auto* ca = dynamic_cast<ConductionArea*>(contact)) {
+    } else if (auto* ca = jrt::fast_cast<ConductionArea>(contact)) {
       if (!ca->isFractured()) {
         return true;
       }
@@ -1094,9 +1094,9 @@ BoardStatistics_OptimizerMetrics* BoardStatistics_OptimizerMetrics::of(BasicBoar
     if (currentItem == nullptr) {
       break;
     }
-    if (dynamic_cast<Via*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Via>(currentItem) != nullptr) {
       viaCount++;
-    } else if (auto* currentTrace = dynamic_cast<Trace*>(currentItem)) {
+    } else if (auto* currentTrace = jrt::fast_cast<Trace>(currentItem)) {
       totalLength += static_cast<float>(currentTrace->getLength());
       FixedState fixedState = currentTrace->getFixedState();
       if (fixedState == FixedState::UNFIXED || fixedState == FixedState::SHOVE_FIXED) {

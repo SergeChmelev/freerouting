@@ -73,7 +73,7 @@ std::string AutorouteUnroutedReport::build(RoutingBoard* board) {
 }
 
 std::string AutorouteUnroutedReport::describeItem(RoutingBoard* board, Item* item) {
-  if (auto* pin = dynamic_cast<Pin*>(item)) {
+  if (auto* pin = jrt::fast_cast<Pin>(item)) {
     try {
       Component* component = board->components->get(pin->getComponentId());
       if (component != nullptr) {

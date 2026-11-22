@@ -69,7 +69,7 @@ bool AutoroutePassRunner_FailedConnectionPair::equals(jrt::Object* o) {
   if (this == o) {
     return true;
   }
-  auto* other = dynamic_cast<AutoroutePassRunner_FailedConnectionPair*>(o);
+  auto* other = jrt::fast_cast<AutoroutePassRunner_FailedConnectionPair>(o);
   if (other == nullptr) {
     return false;
   }
@@ -644,7 +644,7 @@ int32_t AutoroutePassRunner::ripInCorridors(int32_t netNo, int32_t failedNetNo) 
     }
     IntBox* corridor = LastMileBlockerRipup::corridor(airline->fromCorner, airline->toCorner);
     for (SearchTreeObject* object : *router->board->overlappingObjects(corridor, -1)) {
-      if (auto* item = dynamic_cast<Item*>(object)) {
+      if (auto* item = jrt::fast_cast<Item>(object)) {
         if (item->containsNet(netNo) && LastMileBlockerRipup::isRemovableBlocker(item, failedNetNo)) {
           inTheWay->add(item);
         }
@@ -767,7 +767,7 @@ void AutoroutePassRunner::logNet94Items() {
                   "Net #94",
                   new jrt::Array<Point*>(0));
   for (Item* netItem : *router->board->getConnectableItems(94)) {
-    if (auto* trace = dynamic_cast<Trace*>(netItem)) {
+    if (auto* trace = jrt::fast_cast<Trace>(netItem)) {
       FRLogger::trace(
           "BatchAutorouter.autoroute_pass",
           "compare_trace_dump_net_item",
@@ -775,13 +775,13 @@ void AutoroutePassRunner::logNet94Items() {
               jrt::str(trace->firstCorner()) + " to " + jrt::str(trace->lastCorner()),
           "Net #94,Item #" + jrt::str(trace->getId()) + ",Type=Trace",
           jrt::Array<Point*>::of({trace->firstCorner(), trace->lastCorner()}));
-    } else if (auto* via = dynamic_cast<Via*>(netItem)) {
+    } else if (auto* via = jrt::fast_cast<Via>(netItem)) {
       FRLogger::trace("BatchAutorouter.autoroute_pass",
                       "compare_trace_dump_net_item",
                       "Via center=" + jrt::str(via->getCenter()),
                       "Net #94,Item #" + jrt::str(via->getId()) + ",Type=Via",
                       jrt::Array<Point*>::of({via->getCenter()}));
-    } else if (auto* pin = dynamic_cast<Pin*>(netItem)) {
+    } else if (auto* pin = jrt::fast_cast<Pin>(netItem)) {
       FRLogger::trace("BatchAutorouter.autoroute_pass",
                       "compare_trace_dump_net_item",
                       "Pin center=" + jrt::str(pin->getCenter()) + " name=" + jrt::str(pin->name()) +
@@ -867,7 +867,7 @@ jrt::List<Item*>* AutoroutePassRunner::failedNetRipItems(RoutingBoard* board, It
   jrt::Collection<Item*>* items = board->getConnectableItems(netNumber);
   int64_t pinCount = 0;
   for (Item* i : *items) {
-    if (dynamic_cast<Pin*>(i) != nullptr) {
+    if (jrt::fast_cast<Pin>(i) != nullptr) {
       pinCount++;
     }
   }
@@ -877,7 +877,7 @@ jrt::List<Item*>* AutoroutePassRunner::failedNetRipItems(RoutingBoard* board, It
   IntBox* region = failedItem->boundingBox()->offset(offset);
   jrt::List<Item*>* result = new jrt::ArrayList<Item*>();
   for (Item* i : *items) {
-    if ((dynamic_cast<Trace*>(i) != nullptr || dynamic_cast<Via*>(i) != nullptr) &&
+    if ((jrt::fast_cast<Trace>(i) != nullptr || jrt::fast_cast<Via>(i) != nullptr) &&
         !i->isUserFixed() && i->netCount() == 1 &&
         (!branched || region->intersects(i->boundingBox()))) {
       result->add(i);

@@ -41,7 +41,7 @@ bool FoundConnectionInserter_TerminalAnchor::equals(jrt::Object* o) {
   if (this == o) {
     return true;
   }
-  auto* other = dynamic_cast<FoundConnectionInserter_TerminalAnchor*>(o);
+  auto* other = jrt::fast_cast<FoundConnectionInserter_TerminalAnchor>(o);
   if (other == nullptr) {
     return false;
   }
@@ -125,14 +125,14 @@ FoundConnectionInserter* FoundConnectionInserter::insertSegments(
   if (!newInstance->insertVia(newInstance->lastCorner, currentLayer, startLayer)) {
     return nullptr;
   }
-  if (auto* toTrace = dynamic_cast<PolylineTrace*>(targetItem)) {
+  if (auto* toTrace = jrt::fast_cast<PolylineTrace>(targetItem)) {
     if (!board->connectToTrace(newInstance->firstCorner, toTrace,
                                (*ctrl->traceHalfWidth)[targetLayer],
                                ctrl->traceClearanceClassIndex)) {
       return nullptr;
     }
   }
-  if (auto* toTrace = dynamic_cast<PolylineTrace*>(startItem)) {
+  if (auto* toTrace = jrt::fast_cast<PolylineTrace>(startItem)) {
     if (!board->connectToTrace(newInstance->lastCorner, toTrace,
                                (*ctrl->traceHalfWidth)[startLayer],
                                ctrl->traceClearanceClassIndex)) {
@@ -160,7 +160,7 @@ std::string FoundConnectionInserter::formatPoint(Point* point) {
   if (point == nullptr) {
     return "null";
   }
-  if (auto* intPoint = dynamic_cast<IntPoint*>(point)) {
+  if (auto* intPoint = jrt::fast_cast<IntPoint>(point)) {
     return "(" + jrt::str(intPoint->x) + "," + jrt::str(intPoint->y) + ")";
   }
   return point->toString();
@@ -191,7 +191,7 @@ bool FoundConnectionInserter::insertTrace(PlannedConnection_Segment* trace) {
     for (int32_t i = 0; i < 2; i++) {
       jrt::Set<Item*>* pickedItems = this->board->pickItems(currentEndCorner, trace->layer, itemFilter);
       for (Item* currentItem : *pickedItems) {
-        auto* currentPin = dynamic_cast<Pin*>(currentItem);
+        auto* currentPin = jrt::fast_cast<Pin>(currentItem);
         if (currentPin->containsNet(ctrl->netNumber)
             && currentPin->getCenter()->equals(currentEndCorner)) {
           if (i == 0) {
@@ -410,14 +410,14 @@ FoundConnectionInserter_TerminalAnchor* FoundConnectionInserter::captureTerminal
     return nullptr;
   }
   Point* anchor = endpoint;
-  auto* trace = dynamic_cast<PolylineTrace*>(item);
+  auto* trace = jrt::fast_cast<PolylineTrace>(item);
   if (trace != nullptr && !trace->contains(endpoint)) {
     LineSegment* projection = trace->polyline()->projectionLine(endpoint);
     if (projection == nullptr) {
       return nullptr;
     }
     anchor = projection->endPoint();
-  } else if (auto* drill = dynamic_cast<DrillItem*>(item)) {
+  } else if (auto* drill = jrt::fast_cast<DrillItem>(item)) {
     anchor = drill->getCenter();
   }
   // Even a fixed terminal can have mutable branches. Preserve reachability of every surviving
@@ -439,24 +439,24 @@ jrt::Set<Item*>* FoundConnectionInserter::resolveTerminal(
   }
   for (SearchTreeObject* object :
        *board->overlappingObjects(TileShape::getInstance(anchor->point()), anchor->layer())) {
-    auto* item = dynamic_cast<Item*>(object);
+    auto* item = jrt::fast_cast<Item>(object);
     if (item == nullptr || !item->containsNet(ctrl->netNumber)) {
       continue;
     }
     // Search-tree overlap includes trace widths and clearance compensation, not just contacts.
     if (anchor->fanoutEnd()) {
-      auto* via = dynamic_cast<Via*>(item);
+      auto* via = jrt::fast_cast<Via>(item);
       if (via != nullptr && via->getCenter()->equals(anchor->point())) {
         live->add(item);
       }
-    } else if (dynamic_cast<Trace*>(item) != nullptr
-               && dynamic_cast<Trace*>(item)->contains(anchor->point())) {
+    } else if (jrt::fast_cast<Trace>(item) != nullptr
+               && jrt::fast_cast<Trace>(item)->contains(anchor->point())) {
       live->add(item);
-    } else if (dynamic_cast<DrillItem*>(item) != nullptr
-               && dynamic_cast<DrillItem*>(item)->getCenter()->equals(anchor->point())) {
+    } else if (jrt::fast_cast<DrillItem>(item) != nullptr
+               && jrt::fast_cast<DrillItem>(item)->getCenter()->equals(anchor->point())) {
       live->add(item);
-    } else if (dynamic_cast<ConductionArea*>(item) != nullptr
-               && dynamic_cast<ConductionArea*>(item)->getArea()->contains(anchor->point())) {
+    } else if (jrt::fast_cast<ConductionArea>(item) != nullptr
+               && jrt::fast_cast<ConductionArea>(item)->getArea()->contains(anchor->point())) {
       live->add(item);
     }
   }

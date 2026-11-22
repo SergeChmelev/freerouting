@@ -163,7 +163,7 @@ bool PolylineTrace::combineAtStart(bool ignoreAreas) {
   jrt::Collection<Item*>* contacts = getNormalContacts(startCorner, false);
   if (ignoreAreas) {
     // remove conduction areas from the list
-    contacts->removeIf([](Item* x) { return dynamic_cast<ConductionArea*>(x) != nullptr; });
+    contacts->removeIf([](Item* x) { return jrt::fast_cast<ConductionArea>(x) != nullptr; });
   }
   if (debugNet49) {
     FRLogger::trace("compare_trace_combine_at_start_net49 thisId=" + jrt::str(this->getId()) +
@@ -171,7 +171,7 @@ bool PolylineTrace::combineAtStart(bool ignoreAreas) {
                     ", start=" + jrt::str(startCorner) +
                     ", contacts=" + jrt::str(contacts->size()));
     for (Item* c : *contacts) {
-      Trace* t = dynamic_cast<Trace*>(c);
+      Trace* t = jrt::fast_cast<Trace>(c);
       FRLogger::trace("  contact id=" + jrt::str(c->getId()) + ", type=" + jrt::className(c) +
                       ", fixed=" + FixedState_toString(c->getFixedState()) +
                       (t != nullptr ? ", first=" + jrt::str(t->firstCorner()) +
@@ -186,7 +186,7 @@ bool PolylineTrace::combineAtStart(bool ignoreAreas) {
   bool traceFound = false;
   bool reverseOrder = false;
   for (Item* currentObject : *contacts) {
-    if (auto* trace = dynamic_cast<PolylineTrace*>(currentObject)) {
+    if (auto* trace = jrt::fast_cast<PolylineTrace>(currentObject)) {
       otherTrace = trace;
       if (otherTrace->getLayer() == getLayer() && otherTrace->netsEqual(this) &&
           otherTrace->getHalfWidth() == getHalfWidth() &&
@@ -263,7 +263,7 @@ bool PolylineTrace::combineAtStart(bool ignoreAreas) {
     board->removeItem(this);
   }
   board->removeItem(otherTrace);
-  if (auto* routingBoard = dynamic_cast<RoutingBoard*>(board)) {
+  if (auto* routingBoard = jrt::fast_cast<RoutingBoard>(board)) {
     routingBoard->joinChangedArea(startCorner->toFloat(), getLayer());
   }
   return true;
@@ -276,7 +276,7 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
   jrt::Collection<Item*>* contacts = getNormalContacts(endCorner, false);
   if (ignoreAreas) {
     // remove conduction areas from the list
-    contacts->removeIf([](Item* x) { return dynamic_cast<ConductionArea*>(x) != nullptr; });
+    contacts->removeIf([](Item* x) { return jrt::fast_cast<ConductionArea>(x) != nullptr; });
   }
   if (debugNet49) {
     FRLogger::trace("compare_trace_combine_at_end_net49 thisId=" + jrt::str(this->getId()) +
@@ -284,7 +284,7 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
                     ", end=" + jrt::str(endCorner) +
                     ", contacts=" + jrt::str(contacts->size()));
     for (Item* c : *contacts) {
-      Trace* t = dynamic_cast<Trace*>(c);
+      Trace* t = jrt::fast_cast<Trace>(c);
       FRLogger::trace("  contact id=" + jrt::str(c->getId()) + ", type=" + jrt::className(c) +
                       ", fixed=" + FixedState_toString(c->getFixedState()) +
                       (t != nullptr ? ", first=" + jrt::str(t->firstCorner()) +
@@ -299,7 +299,7 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
   bool traceFound = false;
   bool reverseOrder = false;
   for (Item* currentObject : *contacts) {
-    if (auto* trace = dynamic_cast<PolylineTrace*>(currentObject)) {
+    if (auto* trace = jrt::fast_cast<PolylineTrace>(currentObject)) {
       otherTrace = trace;
       if (otherTrace->getLayer() == getLayer() && otherTrace->netsEqual(this) &&
           otherTrace->getHalfWidth() == getHalfWidth() &&
@@ -368,7 +368,7 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
     board->removeItem(this);
   }
   board->removeItem(otherTrace);
-  if (auto* routingBoard = dynamic_cast<RoutingBoard*>(board)) {
+  if (auto* routingBoard = jrt::fast_cast<RoutingBoard>(board)) {
     routingBoard->joinChangedArea(endCorner->toFloat(), getLayer());
   }
   return true;
@@ -403,7 +403,7 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
         return result;
       }
       ShapeTree_TreeEntry* foundEntry = it->next();
-      Item* foundItem = dynamic_cast<Item*>(foundEntry->object);
+      Item* foundItem = jrt::fast_cast<Item>(foundEntry->object);
       if (foundItem == nullptr) {
         continue;
       }
@@ -426,7 +426,7 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
       if (!foundItem->sharesNet(this)) {
         continue;
       }
-      if (auto* foundTrace = dynamic_cast<PolylineTrace*>(foundItem)) {
+      if (auto* foundTrace = jrt::fast_cast<PolylineTrace>(foundItem)) {
         LineSegment* foundLineSegment =
             new LineSegment(foundTrace->lines, foundEntry->shapeIndexInObject + 1);
         jrt::Array<Line*>* intersectingLines = foundLineSegment->intersection(currentLineSegment);
@@ -536,15 +536,15 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
         if (ownTraceSplit) {
           break;
         }
-      } else if (auto* currentDrillItem = dynamic_cast<DrillItem*>(foundItem)) {
+      } else if (auto* currentDrillItem = jrt::fast_cast<DrillItem>(foundItem)) {
         Point* splitPoint = currentDrillItem->getCenter();
         if (currentLineSegment->contains(splitPoint)) {
           Direction* splitLineDirection = currentLineSegment->getLine()->direction()->turn45Degree(2);
           Line* splitLine = new Line(splitPoint, splitLineDirection);
           split(i + 1, splitLine);
         }
-      } else if (!this->isUserFixed() && dynamic_cast<ConductionArea*>(foundItem) != nullptr) {
-        auto* foundArea = dynamic_cast<ConductionArea*>(foundItem);
+      } else if (!this->isUserFixed() && jrt::fast_cast<ConductionArea>(foundItem) != nullptr) {
+        auto* foundArea = jrt::fast_cast<ConductionArea>(foundItem);
         bool ignoreAreas = false;
         if (this->netNumbers->length > 0) {
           Net* currentNet = this->board->rules->nets->get((*this->netNumbers)[0]);
@@ -638,12 +638,12 @@ bool PolylineTrace::splitInsideDrillPadProhibited(int32_t lineIndex, Line* line)
     if (!currentItem->sharesNet(this)) {
       continue;
     }
-    if (auto* currentDrillItem = dynamic_cast<Pin*>(currentItem)) {
+    if (auto* currentDrillItem = jrt::fast_cast<Pin>(currentItem)) {
       if (currentDrillItem->getCenter()->equals(intersection)) {
         return false;  // split always at the center of a drill item.
       }
       padFound = true;
-    } else if (auto* currentTrace = dynamic_cast<Trace*>(currentItem)) {
+    } else if (auto* currentTrace = jrt::fast_cast<Trace>(currentItem)) {
       if ((currentTrace != this && currentTrace->firstCorner()->equals(intersection)) ||
           currentTrace->lastCorner()->equals(intersection)) {
         return false;
@@ -709,7 +709,7 @@ bool PolylineTrace::pullTight(TraceTightener* pullTightAlgo) {
 
 bool PolylineTrace::pullTight(bool ownNetOnly, int32_t pullTightAccuracy,
                               Stoppable* stoppableThread) {
-  auto* routingBoard = dynamic_cast<RoutingBoard*>(this->board);
+  auto* routingBoard = jrt::fast_cast<RoutingBoard>(this->board);
   if (routingBoard == nullptr) {
     return false;
   }
@@ -726,7 +726,7 @@ bool PolylineTrace::pullTight(bool ownNetOnly, int32_t pullTightAccuracy,
 
 bool PolylineTrace::smoothenEndCornersFork(bool ownNetOnly, int32_t pullTightAccuracy,
                                            Stoppable* stoppableThread) {
-  auto* routingBoard = dynamic_cast<RoutingBoard*>(this->board);
+  auto* routingBoard = jrt::fast_cast<RoutingBoard>(this->board);
   if (routingBoard == nullptr) {
     return false;
   }
@@ -808,7 +808,7 @@ void PolylineTrace::change(Polyline* newPolyline) {
   }
 
   IntOctagon* clipShape = nullptr;
-  if (auto* routingBoard = dynamic_cast<RoutingBoard*>(board)) {
+  if (auto* routingBoard = jrt::fast_cast<RoutingBoard>(board)) {
     ChangedArea* changedArea = routingBoard->changedArea;
     if (changedArea != nullptr) {
       clipShape = changedArea->getArea(this->getLayer());
@@ -837,7 +837,7 @@ bool PolylineTrace::checkConnectionToPin(bool atStart) {
   }
   Pin* contactPin = nullptr;
   for (Item* currentContact : *contactList) {
-    if (auto* pin = dynamic_cast<Pin*>(currentContact)) {
+    if (auto* pin = jrt::fast_cast<Pin>(currentContact)) {
       contactPin = pin;
       break;
     }
@@ -901,7 +901,7 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
   }
   Pin* contactPin = nullptr;
   for (Item* currentContact : *contactList) {
-    if (auto* pin = dynamic_cast<Pin*>(currentContact)) {
+    if (auto* pin = jrt::fast_cast<Pin>(currentContact)) {
       contactPin = pin;
       break;
     }
@@ -915,7 +915,7 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
     return false;
   }
   Shape* pinShape = contactPin->getShape(this->getLayer() - contactPin->firstLayer());
-  if (dynamic_cast<TileShape*>(pinShape) == nullptr) {
+  if (jrt::fast_cast<TileShape>(pinShape) == nullptr) {
     return false;
   }
   const double edgeToTurnDist = this->board->rules->getPinEdgeToTurnDist();
@@ -925,8 +925,8 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
   double currentClearance = board->clearanceValue(
       this->clearanceClassIndex(), contactPin->clearanceClassIndex(), this->getLayer());
   double addWidth = jrt::Math::max(edgeToTurnDist, currentClearance + 1);
-  TileShape* offsetPinShape = dynamic_cast<TileShape*>(
-      dynamic_cast<TileShape*>(pinShape)->offset(this->getHalfWidth() + addWidth));
+  TileShape* offsetPinShape = jrt::fast_cast<TileShape>(
+      jrt::fast_cast<TileShape>(pinShape)->offset(this->getHalfWidth() + addWidth));
   if (angleRestriction == AngleRestriction::NINETY_DEGREE || offsetPinShape->isIntBox()) {
     offsetPinShape = offsetPinShape->boundingBox();
   } else if (angleRestriction == AngleRestriction::FORTYFIVE_DEGREE) {
@@ -1056,7 +1056,7 @@ bool PolylineTrace::swapConnectionToPin(bool atStart) {
     return false;
   }
   Item* currentContact = contactList->iterator()->next();
-  auto* contactTrace = dynamic_cast<PolylineTrace*>(currentContact);
+  auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
   if (!(currentContact->getFixedState() == FixedState::SHOVE_FIXED && contactTrace != nullptr)) {
     return false;
   }
@@ -1086,7 +1086,7 @@ bool PolylineTrace::swapConnectionToPin(bool atStart) {
   Pin* contactPin = nullptr;
   jrt::Collection<Item*>* currentContacts = contactTrace->getStartContacts();
   for (Item* tmpContact : *currentContacts) {
-    if (auto* pin = dynamic_cast<Pin*>(tmpContact)) {
+    if (auto* pin = jrt::fast_cast<Pin>(tmpContact)) {
       contactPin = pin;
       break;
     }

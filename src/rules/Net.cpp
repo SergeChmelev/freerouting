@@ -110,11 +110,11 @@ jrt::Collection<Item*>* Net::getTerminalItems() {
   BasicBoard* board = this->netList->getBoard();
   auto* it = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
-    if (dynamic_cast<Connectable*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Connectable>(currentItem) != nullptr) {
       if (currentItem->containsNet(this->netNumber) && !currentItem->isRoutable()) {
         result->add(currentItem);
       }
@@ -128,11 +128,11 @@ jrt::Collection<Pin*>* Net::getPins() {
   BasicBoard* board = this->netList->getBoard();
   auto* it = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* pin = dynamic_cast<Pin*>(currentItem)) {
+    if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
       if (currentItem->containsNet(this->netNumber)) {
         result->add(pin);
       }
@@ -146,7 +146,7 @@ jrt::Collection<Item*>* Net::getItems() {
   BasicBoard* board = this->netList->getBoard();
   auto* it = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
@@ -161,7 +161,7 @@ double Net::getTraceLength() {
   double cumulativeTraceLength = 0;
   jrt::Collection<Item*>* netItems = netList->getBoard()->getConnectableItems(this->netNumber);
   for (Item* currentItem : *netItems) {
-    if (auto* trace = dynamic_cast<Trace*>(currentItem)) {
+    if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
       cumulativeTraceLength += trace->getLength();
     }
   }
@@ -172,7 +172,7 @@ int32_t Net::getViaCount() {
   int32_t result = 0;
   jrt::Collection<Item*>* netItems = netList->getBoard()->getConnectableItems(this->netNumber);
   for (Item* currentItem : *netItems) {
-    if (dynamic_cast<Via*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Via>(currentItem) != nullptr) {
       ++result;
     }
   }

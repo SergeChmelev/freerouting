@@ -107,7 +107,7 @@ int32_t PolygonShape::borderLineCount() { return corners->length; }
 bool PolygonShape::cornerIsBounded(int32_t no) { return true; }
 
 bool PolygonShape::intersects(Shape* shape) {
-  if (auto* other = dynamic_cast<PolygonShape*>(shape)) {
+  if (auto* other = jrt::fast_cast<PolygonShape>(shape)) {
     jrt::Array<TileShape*>* convexPieces = splitToConvex();
     jrt::Array<TileShape*>* otherPieces = other->splitToConvex();
     for (TileShape* piece : *convexPieces) {
@@ -341,13 +341,13 @@ bool PolygonShape::isConvex() {
 
   Line* firstLine = new Line((*corners)[corners->length - 1], (*corners)[0]);
   Line* currentLine = new Line((*corners)[0], (*corners)[1]);
-  IntDirection* firstDirection = dynamic_cast<IntDirection*>(firstLine->direction());
-  IntDirection* currentDirection = dynamic_cast<IntDirection*>(currentLine->direction());
+  IntDirection* firstDirection = jrt::fast_cast<IntDirection>(firstLine->direction());
+  IntDirection* currentDirection = jrt::fast_cast<IntDirection>(currentLine->direction());
   double lastDet = firstDirection->determinant(currentDirection);
 
   for (int32_t ind2 = 2; ind2 < corners->length; ind2++) {
     currentLine = new Line(currentLine->b, (*corners)[ind2]);
-    currentDirection = dynamic_cast<IntDirection*>(currentLine->direction());
+    currentDirection = jrt::fast_cast<IntDirection>(currentLine->direction());
     double currentDet = firstDirection->determinant(currentDirection);
     if (lastDet <= 0 && currentDet > 0) {
       return false;

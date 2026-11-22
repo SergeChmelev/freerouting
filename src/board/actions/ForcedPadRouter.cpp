@@ -54,8 +54,8 @@ bool ForcedPadRouter::inFrontOfPad(Line* line, TileShape* padShape, int32_t from
     return true;
   }
   IntOctagon* padOctagon = padShape->boundingOctagon();
-  auto* lineA = dynamic_cast<IntPoint*>(line->a);
-  auto* lineB = dynamic_cast<IntPoint*>(line->b);
+  auto* lineA = jrt::fast_cast<IntPoint>(line->a);
+  auto* lineB = jrt::fast_cast<IntPoint>(line->b);
   if (!(lineA != nullptr && lineB != nullptr)) {
     // not implemented
     return true;
@@ -271,7 +271,7 @@ ForcedPadRouter_CheckDrillResult ForcedPadRouter::checkForcedPad(
   ForcedPadRouter_CheckDrillResult result = ForcedPadRouter_CheckDrillResult::DRILLABLE;
   if (copperSharingAllowed) {
     for (Item* currentObstacle : *obstacles) {
-      if (dynamic_cast<Pin*>(currentObstacle) != nullptr) {
+      if (jrt::fast_cast<Pin>(currentObstacle) != nullptr) {
         result = ForcedPadRouter_CheckDrillResult::DRILLABLE_WITH_ATTACH_SMD;
         break;
       }
@@ -290,7 +290,7 @@ ForcedPadRouter_CheckDrillResult ForcedPadRouter::checkForcedPad(
     return ForcedPadRouter_CheckDrillResult::NOT_DRILLABLE;
   }
   TraceShover* shoveTraceAlgo = new TraceShover(board);
-  bool isOrthogonalMode = dynamic_cast<IntBox*>(padShape) != nullptr;
+  bool isOrthogonalMode = jrt::fast_cast<IntBox>(padShape) != nullptr;
   for (;;) {
     PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
     if (currentSubstituteTrace == nullptr) {
@@ -383,7 +383,7 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
   }
   bool tailsExistBefore = board->containsTraceTails(obstacles, netNumbers);
   shapeEntries->cutoutTraces(obstacles);
-  bool isOrthogonalMode = dynamic_cast<IntBox*>(padShape) != nullptr;
+  bool isOrthogonalMode = jrt::fast_cast<IntBox>(padShape) != nullptr;
   TraceShover* shoveTraceAlgo = new TraceShover(this->board);
   for (;;) {
     PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
@@ -444,7 +444,7 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
 ShapeEntrySide* ForcedPadRouter::calcFromSide(TileShape* shape, Point* shapeCenter, int32_t layer,
                                               int32_t offset, int32_t clearanceClassIndex) {
   jrt::Array<int32_t>* emptyArr = new jrt::Array<int32_t>(0);
-  TileShape* offsetShape = dynamic_cast<TileShape*>(shape->offset(offset));
+  TileShape* offsetShape = jrt::fast_cast<TileShape>(shape->offset(offset));
   for (int32_t i = 0; i < offsetShape->borderLineCount(); i++) {
     TileShape* checkShape = calcCheckShapeForFromSide(shape, shapeCenter, offsetShape->borderLine(i));
 

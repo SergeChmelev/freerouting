@@ -26,7 +26,7 @@ void FreeSpaceExpansionRoom::resetDoors() {
 
 bool FreeSpaceExpansionRoom::removeDoor(ExpandableObject* door) {
   // Java: doors.remove(Object) - an object that is no ExpansionDoor is never contained.
-  ExpansionDoor* expansionDoor = dynamic_cast<ExpansionDoor*>(door);
+  ExpansionDoor* expansionDoor = jrt::fast_cast<ExpansionDoor>(door);
   if (expansionDoor == nullptr) {
     return false;
   }

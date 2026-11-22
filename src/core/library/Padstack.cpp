@@ -185,8 +185,8 @@ jrt::Collection<Direction*>* Padstack::getTraceExitDirections(int32_t layer, dou
   if (currentShape == nullptr) {
     return result;
   }
-  if (!(dynamic_cast<IntBox*>(currentShape) != nullptr ||
-        dynamic_cast<IntOctagon*>(currentShape) != nullptr)) {
+  if (!(jrt::fast_cast<IntBox>(currentShape) != nullptr ||
+        jrt::fast_cast<IntOctagon>(currentShape) != nullptr)) {
     return result;
   }
   IntBox* currentBox = currentShape->boundingBox();

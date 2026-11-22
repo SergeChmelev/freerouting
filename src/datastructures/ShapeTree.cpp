@@ -59,10 +59,10 @@ jrt::Array<ShapeTree_Leaf*>* ShapeTree::toArrayUnlocked() {
   int32_t currentIndex = 0;
   for (;;) {
     // go down from currentNode to the left most leaf
-    while (auto* inner = dynamic_cast<ShapeTree_InnerNode*>(currentNode)) {
+    while (auto* inner = jrt::fast_cast<ShapeTree_InnerNode>(currentNode)) {
       currentNode = inner->firstChild;
     }
-    (*result)[currentIndex] = dynamic_cast<ShapeTree_Leaf*>(currentNode);
+    (*result)[currentIndex] = jrt::fast_cast<ShapeTree_Leaf>(currentNode);
 
     ++currentIndex;
     // go up until parent.secondChild != currentNode, which means we came from firstChild

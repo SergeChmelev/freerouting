@@ -18,7 +18,7 @@ class AutorouteControl_ExpansionCostFactor : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<AutorouteControl_ExpansionCostFactor*>(o);
+    auto* other = jrt::fast_cast<AutorouteControl_ExpansionCostFactor>(o);
     if (other == nullptr) return false;
     return jrt::equalsOf<double>(horizontal_, other->horizontal_) &&
            jrt::equalsOf<double>(vertical_, other->vertical_);

@@ -111,7 +111,7 @@ bool Network_ClassPairRule::equals(jrt::Object* o) {
   if (o == this) {
     return true;
   }
-  auto* other = dynamic_cast<Network_ClassPairRule*>(o);
+  auto* other = jrt::fast_cast<Network_ClassPairRule>(o);
   if (other == nullptr) {
     return false;
   }
@@ -142,7 +142,7 @@ bool Network_PlacedComponent::equals(jrt::Object* o) {
   if (o == this) {
     return true;
   }
-  auto* other = dynamic_cast<Network_PlacedComponent*>(o);
+  auto* other = jrt::fast_cast<Network_PlacedComponent>(o);
   if (other == nullptr) {
     return false;
   }
@@ -346,7 +346,7 @@ bool Network::readNetPins(IJFlexScanner* scanner, jrt::Collection<Net_Pin*>* pin
   std::string componentName;
   std::string pinName;
   // Java: ((SpecctraDsnStreamReader) scanner).nextString(true, '-')
-  auto* streamReader = dynamic_cast<SpecctraDsnStreamReader*>(scanner);
+  auto* streamReader = jrt::fast_cast<SpecctraDsnStreamReader>(scanner);
   if (streamReader == nullptr) {
     throw jrt::ClassCastException("Network.read_net_pins: SpecctraDsnStreamReader expected");
   }
@@ -388,7 +388,7 @@ fr::ViaInfo* Network::readViaInfo(IJFlexScanner* scanner, fr::BasicBoard* board)
   try {
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     jrt::Object* nextToken = scanner->nextToken();
-    auto* name = dynamic_cast<JString*>(nextToken);
+    auto* name = jrt::fast_cast<JString>(nextToken);
     if (name == nullptr) {
       FRLogger::warn("Network.read_via_info: string expected at '" +
                      scanner->getScopeIdentifier() + "'");
@@ -396,7 +396,7 @@ fr::ViaInfo* Network::readViaInfo(IJFlexScanner* scanner, fr::BasicBoard* board)
     }
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     nextToken = scanner->nextToken();
-    auto* padstackNameToken = dynamic_cast<JString*>(nextToken);
+    auto* padstackNameToken = jrt::fast_cast<JString>(nextToken);
     if (padstackNameToken == nullptr) {
       FRLogger::warn("Network.read_via_info: string expected at '" +
                      scanner->getScopeIdentifier() + "'");
@@ -423,7 +423,7 @@ fr::ViaInfo* Network::readViaInfo(IJFlexScanner* scanner, fr::BasicBoard* board)
     }
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     nextToken = scanner->nextToken();
-    auto* clearanceName = dynamic_cast<JString*>(nextToken);
+    auto* clearanceName = jrt::fast_cast<JString>(nextToken);
     if (clearanceName == nullptr) {
       FRLogger::warn("Network.read_via_info: string expected at '" +
                      scanner->getScopeIdentifier() + "'");
@@ -466,7 +466,7 @@ jrt::Collection<std::string>* Network::readViaRule(IJFlexScanner* scanner, fr::B
       if (nextToken == Keyword::CLOSED_BRACKET()) {
         break;
       }
-      auto* viaName = dynamic_cast<JString*>(nextToken);
+      auto* viaName = jrt::fast_cast<JString>(nextToken);
       if (viaName == nullptr) {
         FRLogger::warn("Network.read_via_rule: string expected at '" +
                        scanner->getScopeIdentifier() + "'");
@@ -608,21 +608,21 @@ void Network::insertNetClass(NetClass* netClass, LayerStructure* layerStructure,
   bool clearanceRuleFound = false;
 
   for (Rule* currentRule : *netClass->rules) {
-    if (auto* rule1 = dynamic_cast<Rule_WidthRule*>(currentRule)) {
+    if (auto* rule1 = jrt::fast_cast<Rule_WidthRule>(currentRule)) {
       int32_t traceHalfwidth =
           jrt::l2i(jrt::Math::round(coordinateTransform->dsnToBoard(rule1->value / 2)));
       boardNetClass->setTraceHalfWidth(traceHalfwidth);
-    } else if (auto* rule = dynamic_cast<Rule_ClearanceRule*>(currentRule)) {
+    } else if (auto* rule = jrt::fast_cast<Rule_ClearanceRule>(currentRule)) {
       addClearanceRule(board->rules, boardNetClass, rule, -1, coordinateTransform);
       clearanceRuleFound = true;
-    } else if (auto* lengthRule = dynamic_cast<Rule_LengthRule*>(currentRule)) {
+    } else if (auto* lengthRule = jrt::fast_cast<Rule_LengthRule>(currentRule)) {
       if (lengthRule->maxLength > 0) {
         boardNetClass->setMaximumTraceLength(coordinateTransform->dsnToBoard(lengthRule->maxLength));
       }
       if (lengthRule->minLength > 0) {
         boardNetClass->setMinimumTraceLength(coordinateTransform->dsnToBoard(lengthRule->minLength));
       }
-    } else if (auto* meanderRule = dynamic_cast<Rule_MeanderRule*>(currentRule)) {
+    } else if (auto* meanderRule = jrt::fast_cast<Rule_MeanderRule>(currentRule)) {
       boardNetClass->setMeanderConstraint(
           meanderRule->applyTo(boardNetClass->getMeanderConstraint(), coordinateTransform));
     } else {
@@ -642,11 +642,11 @@ void Network::insertNetClass(NetClass* netClass, LayerStructure* layerStructure,
         continue;
       }
       for (Rule* currentRule : *currentLayerRule->rules) {
-        if (auto* rule1 = dynamic_cast<Rule_WidthRule*>(currentRule)) {
+        if (auto* rule1 = jrt::fast_cast<Rule_WidthRule>(currentRule)) {
           int32_t traceHalfwidth =
               jrt::l2i(jrt::Math::round(coordinateTransform->dsnToBoard(rule1->value / 2)));
           boardNetClass->setTraceHalfWidth(layerIndex, traceHalfwidth);
-        } else if (auto* rule = dynamic_cast<Rule_ClearanceRule*>(currentRule)) {
+        } else if (auto* rule = jrt::fast_cast<Rule_ClearanceRule>(currentRule)) {
           addClearanceRule(board->rules, boardNetClass, rule, layerIndex, coordinateTransform);
           clearanceRuleFound = true;
         } else {
@@ -812,7 +812,7 @@ void Network::collectClassPairRules(NetClass_ClassClass* classClass, fr::NetClas
                                     fr::NetClass* secondClass, fr::BasicBoard* board,
                                     jrt::List<Network_ClassPairRule*>* rules) {
   for (Rule* currentRule : *classClass->rules) {
-    if (auto* clearance = dynamic_cast<Rule_ClearanceRule*>(currentRule)) {
+    if (auto* clearance = jrt::fast_cast<Rule_ClearanceRule>(currentRule)) {
       rules->add(new Network_ClassPairRule(firstClass, secondClass, clearance, -1));
     } else {
       FRLogger::warn("Network.insert_class_pair_info: unexpected rule");
@@ -826,7 +826,7 @@ void Network::collectClassPairRules(NetClass_ClassClass* classClass, fr::NetClas
         continue;
       }
       for (Rule* currentRule : *layerRule->rules) {
-        if (auto* clearance = dynamic_cast<Rule_ClearanceRule*>(currentRule)) {
+        if (auto* clearance = jrt::fast_cast<Rule_ClearanceRule>(currentRule)) {
           rules->add(new Network_ClassPairRule(firstClass, secondClass, clearance, layerIndex));
         } else {
           FRLogger::warn("Network.insert_class_pair_info: unexpected layer rule type");
@@ -1267,7 +1267,7 @@ void Network::insertComponent(ComponentPlacement_ComponentLocation* location,
         for (fr::ConvexShape* aux : *auxShapes) {
           fr::Shape* transformedAux = newPin->transformToBoard(aux);
           fr::Area* auxArea = nullptr;
-          if (auto* polyShape = dynamic_cast<fr::PolylineShape*>(transformedAux)) {
+          if (auto* polyShape = jrt::fast_cast<fr::PolylineShape>(transformedAux)) {
             auxArea = new fr::PolylineArea(polyShape, new jrt::Array<fr::PolylineShape*>(0));
           } else if (transformedAux != nullptr) {
             auxArea = transformedAux;
@@ -1535,7 +1535,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
     return false;
   }
   bool scopeIsEmpty = nextToken == CLOSED_BRACKET();
-  if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+  if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
     subnetNumber = integer->value;
   }
   bool pinOrderFound = false;
@@ -1641,7 +1641,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
         return false;
       }
       for (Rule* currentObject : *netRules) {
-        if (auto* rule = dynamic_cast<Rule_WidthRule*>(currentObject)) {
+        if (auto* rule = jrt::fast_cast<Rule_WidthRule>(currentObject)) {
           fr::NetClass* defaultNetRule = board->rules->getDefaultNetClass();
           const double wireWidth = rule->value;
           int32_t traceHalfwidth =
@@ -1655,7 +1655,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
           }
           netRule->setTraceHalfWidth(traceHalfwidth);
           boardNet->setClass(netRule);
-        } else if (auto* lengthRule = dynamic_cast<Rule_LengthRule*>(currentObject)) {
+        } else if (auto* lengthRule = jrt::fast_cast<Rule_LengthRule>(currentObject)) {
           double max = (lengthRule->maxLength > 0)
                            ? coordinateTransform->dsnToBoard(lengthRule->maxLength)
                            : 0.0;
@@ -1665,7 +1665,7 @@ bool Network::readNetScope(IJFlexScanner* scanner, NetList* netList, fr::Routing
           if (max > 0 || min > 0) {
             boardNet->setLengthConstraint(new fr::NetLengthConstraint(min, max));
           }
-        } else if (auto* meanderRule = dynamic_cast<Rule_MeanderRule*>(currentObject)) {
+        } else if (auto* meanderRule = jrt::fast_cast<Rule_MeanderRule>(currentObject)) {
           boardNet->setMeanderConstraint(
               meanderRule->applyTo(boardNet->getMeanderConstraint(), coordinateTransform));
         } else {

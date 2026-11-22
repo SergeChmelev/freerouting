@@ -27,7 +27,7 @@ class PlanarArea_Contour : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<PlanarArea_Contour*>(o);
+    auto* other = jrt::fast_cast<PlanarArea_Contour>(o);
     if (other == nullptr) return false;
     return jrt::equalsOf(outer_, other->outer_) && jrt::equalsOf(holes_, other->holes_);
   }

@@ -59,7 +59,7 @@ class NetLengthConstraint : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<NetLengthConstraint*>(o);
+    auto* other = jrt::fast_cast<NetLengthConstraint>(o);
     return other != nullptr && jrt::equalsOf(minLength_, other->minLength_) &&
            jrt::equalsOf(maxLength_, other->maxLength_);
   }

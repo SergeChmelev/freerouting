@@ -142,7 +142,7 @@ fr::io::BoardReadResult* DsnReader::readBoardFromStreams(
         scanner->yybegin(SpecctraDsnStreamReader::NAME);
       } else {
         // i == 2: the design name string immediately following "(pcb"
-        if (auto* s = dynamic_cast<JString*>(token)) {
+        if (auto* s = jrt::fast_cast<JString>(token)) {
           pcbTokenName = s->value;
         }
       }

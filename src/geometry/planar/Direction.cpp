@@ -74,7 +74,7 @@ bool Direction::equals(jrt::Object* other) {
   if (other == nullptr || typeid(*this) != typeid(*other)) {
     return false;
   }
-  Direction* otherDirection = dynamic_cast<Direction*>(other);
+  Direction* otherDirection = jrt::fast_cast<Direction>(other);
   if (this == otherDirection) {
     return true;
   }

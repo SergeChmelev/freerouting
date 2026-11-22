@@ -20,8 +20,8 @@ jrt::Map<int32_t, jrt::List<Item*>*>* BoardConnectivityQueries::getConnectableIn
       if (currentItem == nullptr) {
         break;
       }
-      if (dynamic_cast<Connectable*>(currentItem) != nullptr) {
-        if (auto* item = dynamic_cast<Item*>(currentItem)) {
+      if (jrt::fast_cast<Connectable>(currentItem) != nullptr) {
+        if (auto* item = jrt::fast_cast<Item>(currentItem)) {
           for (int32_t i = 0; i < item->netCount(); i++) {
             int32_t netNo = item->getNetNumber(i);
             map->computeIfAbsent(netNo,
@@ -56,7 +56,7 @@ jrt::Collection<Item*>* BoardConnectivityQueries::getComponentItems(int32_t comp
   jrt::Collection<Item*>* result = new jrt::LinkedList<Item*>();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(iterator));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {
       return result;
     }
@@ -70,12 +70,12 @@ jrt::Collection<Pin*>* BoardConnectivityQueries::getComponentPins(int32_t compon
   jrt::Collection<Pin*>* result = new jrt::LinkedList<Pin*>();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(iterator));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {
       return result;
     }
     if (currentItem->getComponentId() == componentId) {
-      if (auto* pin = dynamic_cast<Pin*>(currentItem)) {
+      if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
         result->add(pin);
       }
     }
@@ -85,12 +85,12 @@ jrt::Collection<Pin*>* BoardConnectivityQueries::getComponentPins(int32_t compon
 Pin* BoardConnectivityQueries::getPin(int32_t componentId, int32_t pinIndex) {
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(iterator));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {
       return nullptr;
     }
     if (currentItem->getComponentId() == componentId) {
-      if (auto* pin = dynamic_cast<Pin*>(currentItem)) {
+      if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
         if (pin->pinIndex == pinIndex) {
           return pin;
         }

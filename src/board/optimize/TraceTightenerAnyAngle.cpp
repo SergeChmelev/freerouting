@@ -72,7 +72,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
       (*currentLines)[1] = new Line(newA->round(), newB->round());
       bool ok = true;
       if (newLineIndex == 1) {
-        if (dynamic_cast<IntPoint*>(polyline->firstCorner()) == nullptr) {
+        if (jrt::fast_cast<IntPoint>(polyline->firstCorner()) == nullptr) {
           // first corner must not be changed
           ok = false;
         } else {
@@ -83,7 +83,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
         (*currentLines)[0] = (*newLines)[newLineIndex - 1];
       }
       if (i == lastIndex) {
-        if (dynamic_cast<IntPoint*>(polyline->lastCorner()) == nullptr) {
+        if (jrt::fast_cast<IntPoint>(polyline->lastCorner()) == nullptr) {
           // last corner must not be changed
           ok = false;
         } else {
@@ -116,7 +116,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
           ok = false;
         }
       }
-      if (ok && i == 1 && dynamic_cast<IntPoint*>(polyline->firstCorner()) == nullptr) {
+      if (ok && i == 1 && jrt::fast_cast<IntPoint>(polyline->firstCorner()) == nullptr) {
         // There may be a connection to a trace.
         // make sure that the second corner of the new polyline
         // is on the same side of the trace as the third corner. (There may be splitting problems)
@@ -125,7 +125,7 @@ Polyline* TraceTightenerAnyAngle::reduceCorners(Polyline* polyline) {
           ok = false;
         }
       }
-      if (ok && i == lastIndex - 1 && dynamic_cast<IntPoint*>(polyline->lastCorner()) == nullptr) {
+      if (ok && i == lastIndex - 1 && jrt::fast_cast<IntPoint>(polyline->lastCorner()) == nullptr) {
         // There may be a connection to a trace.
         // make sure that the second last corner of the new polyline
         // is on the same side of the trace as the third last corner (There may be splitting
@@ -716,7 +716,7 @@ Polyline* TraceTightenerAnyAngle::smoothenStartCornerAtTrace(PolylineTrace* trac
 
   Point* currentPrevEndCorner = tracePolyline->corner(1);
   bool skipShortSegment =
-      dynamic_cast<IntPoint*>(currentEndCorner) == nullptr &&
+      jrt::fast_cast<IntPoint>(currentEndCorner) == nullptr &&
       currentEndCorner->toFloat()->distanceSquare(currentPrevEndCorner->toFloat()) < SKIP_LENGTH;
   int32_t startLineNo = 1;
   if (skipShortSegment) {
@@ -732,7 +732,7 @@ Polyline* TraceTightenerAnyAngle::smoothenStartCornerAtTrace(PolylineTrace* trac
 
   jrt::Collection<Item*>* contactList = trace->getStartContacts();
   for (Item* currentContact : *contactList) {
-    auto* contactTrace = dynamic_cast<PolylineTrace*>(currentContact);
+    auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
     if (contactTrace != nullptr && !currentContact->isShoveFixed()) {
       Polyline* contactTracePolyline = contactTrace->polyline();
       FloatPoint* currentOtherTraceCornerApprox;
@@ -839,7 +839,7 @@ Polyline* TraceTightenerAnyAngle::smoothenEndCornerAtTrace(PolylineTrace* trace)
 
   Point* currentPrevEndCorner = tracePolyline->corner(tracePolyline->cornerCount() - 2);
   bool skipShortSegment =
-      dynamic_cast<IntPoint*>(currentEndCorner) == nullptr &&
+      jrt::fast_cast<IntPoint>(currentEndCorner) == nullptr &&
       currentEndCorner->toFloat()->distanceSquare(currentPrevEndCorner->toFloat()) < SKIP_LENGTH;
   int32_t endLineNo = tracePolyline->lines->length - 2;
   if (skipShortSegment) {
@@ -855,7 +855,7 @@ Polyline* TraceTightenerAnyAngle::smoothenEndCornerAtTrace(PolylineTrace* trace)
 
   jrt::Collection<Item*>* contactList = trace->getEndContacts();
   for (Item* currentContact : *contactList) {
-    auto* contactTrace = dynamic_cast<PolylineTrace*>(currentContact);
+    auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
     if (contactTrace != nullptr && !currentContact->isShoveFixed()) {
       Polyline* contactTracePolyline = contactTrace->polyline();
       if (contactTracePolyline->cornerCount() > 2) {

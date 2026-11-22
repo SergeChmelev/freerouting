@@ -158,7 +158,7 @@ Shape* Pin::getShape(int32_t index) {
       }
       Shape* transformed = transformToBoard(currentShape);
       // Java: (ConvexShape) cast -- ClassCastException if the transformed shape is not convex.
-      if (transformed != nullptr && dynamic_cast<ConvexShape*>(transformed) == nullptr) {
+      if (transformed != nullptr && jrt::fast_cast<ConvexShape>(transformed) == nullptr) {
         throw jrt::ClassCastException("Pin.getShape: transformed shape is not a ConvexShape");
       }
       (*this->precalculatedShapes)[shapeIndex] = transformed;
@@ -252,7 +252,7 @@ jrt::Collection<Pin_TraceExitRestriction*>* Pin::getTraceExitRestrictions(int32_
     return result;
   }
   Shape* currentShape = this->getShape(layer - this->firstLayer());
-  auto* padShape = dynamic_cast<TileShape*>(currentShape);
+  auto* padShape = jrt::fast_cast<TileShape>(currentShape);
   if (padShape == nullptr) {
     return result;
   }
@@ -309,19 +309,19 @@ bool Pin::isObstacle(Item* other) {
   }
   // Nonblocking pours are filled around foreign copper by the EDA tool. Unlike auxiliary
   // non-convex pad copper, their full area must not obstruct a foreign-net pin.
-  if (auto* conductionArea = dynamic_cast<ConductionArea*>(other)) {
+  if (auto* conductionArea = jrt::fast_cast<ConductionArea>(other)) {
     if (!conductionArea->getIsObstacle()) {
       return false;
     }
   }
-  if (auto* obstacleArea = dynamic_cast<ObstacleArea*>(other)) {
+  if (auto* obstacleArea = jrt::fast_cast<ObstacleArea>(other)) {
     if (this->sharesNet(obstacleArea)) {
       return false;
     }
     return obstacleArea->netCount() > 0;
   }
   if (!other->sharesNet(this)) {
-    if (auto* otherPin = dynamic_cast<Pin*>(other)) {
+    if (auto* otherPin = jrt::fast_cast<Pin>(other)) {
       if (this->netTieClusterId > 0 && this->netTieClusterId == otherPin->netTieClusterId) {
         // Pins belonging to the same net-tie cluster on the same component are intentionally
         // stacked or bridged across nets and do not violate clearance against each other.
@@ -336,13 +336,13 @@ bool Pin::isObstacle(Item* other) {
     }
     return true;
   }
-  if (dynamic_cast<Trace*>(other) != nullptr || dynamic_cast<Pin*>(other) != nullptr) {
+  if (jrt::fast_cast<Trace>(other) != nullptr || jrt::fast_cast<Pin>(other) != nullptr) {
     // Items sharing the same electrical net (e.g. traces, composite pads) are electrically
     // connected and do not violate clearance.
     return false;
   }
   // Same-net vias must be allowed to contact SMD pins during fanout.
-  return !this->drillAllowed() || dynamic_cast<Via*>(other) == nullptr;
+  return !this->drillAllowed() || jrt::fast_cast<Via>(other) == nullptr;
 }
 
 bool Pin::isSameLogicalPad(Pin* pin1, Pin* pin2) {
@@ -584,15 +584,15 @@ Direction* Pin::calcNearestExitRestrictionDirection(Polyline* tracePolyline,
     return nullptr;
   }
   Shape* pinShape = this->getShape(layer - this->firstLayer());
-  if (dynamic_cast<TileShape*>(pinShape) == nullptr) {
+  if (jrt::fast_cast<TileShape>(pinShape) == nullptr) {
     return nullptr;
   }
   const double edgeToTurnDist = this->board->rules->getPinEdgeToTurnDist();
   if (edgeToTurnDist < 0) {
     return nullptr;
   }
-  TileShape* offsetPinShape = dynamic_cast<TileShape*>(
-      dynamic_cast<TileShape*>(pinShape)->offset(edgeToTurnDist + traceHalfWidth));
+  TileShape* offsetPinShape = jrt::fast_cast<TileShape>(
+      jrt::fast_cast<TileShape>(pinShape)->offset(edgeToTurnDist + traceHalfWidth));
   jrt::Array<jrt::Array<int32_t>*>* entries = offsetPinShape->entrancePoints(tracePolyline);
   if (entries->length == 0) {
     return nullptr;
@@ -649,15 +649,15 @@ FloatPoint* Pin::nearestTraceExitCorner(FloatPoint* fromPoint, int32_t traceHalf
   }
   Shape* pinShape = this->getShape(layer - this->firstLayer());
   Point* pinCenter = this->getCenter();
-  if (dynamic_cast<TileShape*>(pinShape) == nullptr) {
+  if (jrt::fast_cast<TileShape>(pinShape) == nullptr) {
     return nullptr;
   }
   const double edgeToTurnDist = this->board->rules->getPinEdgeToTurnDist();
   if (edgeToTurnDist < 0) {
     return nullptr;
   }
-  TileShape* offsetPinShape = dynamic_cast<TileShape*>(
-      dynamic_cast<TileShape*>(pinShape)->offset(edgeToTurnDist + traceHalfWidth));
+  TileShape* offsetPinShape = jrt::fast_cast<TileShape>(
+      jrt::fast_cast<TileShape>(pinShape)->offset(edgeToTurnDist + traceHalfWidth));
 
   // calculate the nearest legal pin exit point to traceEntryLocationApprox
   double minExitCornerDistance = jrt::Double::MAX_VALUE;
@@ -717,12 +717,12 @@ jrt::List<Pin*>* Pin::copperOverlappingPins(std::function<bool(Pin*)> accept) {
   jrt::Set<SearchTreeObject*>* candidates =
       board->searchTreeManager->getDefaultTree()->overlappingObjects(
           box, -1, [this, accept, box](SearchTreeObject* obj) {
-            auto* other = dynamic_cast<Pin*>(obj);
+            auto* other = jrt::fast_cast<Pin>(obj);
             return other != nullptr && other != this && accept(other) && other->sharesLayer(this) &&
                    box->intersects(other->boundingBox());
           });
   for (SearchTreeObject* obj : *candidates) {
-    Pin* other = dynamic_cast<Pin*>(obj);
+    Pin* other = jrt::fast_cast<Pin>(obj);
     bool overlaps = false;
     for (int32_t i = 0; i < tileShapeCount() && !overlaps; i++) {
       Shape* mine = getShape(i);

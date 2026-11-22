@@ -39,7 +39,7 @@ bool ViaObstacleArea::isObstacle(Item* other) {
   if (other->sharesNet(this)) {
     return false;
   }
-  return dynamic_cast<Via*>(other) != nullptr;
+  return jrt::fast_cast<Via>(other) != nullptr;
 }
 
 bool ViaObstacleArea::isSelectedByFilter(ItemSelectionFilter* filter) {

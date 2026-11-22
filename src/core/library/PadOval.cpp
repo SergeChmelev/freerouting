@@ -9,7 +9,7 @@ bool PadOval::equals(jrt::Object* o) {
   if (this == o) {
     return true;
   }
-  auto* other = dynamic_cast<PadOval*>(o);
+  auto* other = jrt::fast_cast<PadOval>(o);
   if (other == nullptr) {
     return false;
   }

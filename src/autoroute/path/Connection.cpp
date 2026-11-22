@@ -33,7 +33,7 @@ Connection* Connection::get(Item* item) {
     }
     int32_t prevContactLayer = item->firstCommonLayer(currentItem);
     bool forkFound = false;
-    if (auto* startTrace = dynamic_cast<Trace*>(item)) {
+    if (auto* startTrace = jrt::fast_cast<Trace>(item)) {
       // Check, that there is only 1 contact at this location.
       // Only for pins and vias items of more than 1 connection
       // are collected
@@ -119,7 +119,7 @@ Connection* Connection::get(Item* item) {
 double Connection::traceLength() {
   double result = 0;
   for (Item* currentItem : *itemList) {
-    if (auto* trace = dynamic_cast<Trace*>(currentItem)) {
+    if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
       result += trace->getLength();
     }
   }

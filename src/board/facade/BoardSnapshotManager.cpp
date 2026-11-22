@@ -77,7 +77,7 @@ std::string BoardSnapshotManager::basicProfileDump() {
     if (currentObject == nullptr) {
       break;
     }
-    auto* item = dynamic_cast<Item*>(currentObject);
+    auto* item = jrt::fast_cast<Item>(currentObject);
     if (item == nullptr) {
       continue;
     }
@@ -88,7 +88,7 @@ std::string BoardSnapshotManager::basicProfileDump() {
     result += " cl=" + jrt::str(item->clearanceClassIndex());
     result += " fixed=" + FixedState_name(item->getFixedState());
     result += " comp=" + jrt::str(item->getComponentId());
-    if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+    if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       result += " hw=" + jrt::str(trace->getHalfWidth());
       Polyline* polyline = trace->polyline();
       result += " corners=";
@@ -96,7 +96,7 @@ std::string BoardSnapshotManager::basicProfileDump() {
         FloatPoint* corner = polyline->cornerApprox(i);
         result += "(" + jrt::str(corner->x) + "," + jrt::str(corner->y) + ")";
       }
-    } else if (auto* via = dynamic_cast<Via*>(item)) {
+    } else if (auto* via = jrt::fast_cast<Via>(item)) {
       Padstack* padstack = via->getPadstack();
       result += " padstack=" + (padstack != nullptr ? padstack->name : std::string("null"));
       FloatPoint* center = via->getCenter()->toFloat();

@@ -43,7 +43,7 @@ static_assert(ExitStubs::TIGHT_SLACK == 2 * ClearanceMatrix::clearance_safety_ma
 
 bool ExitStubs_Mirror::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<ExitStubs_Mirror*>(o);
+  auto* other = jrt::fast_cast<ExitStubs_Mirror>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(bend_, other->bend_) && jrt::equalsOf(end_, other->end_);
 }
@@ -65,7 +65,7 @@ jrt::Array<Point*>* ExitStubs_Stub::corners(IntPoint* centre) {
 
 bool ExitStubs_Stub::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<ExitStubs_Stub*>(o);
+  auto* other = jrt::fast_cast<ExitStubs_Stub>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(pin_, other->pin_) && jrt::equalsOf(end_, other->end_) && halfWidth_ == other->halfWidth_ &&
          inward_ == other->inward_ && jrt::equalsOf(slack_, other->slack_) && jrt::equalsOf(bend_, other->bend_) &&
@@ -92,7 +92,7 @@ std::string ExitStubs_Stub::toString() {
 
 bool ExitStubs_StubPlacement::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<ExitStubs_StubPlacement*>(o);
+  auto* other = jrt::fast_cast<ExitStubs_StubPlacement>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(stub_, other->stub_) && jrt::equalsOf(traces_, other->traces_);
 }
@@ -110,7 +110,7 @@ std::string ExitStubs_StubPlacement::toString() {
 
 bool ExitStubs_RowEntry::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<ExitStubs_RowEntry*>(o);
+  auto* other = jrt::fast_cast<ExitStubs_RowEntry>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(stub_, other->stub_) && jrt::equalsOf(centre_, other->centre_) && lateral_ == other->lateral_;
 }
@@ -130,7 +130,7 @@ std::string ExitStubs_RowEntry::toString() {
 
 bool ExitStubs_DiagEntry::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<ExitStubs_DiagEntry*>(o);
+  auto* other = jrt::fast_cast<ExitStubs_DiagEntry>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(stub_, other->stub_) && jrt::equalsOf(centre_, other->centre_) &&
          jrt::equalsOf(lateral_, other->lateral_);
@@ -154,7 +154,7 @@ ExitStubs_DiagRow::ExitStubs_DiagRow(int32_t dx, int32_t dy, double line)
 
 bool ExitStubs_JointEntry::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<ExitStubs_JointEntry*>(o);
+  auto* other = jrt::fast_cast<ExitStubs_JointEntry>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(trace_, other->trace_) && jrt::equalsOf(points_, other->points_);
 }
@@ -229,7 +229,7 @@ std::optional<std::string> ExitStubs::apply(RouterSettings* settings, RoutingBoa
                        traceClass, PLACED_STATE);
     jrt::List<Item*>* traces = new jrt::ArrayList<Item*>();
     for (Item* i : *board->getItems()) {
-      if (dynamic_cast<Trace*>(i) != nullptr && !beforeStub->contains(i->getId())) {
+      if (jrt::fast_cast<Trace>(i) != nullptr && !beforeStub->contains(i->getId())) {
         traces->add(i);
       }
     }
@@ -272,7 +272,7 @@ std::optional<std::string> ExitStubs::apply(RouterSettings* settings, RoutingBoa
 
   std::vector<int32_t> newIdVec;
   for (Item* i : *board->getItems()) {
-    if (dynamic_cast<Trace*>(i) != nullptr && i->getFixedState() == PLACED_STATE && !before->contains(i->getId())) {
+    if (jrt::fast_cast<Trace>(i) != nullptr && i->getFixedState() == PLACED_STATE && !before->contains(i->getId())) {
       newIdVec.push_back(i->getId());
     }
   }
@@ -354,7 +354,7 @@ int32_t ExitStubs::endProbeLength(BasicBoard* board, IntPoint* end, int32_t laye
   IntBox* area = new IntBox(end->x - search, end->y - search, end->x + search, end->y + search);
   FloatPoint* at = end->toFloat();
   for (SearchTreeObject* entry : *board->overlappingObjects(area, layer)) {
-    auto* item = dynamic_cast<Item*>(entry);
+    auto* item = jrt::fast_cast<Item>(entry);
     if (item == nullptr || !item->isTraceObstacle(net)) {
       continue;
     }
@@ -1151,7 +1151,7 @@ int32_t ExitStubs::widest(BasicBoard* board, IntPoint* from, IntPoint* to, int32
 
 IntPoint* ExitStubs::centre(Pin* pin) {
   Point* centre = pin->getCenter();
-  if (auto* point = dynamic_cast<IntPoint*>(centre)) {
+  if (auto* point = jrt::fast_cast<IntPoint>(centre)) {
     return point;
   }
   return centre->toFloat()->round();
@@ -1174,7 +1174,7 @@ double ExitStubs::slack(BasicBoard* board, IntPoint* from, IntPoint* to, int32_t
   FloatPoint* a = from->toFloat();
   FloatPoint* b = to->toFloat();
   for (SearchTreeObject* entry : *board->overlappingObjects(area, layer)) {
-    auto* item = dynamic_cast<Item*>(entry);
+    auto* item = jrt::fast_cast<Item>(entry);
     if (item == nullptr || !item->isTraceObstacle(net)) {
       continue;
     }
@@ -1240,7 +1240,7 @@ int32_t ExitStubs::copperAllowance(BasicBoard* board, RouterSettings* settings) 
 }
 
 int32_t ExitStubs::modelExcess(BasicBoard* board, Item* item, TileShape* shape) {
-  auto* pin = dynamic_cast<Pin*>(item);
+  auto* pin = jrt::fast_cast<Pin>(item);
   // PORT NOTE: Padstack::name is a non-null std::string, so Java's `name == null` test is dropped.
   if (pin == nullptr || pin->getPadstack() == nullptr || !jrt::startsWith(pin->getPadstack()->name, "RoundRect")) {
     return 0;
@@ -1312,7 +1312,7 @@ std::optional<std::string> ExitStubs::release(RoutingBoard* board, jrt::Collecti
   jrt::List<PolylineTrace*>* traces = new jrt::ArrayList<PolylineTrace*>();
   for (int32_t id : *itemIds) {
     Item* item = board->getItem(id);
-    auto* trace = dynamic_cast<PolylineTrace*>(item);
+    auto* trace = jrt::fast_cast<PolylineTrace>(item);
     if (trace != nullptr && trace->getFixedState() == PLACED_STATE) {
       traces->add(trace);
     }
@@ -1360,7 +1360,7 @@ std::optional<std::string> ExitStubs::release(RoutingBoard* board, jrt::Collecti
       jrt::Array<Trace*>* halves = piece->split(point);
       if (halves != nullptr) {
         for (Trace* h : *halves) {
-          if (auto* pt = dynamic_cast<PolylineTrace*>(h)) {
+          if (auto* pt = jrt::fast_cast<PolylineTrace>(h)) {
             pieces->add(pt);
           }
         }
@@ -1417,7 +1417,7 @@ int32_t ExitStubs::snapNearJoints(RoutingBoard* board, PolylineTrace* stub) {
     contacts->addAll(board->getConnectableItems(stub->getNetNumber(i)));
   }
   for (Item* contact : *contacts) {
-    auto* other = dynamic_cast<PolylineTrace*>(contact);
+    auto* other = jrt::fast_cast<PolylineTrace>(contact);
     if (other == nullptr || other == stub || other->getLayer() != stub->getLayer() || !other->isOnTheBoard() ||
         other->getFixedState() != FixedState::UNFIXED) {
       continue;
@@ -1426,7 +1426,7 @@ int32_t ExitStubs::snapNearJoints(RoutingBoard* board, PolylineTrace* stub) {
     for (int32_t end = 0; end < 2; end++) {
       int32_t index = (end == 0) ? 0 : corners->length - 1;
       Point* point = (*corners)[index];
-      auto* grid = dynamic_cast<IntPoint*>(point);
+      auto* grid = jrt::fast_cast<IntPoint>(point);
       if (grid != nullptr && stub->centreLineContains(grid)) {
         continue;
       }
@@ -1453,8 +1453,8 @@ IntPoint* ExitStubs::nearestOnLine(jrt::Array<Point*>* line, IntPoint* at) {
   IntPoint* best = nullptr;
   double bestDistance = 2.0 + 1e-9;
   for (int32_t i = 0; i + 1 < line->length; i++) {
-    auto* a = dynamic_cast<IntPoint*>((*line)[i]);
-    auto* b = dynamic_cast<IntPoint*>((*line)[i + 1]);
+    auto* a = jrt::fast_cast<IntPoint>((*line)[i]);
+    auto* b = jrt::fast_cast<IntPoint>((*line)[i + 1]);
     if (a == nullptr || b == nullptr) {
       continue;
     }
@@ -1481,10 +1481,10 @@ jrt::List<Point*>* ExitStubs::joints(Trace* trace) {
   jrt::List<Point*>* points = new jrt::ArrayList<Point*>();
   for (Item* contact : *trace->getNormalContacts()) {
     jrt::List<Point*>* ends = new jrt::ArrayList<Point*>();
-    if (auto* other = dynamic_cast<Trace*>(contact)) {
+    if (auto* other = jrt::fast_cast<Trace>(contact)) {
       ends->add(other->firstCorner());
       ends->add(other->lastCorner());
-    } else if (auto* drill = dynamic_cast<DrillItem*>(contact)) {
+    } else if (auto* drill = jrt::fast_cast<DrillItem>(contact)) {
       ends->add(drill->getCenter());
     }
     for (Point* point : *ends) {

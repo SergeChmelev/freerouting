@@ -48,7 +48,7 @@ Shape* PlacementTransform::shape(Shape* shape, FloatPoint* offset, double pinRot
   if (shape->isEmpty()) {
     return shape;
   }
-  if (auto* circle = dynamic_cast<Circle*>(shape)) {
+  if (auto* circle = jrt::fast_cast<Circle>(shape)) {
     return new Circle(padPoint(circle->center->toFloat(), offset, pinRotation)->round(),
                       circle->radius);
   }
@@ -58,7 +58,7 @@ Shape* PlacementTransform::shape(Shape* shape, FloatPoint* offset, double pinRot
     (*placed)[mirrored ? corners->length - 1 - i : i] =
         padPoint((*corners)[i], offset, pinRotation)->round();
   }
-  if (dynamic_cast<TileShape*>(shape) != nullptr) {
+  if (jrt::fast_cast<TileShape>(shape) != nullptr) {
     // Arrays.stream(placed).distinct(): keeps the first occurrence of equal points, in order.
     std::vector<Point*> uniqueVec;
     for (Point* p : *placed) {
@@ -99,9 +99,9 @@ Area* PlacementTransform::area(Area* area) {
   }
   auto* placedHoles = new jrt::Array<PolylineShape*>(holes->length);
   for (int32_t i = 0; i < holes->length; i++) {
-    (*placedHoles)[i] = dynamic_cast<PolylineShape*>(shape((*holes)[i], FloatPoint::ZERO(), 0));
+    (*placedHoles)[i] = jrt::fast_cast<PolylineShape>(shape((*holes)[i], FloatPoint::ZERO(), 0));
   }
-  return new PolylineArea(dynamic_cast<PolylineShape*>(border), placedHoles);
+  return new PolylineArea(jrt::fast_cast<PolylineShape>(border), placedHoles);
 }
 
 }  // namespace fr

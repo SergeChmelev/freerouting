@@ -41,7 +41,7 @@ Point* DrillPage::calcPinCenterInDrill(TileShape* drillShape, int32_t layer, Rou
   jrt::Collection<Item*>* overlappingItems = board->overlappingItems(drillShape, layer);
   Point* result = nullptr;
   for (Item* currentItem : *overlappingItems) {
-    if (auto* currentPin = dynamic_cast<Pin*>(currentItem)) {
+    if (auto* currentPin = jrt::fast_cast<Pin>(currentItem)) {
       if (currentPin->drillAllowed() && drillShape->containsInside(currentPin->getCenter())) {
         result = currentPin->getCenter();
       }
@@ -64,7 +64,7 @@ void DrillPage::addPlanePinCandidates(AutorouteEngine* autorouteEngine, TileShap
     return;
   }
   ConvexShape* shrunk = drillShape->shrink(0.5 * viaShape->maxWidth());
-  TileShape* inner = dynamic_cast<TileShape*>(shrunk);
+  TileShape* inner = jrt::fast_cast<TileShape>(shrunk);
   if (inner == nullptr || inner->isEmpty()) {
     return;
   }
@@ -102,12 +102,12 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
     bool planeNet = net != nullptr && net->containsPlane();
     jrt::Collection<Pin*>* planePins = new jrt::LinkedList<Pin*>();
     for (ShapeTree_TreeEntry* currentEntry : *overlaps) {
-      Item* currentItem = dynamic_cast<Item*>(currentEntry->object);
+      Item* currentItem = jrt::fast_cast<Item>(currentEntry->object);
       if (currentItem == nullptr) {
         continue;
       }
       if (planeNet) {
-        Pin* planePin = dynamic_cast<Pin*>(currentItem);
+        Pin* planePin = jrt::fast_cast<Pin>(currentItem);
         if (planePin != nullptr && planePin->firstLayer() == planePin->lastLayer() &&
             planePin->containsNet(this->netNumber) && !planePins->contains(planePin)) {
           planePins->add(planePin);
@@ -116,7 +116,7 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
       if (currentItem->isDrillable(this->netNumber)) {
         continue;
       }
-      if (auto* pin = dynamic_cast<Pin*>(currentItem)) {
+      if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
         if (attachSmd && pin->drillAllowed() && pin->containsNet(this->netNumber) && !pin->isPlaneEscapeObstacle()) {
           continue;
         }

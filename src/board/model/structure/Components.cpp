@@ -26,14 +26,14 @@ Components* Components::deepCopy() {
     if (existing != nullptr) {
       return existing;
     }
-    auto* component = dynamic_cast<Component*>(original);
+    auto* component = jrt::fast_cast<Component>(original);
     UndoableObjects_Storable* copy;
     if (component != nullptr) {
       Component* componentCopy = component->clone();
       componentCopy->restorePose(component);  // keeps the integer location exactly
       copy = componentCopy;
     } else {
-      copy = dynamic_cast<UndoableObjects_Storable*>(original->clone());
+      copy = jrt::fast_cast<UndoableObjects_Storable>(original->clone());
     }
     copies->put(original, copy);
     return copy;
@@ -41,7 +41,7 @@ Components* Components::deepCopy() {
   result->undoList = this->undoList->copyMapped(mapObject);
   for (Component* component : *this->componentArr) {
     result->componentArr->add(component == nullptr ? nullptr
-                                                   : dynamic_cast<Component*>(mapObject(component)));
+                                                   : jrt::fast_cast<Component>(mapObject(component)));
   }
   result->flipStyleRotateFirst = this->flipStyleRotateFirst;
   return result;
@@ -133,7 +133,7 @@ void Components::restoreComponentArrFromUndoList(BoardObservers* observers) {
     if (storable == nullptr) {
       break;
     }
-    auto* currentComponent = dynamic_cast<Component*>(storable);
+    auto* currentComponent = jrt::fast_cast<Component>(storable);
     if (currentComponent == nullptr) {
       throw jrt::ClassCastException("Components: undo list object is not a Component");
     }

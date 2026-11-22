@@ -92,9 +92,9 @@ Circuit_LengthMatchingRule* Circuit::readLengthScope(IJFlexScanner* scanner) {
     return nullptr;
   }
 
-  if (auto* doubleVal = dynamic_cast<JDouble*>(nextToken)) {
+  if (auto* doubleVal = jrt::fast_cast<JDouble>(nextToken)) {
     maxLength = doubleVal->value;
-  } else if (auto* intVal = dynamic_cast<JInteger*>(nextToken)) {
+  } else if (auto* intVal = jrt::fast_cast<JInteger>(nextToken)) {
     maxLength = intVal->value;
   } else {
     FRLogger::warn("Circuit.read_length_scope: number expected at '" +
@@ -121,11 +121,11 @@ Circuit_LengthMatchingRule* Circuit::readLengthScope(IJFlexScanner* scanner) {
       break;
     }
     if (!minLengthRead && prevToken != Keyword::OPEN_BRACKET()) {
-      if (auto* doubleVal = dynamic_cast<JDouble*>(nextToken)) {
+      if (auto* doubleVal = jrt::fast_cast<JDouble>(nextToken)) {
         minLength = doubleVal->value;
         minLengthRead = true;
         continue;
-      } else if (auto* intVal = dynamic_cast<JInteger*>(nextToken)) {
+      } else if (auto* intVal = jrt::fast_cast<JInteger>(nextToken)) {
         minLength = intVal->value;
         minLengthRead = true;
         continue;
@@ -139,13 +139,13 @@ Circuit_LengthMatchingRule* Circuit::readLengthScope(IJFlexScanner* scanner) {
 }
 
 std::optional<double> Circuit::parseDouble(jrt::Object* token) {
-  if (auto* d = dynamic_cast<JDouble*>(token)) {
+  if (auto* d = jrt::fast_cast<JDouble>(token)) {
     return d->value;
   }
-  if (auto* i = dynamic_cast<JInteger*>(token)) {
+  if (auto* i = jrt::fast_cast<JInteger>(token)) {
     return static_cast<double>(i->value);
   }
-  if (auto* s = dynamic_cast<JString*>(token)) {
+  if (auto* s = jrt::fast_cast<JString>(token)) {
     try {
       return jrt::Double::parseDouble(s->value);
     } catch (const jrt::NumberFormatException&) {
@@ -233,9 +233,9 @@ std::optional<std::string> Circuit::readStringScope(IJFlexScanner* scanner) {
     return std::nullopt;
   }
   std::optional<std::string> result;
-  if (auto* str = dynamic_cast<JString*>(nextToken)) {
+  if (auto* str = jrt::fast_cast<JString>(nextToken)) {
     result = str->value;
-  } else if (auto* kw = dynamic_cast<Keyword*>(nextToken)) {
+  } else if (auto* kw = jrt::fast_cast<Keyword>(nextToken)) {
     result = kw->getName();
   }
   skipToClosedBracket(scanner);

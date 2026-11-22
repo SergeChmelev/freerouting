@@ -102,7 +102,7 @@ RoutingBoard* BoardHistory::restoreBoard(int32_t maxAllowedRestoreCount) {
   for (BoardHistory_BoardHistoryEntry* entry : *boards) {
     if (entry->restoreCount <= maxAllowedRestoreCount) {
       entry->restoreCount++;
-      RoutingBoard* restored = dynamic_cast<RoutingBoard*>(BasicBoard::deserialize(entry->board));
+      RoutingBoard* restored = jrt::fast_cast<RoutingBoard>(BasicBoard::deserialize(entry->board));
       // The baseline is transient: without it, every pre-existing violation counts as new.
       restored->clearanceBaseline = entry->clearanceBaseline;
       return restored;

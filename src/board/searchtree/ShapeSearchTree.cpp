@@ -372,7 +372,7 @@ void ShapeSearchTree::overlappingObjects(ConvexShape* shape, int32_t layer,
                                  static_cast<Item*>(nullptr), inLeafOrder);
   if (obstacles != nullptr) {
     for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {
-      obstacles->add(dynamic_cast<SearchTreeObject*>(currentEntry->object));
+      obstacles->add(jrt::fast_cast<SearchTreeObject>(currentEntry->object));
     }
   }
 }
@@ -385,14 +385,14 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(
     FRLogger::warn("ShapeSearchTree.overlaps: shape not bounded");
     return result;
   }
-  bool is45Degree = dynamic_cast<IntOctagon*>(shape) != nullptr;
+  bool is45Degree = jrt::fast_cast<IntOctagon>(shape) != nullptr;
   jrt::ArrayList<ShapeTree_Leaf*>* leaves = QUERY_LEAF_BUFFER();
   {
     ClearListOnExit guard{leaves};
     leaves->clear();
     this->collectOverlapsUnlocked(bounds, leaves);
     for (ShapeTree_Leaf* currentLeaf : *leaves) {
-      SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentLeaf->object);
+      SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
       int32_t shapeIndex = currentLeaf->shapeIndexInObject;
       if ((layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer) ||
           result->contains(currentObject) || !accept(currentObject)) {
@@ -401,7 +401,7 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(
       TileShape* currentShape = currentObject->getTreeShape(this, shapeIndex);
       // Same test as overlappingTreeEntriesUnlocked: two octagons that overlap by their
       // bounding octagons overlap.
-      if ((is45Degree && dynamic_cast<IntOctagon*>(currentShape) != nullptr) ||
+      if ((is45Degree && jrt::fast_cast<IntOctagon>(currentShape) != nullptr) ||
           currentShape->intersects(static_cast<Shape*>(shape))) {
         result->add(currentObject);
       }
@@ -441,7 +441,7 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjectsWithPointIn(
   leaves->clear();
   this->collectOverlapsUnlocked(areaBounds, leaves);
   for (ShapeTree_Leaf* currentLeaf : *leaves) {
-    SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentLeaf->object);
+    SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
     int32_t shapeIndex = currentLeaf->shapeIndexInObject;
     if ((layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer) ||
         result->contains(currentObject)) {
@@ -486,8 +486,8 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjectsWithPointIn(
         }
         // Same test as overlappingTreeEntriesUnlocked: two octagons that overlap by their
         // bounding octagons overlap.
-        if ((dynamic_cast<IntOctagon*>(areaShape) != nullptr &&
-             dynamic_cast<IntOctagon*>(leafShape) != nullptr) ||
+        if ((jrt::fast_cast<IntOctagon>(areaShape) != nullptr &&
+             jrt::fast_cast<IntOctagon>(leafShape) != nullptr) ||
             leafShape->intersects(static_cast<Shape*>(areaShape))) {
           result->add(currentObject);
           searchDone = true;
@@ -543,7 +543,7 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
   }
   jrt::ArrayList<ShapeTree_Leaf*>* tmpList = QUERY_LEAF_BUFFER();
   tmpList->clear();
-  bool is45Degree = dynamic_cast<IntOctagon*>(shape) != nullptr;
+  bool is45Degree = jrt::fast_cast<IntOctagon>(shape) != nullptr;
   {
     ClearListOnExit guard{tmpList};
     // Filter in traversal order, then sort only the kept leaves: the same order as sorting all
@@ -552,7 +552,7 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
     int32_t keptCount = 0;
     for (int32_t leafIndex = 0; leafIndex < tmpList->size(); leafIndex++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(leafIndex);
-      SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentLeaf->object);
+      SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
       int32_t shapeIndex = currentLeaf->shapeIndexInObject;
       bool ignoreObject = layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer;
       if (!ignoreObject) {
@@ -563,7 +563,7 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
         }
       }
       if (!ignoreObject && obstaclesOf != nullptr) {
-        auto* currentItem = dynamic_cast<Item*>(currentObject);
+        auto* currentItem = jrt::fast_cast<Item>(currentObject);
         if (currentItem == nullptr || currentItem == obstaclesOf ||
             !currentItem->isObstacle(obstaclesOf)) {
           ignoreObject = true;
@@ -573,7 +573,7 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
         TileShape* currentShape =
             currentObject->getTreeShape(this, currentLeaf->shapeIndexInObject);
         bool addItem;
-        if (is45Degree && dynamic_cast<IntOctagon*>(currentShape) != nullptr) {
+        if (is45Degree && jrt::fast_cast<IntOctagon>(currentShape) != nullptr) {
           // in this case the check for intersection is redundant and
           // therefore skipped for performance reasons
           addItem = true;
@@ -591,7 +591,7 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
     for (int32_t i = 0; i < keptCount; i++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(i);
       treeEntries->add(new ShapeTree_TreeEntry(
-          dynamic_cast<SearchTreeObject*>(currentLeaf->object), currentLeaf->shapeIndexInObject));
+          jrt::fast_cast<SearchTreeObject>(currentLeaf->object), currentLeaf->shapeIndexInObject));
     }
   }
 }
@@ -674,7 +674,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
   // get all candidates for overlap
   // a factor less than sqr2 has evtl. be added because
   // enlarging is not symmetric.
-  RegularTileShape* offsetBounds = dynamic_cast<RegularTileShape*>(bounds->offset(maxClearance));
+  RegularTileShape* offsetBounds = jrt::fast_cast<RegularTileShape>(bounds->offset(maxClearance));
   jrt::ArrayList<ShapeTree_Leaf*>* tmpList = QUERY_LEAF_BUFFER();
   tmpList->clear();
   // sort the found items by its clearances to clearanceClassIndex on layer layer
@@ -689,7 +689,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
     int32_t keptCount = 0;
     for (int32_t leafIndex = 0; leafIndex < tmpList->size(); leafIndex++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(leafIndex);
-      SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentLeaf->object);
+      SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
       int32_t shapeIndex = currentLeaf->shapeIndexInObject;
       bool ignoreItem = layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer;
       if (!ignoreItem) {
@@ -700,7 +700,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
         }
       }
       if (!ignoreItem) {
-        if (auto* currentItem = dynamic_cast<Item*>(currentObject)) {
+        if (auto* currentItem = jrt::fast_cast<Item>(currentObject)) {
           // Erik Gavriluk (freerouting.net): skip items that are not obstacles to obstaclesOf
           // before sorting candidates and running exact geometric intersections.
           if (obstaclesOf != nullptr &&
@@ -724,7 +724,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
     for (int32_t i = 0; i < keptCount; i++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(i);
       obstacleEntries->add(new ShapeTree_TreeEntry(
-          dynamic_cast<SearchTreeObject*>(currentLeaf->object), currentLeaf->shapeIndexInObject));
+          jrt::fast_cast<SearchTreeObject>(currentLeaf->object), currentLeaf->shapeIndexInObject));
     }
   }
   sortedItems->sort(nullptr);
@@ -739,7 +739,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
         isClearanceCompensationUsed() ? (tmpEntry->clearance + 1) / 2 : tmpEntry->clearance / 2;
     if (tmpHalfClearance != currentHalfClearance) {
       currentHalfClearance = tmpHalfClearance;
-      currentOffsetShape = dynamic_cast<ConvexShape*>(shape->enlarge(currentHalfClearance));
+      currentOffsetShape = jrt::fast_cast<ConvexShape>(shape->enlarge(currentHalfClearance));
       currentOffsetOctagon = boundingOctagonOf(currentOffsetShape);
     }
     TileShape* tmpShape =
@@ -750,7 +750,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
     }
     // enlarge both item shapes by the half clearance to create
     // symmetry.
-    ConvexShape* tmpOffsetShape = dynamic_cast<ConvexShape*>(tmpShape->enlarge(currentHalfClearance));
+    ConvexShape* tmpOffsetShape = jrt::fast_cast<ConvexShape>(tmpShape->enlarge(currentHalfClearance));
     if (!boundingOctagonsApart(currentOffsetShape, tmpOffsetShape) &&
         currentOffsetShape->intersects(static_cast<Shape*>(tmpOffsetShape)) &&
         !(exactCopper &&
@@ -768,7 +768,7 @@ bool ShapeSearchTree::copperApart(ConvexShape* queryShape, bool queryIsCopper,
                                   jrt::Array<bool>* queryCopperKnownHolder,
                                   jrt::Object* entryObject, int32_t entryIndex,
                                   TileShape* entryTile, int32_t clearance) {
-  auto* treeObject = dynamic_cast<SearchTreeObject*>(entryObject);
+  auto* treeObject = jrt::fast_cast<SearchTreeObject>(entryObject);
   ExactCopper* entry = treeObject != nullptr ? exactCopperOf(treeObject, entryIndex) : nullptr;
   if (entry == nullptr) {
     if (!queryIsCopper) {
@@ -788,7 +788,7 @@ bool ShapeSearchTree::copperApart(ConvexShape* queryShape, bool queryIsCopper,
 }
 
 ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_t index) {
-  auto* drillItem = dynamic_cast<DrillItem*>(treeObject);
+  auto* drillItem = jrt::fast_cast<DrillItem>(treeObject);
   if (drillItem == nullptr || this->board == nullptr || index < 0 ||
       index >= drillItem->tileShapeCount()) {
     return nullptr;
@@ -809,7 +809,7 @@ ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_
     int32_t grow = this->clearanceCompensationValue(drillItem->clearanceClassIndex(), layer) +
                    drillHoleClearanceDelta(drillItem, shape, layer);
     PadOval* oval = nullptr;
-    if (auto* pin = dynamic_cast<Pin*>(drillItem)) {
+    if (auto* pin = jrt::fast_cast<Pin>(drillItem)) {
       if (shape == drillItem->getShape(index)) {
         oval = pin->getPlacedOval(index);
       }
@@ -828,13 +828,13 @@ ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_
 }
 
 IntOctagon* ShapeSearchTree::boundingOctagonOf(ConvexShape* shape) {
-  auto* tile = dynamic_cast<TileShape*>(shape);
+  auto* tile = jrt::fast_cast<TileShape>(shape);
   return tile != nullptr ? tile->boundingOctagon() : nullptr;
 }
 
 bool ShapeSearchTree::enlargedSimplexApart(IntOctagon* queryOctagon, TileShape* entryShape,
                                            int32_t halfClearance) {
-  auto* entrySimplex = dynamic_cast<Simplex*>(entryShape);
+  auto* entrySimplex = jrt::fast_cast<Simplex>(entryShape);
   if (queryOctagon == nullptr || entrySimplex == nullptr) {
     return false;
   }
@@ -844,11 +844,11 @@ bool ShapeSearchTree::enlargedSimplexApart(IntOctagon* queryOctagon, TileShape* 
 }
 
 bool ShapeSearchTree::boundingOctagonsApart(ConvexShape* a, ConvexShape* b) {
-  if (dynamic_cast<Simplex*>(a) == nullptr && dynamic_cast<Simplex*>(b) == nullptr) {
+  if (jrt::fast_cast<Simplex>(a) == nullptr && jrt::fast_cast<Simplex>(b) == nullptr) {
     return false;
   }
-  auto* tileA = dynamic_cast<TileShape*>(a);
-  auto* tileB = dynamic_cast<TileShape*>(b);
+  auto* tileA = jrt::fast_cast<TileShape>(a);
+  auto* tileB = jrt::fast_cast<TileShape>(b);
   if (tileA == nullptr || tileB == nullptr) {
     return false;
   }
@@ -888,7 +888,7 @@ void ShapeSearchTree::overlappingObjectsWithClearance(ConvexShape* shape, int32_
   this->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                             treeEntries);
   for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {
-    obstacles->add(dynamic_cast<SearchTreeObject*>(currentEntry->object));
+    obstacles->add(jrt::fast_cast<SearchTreeObject>(currentEntry->object));
   }
 }
 
@@ -909,7 +909,7 @@ void ShapeSearchTree::overlappingObjectsWithClearance(ConvexShape* shape, int32_
   this->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                             treeEntries, exactShape);
   for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {
-    if (auto* item = dynamic_cast<Item*>(currentEntry->object)) {
+    if (auto* item = jrt::fast_cast<Item>(currentEntry->object)) {
       obstacles->add(item);
     }
   }
@@ -974,7 +974,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
 
     while ((currentNode = stack->pop()) != nullptr) {
       if (currentNode->boundingShape->intersects(static_cast<Shape*>(boundingShape))) {
-        if (auto* leaf = dynamic_cast<ShapeTree_Leaf*>(currentNode)) {
+        if (auto* leaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
           overlappingLeaves->add(leaf);
         } else {
           stack->push(static_cast<ShapeTree_InnerNode*>(currentNode)->firstChild);
@@ -991,7 +991,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
   jrt::Collections::sort<ShapeTree_Leaf*>(overlappingLeaves);
 
   for (ShapeTree_Leaf* currentLeaf : *overlappingLeaves) {
-    SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentLeaf->object);
+    SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
     int32_t shapeIndex = currentLeaf->shapeIndexInObject;
     if (currentObject->isTraceObstacle(netNumber, shapeIndex) &&
         currentObject->shapeLayer(shapeIndex) == roomLayer && currentObject != ignoreObject) {
@@ -1006,7 +1006,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
             currentIncompleteRoom->getShape()->intersection(currentObjectShape);
         if (intersection->dimension() == 2) {
           bool ignoreExpansionRoom =
-              dynamic_cast<CompleteFreeSpaceExpansionRoom*>(currentObject) != nullptr &&
+              jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(currentObject) != nullptr &&
               ignoreShape != nullptr && ignoreShape->contains(intersection);
           if (FRLogger::isTraceEnabled()) {
             FRLogger::trace(
@@ -1245,7 +1245,7 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(DrillItem* drillIte
       if (currentTileShape == nullptr) {
         FRLogger::warn("ShapeSearchTree.calculate_tree_shapes: shape is null");
       } else {
-        currentTileShape = dynamic_cast<TileShape*>(currentTileShape->enlarge(offsetWidth));
+        currentTileShape = jrt::fast_cast<TileShape>(currentTileShape->enlarge(offsetWidth));
       }
       (*result)[i] = currentTileShape;
     }
@@ -1273,7 +1273,7 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(ObstacleArea* obsta
     TileShape* currentConvexShape = (*convexShapes)[i];
     int32_t offsetWidth = this->clearanceCompensationValue(obstacleArea->clearanceClassIndex(),
                                                            obstacleArea->getLayer());
-    currentConvexShape = dynamic_cast<TileShape*>(currentConvexShape->enlarge(offsetWidth));
+    currentConvexShape = jrt::fast_cast<TileShape>(currentConvexShape->enlarge(offsetWidth));
     jrt::Array<TileShape*>* currentTreeShapes =
         currentConvexShape->divideIntoSections(maxTreeShapeWidth);
     treeShapeList->addAll(jrt::Arrays::asList(currentTreeShapes));
@@ -1303,7 +1303,7 @@ jrt::Array<TileShape*>* ShapeSearchTree::calculateTreeShapes(BoardOutline* board
         TileShape* currentConvexShape = (*convexShapes)[i];
         int32_t offsetWidth =
             this->clearanceCompensationValue(boardOutline->clearanceClassIndex(), layerIndex);
-        currentConvexShape = dynamic_cast<TileShape*>(currentConvexShape->enlarge(offsetWidth));
+        currentConvexShape = jrt::fast_cast<TileShape>(currentConvexShape->enlarge(offsetWidth));
         treeShapeList->add(currentConvexShape);
       }
     }
@@ -1358,10 +1358,10 @@ Shape* ShapeSearchTree::drillHoleObstacle(DrillItem* drillItem) {
     return nullptr;
   }
   Point* center = drillItem->getCenter();
-  if (dynamic_cast<IntPoint*>(center) == nullptr) {
+  if (jrt::fast_cast<IntPoint>(center) == nullptr) {
     center = center->toFloat()->round();
   }
-  return new Circle(dynamic_cast<IntPoint*>(center), jrt::d2i(jrt::Math::ceil(drillRadius)));
+  return new Circle(jrt::fast_cast<IntPoint>(center), jrt::d2i(jrt::Math::ceil(drillRadius)));
 }
 
 int32_t ShapeSearchTree::drillHoleClearanceDelta(DrillItem* drillItem, Shape* shape,

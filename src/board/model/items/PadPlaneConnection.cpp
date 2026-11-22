@@ -9,7 +9,7 @@ namespace fr {
 
 bool PadPlaneConnection_Spoke::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<PadPlaneConnection_Spoke*>(o);
+  auto* other = jrt::fast_cast<PadPlaneConnection_Spoke>(o);
   if (other == nullptr) return false;
   return jrt::Double::compare(startX_, other->startX_) == 0 &&
          jrt::Double::compare(startY_, other->startY_) == 0 &&
@@ -100,7 +100,7 @@ double PadPlaneConnection::toBoxEdge(double cos, double sin, double halfWidth, d
 
 bool PadPlaneConnection::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<PadPlaneConnection*>(o);
+  auto* other = jrt::fast_cast<PadPlaneConnection>(o);
   if (other == nullptr) return false;
   return mode_ == other->mode_ && throughHole_ == other->throughHole_ &&
          jrt::Double::compare(centerX_, other->centerX_) == 0 &&

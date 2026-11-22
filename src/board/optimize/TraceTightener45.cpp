@@ -44,7 +44,7 @@ Polyline* TraceTightener45::reduceCorners(Polyline* polyline) {
   jrt::Array<Point*>* currentCorner = new jrt::Array<Point*>(4);
   for (int32_t i = 0; i < 4; i++) {
     (*currentCorner)[i] = polyline->corner(i);
-    if (dynamic_cast<IntPoint*>((*currentCorner)[i]) == nullptr) {
+    if (jrt::fast_cast<IntPoint>((*currentCorner)[i]) == nullptr) {
       return polyline;
     }
   }
@@ -67,7 +67,7 @@ Polyline* TraceTightener45::reduceCorners(Polyline* polyline) {
   int32_t cornerIndex = 3;
   while (cornerIndex < polyline->lines->length - 1) {
     (*currentCorner)[3] = polyline->corner(cornerIndex);
-    if (dynamic_cast<IntPoint*>((*currentCorner)[3]) == nullptr) {
+    if (jrt::fast_cast<IntPoint>((*currentCorner)[3]) == nullptr) {
       return polyline;
     }
     if ((*currentCorner)[1]->equals((*currentCorner)[2]) ||
@@ -80,7 +80,7 @@ Polyline* TraceTightener45::reduceCorners(Polyline* polyline) {
       (*currentCornerInClipShape)[2] = (*currentCornerInClipShape)[3];
       if (cornerIndex < polyline->lines->length - 1) {
         (*currentCorner)[3] = polyline->corner(cornerIndex);
-        if (dynamic_cast<IntPoint*>((*currentCorner)[3]) == nullptr) {
+        if (jrt::fast_cast<IntPoint>((*currentCorner)[3]) == nullptr) {
           return polyline;
         }
       }
@@ -424,7 +424,7 @@ Polyline* TraceTightener45::smoothenStartCornerAtTrace(PolylineTrace* trace) {
 
   jrt::Collection<Item*>* contactList = trace->getStartContacts();
   for (Item* currentContact : *contactList) {
-    auto* contactTrace = dynamic_cast<PolylineTrace*>(currentContact);
+    auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
     if (contactTrace != nullptr && !currentContact->isShoveFixed()) {
       Polyline* contactTracePolyline = contactTrace->polyline();
       FloatPoint* currentOtherTraceCornerApprox;
@@ -534,7 +534,7 @@ Polyline* TraceTightener45::smoothenEndCornerAtTrace(PolylineTrace* trace) {
 
   jrt::Collection<Item*>* contactList = trace->getEndContacts();
   for (Item* currentContact : *contactList) {
-    auto* contactTrace = dynamic_cast<PolylineTrace*>(currentContact);
+    auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
     if (contactTrace != nullptr && !currentContact->isShoveFixed()) {
       Polyline* contactTracePolyline = contactTrace->polyline();
       FloatPoint* currentOtherTraceCornerApprox;

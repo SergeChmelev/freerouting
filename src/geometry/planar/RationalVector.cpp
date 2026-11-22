@@ -40,7 +40,7 @@ bool RationalVector::equals(jrt::Object* other) {
   if (typeid(*this) != typeid(*other)) {
     return false;
   }
-  RationalVector* otherVector = dynamic_cast<RationalVector*>(other);
+  RationalVector* otherVector = jrt::fast_cast<RationalVector>(other);
   jrt::BigInteger det = BigIntAux::determinant(x, otherVector->x, z, otherVector->z);
   if (det.signum() != 0) {
     return false;

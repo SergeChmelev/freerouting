@@ -99,13 +99,13 @@ bool ObstacleArea::isObstacle(Item* other) {
   if (other->sharesNet(this)) {
     return false;
   }
-  if (dynamic_cast<Pin*>(other) != nullptr) {
+  if (jrt::fast_cast<Pin>(other) != nullptr) {
     return this->netCount() > 0;
   }
-  if (auto* otherArea = dynamic_cast<ObstacleArea*>(other)) {
+  if (auto* otherArea = jrt::fast_cast<ObstacleArea>(other)) {
     return this->netCount() > 0 && otherArea->netCount() > 0;
   }
-  return dynamic_cast<Trace*>(other) != nullptr || dynamic_cast<Via*>(other) != nullptr;
+  return jrt::fast_cast<Trace>(other) != nullptr || jrt::fast_cast<Via>(other) != nullptr;
 }
 
 jrt::Array<TileShape*>* ObstacleArea::calculateTreeShapes(ShapeSearchTree* searchTree) {

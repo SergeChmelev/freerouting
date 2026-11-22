@@ -45,7 +45,7 @@ class BoardStatistics_OptimizerMetrics : public virtual jrt::Object {
   static BoardStatistics_OptimizerMetrics* of(BasicBoard* board);
 
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<BoardStatistics_OptimizerMetrics*>(o);
+    auto* other = jrt::fast_cast<BoardStatistics_OptimizerMetrics>(o);
     if (other == nullptr) return false;
     return viaCount_ == other->viaCount_ &&
            jrt::Float::compare(totalLength_, other->totalLength_) == 0 &&

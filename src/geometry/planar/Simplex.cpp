@@ -86,8 +86,8 @@ bool Simplex::cornerIsBounded(int32_t cornerIndex) {
   } else {
     prevNo = no - 1;
   }
-  IntVector* prevDir = dynamic_cast<IntVector*>((*lines)[prevNo]->direction()->getVector());
-  IntVector* currentDirection = dynamic_cast<IntVector*>((*lines)[no]->direction()->getVector());
+  IntVector* prevDir = jrt::fast_cast<IntVector>((*lines)[prevNo]->direction()->getVector());
+  IntVector* currentDirection = jrt::fast_cast<IntVector>((*lines)[no]->direction()->getVector());
   return prevDir->determinant(currentDirection) > 0;
 }
 
@@ -298,8 +298,8 @@ double Simplex::minWidth() {
 bool Simplex::isIntBox() {
   for (int32_t i = 0; i < lines->length; i++) {
     Line* currentLine = (*lines)[i];
-    if (!(dynamic_cast<IntPoint*>(currentLine->a) != nullptr &&
-          dynamic_cast<IntPoint*>(currentLine->b) != nullptr)) {
+    if (!(jrt::fast_cast<IntPoint>(currentLine->a) != nullptr &&
+          jrt::fast_cast<IntPoint>(currentLine->b) != nullptr)) {
       return false;
     }
     if (!currentLine->isOrthogonal()) {
@@ -315,8 +315,8 @@ bool Simplex::isIntBox() {
 bool Simplex::isIntOctagon() {
   for (int32_t i = 0; i < lines->length; i++) {
     Line* currentLine = (*lines)[i];
-    if (!(dynamic_cast<IntPoint*>(currentLine->a) != nullptr &&
-          dynamic_cast<IntPoint*>(currentLine->b) != nullptr)) {
+    if (!(jrt::fast_cast<IntPoint>(currentLine->a) != nullptr &&
+          jrt::fast_cast<IntPoint>(currentLine->b) != nullptr)) {
       return false;
     }
     if (!currentLine->isMultipleOf45Degree()) {
@@ -352,8 +352,8 @@ IntOctagon* Simplex::toIntOctagon() {
   int32_t ulx = -Limits::CRIT_INT;
   for (int32_t i = 0; i < lines->length; i++) {
     Line* currentLine = (*lines)[i];
-    IntPoint* a = dynamic_cast<IntPoint*>(currentLine->a);
-    IntPoint* b = dynamic_cast<IntPoint*>(currentLine->b);
+    IntPoint* a = jrt::fast_cast<IntPoint>(currentLine->a);
+    IntPoint* b = jrt::fast_cast<IntPoint>(currentLine->b);
     if (a->y == b->y) {
       if (b->x >= a->x) {
         // lower boundary line
@@ -596,7 +596,7 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
   bool checkCrossFirstLine = false;
   Line* prevDivisionLine = nullptr;
   Line* firstDivisionLine = (*(*divisionLineArr)[0])[0];
-  IntDirection* firstDirection = dynamic_cast<IntDirection*>(firstDivisionLine->direction());
+  IntDirection* firstDirection = jrt::fast_cast<IntDirection>(firstDivisionLine->direction());
   jrt::Collection<Simplex*>* resultList = new jrt::LinkedList<Simplex*>();
 
   for (int32_t innerCornerNo = 0; innerCornerNo < innerCornerCount; innerCornerNo++) {
@@ -609,11 +609,11 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
       // currentDivisionLines[1] and currentDivisionLines[0]
       // and intersect it with the outer simplex
       IntDirection* currentDirection =
-          dynamic_cast<IntDirection*>((*currentDivisionLines)[0]->direction());
+          jrt::fast_cast<IntDirection>((*currentDivisionLines)[0]->direction());
       bool mergePrevDivisionLine = false;
       bool mergeFirstDivisionLine = false;
       if (prevDivisionLine != nullptr) {
-        IntDirection* prevDir = dynamic_cast<IntDirection*>(prevDivisionLine->direction());
+        IntDirection* prevDir = jrt::fast_cast<IntDirection>(prevDivisionLine->direction());
         if (currentDirection->determinant(prevDir) > 0) {
           // the previous division line may intersect
           //  currentDivisionLines[0] inside divideSimplex
@@ -626,7 +626,7 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
       }
       if (checkCrossFirstLine) {
         IntDirection* currentDir2 =
-            dynamic_cast<IntDirection*>((*currentDivisionLines)[1]->direction());
+            jrt::fast_cast<IntDirection>((*currentDivisionLines)[1]->direction());
         if (currentDir2->determinant(firstDirection) < 0) {
           // The current piece has an intersection area with the first
           // piece.
@@ -661,12 +661,12 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
     // and intersect it with the outer simplex
     bool mergeNextDivisionLine = !nextDivisionLine->b->equals(nextDivisionLine->a);
     Line* lastCurrDivisionLine = (*currentDivisionLines)[currentDivisionLines->length - 1];
-    IntDirection* lastCurrDir = dynamic_cast<IntDirection*>(lastCurrDivisionLine->direction());
+    IntDirection* lastCurrDir = jrt::fast_cast<IntDirection>(lastCurrDivisionLine->direction());
     bool mergeLastCurrDivisionLine = !lastCurrDivisionLine->b->equals(lastCurrDivisionLine->a);
     bool mergePrevDivisionLine = false;
     bool mergeFirstDivisionLine = false;
     if (prevDivisionLine != nullptr) {
-      IntDirection* prevDir = dynamic_cast<IntDirection*>(prevDivisionLine->direction());
+      IntDirection* prevDir = jrt::fast_cast<IntDirection>(prevDivisionLine->direction());
       if (lastCurrDir->determinant(prevDir) > 0) {
         // the previous division line may intersect
         //  the last current division line inside divideSimplex
@@ -681,7 +681,7 @@ jrt::Array<TileShape*>* Simplex::cutoutFrom(Simplex* outerSimplex) {
       // small innerCornerNo
     }
     if (checkCrossFirstLine) {
-      IntDirection* nextDir = dynamic_cast<IntDirection*>(nextDivisionLine->direction());
+      IntDirection* nextDir = jrt::fast_cast<IntDirection>(nextDivisionLine->direction());
       if (nextDir->determinant(firstDirection) < 0) {
         // The current piece has an intersection area with the first piece.
         // Add a line to tmpPolyline to prevent this
@@ -776,8 +776,8 @@ Simplex* Simplex::removeRedundantLines() {
       nextLine = (*lines)[nextInd];
 
       bool removeLine = false;
-      IntDirection* prevDir = dynamic_cast<IntDirection*>(prevLine->direction());
-      IntDirection* nextDir = dynamic_cast<IntDirection*>(nextLine->direction());
+      IntDirection* prevDir = jrt::fast_cast<IntDirection>(prevLine->direction());
+      IntDirection* nextDir = jrt::fast_cast<IntDirection>(nextLine->direction());
       double det = prevDir->determinant(nextDir);
       if (det != 0) {  // prevLine and nextLine are not parallel
         if ((*intersectionSides)[ind] == nullptr) {
@@ -792,7 +792,7 @@ Simplex* Simplex::removeRedundantLines() {
         } else {  // direction of nextLine is smaller than direction of prevLine
 
           if ((*intersectionSides)[ind] == Side::ON_THE_LEFT()) {
-            IntDirection* currentDirection = dynamic_cast<IntDirection*>(currentLine->direction());
+            IntDirection* currentDirection = jrt::fast_cast<IntDirection>(currentLine->direction());
             if (prevDir->determinant(currentDirection) > 0) {
               // direction of currentLine is bigger than direction of prevLine
               // the halfplane defined by currentLine does not intersect
@@ -907,8 +907,8 @@ jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* ou
   }
   IntDirection* firstProjectionDir = Direction::NULL_();
   IntDirection* secondProjectionDir = Direction::NULL_();
-  IntDirection* prevInnerDir = dynamic_cast<IntDirection*>(prevInnerLine->direction()->opposite());
-  IntDirection* nextInnerDir = dynamic_cast<IntDirection*>(currentInnerLine->direction());
+  IntDirection* prevInnerDir = jrt::fast_cast<IntDirection>(prevInnerLine->direction()->opposite());
+  IntDirection* nextInnerDir = jrt::fast_cast<IntDirection>(currentInnerLine->direction());
   int32_t outerLineNo = 0;
 
   // search the first outer line, so that
@@ -920,7 +920,7 @@ jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* ou
   for (int32_t ind = 0; ind < outerSimplex->lines->length; ind++) {
     Line* outerLine = (*outerSimplex->lines)[outerLineNo];
     IntDirection* currentProjectionDir =
-        dynamic_cast<IntDirection*>(innerCorner->perpendicularDirection(outerLine));
+        jrt::fast_cast<IntDirection>(innerCorner->perpendicularDirection(outerLine));
     if (currentProjectionDir == Direction::NULL_()) {
       auto* result = new jrt::Array<Line*>(1);
       (*result)[0] = new Line(innerCorner, innerCorner);
@@ -945,7 +945,7 @@ jrt::Array<Line*>* Simplex::calcDivisionLines(int32_t innerCornerNo, Simplex* ou
           } else {
             ++tmpOuterLineNo;
           }
-          currentSecondProjectionDir = dynamic_cast<IntDirection*>(
+          currentSecondProjectionDir = jrt::fast_cast<IntDirection>(
               innerCorner->perpendicularDirection((*outerSimplex->lines)[tmpOuterLineNo]));
 
           if (currentSecondProjectionDir == Direction::NULL_()) {

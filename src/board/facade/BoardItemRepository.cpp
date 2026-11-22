@@ -41,7 +41,7 @@ BoardOutline* BoardItemRepository::findOutline() {
     if (currentItem == nullptr) {
       return nullptr;
     }
-    if (auto* currentOutline = dynamic_cast<BoardOutline*>(currentItem)) {
+    if (auto* currentOutline = jrt::fast_cast<BoardOutline>(currentItem)) {
       return currentOutline;
     }
   }
@@ -58,7 +58,7 @@ Item* BoardItemRepository::getItem(int32_t id) {
       if (currentItem == nullptr) {
         break;
       }
-      if (auto* item = dynamic_cast<Item*>(currentItem)) {
+      if (auto* item = jrt::fast_cast<Item>(currentItem)) {
         idMap->put(item->getId(), item);
       }
     }
@@ -75,7 +75,7 @@ int32_t BoardItemRepository::getViaCount() {
     if (currentItem == nullptr) {
       return result;
     }
-    if (dynamic_cast<Via*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Via>(currentItem) != nullptr) {
       result++;
     }
   }
@@ -89,7 +89,7 @@ int32_t BoardItemRepository::getPinCount() {
     if (currentItem == nullptr) {
       return result;
     }
-    if (dynamic_cast<Pin*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Pin>(currentItem) != nullptr) {
       result++;
     }
   }
@@ -99,7 +99,7 @@ jrt::Collection<Item*>* BoardItemRepository::getItems() {
   jrt::Collection<Item*>* result = new jrt::LinkedList<Item*>();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(iterator));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {
       return result;
     }
@@ -110,7 +110,7 @@ jrt::Collection<Item*>* BoardItemRepository::getItems() {
 jrt::Collection<ConductionArea*>* BoardItemRepository::getConductionAreas() {
   jrt::Collection<ConductionArea*>* result = new jrt::LinkedList<ConductionArea*>();
   for (Item* currentItem : *getItems()) {
-    if (auto* area = dynamic_cast<ConductionArea*>(currentItem)) {
+    if (auto* area = jrt::fast_cast<ConductionArea>(currentItem)) {
       result->add(area);
     }
   }
@@ -120,7 +120,7 @@ jrt::Collection<ConductionArea*>* BoardItemRepository::getConductionAreas() {
 jrt::Collection<Pin*>* BoardItemRepository::getPins() {
   jrt::Collection<Pin*>* result = new jrt::LinkedList<Pin*>();
   for (Item* currentItem : *getItems()) {
-    if (auto* pin = dynamic_cast<Pin*>(currentItem)) {
+    if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
       result->add(pin);
     }
   }
@@ -130,7 +130,7 @@ jrt::Collection<Pin*>* BoardItemRepository::getPins() {
 jrt::Collection<Pin*>* BoardItemRepository::getSmdPins() {
   jrt::Collection<Pin*>* result = new jrt::LinkedList<Pin*>();
   for (Item* currentItem : *getItems()) {
-    if (auto* pin = dynamic_cast<Pin*>(currentItem)) {
+    if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
       if (pin->firstLayer() == pin->lastLayer()) {
         result->add(pin);
       }
@@ -142,7 +142,7 @@ jrt::Collection<Pin*>* BoardItemRepository::getSmdPins() {
 jrt::Collection<Via*>* BoardItemRepository::getVias() {
   jrt::Collection<Via*>* result = new jrt::LinkedList<Via*>();
   for (Item* currentItem : *getItems()) {
-    if (auto* via = dynamic_cast<Via*>(currentItem)) {
+    if (auto* via = jrt::fast_cast<Via>(currentItem)) {
       result->add(via);
     }
   }
@@ -152,7 +152,7 @@ jrt::Collection<Via*>* BoardItemRepository::getVias() {
 jrt::Collection<Trace*>* BoardItemRepository::getTraces() {
   jrt::Collection<Trace*>* result = new jrt::LinkedList<Trace*>();
   for (Item* currentItem : *getItems()) {
-    if (auto* trace = dynamic_cast<Trace*>(currentItem)) {
+    if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
       result->add(trace);
     }
   }
@@ -162,7 +162,7 @@ jrt::Collection<Trace*>* BoardItemRepository::getTraces() {
 double BoardItemRepository::cumulativeTraceLength() {
   double result = 0;
   for (Item* currentItem : *getItems()) {
-    if (auto* trace = dynamic_cast<Trace*>(currentItem)) {
+    if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
       result += trace->getLength();
     }
   }
@@ -218,7 +218,7 @@ void BoardItemRepository::removeItem(Item* item, bool forMove) {
                     ", bounds=" + describeBounds(item->boundingBox()) +
                     ", net0=" + firstNetOrNone(item));
   }
-  if (auto* trace = dynamic_cast<Trace*>(item)) {
+  if (auto* trace = jrt::fast_cast<Trace>(item)) {
     if (trace->netNumbers->length > 0 && (*trace->netNumbers)[0] == 94) {
       logTraceRemoval(trace);
     }
@@ -256,8 +256,8 @@ void BoardItemRepository::deleteAllTracksAndVias() {
     if (currentItem == nullptr) {
       return;
     }
-    if (dynamic_cast<Trace*>(currentItem) != nullptr ||
-        dynamic_cast<Via*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Trace>(currentItem) != nullptr ||
+        jrt::fast_cast<Via>(currentItem) != nullptr) {
       board->itemList->delete_(currentItem);
     }
   }
@@ -288,7 +288,7 @@ void BoardItemRepository::logTraceRemoval(Trace* trace) {
   if (!FRLogger::isTraceEnabled()) {
     return;
   }
-  auto* polylineTrace = dynamic_cast<PolylineTrace*>(trace);
+  auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace);
   if (polylineTrace != nullptr && polylineTrace->cornerCount() == 2 &&
       trace->firstCorner()->equals(new IntPoint(1885928, -1097274)) &&
       trace->lastCorner()->equals(new IntPoint(1885928, -1098024))) {

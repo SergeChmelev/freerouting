@@ -282,7 +282,7 @@ std::string obstacleLogLine(const char* tag, jrt::Array<int32_t>* netNumbers,
     obstacleLog += jrt::str(obs->getId());
     obstacleLog += ",type=";
     obstacleLog += jrt::className(obs);
-    if (auto* pt = dynamic_cast<PolylineTrace*>(obs)) {
+    if (auto* pt = jrt::fast_cast<PolylineTrace>(obs)) {
       obstacleLog += ",nets=";
       obstacleLog += jrt::Arrays::toString(pt->netNumbers);
       obstacleLog += ",fc=";
@@ -386,7 +386,7 @@ bool TraceShover::checkUncached(TileShape* traceShape, ShapeEntrySide* fromSide,
     return false;
   }
 
-  bool isOrthogonalMode = dynamic_cast<IntBox*>(traceShape) != nullptr;
+  bool isOrthogonalMode = jrt::fast_cast<IntBox>(traceShape) != nullptr;
   for (;;) {
     PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
     if (currentSubstituteTrace == nullptr) {
@@ -477,7 +477,7 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
   }
   bool tailsExistBefore = board->containsTraceTails(obstacles, netNumbers);
   shapeEntries->cutoutTraces(obstacles);
-  bool isOrthogonalMode = dynamic_cast<IntBox*>(traceShape) != nullptr;
+  bool isOrthogonalMode = jrt::fast_cast<IntBox>(traceShape) != nullptr;
   for (;;) {
     PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
     if (currentSubstituteTrace == nullptr) {
@@ -552,7 +552,7 @@ jrt::Collection<Item*>* TraceShover::getIgnoreItemsAtTiePins(TileShape* traceSha
   jrt::Collection<SearchTreeObject*>* overlaps = this->board->overlappingObjects(traceShape, layer);
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
-    if (auto* currentPin = dynamic_cast<Pin*>(currentObject)) {
+    if (auto* currentPin = jrt::fast_cast<Pin>(currentObject)) {
       if (currentPin->sharesNetNo(netNumbers)) {
         result->addAll(currentPin->getAllContacts(layer));
       }
@@ -582,16 +582,16 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
       bool isObstacle;
       if (currentItem->sharesNetNo(netNumbers)) {
         // to avoid acid traps
-        isObstacle = dynamic_cast<Pin*>(currentItem) != nullptr && contactPins != nullptr &&
-                     !contactPins->contains(dynamic_cast<Pin*>(currentItem));
-      } else if (auto* area = dynamic_cast<ConductionArea*>(currentItem)) {
+        isObstacle = jrt::fast_cast<Pin>(currentItem) != nullptr && contactPins != nullptr &&
+                     !contactPins->contains(jrt::fast_cast<Pin>(currentItem));
+      } else if (auto* area = jrt::fast_cast<ConductionArea>(currentItem)) {
         isObstacle = area->getIsObstacle();
-      } else if (auto* outline = dynamic_cast<BoardOutline*>(currentItem)) {
+      } else if (auto* outline = jrt::fast_cast<BoardOutline>(currentItem)) {
         isObstacle = outline->blocksTraceAt(currentShape, layer, netNumbers, clearanceClassIndex);
-      } else if (dynamic_cast<ViaObstacleArea*>(currentItem) != nullptr ||
-                 dynamic_cast<ComponentObstacleArea*>(currentItem) != nullptr) {
+      } else if (jrt::fast_cast<ViaObstacleArea>(currentItem) != nullptr ||
+                 jrt::fast_cast<ComponentObstacleArea>(currentItem) != nullptr) {
         isObstacle = false;
-      } else if (dynamic_cast<PolylineTrace*>(currentItem) != nullptr) {
+      } else if (jrt::fast_cast<PolylineTrace>(currentItem) != nullptr) {
         if (currentItem->isShoveFixed()) {
           isObstacle = true;
           // check for a shove fixed trace exit stub, which has to be ignored at a tie pin.
@@ -639,9 +639,9 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
     return polyline;
   }
 
-  auto* foundOutline = dynamic_cast<BoardOutline*>(foundObstacle);
+  auto* foundOutline = jrt::fast_cast<BoardOutline>(foundObstacle);
   if (recursionDepth <= 0 || (foundOutline != nullptr && foundOutline->blocksNets(netNumbers)) ||
-      (dynamic_cast<Trace*>(foundObstacle) != nullptr && !foundObstacle->isShoveFixed())) {
+      (jrt::fast_cast<Trace>(foundObstacle) != nullptr && !foundObstacle->isShoveFixed())) {
     this->board->setShoveFailingObstacle(foundObstacle);
     return nullptr;
   }
@@ -650,7 +650,7 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
     // Check if the obstacle has a trace contact on layer
     jrt::Collection<Item*>* contactsOnLayer = foundObstacle->getAllContacts(layer);
     for (Item* currentContact : *contactsOnLayer) {
-      if (dynamic_cast<Trace*>(currentContact) != nullptr) {
+      if (jrt::fast_cast<Trace>(currentContact) != nullptr) {
         trySpringOver = false;
         break;
       }
@@ -658,17 +658,17 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
   }
   ConvexShape* obstacleShape = nullptr;
   if (trySpringOver) {
-    if (dynamic_cast<ObstacleArea*>(foundObstacle) != nullptr ||
-        dynamic_cast<Trace*>(foundObstacle) != nullptr) {
+    if (jrt::fast_cast<ObstacleArea>(foundObstacle) != nullptr ||
+        jrt::fast_cast<Trace>(foundObstacle) != nullptr) {
       if (foundObstacle->treeShapeCount(searchTree) == 1) {
         obstacleShape = foundObstacle->getTreeShape(searchTree, 0);
-      } else if (auto* area = dynamic_cast<ObstacleArea*>(foundObstacle)) {
+      } else if (auto* area = jrt::fast_cast<ObstacleArea>(foundObstacle)) {
         // Search-tree sections are an indexing detail, not necessarily a non-convex obstacle.
         // Recover the whole convex area, with the same compensation applied before partitioning
         // in ShapeSearchTree.calculateTreeShapes. Do not bridge holes or concave areas.
         jrt::Array<TileShape*>* convexShapes = area->splitToConvex();
         if (convexShapes != nullptr && convexShapes->length == 1) {
-          obstacleShape = dynamic_cast<ConvexShape*>((*convexShapes)[0]->enlarge(
+          obstacleShape = jrt::fast_cast<ConvexShape>((*convexShapes)[0]->enlarge(
               searchTree->clearanceCompensationValue(area->clearanceClassIndex(), layer)));
         } else {
           trySpringOver = false;
@@ -676,7 +676,7 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
       } else {
         trySpringOver = false;
       }
-    } else if (auto* foundDrillItem = dynamic_cast<DrillItem*>(foundObstacle)) {
+    } else if (auto* foundDrillItem = jrt::fast_cast<DrillItem>(foundObstacle)) {
       obstacleShape = foundDrillItem->getTreeShapeOnLayer(searchTree, layer);
     }
   }
@@ -689,24 +689,24 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
     int32_t offset = halfWidth + 1 +
                      searchTree->additionalClearance(clearanceClassIndex,
                                                      foundObstacle->clearanceClassIndex(), layer);
-    offsetShape = dynamic_cast<TileShape*>(obstacleShape->enlarge(offset));
+    offsetShape = jrt::fast_cast<TileShape>(obstacleShape->enlarge(offset));
   } else {
     int32_t offset = halfWidth + 1;
     double halfClOffset =
         0.5 * board->clearanceValue(foundObstacle->clearanceClassIndex(), clearanceClassIndex,
                                     layer);
-    auto* tile = dynamic_cast<TileShape*>(obstacleShape);
+    auto* tile = jrt::fast_cast<TileShape>(obstacleShape);
     if (tile != nullptr && !tile->isIntOctagon()) {
       // Match the checker's separately rounded half-clearance and width expansions. Combining
       // width and half-clearance can consume the one-unit guard because Line.translate rounds
       // the scaled displacement along a coordinate axis. Keeping width separate leaves a gap.
-      offsetShape = dynamic_cast<TileShape*>(obstacleShape->enlarge(halfClOffset));
-      offsetShape = dynamic_cast<TileShape*>(offsetShape->enlarge(halfClOffset));
-      offsetShape = dynamic_cast<TileShape*>(offsetShape->enlarge(offset));
+      offsetShape = jrt::fast_cast<TileShape>(obstacleShape->enlarge(halfClOffset));
+      offsetShape = jrt::fast_cast<TileShape>(offsetShape->enlarge(halfClOffset));
+      offsetShape = jrt::fast_cast<TileShape>(offsetShape->enlarge(offset));
     } else {
       // Preserve established offsets for boxes and octagons.
-      offsetShape = dynamic_cast<TileShape*>(obstacleShape->enlarge(offset + halfClOffset));
-      offsetShape = dynamic_cast<TileShape*>(offsetShape->enlarge(halfClOffset));
+      offsetShape = jrt::fast_cast<TileShape>(obstacleShape->enlarge(offset + halfClOffset));
+      offsetShape = jrt::fast_cast<TileShape>(offsetShape->enlarge(halfClOffset));
     }
   }
   if (this->board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {

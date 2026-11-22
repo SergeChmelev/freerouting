@@ -29,7 +29,7 @@ Item* ComponentObstacleArea::copy(int32_t id) {
 }
 
 bool ComponentObstacleArea::isObstacle(Item* other) {
-  return other != this && dynamic_cast<ComponentObstacleArea*>(other) != nullptr &&
+  return other != this && jrt::fast_cast<ComponentObstacleArea>(other) != nullptr &&
          other->getComponentId() != this->getComponentId();
 }
 

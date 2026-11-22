@@ -250,13 +250,13 @@ PlanarArea* PlanarArea::fromShape(Shape* shape) {
   if (shape == nullptr) {
     return empty();
   }
-  if (auto* circle = dynamic_cast<Circle*>(shape)) {
+  if (auto* circle = jrt::fast_cast<Circle>(shape)) {
     return fromCircle(circle, 32);
   }
-  if (auto* box = dynamic_cast<IntBox*>(shape)) {
+  if (auto* box = jrt::fast_cast<IntBox>(shape)) {
     return fromBox(box);
   }
-  if (auto* poly = dynamic_cast<PolylineShape*>(shape)) {
+  if (auto* poly = jrt::fast_cast<PolylineShape>(shape)) {
     return fromPolylineShape(poly);
   }
   return empty();
@@ -266,11 +266,11 @@ PlanarArea* PlanarArea::fromArea(Area* area) {
   if (area == nullptr || area->isEmpty()) {
     return empty();
   }
-  if (auto* circle = dynamic_cast<Circle*>(area)) {
+  if (auto* circle = jrt::fast_cast<Circle>(area)) {
     return fromCircle(circle, 32);
   }
   Shape* borderShape = area->getBorder();
-  auto* border = dynamic_cast<PolylineShape*>(borderShape);
+  auto* border = jrt::fast_cast<PolylineShape>(borderShape);
   if (border == nullptr || !border->isBounded()) {
     return empty();
   }

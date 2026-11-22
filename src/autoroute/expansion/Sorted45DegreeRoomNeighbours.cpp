@@ -59,7 +59,7 @@ CompleteExpansionRoom* Sorted45DegreeRoomNeighbours::calculate(ExpansionRoom* ro
   // between this room and the sorted neighbours.
 
   if (roomNeighbours->sortedNeighbours->isEmpty()) {
-    if (dynamic_cast<ObstacleExpansionRoom*>(result) != nullptr) {
+    if (jrt::fast_cast<ObstacleExpansionRoom>(result) != nullptr) {
       roomNeighbours->calculateEdgeIncompleteRoomsOfObstacleExpansionRoom(0, 7, autorouteEngine);
     }
   } else {
@@ -74,9 +74,9 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
                                                                                 int32_t roomIdNo) {
   TileShape* roomShape = room->getShape();
   CompleteExpansionRoom* completedRoom;
-  if (dynamic_cast<IncompleteFreeSpaceExpansionRoom*>(room) != nullptr) {
+  if (jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(room) != nullptr) {
     completedRoom = new CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
-  } else if (auto* obstacleRoom = dynamic_cast<ObstacleExpansionRoom*>(room)) {
+  } else if (auto* obstacleRoom = jrt::fast_cast<ObstacleExpansionRoom>(room)) {
     completedRoom = obstacleRoom;
   } else {
     FRLogger::warn("Sorted45DegreeRoomNeighbours.calculate_neighbours: unexpected expansion room type");
@@ -89,8 +89,8 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
 
   // Sort the overlapping objects deterministically to ensure parity with v1.9.
   overlappingObjects->sort([](ShapeTree_TreeEntry* e1, ShapeTree_TreeEntry* e2) {
-    int32_t idDiff = dynamic_cast<SearchTreeObject*>(e1->object)->getId() -
-                     dynamic_cast<SearchTreeObject*>(e2->object)->getId();
+    int32_t idDiff = jrt::fast_cast<SearchTreeObject>(e1->object)->getId() -
+                     jrt::fast_cast<SearchTreeObject>(e2->object)->getId();
     if (idDiff != 0) {
       return idDiff;
     }
@@ -100,11 +100,11 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
   // Calculate the touching neighbour objects and sort them in counterclock sense
   // around the border of the room shape.
   for (ShapeTree_TreeEntry* currentEntry : *overlappingObjects) {
-    SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentEntry->object);
+    SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentEntry->object);
     if (static_cast<jrt::Object*>(currentObject) == static_cast<jrt::Object*>(room)) {
       continue;
     }
-    auto* fsRoom = dynamic_cast<CompleteFreeSpaceExpansionRoom*>(completedRoom);
+    auto* fsRoom = jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(completedRoom);
     if (fsRoom != nullptr && !currentObject->isTraceObstacle(netNumber, currentEntry->shapeIndexInObject)) {
       fsRoom->calculateTargetDoors(currentEntry, netNumber, autorouteSearchTree);
       continue;
@@ -113,9 +113,9 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
     IntOctagon* currentOct = currentShape->boundingOctagon();
     IntOctagon* intersection = roomOct->intersection(currentOct);
     int32_t dimension = intersection->dimension();
-    auto* obsRoom = dynamic_cast<ObstacleExpansionRoom*>(completedRoom);
+    auto* obsRoom = jrt::fast_cast<ObstacleExpansionRoom>(completedRoom);
     if (dimension > 1 && obsRoom != nullptr) {
-      if (auto* currentItem = dynamic_cast<Item*>(currentObject)) {
+      if (auto* currentItem = jrt::fast_cast<Item>(currentObject)) {
         // only Obstacle expansion room may have a 2-dim overlap
         if (currentItem->isRoutable()) {
           ItemAutorouteInfo* itemInfo = currentItem->getAutorouteInfo();
@@ -134,9 +134,9 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
     if (dimension > 0) {
       // make  sure, that there is a door to the neighbour room.
       ExpansionRoom* neighbourRoom = nullptr;
-      if (auto* exRoom = dynamic_cast<ExpansionRoom*>(currentObject)) {
+      if (auto* exRoom = jrt::fast_cast<ExpansionRoom>(currentObject)) {
         neighbourRoom = exRoom;
-      } else if (auto* currentItem = dynamic_cast<Item*>(currentObject)) {
+      } else if (auto* currentItem = jrt::fast_cast<Item>(currentObject)) {
         if (currentItem->isRoutable()) {
           // expand the item for ripup and pushing purposes
           ItemAutorouteInfo* itemInfo = currentItem->getAutorouteInfo();
@@ -229,7 +229,7 @@ void Sorted45DegreeRoomNeighbours::addSortedNeighbour(SearchTreeObject* searchTr
 
 void Sorted45DegreeRoomNeighbours::calculateEdgeIncompleteRoomsOfObstacleExpansionRoom(
     int32_t fromSideIndex, int32_t toSideIndex, AutorouteEngine* autorouteEngine) {
-  if (dynamic_cast<ObstacleExpansionRoom*>(this->fromRoom) == nullptr) {
+  if (jrt::fast_cast<ObstacleExpansionRoom>(this->fromRoom) == nullptr) {
     FRLogger::warn(
         "Sorted45DegreeRoomNeighbours.calculate_side_incomplete_rooms_of_obstacle_expansion_room:"
         " ObstacleExpansionRoom expected for this.fromRoom");
@@ -293,11 +293,11 @@ void Sorted45DegreeRoomNeighbours::calculateEdgeIncompleteRoomsOfObstacleExpansi
 }
 
 bool Sorted45DegreeRoomNeighbours::tryRemoveEdgeLine(int32_t netNumber, ShapeSearchTree* autorouteSearchTree) {
-  auto* currentIncompleteRoom = dynamic_cast<IncompleteFreeSpaceExpansionRoom*>(this->fromRoom);
+  auto* currentIncompleteRoom = jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(this->fromRoom);
   if (currentIncompleteRoom == nullptr) {
     return false;
   }
-  IntOctagon* roomOct = dynamic_cast<IntOctagon*>(currentIncompleteRoom->getShape());
+  IntOctagon* roomOct = jrt::fast_cast<IntOctagon>(currentIncompleteRoom->getShape());
   if (roomOct == nullptr) {
     FRLogger::warn(
         "Sorted45DegreeRoomNeighbours.tryRemoveEdgeLine: "
@@ -350,7 +350,7 @@ bool Sorted45DegreeRoomNeighbours::tryRemoveEdgeLine(int32_t netNumber, ShapeSea
       if (currentDoor->dimension == 2) {
         CompleteExpansionRoom* otherRoom = currentDoor->otherRoom(this->completedRoom);
         {
-          if (auto* room = dynamic_cast<CompleteFreeSpaceExpansionRoom*>(otherRoom)) {
+          if (auto* room = jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(otherRoom)) {
             TileShape* currentDoorShape = currentDoor->getShape();
             double currentDoorArea = currentDoorShape->area();
             if (currentDoorArea > maxDoorArea) {
@@ -540,7 +540,7 @@ void Sorted45DegreeRoomNeighbours::calculateNewIncompleteRoomsForObstacleExpansi
 void Sorted45DegreeRoomNeighbours::calculateNewIncompleteRooms(AutorouteEngine* autorouteEngine) {
   IntOctagon* boardBoundingOct = autorouteEngine->board->boundingBox->boundingOctagon();
   Sorted45DegreeRoomNeighbours_SortedRoomNeighbour* prevNeighbour = this->sortedNeighbours->last();
-  if (dynamic_cast<ObstacleExpansionRoom*>(this->fromRoom) != nullptr && this->sortedNeighbours->size() == 1) {
+  if (jrt::fast_cast<ObstacleExpansionRoom>(this->fromRoom) != nullptr && this->sortedNeighbours->size() == 1) {
     // ObstacleExpansionRoom has only 1 neighbour
     calculateNewIncompleteRoomsForObstacleExpansionRoom(prevNeighbour, prevNeighbour, autorouteEngine);
     return;
@@ -568,7 +568,7 @@ void Sorted45DegreeRoomNeighbours::calculateNewIncompleteRooms(AutorouteEngine* 
       // the last corner of the previous neighbour and the first corner of the
       // current neighbour
 
-      if (dynamic_cast<ObstacleExpansionRoom*>(this->fromRoom) != nullptr &&
+      if (jrt::fast_cast<ObstacleExpansionRoom>(this->fromRoom) != nullptr &&
           nextNeighbour->firstTouchingSide != prevNeighbour->lastTouchingSide) {
         calculateNewIncompleteRoomsForObstacleExpansionRoom(prevNeighbour, nextNeighbour, autorouteEngine);
       } else {

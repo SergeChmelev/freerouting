@@ -58,7 +58,7 @@ bool RationalPoint::equals(jrt::Object* other) {
   if (typeid(*this) != typeid(*other)) {
     return false;
   }
-  RationalPoint* otherPoint = dynamic_cast<RationalPoint*>(other);
+  RationalPoint* otherPoint = jrt::fast_cast<RationalPoint>(other);
   jrt::BigInteger det = BigIntAux::determinant(x, otherPoint->x, z, otherPoint->z);
   if (det.signum() != 0) {
     return false;
@@ -164,10 +164,10 @@ Point* RationalPoint::translateBy(RationalVector* vector) {
 }
 
 Vector* RationalPoint::differenceBy(Point* other) {
-  if (auto* integer = dynamic_cast<IntPoint*>(other)) {
+  if (auto* integer = jrt::fast_cast<IntPoint>(other)) {
     return differenceBy(integer);
   }
-  return differenceBy(dynamic_cast<RationalPoint*>(other));
+  return differenceBy(jrt::fast_cast<RationalPoint>(other));
 }
 
 Vector* RationalPoint::differenceBy(IntPoint* other) {
@@ -188,8 +188,8 @@ Side* RationalPoint::sideOf(Point* p1, Point* p2) {
   BigIntAux_RationalCoordinates* b = coordinates(p2);
   BigIntAux_RationalCoordinates* v1 =
       BigIntAux::addRationalCoordinates(x, y, z, a->x().negate(), a->y().negate(), a->z());
-  auto* i1 = dynamic_cast<IntPoint*>(p1);
-  auto* i2 = dynamic_cast<IntPoint*>(p2);
+  auto* i1 = jrt::fast_cast<IntPoint>(p1);
+  auto* i2 = jrt::fast_cast<IntPoint>(p2);
   if (i1 != nullptr && i2 != nullptr) {
     jrt::BigInteger crossProduct =
         v1->y()
@@ -205,12 +205,12 @@ Side* RationalPoint::sideOf(Point* p1, Point* p2) {
 }
 
 BigIntAux_RationalCoordinates* RationalPoint::coordinates(Point* point) {
-  if (auto* p = dynamic_cast<IntPoint*>(point)) {
+  if (auto* p = jrt::fast_cast<IntPoint>(point)) {
     return new BigIntAux_RationalCoordinates(jrt::BigInteger::valueOf(p->x),
                                              jrt::BigInteger::valueOf(p->y),
                                              jrt::BigInteger::ONE());
   }
-  if (auto* p = dynamic_cast<RationalPoint*>(point)) {
+  if (auto* p = jrt::fast_cast<RationalPoint>(point)) {
     return new BigIntAux_RationalCoordinates(p->x, p->y, p->z);
   }
   throw jrt::IllegalArgumentException("Unsupported point type: " + jrt::className(point));

@@ -32,7 +32,7 @@ namespace fr {
 
 bool BgaFootprintDetector_LocalPoint::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BgaFootprintDetector_LocalPoint*>(o);
+  auto* other = jrt::fast_cast<BgaFootprintDetector_LocalPoint>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf<Pin*>(pin_, other->pin_) && jrt::equalsOf<double>(u_, other->u_) &&
          jrt::equalsOf<double>(v_, other->v_);

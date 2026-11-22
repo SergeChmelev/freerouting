@@ -27,11 +27,11 @@ ExactCopper::ExactCopper(jrt::Array<FloatPoint*>* segment, double radius) {
 ExactCopper* ExactCopper::of(Shape* shape) { return of(shape, 0); }
 
 ExactCopper* ExactCopper::of(Shape* shape, double grow) {
-  if (auto* circle = dynamic_cast<Circle*>(shape)) {
+  if (auto* circle = jrt::fast_cast<Circle>(shape)) {
     return new ExactCopper(static_cast<TileShape*>(nullptr), circle->center->toFloat(),
                            circle->radius + grow);
   }
-  if (auto* tile = dynamic_cast<TileShape*>(shape)) {
+  if (auto* tile = jrt::fast_cast<TileShape>(shape)) {
     if (!tile->isEmpty() && tile->isBounded() && tile->borderLineCount() > 0) {
       return new ExactCopper(tile, FloatPoint::ZERO(), grow);
     }

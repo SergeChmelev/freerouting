@@ -28,7 +28,7 @@ namespace fr {
 
 bool DirectPinRouting_FixedCopper::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<DirectPinRouting_FixedCopper*>(o);
+  auto* other = jrt::fast_cast<DirectPinRouting_FixedCopper>(o);
   if (other == nullptr) return false;
   return id_ == other->id_ && state_ == other->state_;
 }
@@ -69,7 +69,7 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
       jrt::comparingInt<Pin*>([](Pin* pin) { return pin->pinIndex; })));
   jrt::List<DirectPinRouting_FixedCopper*>* fixed = new jrt::ArrayList<DirectPinRouting_FixedCopper*>();
   for (Item* item : *board->getItems()) {
-    if ((dynamic_cast<Trace*>(item) != nullptr || dynamic_cast<Via*>(item) != nullptr) &&
+    if ((jrt::fast_cast<Trace>(item) != nullptr || jrt::fast_cast<Via>(item) != nullptr) &&
         !FixedState_isFix(item->getFixedState())) {
       fixed->add(new DirectPinRouting_FixedCopper(item->getId(), item->getFixedState()));
       item->setFixedState(FixedState::SYSTEM_FIXED);
@@ -170,7 +170,7 @@ int32_t DirectPinRouting::neckHalfWidth(RoutingBoard* board, RouterSettings* set
 
 bool DirectPinRouting::touchesPlane(jrt::Set<Item*>* source) {
   for (Item* item : *source) {
-    if (dynamic_cast<ConductionArea*>(item) != nullptr) {
+    if (jrt::fast_cast<ConductionArea>(item) != nullptr) {
       return true;
     }
   }

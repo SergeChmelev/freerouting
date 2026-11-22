@@ -16,16 +16,16 @@ FloatLine* AutorouteAirlineCalculator::calculateAirline(jrt::Collection<Item*>* 
   FloatPoint* toCorner = nullptr;
   double minDistance = jrt::Double::MAX_VALUE;
   for (Item* currentFromItem : *fromItems) {
-    if (!(dynamic_cast<DrillItem*>(currentFromItem) != nullptr)) {
+    if (!(jrt::fast_cast<DrillItem>(currentFromItem) != nullptr)) {
       continue;
     }
-    FloatPoint* currentFromCorner = dynamic_cast<DrillItem*>(currentFromItem)->getCenter()->toFloat();
+    FloatPoint* currentFromCorner = jrt::fast_cast<DrillItem>(currentFromItem)->getCenter()->toFloat();
 
     for (Item* currentToItem : *toItems) {
-      if (!(dynamic_cast<DrillItem*>(currentToItem) != nullptr)) {
+      if (!(jrt::fast_cast<DrillItem>(currentToItem) != nullptr)) {
         continue;
       }
-      FloatPoint* currentToCorner = dynamic_cast<DrillItem*>(currentToItem)->getCenter()->toFloat();
+      FloatPoint* currentToCorner = jrt::fast_cast<DrillItem>(currentToItem)->getCenter()->toFloat();
       double currentDistance = currentFromCorner->distanceSquare(currentToCorner);
       if (currentDistance < minDistance) {
         minDistance = currentDistance;
@@ -192,9 +192,9 @@ double AutorouteAirlineCalculator::calculateMinDistance(jrt::Collection<Item*>* 
 }
 
 FloatPoint* AutorouteAirlineCalculator::getItemReferencePoint(Item* item) {
-  if (auto* drillItem = dynamic_cast<DrillItem*>(item)) {
+  if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
     return drillItem->getCenter()->toFloat();
-  } else if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+  } else if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
     FloatPoint* first = trace->firstCorner()->toFloat();
     FloatPoint* last = trace->lastCorner()->toFloat();
     return new FloatPoint((first->x + last->x) / 2, (first->y + last->y) / 2);

@@ -48,7 +48,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
 jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::completeShapeUnlocked(
     IncompleteFreeSpaceExpansionRoom* room, int32_t netNumber, SearchTreeObject* ignoreObject,
     TileShape* ignoreShape) {
-  auto* shapeToBeContained = dynamic_cast<IntBox*>(room->getContainedShape());
+  auto* shapeToBeContained = jrt::fast_cast<IntBox>(room->getContainedShape());
   if (shapeToBeContained == nullptr) {
     FRLogger::warn("BoxShapeSearchTree.complete_shape: unexpected shapeToBeContained");
     return new jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
@@ -58,11 +58,11 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
   }
   IntBox* startShape = board->getBoundingBox();
   if (room->getShape() != nullptr) {
-    if (dynamic_cast<IntBox*>(room->getShape()) == nullptr) {
+    if (jrt::fast_cast<IntBox>(room->getShape()) == nullptr) {
       FRLogger::warn("BoxShapeSearchTree.complete_shape: startShape of type IntBox expected");
       return new jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
     }
-    startShape = dynamic_cast<IntBox*>(room->getShape())->intersection(startShape);
+    startShape = jrt::fast_cast<IntBox>(room->getShape())->intersection(startShape);
   }
   IntBox* boundingShape = startShape;
   int32_t roomLayer = room->getLayer();
@@ -87,8 +87,8 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
         break;
       }
       if (currentNode->boundingShape->intersects(boundingShape)) {
-        if (auto* currentLeaf = dynamic_cast<ShapeTree_Leaf*>(currentNode)) {
-          SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentLeaf->object);
+        if (auto* currentLeaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
+          SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
           int32_t shapeIndex = currentLeaf->shapeIndexInObject;
           bool isObstacle = currentObject->isTraceObstacle(netNumber, shapeIndex);
           int32_t objectLayer = currentObject->shapeLayer(shapeIndex);
@@ -110,10 +110,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
             IntBox* newBoundingShape = IntBox::EMPTY();
             bool hadRoomsBeforeObstacle = !result->isEmpty();
             for (IncompleteFreeSpaceExpansionRoom* currentRoom : *result) {
-              IntBox* currentShape = dynamic_cast<IntBox*>(currentRoom->getShape());
+              IntBox* currentShape = jrt::fast_cast<IntBox>(currentRoom->getShape());
               bool overlaps = currentShape->overlaps(currentObjectShape);
               if (overlaps) {
-                if (dynamic_cast<CompleteFreeSpaceExpansionRoom*>(currentObject) != nullptr &&
+                if (jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(currentObject) != nullptr &&
                     ignoreShape != nullptr) {
                   IntBox* intersection = currentShape->intersection(currentObjectShape);
                   if (ignoreShape->contains(static_cast<TileShape*>(intersection))) {
@@ -343,12 +343,12 @@ void ShapeSearchTree90Degree::traceCompleteShapeDecision(int32_t step, int32_t n
 }
 
 int32_t ShapeSearchTree90Degree::obstacleId(SearchTreeObject* object) {
-  auto* item = dynamic_cast<Item*>(object);
+  auto* item = jrt::fast_cast<Item>(object);
   return item != nullptr ? item->getId() : -1;
 }
 
 std::string ShapeSearchTree90Degree::obstacleNets(SearchTreeObject* object) {
-  auto* item = dynamic_cast<Item*>(object);
+  auto* item = jrt::fast_cast<Item>(object);
   return item != nullptr ? jrt::Arrays::toString(item->netNumbers) : std::string("[]");
 }
 

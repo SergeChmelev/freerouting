@@ -36,7 +36,7 @@ bool ExpansionDrill::calculateExpansionRooms(AutorouteEngine* autorouteEngine) {
     jrt::Iterator<SearchTreeObject*>* it = overlaps->iterator();
     while (it->hasNext()) {
       SearchTreeObject* currentObject = it->next();
-      CompleteExpansionRoom* currentRoom = dynamic_cast<CompleteExpansionRoom*>(currentObject);
+      CompleteExpansionRoom* currentRoom = jrt::fast_cast<CompleteExpansionRoom>(currentObject);
       if (currentRoom == nullptr) {
         it->remove();
         continue;

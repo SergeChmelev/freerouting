@@ -27,7 +27,7 @@ class DsnReadOptions : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<DsnReadOptions*>(o);
+    auto* other = jrt::fast_cast<DsnReadOptions>(o);
     return other != nullptr && canonicalPlacementOrder_ == other->canonicalPlacementOrder_;
   }
   int32_t hashCode() override { return jrt::Boolean::hashCode(canonicalPlacementOrder_); }

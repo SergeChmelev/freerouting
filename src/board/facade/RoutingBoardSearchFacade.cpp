@@ -61,11 +61,11 @@ double RoutingBoardSearchFacade::checkTraceSegment(LineSegment* lineSegment, int
       defaultTree->overlappingTreeEntriesWithClearance(shapeToCheck, layer, netNumbers, clClassNo);
 
   for (ShapeTree_TreeEntry* currentObstacleEntry : *obstacleEntries) {
-    auto* currentObstacle = dynamic_cast<Item*>(currentObstacleEntry->object);
+    auto* currentObstacle = jrt::fast_cast<Item>(currentObstacleEntry->object);
     if (currentObstacle == nullptr) {
       continue;
     }
-    if (auto* outline = dynamic_cast<BoardOutline*>(currentObstacle)) {
+    if (auto* outline = jrt::fast_cast<BoardOutline>(currentObstacle)) {
       if (outline->exemptsTrace(currentObstacleEntry->shapeIndexInObject, netNumbers)) {
         continue;
       }
@@ -85,7 +85,7 @@ double RoutingBoardSearchFacade::checkTraceSegment(LineSegment* lineSegment, int
     } else {
       int32_t clearanceValue =
           board->clearanceValue(currentObstacle->clearanceClassIndex(), clClassNo, layer);
-      currentOffsetShape = dynamic_cast<TileShape*>(shapeToCheck->offset(clearanceValue));
+      currentOffsetShape = jrt::fast_cast<TileShape>(shapeToCheck->offset(clearanceValue));
       shortenValue = traceHalfWidth + clearanceValue;
     }
     TileShape* intersection = currentObstacleShape->intersection(currentOffsetShape);
@@ -112,17 +112,17 @@ bool RoutingBoardSearchFacade::checkMoveItem(Item* item, Vector* vector,
     return false;
   }
   int32_t contactCount = 0;
-  if (dynamic_cast<Connectable*>(item) != nullptr) {
+  if (jrt::fast_cast<Connectable>(item) != nullptr) {
     contactCount = item->getAllContacts()->size();
   }
-  if (dynamic_cast<Trace*>(item) != nullptr && contactCount > 0) {
+  if (jrt::fast_cast<Trace>(item) != nullptr && contactCount > 0) {
     return false;
   }
   if (ignoreItems != nullptr) {
     ignoreItems->add(item);
   }
   for (int32_t i = 0; i < item->tileShapeCount(); i++) {
-    TileShape* movedShape = dynamic_cast<TileShape*>(item->getTileShape(i)->translateBy(vector));
+    TileShape* movedShape = jrt::fast_cast<TileShape>(item->getTileShape(i)->translateBy(vector));
     if (!movedShape->isContainedIn(board->boundingBox)) {
       return false;
     }
@@ -149,7 +149,7 @@ bool RoutingBoardSearchFacade::checkChangeNet(Item* item, int32_t newNetNo) {
         currentShape, item->shapeLayer(i), netNumbers, item->clearanceClassIndex());
     for (Item* currentObject : *obstacles) {
       if (currentObject != item) {
-        if (auto* connectable = dynamic_cast<Connectable*>(currentObject)) {
+        if (auto* connectable = jrt::fast_cast<Connectable>(currentObject)) {
           if (!connectable->containsNet(newNetNo)) {
             return false;
           }
@@ -174,9 +174,9 @@ Item* RoutingBoardSearchFacade::pickNearestRoutingItem(Point* location, int32_t 
     }
     bool candidateFound = false;
     double currentDistance = 0;
-    if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+    if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentItem)) {
       if (layer < 0 || currentTrace->getLayer() == layer) {
-        if (dynamic_cast<DrillItem*>(nearestItem) != nullptr) {
+        if (jrt::fast_cast<DrillItem>(nearestItem) != nullptr) {
           continue;
         }
         int32_t traceRadius = currentTrace->getHalfWidth();
@@ -185,15 +185,15 @@ Item* RoutingBoardSearchFacade::pickNearestRoutingItem(Point* location, int32_t 
           candidateFound = true;
         }
       }
-    } else if (auto* currentDrillItem = dynamic_cast<DrillItem*>(currentItem)) {
+    } else if (auto* currentDrillItem = jrt::fast_cast<DrillItem>(currentItem)) {
       if (layer < 0 || currentDrillItem->isOnLayer(layer)) {
         FloatPoint* drillItemCenter = currentDrillItem->getCenter()->toFloat();
         currentDistance = drillItemCenter->distance(pickLocation);
-        if (currentDistance < minDist || dynamic_cast<Trace*>(nearestItem) != nullptr) {
+        if (currentDistance < minDist || jrt::fast_cast<Trace>(nearestItem) != nullptr) {
           candidateFound = true;
         }
       }
-    } else if (auto* currentArea = dynamic_cast<ConductionArea*>(currentItem)) {
+    } else if (auto* currentArea = jrt::fast_cast<ConductionArea>(currentItem)) {
       if ((layer < 0 || currentArea->getLayer() == layer) && nearestItem == nullptr) {
         candidateFound = true;
         currentDistance = jrt::Integer::MAX_VALUE;

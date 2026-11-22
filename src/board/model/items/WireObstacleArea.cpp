@@ -39,7 +39,7 @@ bool WireObstacleArea::isObstacle(Item* other) {
   if (other == nullptr || other == this || other->sharesNet(this)) {
     return false;
   }
-  return dynamic_cast<Trace*>(other) != nullptr;
+  return jrt::fast_cast<Trace>(other) != nullptr;
 }
 
 bool WireObstacleArea::isSelectedByFilter(ItemSelectionFilter* filter) {

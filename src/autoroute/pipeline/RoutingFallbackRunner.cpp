@@ -27,7 +27,7 @@ RoutingFallback_Outcome* getByHash(jrt::Map<std::string, RoutingFallback_Outcome
 
 bool RoutingFallbackRunner_Attempt::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<RoutingFallbackRunner_Attempt*>(o);
+  auto* other = jrt::fast_cast<RoutingFallbackRunner_Attempt>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(outcome_, other->outcome_) && jrt::equalsOf(board_, other->board_) &&
          jrt::equalsOf(router_, other->router_) && jrt::equalsOf(baseline_, other->baseline_);

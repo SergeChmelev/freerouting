@@ -142,7 +142,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
 
   IntOctagon* startShape = board->getBoundingBox()->boundingOctagon();
   if (room->getShape() != nullptr) {
-    if (dynamic_cast<IntOctagon*>(room->getShape()) == nullptr) {
+    if (jrt::fast_cast<IntOctagon>(room->getShape()) == nullptr) {
       FRLogger::warn(
           "ShapeSearchTree45Degree.complete_shape: startShape of type IntOctagon expected");
       return new jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
@@ -169,8 +169,8 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
         break;
       }
       if (currentNode->boundingShape->intersects(boundingShape)) {
-        if (auto* currentLeaf = dynamic_cast<ShapeTree_Leaf*>(currentNode)) {
-          SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentLeaf->object);
+        if (auto* currentLeaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
+          SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
           int32_t shapeIndex = currentLeaf->shapeIndexInObject;
           bool isObstacle = currentObject->isTraceObstacle(netNumber, shapeIndex);
           int32_t objectLayer = currentObject->shapeLayer(shapeIndex);
@@ -190,7 +190,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
             if (!debugAnchor) {
               bool overlapsAny = false;
               for (IncompleteFreeSpaceExpansionRoom* roomPiece : *result) {
-                if (dynamic_cast<IntOctagon*>(roomPiece->getShape())
+                if (jrt::fast_cast<IntOctagon>(roomPiece->getShape())
                         ->overlaps(currentObjectShape)) {
                   overlapsAny = true;
                   break;
@@ -205,10 +205,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
             IntOctagon* newBoundingShape = IntOctagon::EMPTY();
             bool hadRoomsBeforeObstacle = !result->isEmpty();
             for (IncompleteFreeSpaceExpansionRoom* currentRoom : *result) {
-              IntOctagon* currentShape = dynamic_cast<IntOctagon*>(currentRoom->getShape());
+              IntOctagon* currentShape = jrt::fast_cast<IntOctagon>(currentRoom->getShape());
               bool overlaps = currentShape->overlaps(currentObjectShape);
               if (overlaps) {
-                if (dynamic_cast<CompleteFreeSpaceExpansionRoom*>(currentObject) != nullptr &&
+                if (jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(currentObject) != nullptr &&
                     ignoreShape != nullptr) {
                   IntOctagon* intersection = currentShape->intersection(currentObjectShape);
                   if (ignoreShape->contains(static_cast<TileShape*>(intersection))) {
@@ -236,7 +236,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
 
                 for (IncompleteFreeSpaceExpansionRoom* tmpShape : *newRestrainedShapes) {
                   newBoundingShape =
-                      newBoundingShape->union_(dynamic_cast<IntOctagon*>(tmpShape->getShape()));
+                      newBoundingShape->union_(jrt::fast_cast<IntOctagon>(tmpShape->getShape()));
                 }
               } else {
                 if (debugAnchor) {
@@ -324,7 +324,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
   IntOctagon* shapeToBeContained;
   if (containedShape->isIntOctagon()) {
     shapeToBeContained = containedShape->boundingOctagon();
-  } else if (dynamic_cast<Simplex*>(containedShape) != nullptr) {
+  } else if (jrt::fast_cast<Simplex>(containedShape) != nullptr) {
     shapeToBeContained = containedShape->boundingOctagon();
     if (shapeToBeContained == nullptr) {
       FRLogger::warn("restrain_shape: cannot convert Simplex to IntOctagon");
@@ -336,9 +336,9 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
   }
 
   IntOctagon* roomShape;
-  if (dynamic_cast<IntOctagon*>(incompleteRoom->getShape()) != nullptr) {
+  if (jrt::fast_cast<IntOctagon>(incompleteRoom->getShape()) != nullptr) {
     roomShape = incompleteRoom->getShape()->boundingOctagon();
-  } else if (dynamic_cast<Simplex*>(incompleteRoom->getShape()) != nullptr) {
+  } else if (jrt::fast_cast<Simplex>(incompleteRoom->getShape()) != nullptr) {
     roomShape = incompleteRoom->getShape()->boundingOctagon();
     if (roomShape == nullptr) {
       FRLogger::warn("restrain_shape: cannot convert room shape Simplex to IntOctagon");
@@ -533,7 +533,7 @@ jrt::Array<TileShape*>* ShapeSearchTree45Degree::calculateTreeShapes(DrillItem* 
       int32_t offsetWidth = this->clearanceCompensationValue(drillItem->clearanceClassIndex(),
                                                              drillItem->shapeLayer(i));
       offsetWidth += drillHoleClearanceDelta(drillItem, currentShape, drillItem->shapeLayer(i));
-      currentTileShape = dynamic_cast<TileShape*>(currentTileShape->offset(offsetWidth));
+      currentTileShape = jrt::fast_cast<TileShape>(currentTileShape->offset(offsetWidth));
       (*result)[i] = currentTileShape->boundingOctagon();
     }
   }
@@ -612,12 +612,12 @@ void ShapeSearchTree45Degree::traceCompleteShapeDecision(int32_t step, int32_t n
 }
 
 int32_t ShapeSearchTree45Degree::obstacleId(SearchTreeObject* object) {
-  auto* item = dynamic_cast<Item*>(object);
+  auto* item = jrt::fast_cast<Item>(object);
   return item != nullptr ? item->getId() : -1;
 }
 
 std::string ShapeSearchTree45Degree::obstacleNets(SearchTreeObject* object) {
-  auto* item = dynamic_cast<Item*>(object);
+  auto* item = jrt::fast_cast<Item>(object);
   return item != nullptr ? jrt::Arrays::toString(item->netNumbers) : std::string("[]");
 }
 

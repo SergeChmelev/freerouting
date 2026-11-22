@@ -464,7 +464,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
     initFineMask();
   }
   for (SearchTreeObject* ob : *overlaps) {
-    Item* item = dynamic_cast<Item*>(ob);
+    Item* item = jrt::fast_cast<Item>(ob);
     if (item == nullptr || item == ca || !item->sharesLayer(ca)) {
       continue;
     }
@@ -472,7 +472,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
     // Foreign traces, vias, and blocking obstacles are obstacles
     bool isForeign = !item->sharesNet(ca);
     if (isForeign) {
-      if (auto* foreignCa = dynamic_cast<ConductionArea*>(item); foreignCa != nullptr && !foreignCa->getIsObstacle()) {
+      if (auto* foreignCa = jrt::fast_cast<ConductionArea>(item); foreignCa != nullptr && !foreignCa->getIsObstacle()) {
         continue;
       }
       hasForeignObstacles = true;
@@ -481,16 +481,16 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
 
       if (exact) {
         double leniency = FILL_LENIENCY * ca->getFillMinWidth();
-        auto* outline = dynamic_cast<BoardOutline*>(item);
+        auto* outline = jrt::fast_cast<BoardOutline>(item);
         if (outline != nullptr && ca->getFillEdgeClearance() > 0) {
           // the fill keeps its own distance to the edge of the board
           rasterizeOutline(outline, ca->getFillEdgeClearance() + ca->getFillMinWidth() / 2.0 - leniency);
         } else {
           rasterizeForeignItem(item, layer, clearance - leniency);
         }
-      } else if (auto* trace = dynamic_cast<Trace*>(item)) {
+      } else if (auto* trace = jrt::fast_cast<Trace>(item)) {
         int32_t radius = jrt::l2i(Math::round(trace->getHalfWidth() + clearance));
-        if (auto* polylineTrace = dynamic_cast<PolylineTrace*>(trace)) {
+        if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
           jrt::Array<Point*>* corners = polylineTrace->polyline()->corners();
           for (int32_t i = 0; i < corners->length - 1; i++) {
             IntPoint* p1 = toIntPoint((*corners)[i]);
@@ -502,13 +502,13 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
           IntPoint* p2 = toIntPoint(trace->lastCorner());
           rasterizeThickSegment(p1->x, p1->y, p2->x, p2->y, radius);
         }
-      } else if (auto* drillItem = dynamic_cast<DrillItem*>(item)) {
+      } else if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
         IntPoint* center = toIntPoint(drillItem->getCenter());
         IntBox* itemBbox = drillItem->boundingBox();
         int32_t radius =
             jrt::l2i(Math::round(Math::max(itemBbox->width(), itemBbox->height()) / 2.0 + clearance));
         rasterizeThickSegment(center->x, center->y, center->x, center->y, radius);
-      } else if (dynamic_cast<BoardOutline*>(item) != nullptr) {
+      } else if (jrt::fast_cast<BoardOutline>(item) != nullptr) {
         // the fill stops at the edge of the board: a plane drawn past the outline (an L-shaped
         // board under a rectangular zone) does not join its pieces outside the board
         double edgeKeepout =
@@ -521,7 +521,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
             }
           }
         }
-      } else if (dynamic_cast<ObstacleArea*>(item) != nullptr) {
+      } else if (jrt::fast_cast<ObstacleArea>(item) != nullptr) {
         int32_t shapeCount = item->tileShapeCount();
         for (int32_t i = 0; i < shapeCount; i++) {
           if (item->shapeLayer(i) == layer) {
@@ -591,7 +591,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   auto* spokes = new jrt::Array<SpokeArr*>(items->size());
   double maxGap = ca->getThermalGap();
   for (int32_t i = 0; i < items->size(); i++) {
-    auto* pin = dynamic_cast<Pin*>(items->get(i));
+    auto* pin = jrt::fast_cast<Pin>(items->get(i));
     if (pin != nullptr && pin->getPlaneConnection() != nullptr) {
       PadPlaneConnection* connection = pin->getPlaneConnection();
       (*modes)[i] = connection->resolve(*ca->getPadConnection());
@@ -652,7 +652,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
     }
     // A via is covered by the fill: it is attached to every piece whose copper reaches it, and
     // to none if the fill leaves it out. A trace is placed once the islands are known.
-    if (auto* drillItem = dynamic_cast<DrillItem*>(item)) {
+    if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
       IntBox* box = drillItem->boundingBox();
       TileShape* shape = drillItem->getTreeShapeOnLayer(board->searchTreeManager->getDefaultTree(), layer);
       if (shape != nullptr) {
@@ -668,7 +668,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   auto* groups = new jrt::LinkedHashMap<int32_t, jrt::List<Item*>*>();
   auto* traces = new jrt::ArrayList<Trace*>();
   for (int32_t i = 0; i < items->size(); i++) {
-    if (auto* trace = dynamic_cast<Trace*>(items->get(i))) {
+    if (auto* trace = jrt::fast_cast<Trace>(items->get(i))) {
       traces->add(trace);
       continue;
     }
@@ -976,7 +976,7 @@ void FastPlaneConnectivityGrid::collectForeignCopper(
   int32_t layer = ca->getLayer();
   int32_t clearanceClass = ca->clearanceClassIndex();
   for (SearchTreeObject* object : *board->overlappingObjects(query, layer)) {
-    Item* item = dynamic_cast<Item*>(object);
+    Item* item = jrt::fast_cast<Item>(object);
     if (item == nullptr || item == ca || !item->sharesLayer(ca)) {
       continue;
     }
@@ -991,11 +991,11 @@ void FastPlaneConnectivityGrid::collectForeignCopper(
       }
       continue;
     }
-    if (auto* foreignCa = dynamic_cast<ConductionArea*>(item); foreignCa != nullptr && !foreignCa->getIsObstacle()) {
+    if (auto* foreignCa = jrt::fast_cast<ConductionArea>(item); foreignCa != nullptr && !foreignCa->getIsObstacle()) {
       continue;
     }
-    if (!(dynamic_cast<Trace*>(item) != nullptr || dynamic_cast<DrillItem*>(item) != nullptr ||
-          dynamic_cast<ObstacleArea*>(item) != nullptr)) {
+    if (!(jrt::fast_cast<Trace>(item) != nullptr || jrt::fast_cast<DrillItem>(item) != nullptr ||
+          jrt::fast_cast<ObstacleArea>(item) != nullptr)) {
       continue;
     }
     double clearance = board->clearanceValue(clearanceClass, item->clearanceClassIndex(), layer);
@@ -1213,7 +1213,7 @@ DrillItem* FastPlaneConnectivityGrid::drillItemAt(Point* point, jrt::Collection<
   DrillItem* containing = nullptr;
   IntPoint* p = toIntPoint(point);
   for (Item* item : *items) {
-    auto* drill = dynamic_cast<DrillItem*>(item);
+    auto* drill = jrt::fast_cast<DrillItem>(item);
     if (drill == nullptr) {
       continue;
     }
@@ -1253,7 +1253,7 @@ jrt::TreeSet<int32_t>* FastPlaneConnectivityGrid::piecesNear(FloatPoint* point, 
 jrt::TreeSet<int32_t>* FastPlaneConnectivityGrid::piecesAlong(Trace* trace, double minWidth,
                                                              jrt::Array<int32_t>* pieceOfCell) {
   jrt::Array<Point*>* corners;
-  if (auto* polylineTrace = dynamic_cast<PolylineTrace*>(trace)) {
+  if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
     corners = polylineTrace->polyline()->corners();
   } else {
     corners = jrt::Array<Point*>::of({trace->firstCorner(), trace->lastCorner()});
@@ -1346,7 +1346,7 @@ void FastPlaneConnectivityGrid::rasterizeOutsideOf(Area* area, double reach) {
     rims->add(hole);
   }
   for (Shape* rim : *rims) {
-    auto* polylineShape = dynamic_cast<PolylineShape*>(rim);
+    auto* polylineShape = jrt::fast_cast<PolylineShape>(rim);
     if (polylineShape == nullptr) {
       continue;
     }
@@ -1411,7 +1411,7 @@ void FastPlaneConnectivityGrid::foldFineMask() {
 }
 
 void FastPlaneConnectivityGrid::rasterizeForeignItem(Item* item, int32_t layer, double distance) {
-  if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+  if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
     double reach = trace->getHalfWidth() + distance;
     jrt::Array<Point*>* corners = trace->polyline()->corners();
     for (int32_t i = 0; i < corners->length - 1; i++) {
@@ -1419,7 +1419,7 @@ void FastPlaneConnectivityGrid::rasterizeForeignItem(Item* item, int32_t layer, 
     }
     return;
   }
-  if (auto* drillItem = dynamic_cast<DrillItem*>(item); drillItem != nullptr && rasterizeRoundPad(drillItem, layer, distance)) {
+  if (auto* drillItem = jrt::fast_cast<DrillItem>(item); drillItem != nullptr && rasterizeRoundPad(drillItem, layer, distance)) {
     return;
   }
   for (int32_t i = 0; i < item->tileShapeCount(); i++) {
@@ -1430,7 +1430,7 @@ void FastPlaneConnectivityGrid::rasterizeForeignItem(Item* item, int32_t layer, 
 }
 
 bool FastPlaneConnectivityGrid::rasterizeRoundPad(DrillItem* drillItem, int32_t layer, double distance) {
-  if (auto* circle = dynamic_cast<Circle*>(drillItem->getShapeOnLayer(layer))) {
+  if (auto* circle = jrt::fast_cast<Circle>(drillItem->getShapeOnLayer(layer))) {
     rasterizeConvex(jrt::Array<FloatPoint*>::of({circle->center->toFloat()}), circle->radius + distance);
     return true;
   }
@@ -1939,7 +1939,7 @@ void FastPlaneConnectivityGrid::rasterizeObstacleShape(Shape* shape, jrt::Array<
     return;
   }
 
-  if (dynamic_cast<IntBox*>(shape) != nullptr) {
+  if (jrt::fast_cast<IntBox>(shape) != nullptr) {
     for (int32_t r = startRow; r <= endRow; r++) {
       setRowSpan(mask, r, startCol, endCol);
     }
@@ -2105,7 +2105,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
   auto* traces = new jrt::ArrayList<Trace*>();
   for (int32_t i = 0; i < itemArr->length; i++) {
     Item* item = (*itemArr)[i];
-    if (auto* trace = dynamic_cast<Trace*>(item)) {
+    if (auto* trace = jrt::fast_cast<Trace>(item)) {
       // a trace is placed by its ends once the islands are known (attachTraces)
       traces->add(trace);
       continue;
@@ -2144,7 +2144,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::partit
     // Check remaining unassigned items to see if they are reached by this flood fill
     for (int32_t j = 0; j < itemArr->length; j++) {
       Item* other = (*itemArr)[j];
-      if (dynamic_cast<Trace*>(other) == nullptr && !itemIslandMap->containsKey(other) &&
+      if (jrt::fast_cast<Trace>(other) == nullptr && !itemIslandMap->containsKey(other) &&
           !unseededSet->contains(other)) {
         if ((*locations)[j] != nullptr) {
           int32_t otherIndex = seedCell(seeds, j, (*locations)[j]);
@@ -2326,14 +2326,14 @@ int32_t FastPlaneConnectivityGrid::findNearestMappedIsland(int32_t col, int32_t 
 }
 
 IntPoint* FastPlaneConnectivityGrid::toIntPoint(Point* p) {
-  if (auto* ip = dynamic_cast<IntPoint*>(p)) {
+  if (auto* ip = jrt::fast_cast<IntPoint>(p)) {
     return ip;
   }
   return p->toFloat()->round();
 }
 
 IntPoint* FastPlaneConnectivityGrid::getItemLocation(Item* item, ConductionArea* ca) {
-  if (auto* drillItem = dynamic_cast<DrillItem*>(item)) {
+  if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
     IntPoint* center = toIntPoint(drillItem->getCenter());
     if (ca != nullptr && ca->getArea() != nullptr && !ca->getArea()->contains(static_cast<Point*>(center))) {
       IntBox* box = drillItem->boundingBox();
@@ -2348,7 +2348,7 @@ IntPoint* FastPlaneConnectivityGrid::getItemLocation(Item* item, ConductionArea*
       }
     }
     return center;
-  } else if (auto* trace = dynamic_cast<Trace*>(item)) {
+  } else if (auto* trace = jrt::fast_cast<Trace>(item)) {
     if (ca != nullptr && ca->getArea() != nullptr) {
       if (ca->getArea()->contains(trace->firstCorner())) {
         return toIntPoint(trace->firstCorner());
@@ -2356,7 +2356,7 @@ IntPoint* FastPlaneConnectivityGrid::getItemLocation(Item* item, ConductionArea*
       if (ca->getArea()->contains(trace->lastCorner())) {
         return toIntPoint(trace->lastCorner());
       }
-      if (auto* polylineTrace = dynamic_cast<PolylineTrace*>(trace)) {
+      if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
         jrt::Array<Point*>* corners = polylineTrace->polyline()->corners();
         for (Point* c : *corners) {
           if (ca->getArea()->contains(c)) {

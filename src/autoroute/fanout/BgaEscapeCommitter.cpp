@@ -46,7 +46,7 @@ BgaEscapeCommitter_CommitResult::BgaEscapeCommitter_CommitResult(int32_t pinsAtt
 
 bool BgaEscapeCommitter_CommitResult::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BgaEscapeCommitter_CommitResult*>(o);
+  auto* other = jrt::fast_cast<BgaEscapeCommitter_CommitResult>(o);
   if (other == nullptr) return false;
   return pinsAttempted_ == other->pinsAttempted_ && pinsCommitted_ == other->pinsCommitted_ &&
          viasInserted_ == other->viasInserted_ && tracesInserted_ == other->tracesInserted_ &&
@@ -80,7 +80,7 @@ std::string BgaEscapeCommitter_CommitResult::toString() {
 
 bool BgaEscapeCommitter_PlaneViaKey::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BgaEscapeCommitter_PlaneViaKey*>(o);
+  auto* other = jrt::fast_cast<BgaEscapeCommitter_PlaneViaKey>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf<IntPoint*>(location_, other->location_) && netNo_ == other->netNo_;
 }
@@ -102,7 +102,7 @@ std::string BgaEscapeCommitter_PlaneViaKey::toString() {
 
 bool BgaEscapeCommitter_ResolvedVia::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BgaEscapeCommitter_ResolvedVia*>(o);
+  auto* other = jrt::fast_cast<BgaEscapeCommitter_ResolvedVia>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf<Padstack*>(padstack_, other->padstack_) &&
          clearanceClassIdx_ == other->clearanceClassIdx_;
@@ -588,9 +588,9 @@ bool BgaEscapeCommitter::checkViaClearance(RoutingBoard* board, Padstack* viaPad
     ConvexShape* shape = viaPadstack->getShape(l);
     if (shape != nullptr) {
       ConvexShape* translatedShape =
-          dynamic_cast<ConvexShape*>(shape->translateBy(globalViaCenter->differenceBy(Point::ZERO())));
+          jrt::fast_cast<ConvexShape>(shape->translateBy(globalViaCenter->differenceBy(Point::ZERO())));
       TileShape* viaTile;
-      if (auto* ts = dynamic_cast<TileShape*>(translatedShape)) {
+      if (auto* ts = jrt::fast_cast<TileShape>(translatedShape)) {
         viaTile = ts;
       } else {
         viaTile = translatedShape->boundingOctagon();
@@ -598,7 +598,7 @@ bool BgaEscapeCommitter::checkViaClearance(RoutingBoard* board, Padstack* viaPad
       // Strict no via-in-pad: physical overlap with any Pin (starting ball pad,
       // same-net decoupling cap, or foreign pin) on layer l is strictly rejected
       for (Item* it : *board->overlappingItems(viaTile, l)) {
-        if (dynamic_cast<Pin*>(it) != nullptr) {
+        if (jrt::fast_cast<Pin>(it) != nullptr) {
           return false;
         }
       }
@@ -606,7 +606,7 @@ bool BgaEscapeCommitter::checkViaClearance(RoutingBoard* board, Padstack* viaPad
       jrt::Collection<Item*>* obstacles =
           board->overlappingItemsWithClearance(viaTile, l, netNumbers, viaClClass);
       for (Item* obs : *obstacles) {
-        if (dynamic_cast<Pin*>(obs) != nullptr) {
+        if (jrt::fast_cast<Pin>(obs) != nullptr) {
           return false;
         } else if (obs != nullptr && !obs->isDrillable(netNo)) {
           return false;

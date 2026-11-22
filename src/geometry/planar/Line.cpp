@@ -16,7 +16,7 @@
 namespace fr {
 
 Line::Line(Point* a, Point* b) {
-  if (dynamic_cast<IntPoint*>(a) != nullptr && dynamic_cast<IntPoint*>(b) != nullptr) {
+  if (jrt::fast_cast<IntPoint>(a) != nullptr && jrt::fast_cast<IntPoint>(b) != nullptr) {
     this->a = a;
     this->b = b;
     this->dir = nullptr;
@@ -36,7 +36,7 @@ Line::Line(int32_t ax, int32_t ay, int32_t bx, int32_t by) {
 
 Line::Line(Point* a, Direction* dir) {
   Point* b = a->translateBy(dir->getVector());
-  if (dynamic_cast<IntPoint*>(a) != nullptr && dynamic_cast<IntPoint*>(b) != nullptr) {
+  if (jrt::fast_cast<IntPoint>(a) != nullptr && jrt::fast_cast<IntPoint>(b) != nullptr) {
     this->a = a;
     this->b = b;
     this->dir = dir;
@@ -81,8 +81,8 @@ Line* Line::capAt(Point* point) {
 
 jrt::Array<IntPoint*>* Line::integerSupport(Point* first, Point* second) {
   {
-    auto* ia = dynamic_cast<IntPoint*>(first);
-    auto* ib = dynamic_cast<IntPoint*>(second);
+    auto* ia = jrt::fast_cast<IntPoint>(first);
+    auto* ib = jrt::fast_cast<IntPoint>(second);
     if (ia != nullptr && ib != nullptr) {
       return jrt::Array<IntPoint*>::of({ia, ib});
     }
@@ -133,12 +133,12 @@ jrt::Array<IntPoint*>* Line::integerSupport(Point* first, Point* second) {
 }
 
 jrt::Array<jrt::BigInteger>* Line::rationalCoordinates(Point* point) {
-  if (auto* integer = dynamic_cast<IntPoint*>(point)) {
+  if (auto* integer = jrt::fast_cast<IntPoint>(point)) {
     return jrt::Array<jrt::BigInteger>::of({jrt::BigInteger::valueOf(integer->x),
                                             jrt::BigInteger::valueOf(integer->y),
                                             jrt::BigInteger::ONE()});
   }
-  RationalPoint* rational = dynamic_cast<RationalPoint*>(point);
+  RationalPoint* rational = jrt::fast_cast<RationalPoint>(point);
   if (rational == nullptr) {
     throw jrt::ClassCastException("Point is not a RationalPoint");
   }
@@ -192,7 +192,7 @@ bool Line::equals(jrt::Object* other) {
   if (other == nullptr) {
     return false;
   }
-  auto* otherLine = dynamic_cast<Line*>(other);
+  auto* otherLine = jrt::fast_cast<Line>(other);
   if (otherLine == nullptr) {
     return false;
   }
@@ -208,9 +208,9 @@ bool Line::equals(jrt::Object* other) {
 }
 
 bool Line::fastEquals(Line* other) {
-  IntPoint* thisA = dynamic_cast<IntPoint*>(a);
-  IntPoint* thisB = dynamic_cast<IntPoint*>(b);
-  IntPoint* otherA = dynamic_cast<IntPoint*>(other->a);
+  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
+  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
+  IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
   double dx1 = otherA->x - thisA->x;
   double dy1 = otherA->y - thisA->y;
   double dx2 = thisB->x - thisA->x;
@@ -236,8 +236,8 @@ Side* Line::sideOf(Point* point) {
 }
 
 Side* Line::sideOf(FloatPoint* point, double tolerance) {
-  IntPoint* thisA = dynamic_cast<IntPoint*>(a);
-  IntPoint* thisB = dynamic_cast<IntPoint*>(b);
+  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
+  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
   double det = (thisB->y - thisA->y) * (point->x - thisA->x) -
                (thisB->x - thisA->x) * (point->y - thisA->y);
   Side* result;
@@ -282,8 +282,8 @@ bool Line::isOnTheRight(TileShape* tile) {
 }
 
 double Line::signedDistance(FloatPoint* point) {
-  IntPoint* thisA = dynamic_cast<IntPoint*>(a);
-  IntPoint* thisB = dynamic_cast<IntPoint*>(b);
+  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
+  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
   double dx = thisB->x - thisA->x;
   double dy = thisB->y - thisA->y;
   double det = dy * (point->x - thisA->x) - dx * (point->y - thisA->y);
@@ -298,65 +298,65 @@ bool Line::overlaps(Line* other) {
 Line* Line::opposite() { return new Line(b, a); }
 
 Point* Line::intersection(Line* other) {
-  IntVector* delta1 = dynamic_cast<IntVector*>(b->differenceBy(a));
-  IntVector* delta2 = dynamic_cast<IntVector*>(other->b->differenceBy(other->a));
+  IntVector* delta1 = jrt::fast_cast<IntVector>(b->differenceBy(a));
+  IntVector* delta2 = jrt::fast_cast<IntVector>(other->b->differenceBy(other->a));
   if (delta1->x == 0) {  // this line is vertical
     if (delta2->y == 0) {  // other line is horizontal
-      return new IntPoint(dynamic_cast<IntPoint*>(this->a)->x,
-                          dynamic_cast<IntPoint*>(other->a)->y);
+      return new IntPoint(jrt::fast_cast<IntPoint>(this->a)->x,
+                          jrt::fast_cast<IntPoint>(other->a)->y);
     }
     if (delta2->x == delta2->y) {  // other line is right diagonal
-      int32_t thisX = dynamic_cast<IntPoint*>(this->a)->x;
-      IntPoint* otherA = dynamic_cast<IntPoint*>(other->a);
+      int32_t thisX = jrt::fast_cast<IntPoint>(this->a)->x;
+      IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
       return new IntPoint(thisX, otherA->y + thisX - otherA->x);
     }
     if (delta2->x == -delta2->y) {  // other line is left diagonal
-      int32_t thisX = dynamic_cast<IntPoint*>(this->a)->x;
-      IntPoint* otherA = dynamic_cast<IntPoint*>(other->a);
+      int32_t thisX = jrt::fast_cast<IntPoint>(this->a)->x;
+      IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
       return new IntPoint(thisX, otherA->y + otherA->x - thisX);
     }
   } else if (delta1->y == 0) {  // this line is horizontal
     if (delta2->x == 0) {  // other line is vertical
-      return new IntPoint(dynamic_cast<IntPoint*>(other->a)->x,
-                          dynamic_cast<IntPoint*>(this->a)->y);
+      return new IntPoint(jrt::fast_cast<IntPoint>(other->a)->x,
+                          jrt::fast_cast<IntPoint>(this->a)->y);
     }
     if (delta2->x == delta2->y) {  // other line is right diagonal
-      int32_t thisYcoordinate = dynamic_cast<IntPoint*>(this->a)->y;
-      IntPoint* otherA = dynamic_cast<IntPoint*>(other->a);
+      int32_t thisYcoordinate = jrt::fast_cast<IntPoint>(this->a)->y;
+      IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
       return new IntPoint(otherA->x + thisYcoordinate - otherA->y, thisYcoordinate);
     }
     if (delta2->x == -delta2->y) {  // other line is left diagonal
-      int32_t thisYcoordinate = dynamic_cast<IntPoint*>(this->a)->y;
-      IntPoint* otherA = dynamic_cast<IntPoint*>(other->a);
+      int32_t thisYcoordinate = jrt::fast_cast<IntPoint>(this->a)->y;
+      IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
       return new IntPoint(otherA->x + otherA->y - thisYcoordinate, thisYcoordinate);
     }
   } else if (delta1->x == delta1->y) {  // this line is right diagonal
     if (delta2->x == 0) {  // other line is vertical
-      int32_t otherX = dynamic_cast<IntPoint*>(other->a)->x;
-      IntPoint* thisA = dynamic_cast<IntPoint*>(this->a);
+      int32_t otherX = jrt::fast_cast<IntPoint>(other->a)->x;
+      IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
       return new IntPoint(otherX, thisA->y + otherX - thisA->x);
     }
     if (delta2->y == 0) {  // other line is horizontal
-      int32_t otherY = dynamic_cast<IntPoint*>(other->a)->y;
-      IntPoint* thisA = dynamic_cast<IntPoint*>(this->a);
+      int32_t otherY = jrt::fast_cast<IntPoint>(other->a)->y;
+      IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
       return new IntPoint(thisA->x + otherY - thisA->y, otherY);
     }
   } else if (delta1->x == -delta1->y) {  // this line is left diagonal
     if (delta2->x == 0) {  // other line is vertical
-      int32_t otherX = dynamic_cast<IntPoint*>(other->a)->x;
-      IntPoint* thisA = dynamic_cast<IntPoint*>(this->a);
+      int32_t otherX = jrt::fast_cast<IntPoint>(other->a)->x;
+      IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
       return new IntPoint(otherX, thisA->y + thisA->x - otherX);
     }
     if (delta2->y == 0) {  // other line is horizontal
-      int32_t otherY = dynamic_cast<IntPoint*>(other->a)->y;
-      IntPoint* thisA = dynamic_cast<IntPoint*>(this->a);
+      int32_t otherY = jrt::fast_cast<IntPoint>(other->a)->y;
+      IntPoint* thisA = jrt::fast_cast<IntPoint>(this->a);
       return new IntPoint(thisA->x + thisA->y - otherY, otherY);
     }
   }
   jrt::BigInteger det1 = jrt::BigInteger::valueOf(
-      dynamic_cast<IntPoint*>(a)->determinant(dynamic_cast<IntPoint*>(b)));
+      jrt::fast_cast<IntPoint>(a)->determinant(jrt::fast_cast<IntPoint>(b)));
   jrt::BigInteger det2 = jrt::BigInteger::valueOf(
-      dynamic_cast<IntPoint*>(other->a)->determinant(dynamic_cast<IntPoint*>(other->b)));
+      jrt::fast_cast<IntPoint>(other->a)->determinant(jrt::fast_cast<IntPoint>(other->b)));
   jrt::BigInteger det = jrt::BigInteger::valueOf(delta2->determinant(delta1));
   jrt::BigInteger tmp1 = det1.multiply(jrt::BigInteger::valueOf(delta2->x));
   jrt::BigInteger tmp2 = det2.multiply(jrt::BigInteger::valueOf(delta1->x));
@@ -385,10 +385,10 @@ Point* Line::intersection(Line* other) {
 }
 
 FloatPoint* Line::intersectionApprox(Line* other) {
-  IntPoint* thisA = dynamic_cast<IntPoint*>(a);
-  IntPoint* thisB = dynamic_cast<IntPoint*>(b);
-  IntPoint* otherA = dynamic_cast<IntPoint*>(other->a);
-  IntPoint* otherB = dynamic_cast<IntPoint*>(other->b);
+  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
+  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
+  IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
+  IntPoint* otherB = jrt::fast_cast<IntPoint>(other->b);
   double d1x = thisB->x - thisA->x;
   double d1y = thisB->y - thisA->y;
   double d2x = otherB->x - otherA->x;
@@ -412,8 +412,8 @@ FloatPoint* Line::intersectionApprox(Line* other) {
 Point* Line::perpendicularProjection(Point* point) { return point->perpendicularProjection(this); }
 
 Line* Line::translate(double dist) {
-  IntPoint* ai = dynamic_cast<IntPoint*>(a);
-  IntVector* v = dynamic_cast<IntVector*>(direction()->getVector());
+  IntPoint* ai = jrt::fast_cast<IntPoint>(a);
+  IntVector* v = jrt::fast_cast<IntVector>(direction()->getVector());
   double vxvx = static_cast<double>(v->x) * v->x;
   double vyvy = static_cast<double>(v->y) * v->y;
   double length = jrt::Math::sqrt(vxvx + vyvy);
@@ -464,10 +464,10 @@ double Line::cosAngle(Line* other) {
 }
 
 int32_t Line::compareTo(Line* other) {
-  IntPoint* thisA = dynamic_cast<IntPoint*>(a);
-  IntPoint* thisB = dynamic_cast<IntPoint*>(b);
-  IntPoint* otherA = dynamic_cast<IntPoint*>(other->a);
-  IntPoint* otherB = dynamic_cast<IntPoint*>(other->b);
+  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
+  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
+  IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
+  IntPoint* otherB = jrt::fast_cast<IntPoint>(other->b);
   int32_t dx1 = thisB->x - thisA->x;
   int32_t dy1 = thisB->y - thisA->y;
   int32_t dx2 = otherB->x - otherA->x;
@@ -576,8 +576,8 @@ Line* Line::mirrorHorizontal(IntPoint* pole) {
 }
 
 float Line::length() {
-  IntPoint* ipa = dynamic_cast<IntPoint*>(a);
-  IntPoint* ipb = dynamic_cast<IntPoint*>(b);
+  IntPoint* ipa = jrt::fast_cast<IntPoint>(a);
+  IntPoint* ipb = jrt::fast_cast<IntPoint>(b);
   double dx = static_cast<double>(ipb->x) - ipa->x;
   double dy = static_cast<double>(ipb->y) - ipa->y;
   return static_cast<float>(jrt::Math::sqrt(dx * dx + dy * dy));

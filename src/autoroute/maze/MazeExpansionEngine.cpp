@@ -58,9 +58,9 @@ void MazeExpansionEngine::expandToDrill(ExpansionDrill* drill, MazeListElement* 
   double viaRadius = (*ctrl->viaRadii)[layer];
   ConvexShape* shrinkedDrillShape = drill->getShape()->shrink(viaRadius);
   FloatPoint* compareCorner = fromElement->shapeEntry->a->middlePoint(fromElement->shapeEntry->b);
-  if (dynamic_cast<DrillPage*>(fromElement->door) != nullptr) {
-    if (auto* door = dynamic_cast<TargetItemExpansionDoor*>(fromElement->backtrackDoor)) {
-      if (auto* pin = dynamic_cast<Pin*>(door->item)) {
+  if (jrt::fast_cast<DrillPage>(fromElement->door) != nullptr) {
+    if (auto* door = jrt::fast_cast<TargetItemExpansionDoor>(fromElement->backtrackDoor)) {
+      if (auto* pin = jrt::fast_cast<Pin>(door->item)) {
         FloatPoint* nearestExitCorner =
             pin->nearestTraceExitCorner(drill->location->toFloat(), traceHalfWidth, layer);
         if (nearestExitCorner != nullptr) {
@@ -78,7 +78,7 @@ void MazeExpansionEngine::expandToDrill(ExpansionDrill* drill, MazeListElement* 
                                      (*ctrl->traceCosts)[layer]->vertical());
   ExpandableObject* newBacktrackDoor;
   int32_t newSectionNoOfBacktrackDoor;
-  if (dynamic_cast<DrillPage*>(fromElement->door) != nullptr) {
+  if (jrt::fast_cast<DrillPage>(fromElement->door) != nullptr) {
     newBacktrackDoor = fromElement->backtrackDoor;
     newSectionNoOfBacktrackDoor = fromElement->sectionNoOfBacktrackDoor;
   } else {
@@ -125,7 +125,7 @@ void MazeExpansionEngine::expandToDrillPage(DrillPage* drillPage, MazeListElemen
 void MazeExpansionEngine::expandToDrillsOfPage(MazeListElement* fromElement) {
   AutorouteControl* ctrl = search->ctrl;
   int32_t fromRoomLayer = fromElement->sectionNoOfDoor;
-  DrillPage* drillPage = dynamic_cast<DrillPage*>(fromElement->door);
+  DrillPage* drillPage = jrt::fast_cast<DrillPage>(fromElement->door);
   jrt::Collection<ExpansionDrill*>* drillList = drillPage->getDrills(
       search->autorouteEngine, ctrl->attachSmdAllowed, ctrl->centreOfGravityViaCandidate);
   if (search->fanoutDiagnostics->enabled()) {
@@ -207,18 +207,18 @@ void MazeExpansionEngine::expandToOtherLayers(MazeListElement* listElement) {
   AutorouteControl* ctrl = search->ctrl;
   int32_t viaLowerBound = 0;
   int32_t viaUpperBound = -1;
-  ExpansionDrill* currentDrill = dynamic_cast<ExpansionDrill*>(listElement->door);
+  ExpansionDrill* currentDrill = jrt::fast_cast<ExpansionDrill>(listElement->door);
   int32_t fromLayer = currentDrill->firstLayer + listElement->sectionNoOfDoor;
   bool smdAttachedOnComponentSide = false;
   bool smdAttachedOnSolderSide = false;
   bool roomRipped;
   if (auto* room =
-          dynamic_cast<ObstacleExpansionRoom*>((*currentDrill->roomArr)[listElement->sectionNoOfDoor])) {
+          jrt::fast_cast<ObstacleExpansionRoom>((*currentDrill->roomArr)[listElement->sectionNoOfDoor])) {
     if (!ctrl->ripupAllowed) {
       return;
     }
     Item* currentObstacleItem = room->getItem();
-    if (dynamic_cast<Via*>(currentObstacleItem) == nullptr) {
+    if (jrt::fast_cast<Via>(currentObstacleItem) == nullptr) {
       return;
     }
     if (!ctrl->netsNotToRip->isEmpty()) {
@@ -228,7 +228,7 @@ void MazeExpansionEngine::expandToOtherLayers(MazeListElement* listElement) {
         }
       }
     }
-    Padstack* currentObstaclePadstack = dynamic_cast<Via*>(currentObstacleItem)->getPadstack();
+    Padstack* currentObstaclePadstack = jrt::fast_cast<Via>(currentObstacleItem)->getPadstack();
     if (!ctrl->viaRule->containsPadstack(currentObstaclePadstack) ||
         currentObstacleItem->clearanceClassIndex() != ctrl->viaClearanceClass) {
       return;
@@ -368,7 +368,7 @@ ForcedPadRouter_CheckDrillResult MazeExpansionEngine::checkLayerWithAnyMatchingV
         requiredRadius, viaInfo->getClearanceClassIndex(), ctrl->viaAttachAllowed(viaInfo),
         roomShape, drill->location, layer, netNumbers, ctrl->maxShoveTraceRecursionDepth, 0,
         search->autorouteEngine->board, (*ctrl->traceHalfWidth)[layer],
-        ctrl->traceClearanceClassIndex, dynamic_cast<Circle*>(viaShape) != nullptr);
+        ctrl->traceClearanceClassIndex, jrt::fast_cast<Circle>(viaShape) != nullptr);
     if (result == ForcedPadRouter_CheckDrillResult::DRILLABLE) {
       return result;
     }

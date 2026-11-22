@@ -11,7 +11,7 @@ namespace fr {
 
 bool BgaEscapeDescriptor_BgaPinDescriptor::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BgaEscapeDescriptor_BgaPinDescriptor*>(o);
+  auto* other = jrt::fast_cast<BgaEscapeDescriptor_BgaPinDescriptor>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf<Pin*>(pin_, other->pin_) && jrt::equalsOf<double>(localU_, other->localU_) &&
          jrt::equalsOf<double>(localV_, other->localV_) && ring_ == other->ring_ &&
@@ -51,7 +51,7 @@ std::string BgaEscapeDescriptor_BgaPinDescriptor::toString() {
 
 bool BgaEscapeDescriptor::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BgaEscapeDescriptor*>(o);
+  auto* other = jrt::fast_cast<BgaEscapeDescriptor>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf<Component*>(component_, other->component_) &&
          jrt::equalsOf<double>(rotationDeg_, other->rotationDeg_) &&

@@ -7,7 +7,7 @@ namespace fr {
 
 bool HeadlessRoutingProgress::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<HeadlessRoutingProgress*>(o);
+  auto* other = jrt::fast_cast<HeadlessRoutingProgress>(o);
   if (other == nullptr) return false;
   return stage_ == other->stage_ && passNumber_ == other->passNumber_ &&
          unroutedCount_ == other->unroutedCount_ &&

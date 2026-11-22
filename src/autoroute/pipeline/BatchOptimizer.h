@@ -155,7 +155,7 @@ class BatchOptimizer_StopRuleView : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<BatchOptimizer_StopRuleView*>(o);
+    auto* other = jrt::fast_cast<BatchOptimizer_StopRuleView>(o);
     if (other == nullptr) return false;
     return jrt::equalsOf(before_, other->before_) && jrt::equalsOf(after_, other->after_) &&
            jrt::equalsOf(percent_, other->percent_);

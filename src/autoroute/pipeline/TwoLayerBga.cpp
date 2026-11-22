@@ -49,7 +49,7 @@ bool TwoLayerBga::isBallGrid(jrt::Collection<Pin*>* pins) {
   int32_t round = 0;
   for (Pin* p : *pins) {
     if (p->getPadstack() != nullptr &&
-        dynamic_cast<Circle*>(p->getPadstack()->getShape(field->layer())) != nullptr) {
+        jrt::fast_cast<Circle>(p->getPadstack()->getShape(field->layer())) != nullptr) {
       round++;
     }
   }

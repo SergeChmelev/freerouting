@@ -55,7 +55,7 @@ BatchFanout_EscapeStatistics* BatchFanout_EscapeStatistics::fromBoardStatistics(
 
 bool BatchFanout_FanoutPassStatus::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<BatchFanout_FanoutPassStatus*>(o);
+  auto* other = jrt::fast_cast<BatchFanout_FanoutPassStatus>(o);
   if (other == nullptr) return false;
   return passNo_ == other->passNo_ && ripupCosts_ == other->ripupCosts_ && totalPins_ == other->totalPins_ &&
          pinsToGo_ == other->pinsToGo_ && routedCount_ == other->routedCount_ &&
@@ -96,7 +96,7 @@ std::string BatchFanout_FanoutPassStatus::toString() {
 
 bool BatchFanout_FanoutRunSummary::equals(jrt::Object* o) {
   if (o == this) return true;
-  auto* other = dynamic_cast<BatchFanout_FanoutRunSummary*>(o);
+  auto* other = jrt::fast_cast<BatchFanout_FanoutRunSummary>(o);
   if (other == nullptr) return false;
   return completedPassCount_ == other->completedPassCount_ && totalDurationMillis_ == other->totalDurationMillis_ &&
          jrt::equalsOf(escapeStatistics_, other->escapeStatistics_) && isTimedOut_ == other->isTimedOut_;

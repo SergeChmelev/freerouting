@@ -33,7 +33,7 @@ bool LayerSettings::equals(jrt::Object* other) {
   if (other == nullptr || typeid(*this) != typeid(*other)) {
     return false;
   }
-  auto* that = dynamic_cast<LayerSettings*>(other);
+  auto* that = jrt::fast_cast<LayerSettings>(other);
   return routable == that->routable &&
          preferredDirectionHorizontal == that->preferredDirectionHorizontal &&
          doubleEquals(bendCost, that->bendCost) &&

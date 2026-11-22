@@ -30,11 +30,11 @@ int32_t RetryNeighbourhood::ripNearOpenPins(BasicBoard* board, int32_t attempt) 
     IntBox* box = pin->boundingBox()->offset(radius);
     for (int32_t layer = 0; layer < board->getLayerCount(); layer++) {
       for (SearchTreeObject* object : *board->overlappingObjects(box, layer)) {
-        auto* item = dynamic_cast<Item*>(object);
+        auto* item = jrt::fast_cast<Item>(object);
         if (item == nullptr) {
           continue;
         }
-        if (!(dynamic_cast<Trace*>(item) != nullptr) && !(dynamic_cast<Via*>(item) != nullptr)) {
+        if (!(jrt::fast_cast<Trace>(item) != nullptr) && !(jrt::fast_cast<Via>(item) != nullptr)) {
           continue;
         }
         if (item->netCount() != 1 || item->containsNet(net)) {

@@ -80,7 +80,7 @@ fr::RouterSettings* AutorouteSettings::readLayerRule(IJFlexScanner* scanner,
     FRLogger::error("AutorouteSettings.read_layer_rule: IO error scanning file", &e);
     return nullptr;
   }
-  auto* layerName = dynamic_cast<JString*>(nextToken);
+  auto* layerName = jrt::fast_cast<JString>(nextToken);
   if (layerName == nullptr) {
     FRLogger::warn("AutorouteSettings.read_layer_rule: String expected at '" +
                    scanner->getScopeIdentifier() + "'");

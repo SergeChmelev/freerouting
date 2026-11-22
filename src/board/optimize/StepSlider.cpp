@@ -64,7 +64,7 @@ StepSlider_Result* StepSlider::run() {
     int32_t acceptedInThisPass = 0;
     jrt::List<int32_t>* traceIds = new jrt::ArrayList<int32_t>();
     for (Trace* trace : *board->getTraces()) {
-      if (dynamic_cast<PolylineTrace*>(trace) != nullptr) {
+      if (jrt::fast_cast<PolylineTrace>(trace) != nullptr) {
         traceIds->add(trace->getId());
       }
     }
@@ -143,7 +143,7 @@ jrt::List<jrt::Array<Point*>*>* StepSlider::moves(PolylineTrace* trace) {
   }
   jrt::Array<IntPoint*>* corners = new jrt::Array<IntPoint*>(cornerCount);
   for (int32_t i = 0; i < cornerCount; i++) {
-    auto* corner = dynamic_cast<IntPoint*>(trace->polyline()->corner(i));
+    auto* corner = jrt::fast_cast<IntPoint>(trace->polyline()->corner(i));
     if (corner == nullptr) {
       return result;
     }
@@ -229,10 +229,10 @@ int32_t StepSlider::stepCount(jrt::Array<Point*>* corners) {
 }
 
 bool StepSlider::isStep(jrt::Array<Point*>* corners, int32_t k) {
-  auto* a = dynamic_cast<IntPoint*>((*corners)[k - 1]);
-  auto* b = a != nullptr ? dynamic_cast<IntPoint*>((*corners)[k]) : nullptr;
-  auto* c = b != nullptr ? dynamic_cast<IntPoint*>((*corners)[k + 1]) : nullptr;
-  auto* d = c != nullptr ? dynamic_cast<IntPoint*>((*corners)[k + 2]) : nullptr;
+  auto* a = jrt::fast_cast<IntPoint>((*corners)[k - 1]);
+  auto* b = a != nullptr ? jrt::fast_cast<IntPoint>((*corners)[k]) : nullptr;
+  auto* c = b != nullptr ? jrt::fast_cast<IntPoint>((*corners)[k + 1]) : nullptr;
+  auto* d = c != nullptr ? jrt::fast_cast<IntPoint>((*corners)[k + 2]) : nullptr;
   if (!(a != nullptr && b != nullptr && c != nullptr && d != nullptr)) {
     return false;
   }
@@ -279,7 +279,7 @@ bool StepSlider::isStopRequested() {
 PolylineTrace* StepSlider::traceById(int32_t id) {
   for (Trace* trace : *board->getTraces()) {
     if (trace->getId() == id) {
-      if (auto* polylineTrace = dynamic_cast<PolylineTrace*>(trace)) {
+      if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
         return polylineTrace;
       }
     }
@@ -322,7 +322,7 @@ jrt::Map<int32_t, int32_t>* StepSlider::traceSignatures() {
     return result;
   }
   for (Item* item : *board->getItems()) {
-    if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+    if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       result->put(trace->getId(), signature(trace));
     }
   }
@@ -344,7 +344,7 @@ bool StepSlider::changedTraceEntersZone(jrt::Map<int32_t, int32_t>* tracesBefore
     return false;
   }
   for (Item* item : *board->getItems()) {
-    auto* trace = dynamic_cast<PolylineTrace*>(item);
+    auto* trace = jrt::fast_cast<PolylineTrace>(item);
     if (trace == nullptr) {
       continue;
     }
@@ -371,10 +371,10 @@ StepSlider_Cost* StepSlider::cost() {
   int32_t bends = 0;
   int32_t vias = 0;
   for (Item* item : *board->getItems()) {
-    if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+    if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       length += trace->getLength();
       bends += jrt::Math::max(0, trace->cornerCount() - 2);
-    } else if (dynamic_cast<Via*>(item) != nullptr) {
+    } else if (jrt::fast_cast<Via>(item) != nullptr) {
       ++vias;
     }
   }

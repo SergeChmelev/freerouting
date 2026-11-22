@@ -56,7 +56,7 @@ bool DesignBlocks::isBlockedSet(jrt::Collection<Item*>* connectedSet) {
     return false;
   }
   for (Item* item : *connectedSet) {
-    Pin* pin = dynamic_cast<Pin*>(item);
+    Pin* pin = jrt::fast_cast<Pin>(item);
     if (pin == nullptr || !isBlocked(pin)) {
       return false;
     }
@@ -97,7 +97,7 @@ jrt::List<AirLine*>* DesignBlocks::blockedAirlines(jrt::Collection<AirLine*>* ai
 }
 
 bool DesignBlocks::endBlocked(Item* item, int32_t netNumber) {
-  Pin* pin = dynamic_cast<Pin*>(item);
+  Pin* pin = jrt::fast_cast<Pin>(item);
   return pin != nullptr && isBlocked(pin) && isBlockedSet(item->getConnectedSet(netNumber));
 }
 
@@ -121,8 +121,8 @@ bool DesignBlocks::coversCentre(Pin* pin, Item* other, int32_t layer, double cle
 }
 
 bool DesignBlocks::isCopper(Item* item) {
-  return dynamic_cast<Pin*>(item) != nullptr || dynamic_cast<Trace*>(item) != nullptr ||
-         dynamic_cast<Via*>(item) != nullptr || dynamic_cast<ConductionArea*>(item) != nullptr;
+  return jrt::fast_cast<Pin>(item) != nullptr || jrt::fast_cast<Trace>(item) != nullptr ||
+         jrt::fast_cast<Via>(item) != nullptr || jrt::fast_cast<ConductionArea>(item) != nullptr;
 }
 
 }  // namespace fr

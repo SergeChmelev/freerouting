@@ -36,7 +36,7 @@ int32_t clearanceViolationCount(RoutingBoard* board) {
 // ViaNudger.ZoneRegion record
 
 bool ViaNudger_ZoneRegion::equals(jrt::Object* o) {
-  auto* other = dynamic_cast<ViaNudger_ZoneRegion*>(o);
+  auto* other = jrt::fast_cast<ViaNudger_ZoneRegion>(o);
   if (other == nullptr) return false;
   // Java record equals: Objects.equals on reference components (arrays by identity).
   return layer_ == other->layer_ && clearanceClass_ == other->clearanceClass_ &&
@@ -251,7 +251,7 @@ Via* ViaNudger::viaById(int32_t id) {
 
 bool ViaNudger::touchesConductionArea(Via* via) {
   for (Item* contact : *via->getNormalContacts()) {
-    if (dynamic_cast<ConductionArea*>(contact) != nullptr) {
+    if (jrt::fast_cast<ConductionArea>(contact) != nullptr) {
       return true;
     }
   }
@@ -277,7 +277,7 @@ bool ViaNudger::isInOrNearZone(Via* via, IntVector* translation) {
       continue;
     }
     if (translation != nullptr && !translation->equals(Vector::ZERO())) {
-      padShape = dynamic_cast<Shape*>(padShape->translateBy(static_cast<Vector*>(translation)));
+      padShape = jrt::fast_cast<Shape>(padShape->translateBy(static_cast<Vector*>(translation)));
     }
     if (shapeEntersZone(padShape, layer, via->clearanceClassIndex())) {
       return true;
@@ -311,7 +311,7 @@ jrt::Map<int32_t, int32_t>* ViaNudger::traceSignatures() {
     return result;
   }
   for (Item* item : *board->getItems()) {
-    if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+    if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       result->put(trace->getId(), signature(trace));
     }
   }
@@ -333,7 +333,7 @@ bool ViaNudger::changedTraceEntersZone(jrt::Map<int32_t, int32_t>* tracesBefore)
     return false;
   }
   for (Item* item : *board->getItems()) {
-    auto* trace = dynamic_cast<PolylineTrace*>(item);
+    auto* trace = jrt::fast_cast<PolylineTrace>(item);
     if (trace == nullptr) {
       continue;
     }
@@ -357,7 +357,7 @@ bool ViaNudger::changedTraceEntersZone(jrt::Map<int32_t, int32_t>* tracesBefore)
 int32_t ViaNudger::halfPitch(Via* via) {
   int32_t result = 0;
   for (Item* contact : *via->getNormalContacts()) {
-    auto* trace = dynamic_cast<Trace*>(contact);
+    auto* trace = jrt::fast_cast<Trace>(contact);
     if (trace == nullptr) {
       continue;
     }
@@ -377,10 +377,10 @@ ViaNudger_Cost* ViaNudger::cost() {
   int32_t bends = 0;
   int32_t vias = 0;
   for (Item* item : *board->getItems()) {
-    if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+    if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       length += trace->getLength();
       bends += jrt::Math::max(0, trace->cornerCount() - 2);
-    } else if (dynamic_cast<Via*>(item) != nullptr) {
+    } else if (jrt::fast_cast<Via>(item) != nullptr) {
       ++vias;
     }
   }

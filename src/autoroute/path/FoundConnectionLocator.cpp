@@ -61,7 +61,7 @@ void FoundConnectionLocator::initialize(MazeSearchEngine_Result* mazeSearchResul
   this->connectionItems = new jrt::LinkedList<FoundConnectionLocator_ResultItem*>();
   FoundConnectionLocator_BacktrackElement* startInfo =
       (*this->backtrackArray)[backtrackArray->length - 1];
-  if (dynamic_cast<TargetItemExpansionDoor*>(startInfo->door) == nullptr) {
+  if (jrt::fast_cast<TargetItemExpansionDoor>(startInfo->door) == nullptr) {
     FRLogger::warn("FoundConnectionLocator: ItemExpansionDoor expected for startInfo.door");
     this->startItem = nullptr;
     this->startLayer = 0;
@@ -70,19 +70,19 @@ void FoundConnectionLocator::initialize(MazeSearchEngine_Result* mazeSearchResul
     this->startDoor = nullptr;
     return;
   }
-  this->startDoor = dynamic_cast<TargetItemExpansionDoor*>(startInfo->door);
+  this->startDoor = jrt::fast_cast<TargetItemExpansionDoor>(startInfo->door);
   this->startItem = startDoor->item;
   this->startLayer = startDoor->room->getLayer();
 
   this->currentFromDoorIndex = 0;
   bool atFanoutEnd = false;
   if (auto* currentDestinationDoor =
-          dynamic_cast<TargetItemExpansionDoor*>(mazeSearchResult->destinationDoor)) {
+          jrt::fast_cast<TargetItemExpansionDoor>(mazeSearchResult->destinationDoor)) {
     this->targetItem = currentDestinationDoor->item;
     this->targetLayer = currentDestinationDoor->room->getLayer();
 
     this->currentFromPoint = calculateStartingPoint(currentDestinationDoor, searchTree, this->ctrl);
-  } else if (auto* currentDrill = dynamic_cast<ExpansionDrill*>(mazeSearchResult->destinationDoor)) {
+  } else if (auto* currentDrill = jrt::fast_cast<ExpansionDrill>(mazeSearchResult->destinationDoor)) {
     // may happen only in case of fanout
     this->targetItem = nullptr;
     this->currentFromPoint = currentDrill->location->toFloat();
@@ -106,7 +106,7 @@ void FoundConnectionLocator::initialize(MazeSearchEngine_Result* mazeSearchResul
     } else {
       this->currentTargetDoorIndex = this->currentFromDoorIndex + 1;
       while (currentTargetDoorIndex < this->backtrackArray->length && !layerChanged) {
-        if (dynamic_cast<ExpansionDrill*>((*this->backtrackArray)[this->currentTargetDoorIndex]->door)
+        if (jrt::fast_cast<ExpansionDrill>((*this->backtrackArray)[this->currentTargetDoorIndex]->door)
             != nullptr) {
           layerChanged = true;
         } else {
@@ -117,32 +117,32 @@ void FoundConnectionLocator::initialize(MazeSearchEngine_Result* mazeSearchResul
     if (layerChanged) {
       // the next trace leads to a via
       auto* currentTargetDrill =
-          dynamic_cast<ExpansionDrill*>((*this->backtrackArray)[this->currentTargetDoorIndex]->door);
+          jrt::fast_cast<ExpansionDrill>((*this->backtrackArray)[this->currentTargetDoorIndex]->door);
       this->currentTargetShape = TileShape::getInstance(currentTargetDrill->location);
     } else {
       // the next trace leads to the final target
       connectionDone = true;
       this->currentTargetDoorIndex = this->backtrackArray->length - 1;
-      TileShape* targetShape = dynamic_cast<Connectable*>(startItem)->getTraceConnectionShape(
+      TileShape* targetShape = jrt::fast_cast<Connectable>(startItem)->getTraceConnectionShape(
           searchTree, startDoor->treeEntryNo);
       TileShape* boundedShape = insideConductionArea(
           startItem, calculateWidthSafeTargetShape(startDoor, targetShape, this->ctrl));
-      if (boundedShape->dimension() >= 2 && dynamic_cast<DrillItem*>(startItem) == nullptr) {
+      if (boundedShape->dimension() >= 2 && jrt::fast_cast<DrillItem>(startItem) == nullptr) {
         // the target is a conduction area, make a safe connection
         // by shrinking the shape by the trace halfwidth.
         double traceHalfWidth = (*this->ctrl->compensatedTraceHalfWidth)[startDoor->room->getLayer()];
-        auto* shrinkedShape = dynamic_cast<TileShape*>(boundedShape->offset(-traceHalfWidth));
+        auto* shrinkedShape = jrt::fast_cast<TileShape>(boundedShape->offset(-traceHalfWidth));
         if (!shrinkedShape->isEmpty()) {
           boundedShape = shrinkedShape;
         }
       }
       this->currentTargetShape = boundedShape;
-      if (auto* targetPin = dynamic_cast<Pin*>(startItem)) {
+      if (auto* targetPin = jrt::fast_cast<Pin>(startItem)) {
         TileShape* copper = targetPin->getTileShape(startDoor->treeEntryNo);
         double traceHalfWidth = (*this->ctrl->compensatedTraceHalfWidth)[startDoor->room->getLayer()];
         TileShape* targetRoomShape = startDoor->room->getShape();
         IntPoint* usualEnd = this->currentTargetShape->nearestPointApprox(this->currentFromPoint)->round();
-        auto* shrunkTargetRoom = dynamic_cast<TileShape*>(targetRoomShape->offset(-traceHalfWidth));
+        auto* shrunkTargetRoom = jrt::fast_cast<TileShape>(targetRoomShape->offset(-traceHalfWidth));
         IntPoint* clearEnd =
             padEndWithClearStub(targetPin, copper != nullptr ? copper : targetShape, shrunkTargetRoom,
                                 usualEnd, startDoor->room->getLayer(), false);
@@ -182,14 +182,14 @@ FoundConnectionLocator* FoundConnectionLocator::getInstance(
 TileShape* FoundConnectionLocator::calculateWidthSafeTargetShape(TargetItemExpansionDoor* door,
                                                                  TileShape* targetShape,
                                                                  AutorouteControl* ctrl) {
-  if (dynamic_cast<DrillItem*>(door->item) != nullptr) {
+  if (jrt::fast_cast<DrillItem>(door->item) != nullptr) {
     return targetShape->intersection(door->room->getShape());
   }
   int32_t layer = door->room->getLayer();
-  int32_t shrinkOffset = (dynamic_cast<ObstacleExpansionRoom*>(door->room) != nullptr)
+  int32_t shrinkOffset = (jrt::fast_cast<ObstacleExpansionRoom>(door->room) != nullptr)
                              ? (*ctrl->compensatedTraceHalfWidth)[layer]
                              : ctrl->getTraceClearanceOffset(layer);
-  auto* safeRoomShape = dynamic_cast<TileShape*>(door->room->getShape()->offset(-shrinkOffset));
+  auto* safeRoomShape = jrt::fast_cast<TileShape>(door->room->getShape()->offset(-shrinkOffset));
   if (!safeRoomShape->isEmpty()) {
     TileShape* safeTargetShape = targetShape->intersection(safeRoomShape);
     if (!safeTargetShape->isEmpty()) {
@@ -200,7 +200,7 @@ TileShape* FoundConnectionLocator::calculateWidthSafeTargetShape(TargetItemExpan
 }
 
 TileShape* FoundConnectionLocator::insideConductionArea(Item* item, TileShape* shape) {
-  auto* area = dynamic_cast<ConductionArea*>(item);
+  auto* area = jrt::fast_cast<ConductionArea>(item);
   if (area == nullptr || shape == nullptr || shape->isEmpty()) {
     return shape;
   }
@@ -220,7 +220,7 @@ TileShape* FoundConnectionLocator::insideConductionArea(Item* item, TileShape* s
 FloatPoint* FoundConnectionLocator::calculateStartingPoint(TargetItemExpansionDoor* fromDoor,
                                                            ShapeSearchTree* searchTree,
                                                            AutorouteControl* ctrl) {
-  TileShape* connectionShape = dynamic_cast<Connectable*>(fromDoor->item)
+  TileShape* connectionShape = jrt::fast_cast<Connectable>(fromDoor->item)
                                    ->getTraceConnectionShape(searchTree, fromDoor->treeEntryNo);
   if (connectionShape == nullptr || connectionShape->isEmpty()) {
     return fromDoor->room->getShape()->centreOfGravity()->round()->toFloat();
@@ -249,14 +249,14 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
                     + ", dest_section=" + jrt::str(mazeSearchResult->sectionNoOfDoor)
                     + ", dest_room_ripped=" + jrt::str(currentMazeSearchElement->roomRipped));
   }
-  if (auto* door = dynamic_cast<TargetItemExpansionDoor*>(currentBacktrackDoor)) {
+  if (auto* door = jrt::fast_cast<TargetItemExpansionDoor>(currentBacktrackDoor)) {
     currentNextRoom = door->room;
-  } else if (auto* currentDrill = dynamic_cast<ExpansionDrill*>(currentBacktrackDoor)) {
+  } else if (auto* currentDrill = jrt::fast_cast<ExpansionDrill>(currentBacktrackDoor)) {
     currentNextRoom =
         (*currentDrill->roomArr)[currentDrill->firstLayer + mazeSearchResult->sectionNoOfDoor];
     if (currentMazeSearchElement->roomRipped) {
       for (CompleteExpansionRoom* tmpRoom : *currentDrill->roomArr) {
-        if (auto* room = dynamic_cast<ObstacleExpansionRoom*>(tmpRoom)) {
+        if (auto* room = jrt::fast_cast<ObstacleExpansionRoom>(tmpRoom)) {
           rippedItemList->add(room->getItem());
           if (ripupCosts != nullptr) {
             ripupCosts->put(room->getItem(), currentMazeSearchElement->ripupCost);
@@ -279,7 +279,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
       FRLogger::warn("FoundConnectionLocator: currentSectionNo to big");
       currentSectionNo = currentBacktrackDoor->mazeSearchElementCount() - 1;
     }
-    if (auto* currentDrill = dynamic_cast<ExpansionDrill*>(currentBacktrackDoor)) {
+    if (auto* currentDrill = jrt::fast_cast<ExpansionDrill>(currentBacktrackDoor)) {
       currentNextRoom = (*currentDrill->roomArr)[currentSectionNo];
     } else {
       currentNextRoom = currentBacktrackDoor->otherRoom(currentNextRoom);
@@ -292,7 +292,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
       std::string nextRoomType =
           currentNextRoom != nullptr ? jrt::className(currentNextRoom) : "null";
       int32_t obstacleId = -1;
-      if (auto* obst = dynamic_cast<ObstacleExpansionRoom*>(currentNextRoom)) {
+      if (auto* obst = jrt::fast_cast<ObstacleExpansionRoom>(currentNextRoom)) {
         obstacleId = obst->getItem()->getId();
       }
       FRLogger::trace("BACKTRACK_STEP net=" + jrt::str(netNumber) + ", step=" + jrt::str(step)
@@ -303,7 +303,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
                       + jrt::str(obstacleId));
     }
     if (currentMazeSearchElement->roomRipped) {
-      if (auto* room = dynamic_cast<ObstacleExpansionRoom*>(currentNextRoom)) {
+      if (auto* room = jrt::fast_cast<ObstacleExpansionRoom>(currentNextRoom)) {
         rippedItemList->add(room->getItem());
         if (ripupCosts != nullptr) {
           ripupCosts->put(room->getItem(), currentMazeSearchElement->ripupCost);
@@ -474,7 +474,7 @@ void FoundConnectionLocator::emitDiagnostics(AutorouteDiagnostic_Sink* sink, dou
       nextRoom->emitDiagnostic(sink, intensity);
     }
     ExpandableObject* nextDoor = (*backtrackArray)[i]->door;
-    if (auto* drill = dynamic_cast<ExpansionDrill*>(nextDoor)) {
+    if (auto* drill = jrt::fast_cast<ExpansionDrill>(nextDoor)) {
       drill->emitDiagnostic(sink, intensity);
     }
   }
@@ -489,19 +489,19 @@ FloatPoint* FoundConnectionLocator::adjustStartCorner() {
   if (currentFromInfo->nextRoom == nullptr) {
     return this->currentFromPoint;
   }
-  double shrinkOffset = (dynamic_cast<ObstacleExpansionRoom*>(currentFromInfo->nextRoom) != nullptr)
+  double shrinkOffset = (jrt::fast_cast<ObstacleExpansionRoom>(currentFromInfo->nextRoom) != nullptr)
                             ? (*this->ctrl->compensatedTraceHalfWidth)[this->currentTraceLayer]
                             : this->ctrl->getTraceClearanceOffset(this->currentTraceLayer);
   auto* shrinkedRoomShape =
-      dynamic_cast<TileShape*>(currentFromInfo->nextRoom->getShape()->offset(-shrinkOffset));
+      jrt::fast_cast<TileShape>(currentFromInfo->nextRoom->getShape()->offset(-shrinkOffset));
   if (shrinkedRoomShape->isEmpty() || shrinkedRoomShape->contains(this->currentFromPoint)) {
     return this->currentFromPoint;
   }
   // The first trace's stub out of a pad: from the pad end to the room's corner margin, clear of
   // copper overlapping the pad (PadEndWithClearStub), or from a pad end that is.
   if (this->currentFromDoorIndex == 0) {
-    if (auto* padDoor = dynamic_cast<TargetItemExpansionDoor*>(currentFromInfo->door)) {
-      if (auto* pin = dynamic_cast<Pin*>(padDoor->item)) {
+    if (auto* padDoor = jrt::fast_cast<TargetItemExpansionDoor>(currentFromInfo->door)) {
+      if (auto* pin = jrt::fast_cast<Pin>(padDoor->item)) {
         TileShape* copper = pin->getTileShape(padDoor->treeEntryNo);
         if (copper != nullptr) {
           IntPoint* clearEnd =
@@ -605,12 +605,12 @@ bool FoundConnectionLocator::unshovableCopperOverlapsPad(BasicBoard* board, Pin*
   jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new jrt::ArrayList<ShapeTree_TreeEntry*>();
   defaultTree->overlappingTreeEntries(copper, layer, new jrt::Array<int32_t>(0), treeEntries);
   for (ShapeTree_TreeEntry* entry : *treeEntries) {
-    auto* item = dynamic_cast<Item*>(entry->object);
+    auto* item = jrt::fast_cast<Item>(entry->object);
     if (item == nullptr || item == pin || !item->isTraceObstacle(netNumber, entry->shapeIndexInObject)) {
       continue;
     }
-    if (!(dynamic_cast<Pin*>(item) != nullptr || item->isUserFixed()
-          || !(dynamic_cast<Trace*>(item) != nullptr || dynamic_cast<Via*>(item) != nullptr))) {
+    if (!(jrt::fast_cast<Pin>(item) != nullptr || item->isUserFixed()
+          || !(jrt::fast_cast<Trace>(item) != nullptr || jrt::fast_cast<Via>(item) != nullptr))) {
       continue;
     }
     TileShape* shape = item->getTileShape(entry->shapeIndexInObject);
@@ -637,12 +637,12 @@ bool FoundConnectionLocator::endBlockedByUnshovableCopper(BasicBoard* board, Til
                                                      treeEntries);
   }
   for (ShapeTree_TreeEntry* entry : *treeEntries) {
-    auto* item = dynamic_cast<Item*>(entry->object);
+    auto* item = jrt::fast_cast<Item>(entry->object);
     if (item == nullptr || !item->isTraceObstacle(netNumber, entry->shapeIndexInObject)) {
       continue;
     }
-    if (dynamic_cast<Pin*>(item) != nullptr || item->isUserFixed()
-        || !(dynamic_cast<Trace*>(item) != nullptr || dynamic_cast<Via*>(item) != nullptr)) {
+    if (jrt::fast_cast<Pin>(item) != nullptr || item->isUserFixed()
+        || !(jrt::fast_cast<Trace>(item) != nullptr || jrt::fast_cast<Via>(item) != nullptr)) {
       return true;
     }
   }

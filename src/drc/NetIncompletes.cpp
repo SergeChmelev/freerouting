@@ -49,7 +49,7 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
   int32_t conductionAreaFilteredCount = 0;
   for (Item* item : *netItems) {
     // Track ConductionArea items
-    if (dynamic_cast<ConductionArea*>(item) != nullptr) {
+    if (jrt::fast_cast<ConductionArea>(item) != nullptr) {
       conductionAreaCount++;
     }
 
@@ -63,16 +63,16 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
     // EXCEPT for DrillItems (pins/vias) - unrouted pins legitimately have no contacts
     // and SHOULD appear in the ratsnest
     // EXCEPT for ConductionArea which acts as a connection medium, unless it is dead copper
-    auto* area = dynamic_cast<ConductionArea*>(item);
+    auto* area = jrt::fast_cast<ConductionArea>(item);
     if (area != nullptr ? area->isDeadCopper() || area->isFloatingFragment(netNumber)
-                        : dynamic_cast<DrillItem*>(item) == nullptr &&
+                        : jrt::fast_cast<DrillItem>(item) == nullptr &&
                               item->getNormalContacts()->isEmpty()) {
       unconnectedCount++;
       continue;
     }
 
     // Track if ConductionArea made it through the filter
-    if (dynamic_cast<ConductionArea*>(item) != nullptr) {
+    if (jrt::fast_cast<ConductionArea>(item) != nullptr) {
       conductionAreaFilteredCount++;
     }
 
@@ -133,9 +133,9 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
 
   for (PlanarDelaunayTriangulation_ResultEdge* currentLine : *triangulationLines) {
     NetIncompletes_Edge* newEdge = new NetIncompletes_Edge(
-        dynamic_cast<NetIncompletes_NetItem*>(currentLine->startObject),
+        jrt::fast_cast<NetIncompletes_NetItem>(currentLine->startObject),
         currentLine->startPoint->toFloat(),
-        dynamic_cast<NetIncompletes_NetItem*>(currentLine->endObject),
+        jrt::fast_cast<NetIncompletes_NetItem>(currentLine->endObject),
         currentLine->endPoint->toFloat());
     sortedEdges->add(newEdge);
   }

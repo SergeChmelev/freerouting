@@ -30,7 +30,7 @@ namespace fr {
 // ---- records -------------------------------------------------------------------------------
 
 bool BoardStatisticsBoundsCalculator_CachedBounds::equals(jrt::Object* o) {
-  auto* other = dynamic_cast<BoardStatisticsBoundsCalculator_CachedBounds*>(o);
+  auto* other = jrt::fast_cast<BoardStatisticsBoundsCalculator_CachedBounds>(o);
   if (other == nullptr) return false;
   return angleRestriction_ == other->angleRestriction_ &&
          jrt::equalsOf<BoardStatisticsBounds*>(bounds_, other->bounds_);
@@ -49,7 +49,7 @@ std::string BoardStatisticsBoundsCalculator_CachedBounds::toString() {
 }
 
 bool BoardStatisticsBoundsCalculator_Terminal::equals(jrt::Object* o) {
-  auto* other = dynamic_cast<BoardStatisticsBoundsCalculator_Terminal*>(o);
+  auto* other = jrt::fast_cast<BoardStatisticsBoundsCalculator_Terminal>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf(x_, other->x_) && jrt::equalsOf(y_, other->y_) &&
          jrt::equalsOf<jrt::Set<int32_t>*>(signalLayers_, other->signalLayers_) &&
@@ -195,7 +195,7 @@ BoardStatisticsBoundsCalculator_Terminal* BoardStatisticsBoundsCalculator::toTer
   double y;
   jrt::Set<int32_t>* signalLayers = new jrt::HashSet<int32_t>();
 
-  if (auto* pin = dynamic_cast<Pin*>(item)) {
+  if (auto* pin = jrt::fast_cast<Pin>(item)) {
     FloatPoint* center = pin->getCenter()->toFloat();
     x = center->x;
     y = center->y;
@@ -204,7 +204,7 @@ BoardStatisticsBoundsCalculator_Terminal* BoardStatisticsBoundsCalculator::toTer
         addSignalLayer(board, layer, signalLayers);
       }
     }
-  } else if (auto* area = dynamic_cast<ConductionArea*>(item)) {
+  } else if (auto* area = jrt::fast_cast<ConductionArea>(item)) {
     FloatPoint* center = area->getArea()->getBorder()->centreOfGravity();
     x = center->x;
     y = center->y;
@@ -314,7 +314,7 @@ double BoardStatisticsBoundsCalculator::distanceToAreas(
     if (area->contains(point)) {
       return 0.0;
     }
-    if (auto* circle = dynamic_cast<Circle*>(area)) {
+    if (auto* circle = jrt::fast_cast<Circle>(area)) {
       result = jrt::Math::min(
           result, jrt::Math::max(0.0, point->distance(circle->center->toFloat()) - circle->radius));
     } else {

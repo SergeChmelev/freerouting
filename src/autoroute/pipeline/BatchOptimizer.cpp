@@ -114,7 +114,7 @@ void BatchOptimizer::normalizeAlgorithm(RoutingJob* job, BatchOptimizer* optimiz
 
 bool BatchOptimizer::containsOnlyUnfixedTraces(jrt::Collection<Item*>* itemList) {
   for (Item* currentItem : *itemList) {
-    if (currentItem->isUserFixed() || dynamic_cast<Trace*>(currentItem) == nullptr) {
+    if (currentItem->isUserFixed() || jrt::fast_cast<Trace>(currentItem) == nullptr) {
       return false;
     }
   }
@@ -205,19 +205,19 @@ bool BatchOptimizer::areAllViasMandatoryLayerTransitions(RoutingBoard* routingBo
     jrt::List<Pin*>* smdPins = new jrt::ArrayList<Pin*>();
     bool onlySmdPinsAndTraces = true;
     for (Item* item : *connected) {
-      if (auto* pin = dynamic_cast<Pin*>(item)) {
+      if (auto* pin = jrt::fast_cast<Pin>(item)) {
         if (pin->firstLayer() == pin->lastLayer()) {
           smdPins->add(pin);
         } else {
           onlySmdPinsAndTraces = false;
           break;
         }
-      } else if (auto* v = dynamic_cast<Via*>(item)) {
+      } else if (auto* v = jrt::fast_cast<Via>(item)) {
         if (v != via) {
           onlySmdPinsAndTraces = false;
           break;
         }
-      } else if (dynamic_cast<Trace*>(item) == nullptr) {
+      } else if (jrt::fast_cast<Trace>(item) == nullptr) {
         onlySmdPinsAndTraces = false;
         break;
       }
@@ -939,7 +939,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
 }
 
 ItemRouteResult* BatchOptimizer::optRouteItem(Item* item, bool withPreferredDirections) {
-  auto* routingBoard = dynamic_cast<RoutingBoard*>(item->board);
+  auto* routingBoard = jrt::fast_cast<RoutingBoard>(item->board);
   if (routingBoard == nullptr) {
     job->logWarning("The item to be optimized is not on a RoutingBoard.");
     return new ItemRouteResult(item->getId());
@@ -1009,7 +1009,7 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
   jrt::Set<Item*>* rippedItems = new jrt::TreeSet<Item*>();
   rippedItems->add(item);
 
-  if (auto* currentTrace = dynamic_cast<Trace*>(item)) {
+  if (auto* currentTrace = jrt::fast_cast<Trace>(item)) {
     jrt::Set<Item*>* currentContactList = currentTrace->getStartContacts();
     for (int32_t i = 0; i < 2; i++) {
       if (containsOnlyUnfixedTraces(currentContactList)) {
@@ -1040,7 +1040,7 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
     ripupCosts *= job->routerSettings->optimizer->additionalRipupCostFactorAtStart.value();
   }
 
-  if (dynamic_cast<Trace*>(item) != nullptr && job->routerSettings->optimizer != nullptr) {
+  if (jrt::fast_cast<Trace>(item) != nullptr && job->routerSettings->optimizer != nullptr) {
     ripupCosts = static_cast<int32_t>(jrt::Math::round(
         job->routerSettings->optimizer->traceRipupCostFactor.value() * static_cast<double>(ripupCosts)));
   }
@@ -1090,9 +1090,9 @@ jrt::Set<int32_t>* BatchOptimizer::netsLeftUnrouted(RoutingBoard* routingBoard, 
 }
 
 FloatPoint* BatchOptimizer::getItemPosition(Item* item) {
-  if (auto* via = dynamic_cast<Via*>(item)) {
+  if (auto* via = jrt::fast_cast<Via>(item)) {
     return via->getCenter()->toFloat();
-  } else if (auto* trace = dynamic_cast<Trace*>(item)) {
+  } else if (auto* trace = jrt::fast_cast<Trace>(item)) {
     return trace->firstCorner()->toFloat();
   }
   return nullptr;
@@ -1300,7 +1300,7 @@ Item* BatchOptimizer_ReadSortedRouteItems::next() {
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* currentVia = dynamic_cast<Via*>(currentItem)) {
+    if (auto* currentVia = jrt::fast_cast<Via>(currentItem)) {
       if (!currentVia->isUserFixed() && !currentVia->hasIgnoredNets()) {
         FloatPoint* currentViaCenter = currentVia->getCenter()->toFloat();
         int32_t currentViaMinLayer = currentVia->firstLayer();
@@ -1329,7 +1329,7 @@ Item* BatchOptimizer_ReadSortedRouteItems::next() {
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* currentTrace = dynamic_cast<Trace*>(currentItem)) {
+    if (auto* currentTrace = jrt::fast_cast<Trace>(currentItem)) {
       if (!currentTrace->isShoveFixed() && !currentTrace->hasIgnoredNets()) {
         FloatPoint* firstCorner = currentTrace->firstCorner()->toFloat();
         FloatPoint* lastCorner = currentTrace->lastCorner()->toFloat();
@@ -1353,7 +1353,7 @@ Item* BatchOptimizer_ReadSortedRouteItems::next() {
             bool isConnectedToVia = false;
             jrt::Set<Item*>* traceContacts = currentTrace->getNormalContacts();
             for (Item* currentContact : *traceContacts) {
-              if (dynamic_cast<Via*>(currentContact) != nullptr && !currentContact->isUserFixed()) {
+              if (jrt::fast_cast<Via>(currentContact) != nullptr && !currentContact->isUserFixed()) {
                 isConnectedToVia = true;
                 break;
               }

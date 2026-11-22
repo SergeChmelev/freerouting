@@ -62,8 +62,8 @@ ShapeSearchTree* SearchTreeManager::getUncompensatedTree() {
   ShapeSearchTree* tree =
       new ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), board, 0);
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
-  for (Item* item = dynamic_cast<Item*>(board->itemList->readObject(it)); item != nullptr;
-       item = dynamic_cast<Item*>(board->itemList->readObject(it))) {
+  for (Item* item = jrt::fast_cast<Item>(board->itemList->readObject(it)); item != nullptr;
+       item = jrt::fast_cast<Item>(board->itemList->readObject(it))) {
     tree->insert(static_cast<ShapeTree_Storable*>(item));
   }
   compensatedSearchTrees->add(tree);
@@ -152,7 +152,7 @@ ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
       this->board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(this->board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
@@ -175,7 +175,7 @@ void SearchTreeManager::reinsertTreeItems() {
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
       this->board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(this->board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
@@ -192,7 +192,7 @@ void SearchTreeManager::removeAllBoardItems() {
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
       this->board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(this->board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
@@ -208,7 +208,7 @@ void SearchTreeManager::insertAllBoardItems() {
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
       this->board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(this->board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }

@@ -21,8 +21,8 @@ CompleteFreeSpaceExpansionRoom::CompleteFreeSpaceExpansionRoom(TileShape* shape,
 
 int32_t CompleteFreeSpaceExpansionRoom::compareTo(jrt::Object* other) {
   int32_t result;
-  if (dynamic_cast<FreeSpaceExpansionRoom*>(other) != nullptr) {
-    auto* otherRoom = dynamic_cast<CompleteFreeSpaceExpansionRoom*>(other);
+  if (jrt::fast_cast<FreeSpaceExpansionRoom>(other) != nullptr) {
+    auto* otherRoom = jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(other);
     if (otherRoom == nullptr) {
       // Java: the cast throws a ClassCastException here (other is an incomplete room).
       throw jrt::ClassCastException("FreeSpaceExpansionRoom is no CompleteFreeSpaceExpansionRoom");
@@ -40,7 +40,7 @@ void CompleteFreeSpaceExpansionRoom::addTargetDoor(TargetItemExpansionDoor* door
 
 bool CompleteFreeSpaceExpansionRoom::removeDoor(ExpandableObject* door) {
   bool result;
-  if (auto* targetDoor = dynamic_cast<TargetItemExpansionDoor*>(door)) {
+  if (auto* targetDoor = jrt::fast_cast<TargetItemExpansionDoor>(door)) {
     result = this->targetDoors->remove(targetDoor);
   } else {
     result = FreeSpaceExpansionRoom::removeDoor(door);
@@ -52,12 +52,12 @@ void CompleteFreeSpaceExpansionRoom::calculateTargetDoors(ShapeTree_TreeEntry* o
                                                           ShapeSearchTree* autorouteSearchTree) {
   this->setNetDependent();
 
-  if (auto* currentObject = dynamic_cast<Connectable*>(ownNetObject->object)) {
+  if (auto* currentObject = jrt::fast_cast<Connectable>(ownNetObject->object)) {
     if (currentObject->containsNet(netNumber)) {
       TileShape* currentConnectionShape =
           currentObject->getTraceConnectionShape(autorouteSearchTree, ownNetObject->shapeIndexInObject);
       if (currentConnectionShape != nullptr && this->getShape()->intersects(currentConnectionShape)) {
-        Item* currentItem = dynamic_cast<Item*>(currentObject);
+        Item* currentItem = jrt::fast_cast<Item>(currentObject);
         TargetItemExpansionDoor* newTargetDoor =
             new TargetItemExpansionDoor(currentItem, ownNetObject->shapeIndexInObject, this, autorouteSearchTree);
         this->addTargetDoor(newTargetDoor);
@@ -84,7 +84,7 @@ bool CompleteFreeSpaceExpansionRoom::validate(AutorouteEngine* autorouteEngine) 
     if (currentEntry->object == static_cast<ShapeTree_Storable*>(this)) {
       continue;
     }
-    SearchTreeObject* currentObject = dynamic_cast<SearchTreeObject*>(currentEntry->object);
+    SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentEntry->object);
     if (!currentObject->isTraceObstacle(autorouteEngine->getNetNumber(), currentEntry->shapeIndexInObject)) {
       continue;
     }

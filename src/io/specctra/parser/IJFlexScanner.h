@@ -9,11 +9,11 @@ namespace fr::dsn {
 // PORT NOTE: scanner tokens. Java's IJFlexScanner.nextToken() returns Object: a Keyword instance,
 // a java.lang.String, an Integer, a Double or (exact-number mode) a BigDecimal, or null at EOF.
 // jrt has no boxed types, so the token boxes below stand in for them:
-//   token instanceof String s       -> auto* s = dynamic_cast<JString*>(token); s->value
-//   token instanceof Integer i      -> auto* i = dynamic_cast<JInteger*>(token); i->value
-//   token instanceof Double d       -> auto* d = dynamic_cast<JDouble*>(token); d->value
-//   token instanceof Number n       -> auto* n = dynamic_cast<JNumber*>(token); n->doubleValue()
-//   token instanceof BigDecimal b   -> auto* b = dynamic_cast<JBigDecimal*>(token); b->value
+//   token instanceof String s       -> auto* s = jrt::fast_cast<JString>(token); s->value
+//   token instanceof Integer i      -> auto* i = jrt::fast_cast<JInteger>(token); i->value
+//   token instanceof Double d       -> auto* d = jrt::fast_cast<JDouble>(token); d->value
+//   token instanceof Number n       -> auto* n = jrt::fast_cast<JNumber>(token); n->doubleValue()
+//   token instanceof BigDecimal b   -> auto* b = jrt::fast_cast<JBigDecimal>(token); b->value
 //   token == Keyword.X              -> token == Keyword::X()   (identity, as in Java)
 // "..." + token uses jrt::str(token), which calls the toString() overrides below (Java format).
 // -------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ class JString final : public virtual jrt::Object {
   std::string value;
 
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<JString*>(o);
+    auto* other = jrt::fast_cast<JString>(o);
     return other != nullptr && other->value == value;
   }
   int32_t hashCode() override { return jrt::stringHashCode(value); }
@@ -50,7 +50,7 @@ class JInteger final : public JNumber {
   int64_t longValue() override { return value; }
   double doubleValue() override { return static_cast<double>(value); }
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<JInteger*>(o);
+    auto* other = jrt::fast_cast<JInteger>(o);
     return other != nullptr && other->value == value;
   }
   int32_t hashCode() override { return value; }
@@ -67,7 +67,7 @@ class JDouble final : public JNumber {
   int64_t longValue() override { return jrt::d2l(value); }
   double doubleValue() override { return value; }
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<JDouble*>(o);
+    auto* other = jrt::fast_cast<JDouble>(o);
     return other != nullptr &&
            jrt::Double::doubleToLongBits(other->value) == jrt::Double::doubleToLongBits(value);
   }
@@ -87,7 +87,7 @@ class JBigDecimal final : public JNumber {
   int64_t longValue() override { return jrt::d2l(value.doubleValue()); }
   double doubleValue() override { return value.doubleValue(); }
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<JBigDecimal*>(o);
+    auto* other = jrt::fast_cast<JBigDecimal>(o);
     return other != nullptr && other->value.scale() == value.scale() &&
            other->value.unscaledValue().equals(value.unscaledValue());
   }

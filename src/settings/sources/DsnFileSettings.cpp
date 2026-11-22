@@ -13,7 +13,7 @@ DsnFileSettings::DsnFileSettings(std::istream& inputStream, const std::string& f
   io::BoardReadResult* result = dsn::DsnReader::readMetadata(inputStream);
   RouterSettings* extracted = nullptr;
   int32_t layerCount = 0;
-  if (auto* s = dynamic_cast<io::BoardReadResult_Success*>(result);
+  if (auto* s = jrt::fast_cast<io::BoardReadResult_Success>(result);
       s != nullptr && s->metadata() != nullptr) {
     extracted = s->metadata()->routerSettings();  // null when no (autorouteSettings ...) block
     layerCount = s->metadata()->layerCount();

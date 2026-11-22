@@ -26,8 +26,8 @@ ClearanceViolation_Category ClearanceViolation::getCategory() {
   if (!isUnfixable()) {
     return ClearanceViolation_Category::POTENTIALLY_FIXABLE;
   }
-  bool firstIsPin = dynamic_cast<Pin*>(this->firstItem) != nullptr;
-  bool secondIsPin = dynamic_cast<Pin*>(this->secondItem) != nullptr;
+  bool firstIsPin = jrt::fast_cast<Pin>(this->firstItem) != nullptr;
+  bool secondIsPin = jrt::fast_cast<Pin>(this->secondItem) != nullptr;
   if (firstIsPin && secondIsPin) {
     return ClearanceViolation_Category::PIN_TO_PIN;
   }
@@ -36,10 +36,10 @@ ClearanceViolation_Category ClearanceViolation::getCategory() {
   if ((firstIsPin && secondIsOutlineOrKeepout) || (secondIsPin && firstIsOutlineOrKeepout)) {
     return ClearanceViolation_Category::PIN_TO_OUTLINE_OR_KEEPOUT;
   }
-  bool firstIsRoute = dynamic_cast<Trace*>(this->firstItem) != nullptr ||
-                      dynamic_cast<Via*>(this->firstItem) != nullptr;
-  bool secondIsRoute = dynamic_cast<Trace*>(this->secondItem) != nullptr ||
-                       dynamic_cast<Via*>(this->secondItem) != nullptr;
+  bool firstIsRoute = jrt::fast_cast<Trace>(this->firstItem) != nullptr ||
+                      jrt::fast_cast<Via>(this->firstItem) != nullptr;
+  bool secondIsRoute = jrt::fast_cast<Trace>(this->secondItem) != nullptr ||
+                       jrt::fast_cast<Via>(this->secondItem) != nullptr;
   if (firstIsRoute || secondIsRoute) {
     return ClearanceViolation_Category::FIXED_ROUTE;
   }
@@ -47,9 +47,9 @@ ClearanceViolation_Category ClearanceViolation::getCategory() {
 }
 
 bool ClearanceViolation::isOutlineOrKeepout(Item* item) {
-  return dynamic_cast<BoardOutline*>(item) != nullptr ||
-         dynamic_cast<ComponentOutline*>(item) != nullptr ||
-         dynamic_cast<ObstacleArea*>(item) != nullptr;
+  return jrt::fast_cast<BoardOutline>(item) != nullptr ||
+         jrt::fast_cast<ComponentOutline>(item) != nullptr ||
+         jrt::fast_cast<ObstacleArea>(item) != nullptr;
 }
 
 jrt::List<ClearanceViolation*>* ClearanceViolation::aggregateSortedBySeverity(

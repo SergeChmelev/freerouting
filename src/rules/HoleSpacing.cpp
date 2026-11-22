@@ -82,7 +82,7 @@ void HoleSpacing::visit(BasicBoard* board, FloatPoint* center, double radius, in
   board->searchTreeManager->getDefaultTree()->overlappingTreeEntries(box, -1, entries);
   jrt::Set<DrillItem*>* reported = nullptr;
   for (ShapeTree_TreeEntry* entry : *entries) {
-    auto* other = dynamic_cast<DrillItem*>(entry->object);
+    auto* other = jrt::fast_cast<DrillItem>(entry->object);
     if (other == nullptr || static_cast<Item*>(other) == self || other->lastLayer() < fromLayer ||
         other->firstLayer() > toLayer) {
       continue;

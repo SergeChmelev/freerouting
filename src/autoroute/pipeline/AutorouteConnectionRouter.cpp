@@ -32,7 +32,7 @@ namespace fr {
 AutorouteConnectionRouter::AutorouteConnectionRouter(BatchAutorouter* router) : router(router) {}
 
 void AutorouteConnectionRouter::addSharablePads(Item* item, int32_t netNo, jrt::Set<Item*>* destinations) {
-  Pin* pin = dynamic_cast<Pin*>(item);
+  Pin* pin = jrt::fast_cast<Pin>(item);
   if (pin == nullptr || pin->firstLayer() != pin->lastLayer() || router->settings->autorouter == nullptr ||
       !(router->settings->autorouter->planeAsPriority == std::optional<bool>(true))) {
     return;
@@ -50,7 +50,7 @@ void AutorouteConnectionRouter::addSharablePads(Item* item, int32_t netNo, jrt::
     inPlane->addAll(plane->getConnectedSet(netNo));
   }
   for (Item* other : *inPlane) {
-    Pin* otherPin = dynamic_cast<Pin*>(other);
+    Pin* otherPin = jrt::fast_cast<Pin>(other);
     if (otherPin != nullptr && otherPin != pin && otherPin->isOnLayer(pin->firstLayer()) &&
         boxGap(box, otherPin->boundingBox()) <= maxGap) {
       destinations->add(otherPin);
@@ -61,7 +61,7 @@ void AutorouteConnectionRouter::addSharablePads(Item* item, int32_t netNo, jrt::
 jrt::Set<Item*>* AutorouteConnectionRouter::withoutFracturedAreas(jrt::Set<Item*>* items) {
   jrt::Set<Item*>* filtered = new jrt::TreeSet<Item*>();
   for (Item* it : *items) {
-    ConductionArea* ca = dynamic_cast<ConductionArea*>(it);
+    ConductionArea* ca = jrt::fast_cast<ConductionArea>(it);
     if (!(ca != nullptr && ca->isFractured())) {
       filtered->add(it);
     }
@@ -72,7 +72,7 @@ jrt::Set<Item*>* AutorouteConnectionRouter::withoutFracturedAreas(jrt::Set<Item*
 jrt::Set<Item*>* AutorouteConnectionRouter::planeEscapeObstacles(Item* item, int32_t netNo,
                                                                  jrt::Set<Item*>* connectedSet,
                                                                  jrt::Set<Item*>* destinations) {
-  Pin* pin = dynamic_cast<Pin*>(item);
+  Pin* pin = jrt::fast_cast<Pin>(item);
   if (pin == nullptr || router->settings->autorouter == nullptr ||
       !(router->settings->autorouter->planeAsPriority == std::optional<bool>(true))) {
     return jrt::Collections::emptySet<Item*>();
@@ -136,7 +136,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::route(Item* item, int32_t rou
       if (planeOnly) {
         jrt::Set<Item*>* planes = router->board->powerLayerPlanes(unconnectedSet);
         planes->removeIf([](Item* p) {
-          ConductionArea* ca = dynamic_cast<ConductionArea*>(p);
+          ConductionArea* ca = jrt::fast_cast<ConductionArea>(p);
           return ca != nullptr && ca->isFractured();
         });
         if (!planes->isEmpty()) {
@@ -346,7 +346,7 @@ AutorouteAttemptResult* AutorouteConnectionRouter::applyStrictDrcAfterRoute(int3
                         ", reason=" + rejection->details,
                     "", nullptr);
     ClearanceBaseline* baseline = router->board->clearanceBaseline;
-    router->board = dynamic_cast<RoutingBoard*>(BasicBoard::deserialize(boardSnapshotBeforeRoute));
+    router->board = jrt::fast_cast<RoutingBoard>(BasicBoard::deserialize(boardSnapshotBeforeRoute));
     router->board->clearanceBaseline = baseline;
   }
   return rejection;

@@ -74,7 +74,7 @@ bool RoutingBoard_PinNetAssignment::equals(jrt::Object* o) {
   if (this == o) {
     return true;
   }
-  auto* other = dynamic_cast<RoutingBoard_PinNetAssignment*>(o);
+  auto* other = jrt::fast_cast<RoutingBoard_PinNetAssignment>(o);
   if (other == nullptr) {
     return false;
   }
@@ -136,7 +136,7 @@ void RoutingBoard::additionalUpdateAfterChange(Item* item) {
     jrt::Collection<SearchTreeObject*>* overlaps =
         this->autorouteEngine->autorouteSearchTree->overlappingObjects(currentShape, currentLayer);
     for (SearchTreeObject* currentObject : *overlaps) {
-      if (auto* room = dynamic_cast<CompleteFreeSpaceExpansionRoom*>(currentObject)) {
+      if (auto* room = jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(currentObject)) {
         this->autorouteEngine->removeCompleteExpansionRoom(room);
       }
     }
@@ -369,8 +369,8 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
   if (fromCorner->equals(toCorner)) {
     return toCorner;
   }
-  if (!(dynamic_cast<IntPoint*>(fromCorner) != nullptr &&
-        dynamic_cast<IntPoint*>(toCorner) != nullptr)) {
+  if (!(jrt::fast_cast<IntPoint>(fromCorner) != nullptr &&
+        jrt::fast_cast<IntPoint>(toCorner) != nullptr)) {
     FRLogger::warn("RoutingBoard.insert_forced_trace_segment: only implemented for IntPoints");
     return fromCorner;
   }
@@ -388,11 +388,11 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
                     ", idMax=" + jrt::str(communication->idGenerator->maxGeneratedId()));
   }
   if (pickedItems->size() == 1) {
-    Trace* currentPickedTrace = dynamic_cast<Trace*>(pickedItems->iterator()->next());
+    Trace* currentPickedTrace = jrt::fast_cast<Trace>(pickedItems->iterator()->next());
     if (currentPickedTrace->netsEqual(netNumbers) &&
         currentPickedTrace->getHalfWidth() == halfWidth &&
         currentPickedTrace->clearanceClassIndex() == clearanceClassIndex &&
-        (dynamic_cast<PolylineTrace*>(currentPickedTrace) != nullptr)) {
+        (jrt::fast_cast<PolylineTrace>(currentPickedTrace) != nullptr)) {
       // can combine with the picked trace
       pickedTrace = currentPickedTrace;
     }
@@ -416,7 +416,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
   if (pickedTrace == nullptr) {
     combinedPolyline = newPolyline;
   } else {
-    PolylineTrace* combineTrace = dynamic_cast<PolylineTrace*>(pickedTrace);
+    PolylineTrace* combineTrace = jrt::fast_cast<PolylineTrace>(pickedTrace);
     combinedPolyline = newPolyline->combine(combineTrace->polyline());
   }
   if (combinedPolyline->lines->length < 3) {
@@ -503,7 +503,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
       newPolyline = newPolyline->shorten(
           newPolyline->lines->length - (traceShapes->length - lastShapeNo - 1), sampleWidth);
       Point* currentLastCorner = newPolyline->lastCorner();
-      if (dynamic_cast<IntPoint*>(currentLastCorner) == nullptr) {
+      if (jrt::fast_cast<IntPoint>(currentLastCorner) == nullptr) {
         FRLogger::trace("RoutingBoard.insert_forced_trace_polyline: IntPoint expected");
         if (traceOn && netNumbers != nullptr && netNumbers->length > 0 &&
             (*netNumbers)[0] == 94) {
@@ -519,7 +519,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
       if (pickedTrace == nullptr) {
         combinedPolyline = newPolyline;
       } else {
-        PolylineTrace* combineTrace = dynamic_cast<PolylineTrace*>(pickedTrace);
+        PolylineTrace* combineTrace = jrt::fast_cast<PolylineTrace>(pickedTrace);
         combinedPolyline = newPolyline->combine(combineTrace->polyline());
       }
       if (combinedPolyline->lines->length < 3) {
@@ -623,7 +623,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
       newTrace = nullptr;
       if (!currentPickedItems->isEmpty()) {
         Item* foundTrace = currentPickedItems->iterator()->next();
-        if (auto* trace = dynamic_cast<PolylineTrace*>(foundTrace)) {
+        if (auto* trace = jrt::fast_cast<PolylineTrace>(foundTrace)) {
           newTrace = trace;
         }
       }
@@ -693,7 +693,7 @@ void RoutingBoard::clearTransientAutorouteState() {
 AutorouteAttemptResult* RoutingBoard::autoroute(Item* item, RouterSettings* routerSettings,
                                                 int32_t viaCosts, Stoppable* stoppableThread,
                                                 TimeLimit* timeLimit) {
-  if (dynamic_cast<Connectable*>(item) == nullptr || item->netCount() == 0) {
+  if (jrt::fast_cast<Connectable>(item) == nullptr || item->netCount() == 0) {
     return new AutorouteAttemptResult(AutorouteAttemptState::NO_CONNECTIONS,
                                       "The item '" + jrt::str(item) + "' is not connectable.");
   }
@@ -917,7 +917,7 @@ jrt::Set<Item*>* RoutingBoard::planeEscapeObstacles(Pin* pin, int32_t netNo,
   jrt::Set<Item*>* open = new jrt::HashSet<Item*>(connectedSet);
   open->addAll(destinations);
   for (Item* destination : *destinations) {
-    if (auto* sharedPin = dynamic_cast<Pin*>(destination)) {
+    if (auto* sharedPin = jrt::fast_cast<Pin>(destination)) {
       open->addAll(sharedPin->getConnectedSet(netNo, true));
     }
   }
@@ -928,7 +928,7 @@ jrt::Set<Item*>* RoutingBoard::planeEscapeObstacles(Pin* pin, int32_t netNo,
   }
   jrt::Set<Item*>* obstacles = new jrt::HashSet<Item*>();
   for (Item* other : *getItems()) {
-    if (other->containsNet(netNo) && dynamic_cast<ConductionArea*>(other) == nullptr &&
+    if (other->containsNet(netNo) && jrt::fast_cast<ConductionArea>(other) == nullptr &&
         !open->contains(other)) {
       obstacles->add(other);
     }
@@ -937,7 +937,7 @@ jrt::Set<Item*>* RoutingBoard::planeEscapeObstacles(Pin* pin, int32_t netNo,
 }
 
 bool RoutingBoard::isPlaneOnPowerLayer(Item* item) {
-  return dynamic_cast<ConductionArea*>(item) != nullptr &&
+  return jrt::fast_cast<ConductionArea>(item) != nullptr &&
          !(*this->layerStructure->layers)[item->firstLayer()]->isSignal;
 }
 
@@ -976,7 +976,7 @@ ViaRule* RoutingBoard::fanoutFallbackViaRule(ViaRule* netRule, ViaRule* boardRul
 
 bool RoutingBoard::connectToTrace(IntPoint* fromPoint, Trace* toTrace, int32_t penHalfWidth,
                                   int32_t clearanceClassIndex) {
-  auto* polylineTrace = dynamic_cast<PolylineTrace*>(toTrace);
+  auto* polylineTrace = jrt::fast_cast<PolylineTrace>(toTrace);
   if (polylineTrace == nullptr) {
     return false;  // not yet implemented
   }
@@ -1028,7 +1028,7 @@ bool RoutingBoard::connectToTrace(IntPoint* fromPoint, Trace* toTrace, int32_t p
 bool RoutingBoard::containsTraceTails(jrt::Collection<Item*>* items,
                                       jrt::Array<int32_t>* exceptNetNoArr) {
   for (Item* currentObject : *items) {
-    if (auto* currentTrace = dynamic_cast<Trace*>(currentObject)) {
+    if (auto* currentTrace = jrt::fast_cast<Trace>(currentObject)) {
       if (!currentTrace->netsEqual(exceptNetNoArr)) {
         if (currentTrace->isTail()) {
           return true;
@@ -1055,12 +1055,12 @@ bool RoutingBoard::removeTraceTails(int32_t netNumber,
     }
     if (currentItem->isTail()) {
       // A dangling endpoint is a DRC finding, not permission to delete an entire junction.
-      if (auto* trace = dynamic_cast<Trace*>(currentItem)) {
+      if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
         if (trace->hasInteriorContacts()) {
           continue;
         }
       }
-      if (dynamic_cast<Via*>(currentItem) != nullptr) {
+      if (jrt::fast_cast<Via>(currentItem) != nullptr) {
         if (stopConnectionOption == Item_StopConnectionOption::VIA) {
           continue;
         }
@@ -1095,7 +1095,7 @@ bool RoutingBoard::removeTraceTails(int32_t netNumber,
 void RoutingBoard::clearAllItemTemporaryAutorouteData() {
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = this->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
@@ -1109,11 +1109,11 @@ void RoutingBoard::changePlaneAsObstacle(bool value) {
   // Change the isObstacle property of all conduction areas of the board.
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* currentConductionArea = dynamic_cast<ConductionArea*>(currentItem)) {
+    if (auto* currentConductionArea = jrt::fast_cast<ConductionArea>(currentItem)) {
       Layer* currentLayer = (*layerStructure->layers)[currentConductionArea->getLayer()];
       if (currentLayer->isSignal && currentConductionArea->getIsObstacle() != value) {
         currentConductionArea->setIsObstacle(value);
@@ -1128,11 +1128,11 @@ void RoutingBoard::changePlaneAsObstacle(bool value) {
   if (somethingChanged) {
     jrt::Iterator<UndoableObjects_UndoableObjectNode*>* clearIt = itemList->startReadObject();
     for (;;) {
-      Item* currentItem = dynamic_cast<Item*>(itemList->readObject(clearIt));
+      Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(clearIt));
       if (currentItem == nullptr) {
         break;
       }
-      if (auto* ca = dynamic_cast<ConductionArea*>(currentItem)) {
+      if (auto* ca = jrt::fast_cast<ConductionArea>(currentItem)) {
         ca->clearDerivedData();
       }
     }
@@ -1153,12 +1153,12 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
       if (currentObject == nullptr) {
         break;
       }
-      Item* currentItem = dynamic_cast<Item*>(currentObject);
+      Item* currentItem = jrt::fast_cast<Item>(currentObject);
       if (currentItem->netNumbers->length <= 1 ||
           FixedState_isFix(currentItem->getFixedState())) {
         continue;
       }
-      if (dynamic_cast<Via*>(currentObject) != nullptr) {
+      if (jrt::fast_cast<Via>(currentObject) != nullptr) {
         jrt::Collection<Item*>* contacts = currentItem->getNormalContacts();
         // Java iterates the array captured at loop start (removeFromNet replaces the field).
         jrt::Array<int32_t>* netNumbersAtStart = currentItem->netNumbers;
@@ -1175,14 +1175,14 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
           }
         }
 
-      } else if (auto* currentTrace = dynamic_cast<Trace*>(currentObject)) {
+      } else if (auto* currentTrace = jrt::fast_cast<Trace>(currentObject)) {
         jrt::Collection<Item*>* contacts = currentTrace->getStartContacts();
         for (int32_t i = 0; i < 2; i++) {
           jrt::Array<int32_t>* netNumbersAtStart = currentItem->netNumbers;
           for (int32_t currentNetNumber : *netNumbersAtStart) {
             bool pinFound = false;
             for (Item* currentContact : *contacts) {
-              if (dynamic_cast<Pin*>(currentContact) != nullptr) {
+              if (jrt::fast_cast<Pin>(currentContact) != nullptr) {
                 pinFound = true;
                 if (!currentContact->containsNet(currentNetNumber)) {
                   currentItem->removeFromNet(currentNetNumber);
@@ -1193,7 +1193,7 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
             }
             if (!pinFound) {  // at tie pins traces may have different nets
               for (Item* currentContact : *contacts) {
-                if (dynamic_cast<Pin*>(currentContact) == nullptr &&
+                if (jrt::fast_cast<Pin>(currentContact) == nullptr &&
                     !currentContact->containsNet(currentNetNumber)) {
                   currentItem->removeFromNet(currentNetNumber);
                   somethingChanged = true;

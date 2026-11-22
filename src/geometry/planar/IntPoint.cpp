@@ -36,7 +36,7 @@ bool IntPoint::equals(jrt::Object* other) {
   if (typeid(*this) != typeid(*other)) {
     return false;
   }
-  IntPoint* otherPoint = dynamic_cast<IntPoint*>(other);
+  IntPoint* otherPoint = jrt::fast_cast<IntPoint>(other);
   return x == otherPoint->x && y == otherPoint->y;
 }
 

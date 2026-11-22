@@ -48,10 +48,10 @@ ForcedPadRouter_CheckDrillResult ForcedViaInserter::checkLayer(
   if (viaRadius <= 0) {
     return ForcedPadRouter_CheckDrillResult::DRILLABLE;
   }
-  if (dynamic_cast<IntPoint*>(location) == nullptr) {
+  if (jrt::fast_cast<IntPoint>(location) == nullptr) {
     return ForcedPadRouter_CheckDrillResult::NOT_DRILLABLE;
   }
-  IntPoint* intLocation = dynamic_cast<IntPoint*>(location);
+  IntPoint* intLocation = jrt::fast_cast<IntPoint>(location);
   ConvexShape* viaShape = new Circle(intLocation, jrt::d2i(jrt::Math::ceil(viaRadius)));
 
   double checkRadius = viaRadius +
@@ -145,7 +145,7 @@ bool ForcedViaInserter::check(ViaInfo* viaInfo, Point* location, jrt::Array<int3
       currentClearanceClassIndex = 0;
       holeLayer = true;
     } else {
-      currentPadShape = dynamic_cast<Shape*>(currentPadShape->translateBy(translateVector));
+      currentPadShape = jrt::fast_cast<Shape>(currentPadShape->translateBy(translateVector));
     }
     TileShape* tileShape;
     if (board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
@@ -182,7 +182,7 @@ bool ForcedViaInserter::check(ViaInfo* viaInfo, Point* location, jrt::Array<int3
       }
     }
 
-    IntPoint* tracePoint = dynamic_cast<IntPoint*>(location);
+    IntPoint* tracePoint = jrt::fast_cast<IntPoint>(location);
     if (tracePenHalfwidthArr != nullptr && i < tracePenHalfwidthArr->length &&
         (*tracePenHalfwidthArr)[i] > 0 && tracePoint != nullptr) {
       Circle* startTraceCircle = new Circle(tracePoint, (*tracePenHalfwidthArr)[i]);
@@ -241,11 +241,11 @@ bool ForcedViaInserter::insert(ViaInfo* viaInfo, Point* location, jrt::Array<int
       currentClearanceClassIndex = 0;
       holeLayer = true;
     } else {
-      currentPadShape = dynamic_cast<Shape*>(currentPadShape->translateBy(translateVector));
+      currentPadShape = jrt::fast_cast<Shape>(currentPadShape->translateBy(translateVector));
     }
     TileShape* tileShape;
     Circle* startTraceCircle;
-    IntPoint* point = dynamic_cast<IntPoint*>(location);
+    IntPoint* point = jrt::fast_cast<IntPoint>(location);
     if ((*tracePenHalfwidthArr)[i] > 0 && point != nullptr) {
       startTraceCircle = new Circle(point, (*tracePenHalfwidthArr)[i]);
     } else {
@@ -305,14 +305,14 @@ bool ForcedViaInserter::insert(ViaInfo* viaInfo, Point* location, jrt::Array<int
 bool ForcedViaInserter::holeInSmdPad(RoutingBoard* board, Padstack* viaPadstack, Point* location,
                                      jrt::Array<int32_t>* netNumbers) {
   double drillRadius = viaPadstack->getDrillRadius();
-  IntPoint* center = dynamic_cast<IntPoint*>(location);
+  IntPoint* center = jrt::fast_cast<IntPoint>(location);
   if (drillRadius <= 0 || center == nullptr) {
     return false;
   }
   Circle* hole = new Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius)));
   for (int32_t layer = viaPadstack->fromLayer(); layer <= viaPadstack->toLayer(); layer++) {
     for (SearchTreeObject* found : *board->overlappingObjects(hole, layer)) {
-      auto* pin = dynamic_cast<Pin*>(found);
+      auto* pin = jrt::fast_cast<Pin>(found);
       if (pin != nullptr && pin->drillAllowed() && !pin->viaMayAttach() &&
           pin->sharesNetNo(netNumbers)) {
         Shape* pad = pin->getShapeOnLayer(layer);
@@ -333,15 +333,15 @@ TileShape* ForcedViaInserter::compensatePadShape(TileShape* shape, int32_t clear
     return shape;
   }
   // Preserve four-sided geometry: side indices and orthogonal shoving depend on IntBox.
-  auto* box = dynamic_cast<IntBox*>(shape);
+  auto* box = jrt::fast_cast<IntBox>(shape);
   return box != nullptr ? static_cast<TileShape*>(box->offset(compensation))
-                        : dynamic_cast<TileShape*>(shape->enlarge(compensation));
+                        : jrt::fast_cast<TileShape>(shape->enlarge(compensation));
 }
 
 Shape* ForcedViaInserter::holeCheckShape(Padstack* padstack, Point* location,
                                          RoutingBoard* board) {
   int32_t holeClearance = board->rules->getHoleClearance();
-  IntPoint* center = dynamic_cast<IntPoint*>(location);
+  IntPoint* center = jrt::fast_cast<IntPoint>(location);
   if (holeClearance <= 0 || center == nullptr) {
     return nullptr;
   }
@@ -439,7 +439,7 @@ ShapeEntrySide* ForcedViaInserter::calculateFromSide(FloatPoint* viaLocation, Ti
 bool ForcedViaInserter::crowdsOwnPad(RoutingBoard* board, Padstack* viaPadstack,
                                      int32_t viaClearanceClass, Point* location,
                                      int32_t netNumber) {
-  IntPoint* center = dynamic_cast<IntPoint*>(location);
+  IntPoint* center = jrt::fast_cast<IntPoint>(location);
   if (center == nullptr) {
     return false;
   }
@@ -455,7 +455,7 @@ bool ForcedViaInserter::crowdsOwnPad(RoutingBoard* board, Padstack* viaPadstack,
     }
     for (SearchTreeObject* found :
          *board->overlappingObjects(new Circle(center, radius + reach), layer)) {
-      auto* pin = dynamic_cast<Pin*>(found);
+      auto* pin = jrt::fast_cast<Pin>(found);
       if (pin != nullptr && pin->containsNet(netNumber) && !pin->viaMayAttach()) {
         Shape* pad = pin->getShapeOnLayer(layer);
         if (pad != nullptr) {

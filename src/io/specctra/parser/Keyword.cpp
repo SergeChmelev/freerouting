@@ -610,7 +610,7 @@ bool Keyword::matches(jrt::Object* token, Keyword* keyword) {
   if (token == keyword) {
     return true;
   }
-  if (auto* str = dynamic_cast<JString*>(token); str != nullptr && keyword != nullptr) {
+  if (auto* str = jrt::fast_cast<JString>(token); str != nullptr && keyword != nullptr) {
     return jrt::equalsIgnoreCase(str->value, keyword->getName());
   }
   return false;

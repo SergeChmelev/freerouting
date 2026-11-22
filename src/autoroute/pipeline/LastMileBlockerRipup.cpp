@@ -32,7 +32,7 @@ int32_t LastMileBlockerRipup::ripBlockers(RoutingBoard* board, RipupMemory* memo
     IntBox* corridor = LastMileBlockerRipup::corridor(airline->fromCorner, airline->toCorner);
     jrt::Set<SearchTreeObject*>* overlapping = board->overlappingObjects(corridor, -1);
     for (SearchTreeObject* object : *overlapping) {
-      auto* item = dynamic_cast<Item*>(object);
+      auto* item = jrt::fast_cast<Item>(object);
       if (item == nullptr) {
         continue;
       }
@@ -60,7 +60,7 @@ bool LastMileBlockerRipup::isRemovableBlocker(Item* item, int32_t airlineNetNumb
 }
 
 bool LastMileBlockerRipup::isRemovableBlocker(Item* item, int32_t airlineNetNumber, RipupMemory* memory) {
-  if (!(dynamic_cast<Trace*>(item) != nullptr) && !(dynamic_cast<Via*>(item) != nullptr)) {
+  if (!(jrt::fast_cast<Trace>(item) != nullptr) && !(jrt::fast_cast<Via>(item) != nullptr)) {
     return false;
   }
   if (item->isDeletionForbidden() || item->isUserFixed()) {

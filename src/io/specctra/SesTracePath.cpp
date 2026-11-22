@@ -131,7 +131,7 @@ fr::FloatPoint* SesTracePath::snappedEndpoint(fr::PolylineTrace* wire, bool star
   jrt::Set<fr::Item*>* contacts = startSide ? wire->getStartContacts() : wire->getEndContacts();
   int32_t layer = wire->getLayer();
   for (fr::Item* contact : *contacts) {
-    auto* drill = dynamic_cast<fr::DrillItem*>(contact);
+    auto* drill = jrt::fast_cast<fr::DrillItem>(contact);
     if (drill == nullptr) {
       continue;
     }

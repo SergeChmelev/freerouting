@@ -75,7 +75,7 @@ void Wiring::writeScope(WriteScopeParameter* scopeParameter) {
     if (currentObject == nullptr) {
       break;
     }
-    auto* currentArea = dynamic_cast<fr::ConductionArea*>(currentObject);
+    auto* currentArea = jrt::fast_cast<fr::ConductionArea>(currentObject);
     if (currentArea == nullptr) {
       continue;
     }
@@ -119,7 +119,7 @@ void Wiring::writeViaScope(WriteScopeParameter* scopeParameter, fr::Via* via) {
 }
 
 void Wiring::writeWireScope(WriteScopeParameter* scopeParameter, fr::Trace* wire) {
-  auto* currentWire = dynamic_cast<fr::PolylineTrace*>(wire);
+  auto* currentWire = jrt::fast_cast<fr::PolylineTrace>(wire);
   if (currentWire == nullptr) {
     FRLogger::warn("Wiring.write_wire_scope: trace type not yet implemented");
     return;
@@ -177,7 +177,7 @@ void Wiring::writeConductionAreaScope(WriteScopeParameter* scopeParameter,
   Layer* conductionLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
-  if (auto* shape = dynamic_cast<fr::Shape*>(currentArea)) {
+  if (auto* shape = jrt::fast_cast<fr::Shape>(currentArea)) {
     boundaryShape = shape;
     holes = new jrt::Array<fr::Shape*>(0);
   } else {
@@ -246,7 +246,7 @@ bool Wiring::viaExists(fr::IntPoint* location, fr::Padstack* padstack,
   int32_t toLayer = padstack->toLayer();
   jrt::Collection<fr::Item*>* pickedItems = board->pickItems(location, padstack->fromLayer(), filter);
   for (fr::Item* currentItem : *pickedItems) {
-    auto* currentVia = dynamic_cast<fr::Via*>(currentItem);
+    auto* currentVia = jrt::fast_cast<fr::Via>(currentItem);
     if (currentVia->netsEqual(netNumbers) && currentVia->getCenter()->equals(location) &&
         currentVia->firstLayer() == fromLayer && currentVia->lastLayer() == toLayer) {
       return true;
@@ -288,7 +288,7 @@ Net_Id* Wiring::readNetId(IJFlexScanner* scanner) {
     scanner->setScopeIdentifier(netName);
 
     jrt::Object* nextToken = scanner->nextToken();
-    if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+    if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
       subnetNumber = integer->value;
       nextToken = scanner->nextToken();
     }
@@ -387,7 +387,7 @@ bool Wiring::isConnected(fr::Trace* wire, fr::DrillItem* pad) {
 
 fr::DrillItem* Wiring::enclosingPad(fr::BasicBoard* board, fr::Trace* wire, fr::Point* end) {
   for (fr::Item* item : *board->pickItems(end, wire->getLayer(), nullptr)) {
-    auto* pad = dynamic_cast<fr::DrillItem*>(item);
+    auto* pad = jrt::fast_cast<fr::DrillItem>(item);
     if (pad != nullptr && pad->sharesNet(wire) && pad->containsCopper(end, wire->getLayer())) {
       return pad;
     }
@@ -519,7 +519,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
         Shape::transformAreaToBoard(area, scopeParameter->coordinateTransform);
     result = board->insertConductionArea(conductionArea, layerIndex, netNumbers,
                                          clearanceClassIndex, false, fixed);
-  } else if (dynamic_cast<PolygonPath*>(path) != nullptr) {
+  } else if (jrt::fast_cast<PolygonPath>(path) != nullptr) {
     if (clearanceClassIndex < 0) {
       clearanceClassIndex = netClass->defaultItemClearanceClasses->get(
           fr::DefaultItemClearanceClasses_ItemClass::TRACE);
@@ -571,7 +571,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
       FRLogger::debug(msg);
       scopeParameter->warnings->add(msg);
     }
-  } else if (dynamic_cast<PolylinePath*>(path) != nullptr) {
+  } else if (jrt::fast_cast<PolylinePath>(path) != nullptr) {
     if (clearanceClassIndex < 0) {
       clearanceClassIndex = netClass->defaultItemClearanceClasses->get(
           fr::DefaultItemClearanceClasses_ItemClass::TRACE);
@@ -602,7 +602,7 @@ fr::Item* Wiring::readWireScope(ReadScopeParameter* scopeParameter) {
 }
 
 void Wiring::tryCorrectNet(fr::Item* item) {
-  auto* currentTrace = dynamic_cast<fr::Trace*>(item);
+  auto* currentTrace = jrt::fast_cast<fr::Trace>(item);
   if (currentTrace == nullptr) {
     return;
   }
@@ -626,7 +626,7 @@ bool Wiring::readViaScope(ReadScopeParameter* scopeParameter) {
     fr::FixedState fixed = fr::FixedState::UNFIXED;
     // read the padstack name
     jrt::Object* nextToken = scopeParameter->scanner->nextToken();
-    auto* padstackNameToken = dynamic_cast<JString*>(nextToken);
+    auto* padstackNameToken = jrt::fast_cast<JString>(nextToken);
     if (padstackNameToken == nullptr) {
       FRLogger::warn("Wiring.read_via_scope: padstack name expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");
@@ -638,9 +638,9 @@ bool Wiring::readViaScope(ReadScopeParameter* scopeParameter) {
     auto* location = new jrt::Array<double>(2);
     for (int32_t i = 0; i < 2; i++) {
       nextToken = scopeParameter->scanner->nextToken();
-      if (auto* double1 = dynamic_cast<JDouble*>(nextToken)) {
+      if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
         (*location)[i] = double1->value;
-      } else if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+      } else if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
         (*location)[i] = integer->value;
       } else {
         FRLogger::warn("Wiring.read_via_scope: number expected at '" +

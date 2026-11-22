@@ -50,26 +50,26 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
     }
     jrt::Iterator<Item*>* it = contacts->iterator();
     Item* currentItem = it->next();
-    if (currentItem->isShoveFixed() || dynamic_cast<PolylineTrace*>(currentItem) == nullptr) {
-      auto* area = dynamic_cast<ConductionArea*>(currentItem);
+    if (currentItem->isShoveFixed() || jrt::fast_cast<PolylineTrace>(currentItem) == nullptr) {
+      auto* area = jrt::fast_cast<ConductionArea>(currentItem);
       if (area != nullptr && !area->isFractured()) {
         isPlaneOrFanoutVia = true;
       } else {
         return false;
       }
     } else {
-      firstTrace = dynamic_cast<PolylineTrace*>(currentItem);
+      firstTrace = jrt::fast_cast<PolylineTrace>(currentItem);
     }
     currentItem = it->next();
-    if (currentItem->isShoveFixed() || dynamic_cast<PolylineTrace*>(currentItem) == nullptr) {
-      auto* area = dynamic_cast<ConductionArea*>(currentItem);
+    if (currentItem->isShoveFixed() || jrt::fast_cast<PolylineTrace>(currentItem) == nullptr) {
+      auto* area = jrt::fast_cast<ConductionArea>(currentItem);
       if (area != nullptr && !area->isFractured()) {
         isPlaneOrFanoutVia = true;
       } else {
         return false;
       }
     } else {
-      secondTrace = dynamic_cast<PolylineTrace*>(currentItem);
+      secondTrace = jrt::fast_cast<PolylineTrace>(currentItem);
     }
   }
   if (isPlaneOrFanoutVia) {
@@ -137,16 +137,16 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
   jrt::Collection<Item*>* pickedItems =
       board->pickItems(newLocation, firstTrace->getLayer(), filter);
   for (Item* currentItem : *pickedItems) {
-    dynamic_cast<PolylineTrace*>(currentItem)->pullTight(true, tracePullTightAccuracy, nullptr);
+    jrt::fast_cast<PolylineTrace>(currentItem)->pullTight(true, tracePullTightAccuracy, nullptr);
   }
   pickedItems = board->pickItems(newLocation, secondTrace->getLayer(), filter);
   for (Item* currentItem : *pickedItems) {
-    dynamic_cast<PolylineTrace*>(currentItem)->pullTight(true, tracePullTightAccuracy, nullptr);
+    jrt::fast_cast<PolylineTrace>(currentItem)->pullTight(true, tracePullTightAccuracy, nullptr);
   }
   filter = new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::VIAS);
   pickedItems = board->pickItems(newLocation, firstTrace->getLayer(), filter);
   for (Item* currentItem : *pickedItems) {
-    optViaLocation(board, dynamic_cast<Via*>(currentItem), traceCosts, tracePullTightAccuracy,
+    optViaLocation(board, jrt::fast_cast<Via>(currentItem), traceCosts, tracePullTightAccuracy,
                    maxRecursionDepth - 1, history);
     break;
   }
@@ -167,13 +167,13 @@ bool ViaOptimizer::optPlaneOrFanoutVia(RoutingBoard* board, Via* via,
   ConductionArea* contactPlane = nullptr;
   PolylineTrace* contactTrace = nullptr;
   for (Item* currentContact : *contactList) {
-    auto* area = dynamic_cast<ConductionArea*>(currentContact);
+    auto* area = jrt::fast_cast<ConductionArea>(currentContact);
     if (area != nullptr && !area->isFractured()) {
       if (contactPlane != nullptr) {
         return false;
       }
       contactPlane = area;
-    } else if (auto* trace = dynamic_cast<PolylineTrace*>(currentContact)) {
+    } else if (auto* trace = jrt::fast_cast<PolylineTrace>(currentContact)) {
       if (currentContact->isShoveFixed() || contactTrace != nullptr) {
         return false;
       }
@@ -278,7 +278,7 @@ bool ViaOptimizer::optPlaneOrFanoutVia(RoutingBoard* board, Via* via,
   jrt::Collection<Item*>* pickedItems =
       board->pickItems(newViaLocation, contactTrace->getLayer(), filter);
   for (Item* currentItem : *pickedItems) {
-    dynamic_cast<PolylineTrace*>(currentItem)->pullTight(true, tracePullTightAccuracy, nullptr);
+    jrt::fast_cast<PolylineTrace>(currentItem)->pullTight(true, tracePullTightAccuracy, nullptr);
   }
   if (newViaLocation->equals(checkCorner)) {
     optPlaneOrFanoutVia(board, via, tracePullTightAccuracy, maxRecursionDepth - 1);

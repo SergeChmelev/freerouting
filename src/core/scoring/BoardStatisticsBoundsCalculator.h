@@ -66,7 +66,7 @@ class BoardStatisticsBoundsCalculator_MstResult : public virtual jrt::Object {
   int32_t bendCount() { return bendCount_; }
 
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<BoardStatisticsBoundsCalculator_MstResult*>(o);
+    auto* other = jrt::fast_cast<BoardStatisticsBoundsCalculator_MstResult>(o);
     if (other == nullptr) return false;
     return jrt::equalsOf(length_, other->length_) && bendCount_ == other->bendCount_;
   }
@@ -95,7 +95,7 @@ class BoardStatisticsBoundsCalculator_ViaSpan : public virtual jrt::Object {
   int32_t lastLayer() { return lastLayer_; }
 
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<BoardStatisticsBoundsCalculator_ViaSpan*>(o);
+    auto* other = jrt::fast_cast<BoardStatisticsBoundsCalculator_ViaSpan>(o);
     if (other == nullptr) return false;
     return firstLayer_ == other->firstLayer_ && lastLayer_ == other->lastLayer_;
   }

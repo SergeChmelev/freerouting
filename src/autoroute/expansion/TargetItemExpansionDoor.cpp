@@ -27,7 +27,7 @@ TargetItemExpansionDoor::TargetItemExpansionDoor(Item* item, int32_t treeEntryNo
 
 bool TargetItemExpansionDoor::isDestinationDoor() {
   ItemAutorouteInfo* itemInfo = this->item->getAutorouteInfo();
-  if (dynamic_cast<ConductionArea*>(this->item) != nullptr) {
+  if (jrt::fast_cast<ConductionArea>(this->item) != nullptr) {
     return itemInfo->isDestinationInfo();
   }
   return !itemInfo->isStartInfo();

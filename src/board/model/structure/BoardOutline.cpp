@@ -43,7 +43,7 @@ bool BoardOutline_EdgeWindow::equals(jrt::Object* o) {
   if (this == o) {
     return true;
   }
-  auto* other = dynamic_cast<BoardOutline_EdgeWindow*>(o);
+  auto* other = jrt::fast_cast<BoardOutline_EdgeWindow>(o);
   if (other == nullptr) {
     return false;
   }
@@ -115,11 +115,11 @@ jrt::Set<int32_t>* BoardOutline::getEdgePinNets() {
       jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator =
           this->board->itemList->startReadObject();
       for (;;) {
-        auto* item = dynamic_cast<Item*>(this->board->itemList->readObject(iterator));
+        auto* item = jrt::fast_cast<Item>(this->board->itemList->readObject(iterator));
         if (item == nullptr) {
           break;
         }
-        if (dynamic_cast<Pin*>(item) != nullptr) {
+        if (jrt::fast_cast<Pin>(item) != nullptr) {
           this->countedPins++;
         }
       }
@@ -170,7 +170,7 @@ double BoardOutline::cornerGap(Shape* padShape) {
   if (padShape->isEmpty() || !padShape->isBounded()) {
     return result;
   }
-  if (auto* polylineShape = dynamic_cast<PolylineShape*>(padShape)) {
+  if (auto* polylineShape = jrt::fast_cast<PolylineShape>(padShape)) {
     for (int32_t c = 0; c < polylineShape->borderLineCount(); c++) {
       result = jrt::Math::min(result, distanceToOutline(polylineShape->cornerApprox(c)));
     }
@@ -300,11 +300,11 @@ bool BoardOutline::blocksTraceAt(TileShape* traceShape, int32_t layer,
 }
 
 bool BoardOutline::isObstacle(Item* other) {
-  if (dynamic_cast<BoardOutline*>(other) != nullptr ||
-      dynamic_cast<ObstacleArea*>(other) != nullptr) {
+  if (jrt::fast_cast<BoardOutline>(other) != nullptr ||
+      jrt::fast_cast<ObstacleArea>(other) != nullptr) {
     return false;
   }
-  if (auto* otherTrace = dynamic_cast<Trace*>(other)) {
+  if (auto* otherTrace = jrt::fast_cast<Trace>(other)) {
     if (!blocksNets(otherTrace->netNumbers)) {
       return false;
     }
@@ -646,7 +646,7 @@ bool BoardOutline::isEdgePin(Pin* pin) {
   }
   for (int32_t layer = pin->firstLayer(); layer <= pin->lastLayer(); layer++) {
     Shape* shape = pin->getShape(layer - pin->firstLayer());
-    if (auto* tileShape = dynamic_cast<TileShape*>(shape)) {
+    if (auto* tileShape = jrt::fast_cast<TileShape>(shape)) {
       for (int32_t c = 0; c < tileShape->borderLineCount(); c++) {
         if (!this->contains(tileShape->corner(c))) {
           return true;

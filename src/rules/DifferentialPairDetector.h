@@ -93,7 +93,7 @@ class DifferentialPairDetector_ExtractedNetInfo : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<DifferentialPairDetector_ExtractedNetInfo*>(o);
+    auto* other = jrt::fast_cast<DifferentialPairDetector_ExtractedNetInfo>(o);
     return other != nullptr && baseName_ == other->baseName_ && polarity_ == other->polarity_ &&
            style_ == other->style_;
   }
@@ -128,7 +128,7 @@ class DifferentialPairDetector_SuffixTokenPattern : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<DifferentialPairDetector_SuffixTokenPattern*>(o);
+    auto* other = jrt::fast_cast<DifferentialPairDetector_SuffixTokenPattern>(o);
     return other != nullptr && posToken_ == other->posToken_ && negToken_ == other->negToken_ &&
            style_ == other->style_;
   }
@@ -160,7 +160,7 @@ class DifferentialPairDetector_CandidateKey : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<DifferentialPairDetector_CandidateKey*>(o);
+    auto* other = jrt::fast_cast<DifferentialPairDetector_CandidateKey>(o);
     return other != nullptr && baseNameKey_ == other->baseNameKey_ && style_ == other->style_;
   }
   int32_t hashCode() override {

@@ -161,7 +161,7 @@ bool HeadlessRoutingRequest::equals(jrt::Object* o) {
   if (this == o) {
     return true;
   }
-  auto* that = dynamic_cast<HeadlessRoutingRequest*>(o);
+  auto* that = jrt::fast_cast<HeadlessRoutingRequest>(o);
   if (that == nullptr) {
     return false;
   }

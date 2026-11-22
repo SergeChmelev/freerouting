@@ -76,7 +76,7 @@ Item::Item(jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex, int32_t
 
 int32_t Item::compareTo(jrt::Object* other) {
   int32_t result;
-  if (auto* item = dynamic_cast<Item*>(other)) {
+  if (auto* item = jrt::fast_cast<Item>(other)) {
     result = item->id - id;
   } else {
     result = 1;
@@ -85,34 +85,34 @@ int32_t Item::compareTo(jrt::Object* other) {
 }
 
 BoardItemType Item::getBoardItemType() {
-  if (dynamic_cast<Pin*>(this) != nullptr) {
+  if (jrt::fast_cast<Pin>(this) != nullptr) {
     return BoardItemType::PIN;
   }
-  if (dynamic_cast<Via*>(this) != nullptr) {
+  if (jrt::fast_cast<Via>(this) != nullptr) {
     return BoardItemType::VIA;
   }
-  if (dynamic_cast<Trace*>(this) != nullptr) {
+  if (jrt::fast_cast<Trace>(this) != nullptr) {
     return BoardItemType::TRACE;
   }
-  if (dynamic_cast<ConductionArea*>(this) != nullptr) {
+  if (jrt::fast_cast<ConductionArea>(this) != nullptr) {
     return BoardItemType::CONDUCTION_AREA;
   }
-  if (dynamic_cast<ViaObstacleArea*>(this) != nullptr) {
+  if (jrt::fast_cast<ViaObstacleArea>(this) != nullptr) {
     return BoardItemType::VIA_OBSTACLE_AREA;
   }
-  if (dynamic_cast<WireObstacleArea*>(this) != nullptr) {
+  if (jrt::fast_cast<WireObstacleArea>(this) != nullptr) {
     return BoardItemType::WIRE_OBSTACLE_AREA;
   }
-  if (dynamic_cast<ComponentObstacleArea*>(this) != nullptr) {
+  if (jrt::fast_cast<ComponentObstacleArea>(this) != nullptr) {
     return BoardItemType::COMPONENT_OBSTACLE_AREA;
   }
-  if (dynamic_cast<ObstacleArea*>(this) != nullptr) {
+  if (jrt::fast_cast<ObstacleArea>(this) != nullptr) {
     return BoardItemType::OBSTACLE_AREA;
   }
-  if (dynamic_cast<ComponentOutline*>(this) != nullptr) {
+  if (jrt::fast_cast<ComponentOutline>(this) != nullptr) {
     return BoardItemType::COMPONENT_OUTLINE;
   }
-  if (dynamic_cast<BoardOutline*>(this) != nullptr) {
+  if (jrt::fast_cast<BoardOutline>(this) != nullptr) {
     return BoardItemType::BOARD_OUTLINE;
   }
   return BoardItemType::OTHER;
@@ -182,7 +182,7 @@ jrt::Array<TileShape*>* Item::getPrecalculatedTreeShapes(ShapeTree* tree) {
       this->searchTreesInfo->getPrecalculatedTreeShapes(tree);
   if (precalculatedTreeShapes == nullptr) {
     // Java: (ShapeSearchTree) tree -- ClassCastException if it is not one.
-    auto* searchTree = dynamic_cast<ShapeSearchTree*>(tree);
+    auto* searchTree = jrt::fast_cast<ShapeSearchTree>(tree);
     if (searchTree == nullptr && tree != nullptr) {
       throw jrt::ClassCastException("Item.getPrecalculatedTreeShapes: not a ShapeSearchTree");
     }
@@ -206,7 +206,7 @@ void Item::moveBy(Vector* vector) {
   board->searchTreeManager->remove(this);
   this->translateBy(vector);
   board->searchTreeManager->insert(this);
-  if (dynamic_cast<Pin*>(this) != nullptr) {
+  if (jrt::fast_cast<Pin>(this) != nullptr) {
     board->invalidateEdgePinNetCache();
   }
 
@@ -272,7 +272,7 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
                                                      new jrt::Array<int32_t>(0),
                                                      this->clearanceClassIndex_, this, exactThis);
     for (ShapeTree_TreeEntry* currentEntry : *currentOverlappingItems) {
-      auto* currentItem = dynamic_cast<Item*>(currentEntry->object);
+      auto* currentItem = jrt::fast_cast<Item>(currentEntry->object);
       if (currentItem == nullptr ||
           static_cast<jrt::Object*>(currentEntry->object) == static_cast<jrt::Object*>(this)) {
         continue;
@@ -280,24 +280,24 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
       bool isObstacle = currentItem->isObstacle(this);
       // The stretch of the outline next to an edge pin does not block the traces of its nets.
       if (isObstacle) {
-        auto* edgeTrace = dynamic_cast<Trace*>(this);
-        auto* outline = dynamic_cast<BoardOutline*>(currentItem);
+        auto* edgeTrace = jrt::fast_cast<Trace>(this);
+        auto* outline = jrt::fast_cast<BoardOutline>(currentItem);
         if (edgeTrace != nullptr && outline != nullptr &&
             outline->exemptsTrace(currentEntry->shapeIndexInObject, edgeTrace->netNumbers)) {
           isObstacle = false;
         }
       }
       if (isObstacle) {
-        auto* outline = dynamic_cast<BoardOutline*>(this);
-        auto* edgeTrace = dynamic_cast<Trace*>(currentItem);
+        auto* outline = jrt::fast_cast<BoardOutline>(this);
+        auto* edgeTrace = jrt::fast_cast<Trace>(currentItem);
         if (outline != nullptr && edgeTrace != nullptr &&
             outline->exemptsTrace(i, edgeTrace->netNumbers)) {
           isObstacle = false;
         }
       }
-      if (isObstacle && dynamic_cast<Trace*>(this) != nullptr &&
-          dynamic_cast<Trace*>(currentItem) != nullptr) {
-        auto* thisTrace = dynamic_cast<Trace*>(this);
+      if (isObstacle && jrt::fast_cast<Trace>(this) != nullptr &&
+          jrt::fast_cast<Trace>(currentItem) != nullptr) {
+        auto* thisTrace = jrt::fast_cast<Trace>(this);
         // Look, if both traces are connected to the same tie pin or partner pins of the same
         // net-tie cluster. In this case they are allowed to overlap without sharing a net.
         Point* contactPoint = thisTrace->firstCorner();
@@ -319,7 +319,7 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
         }
         if (contactFound) {
           for (Item* currentContact : *currentContacts) {
-            if (auto* contactPin = dynamic_cast<Pin*>(currentContact)) {
+            if (auto* contactPin = jrt::fast_cast<Pin>(currentContact)) {
               if (currentContact->sharesNet(this) && currentContact->sharesNet(currentItem)) {
                 isObstacle = false;
                 break;
@@ -336,19 +336,19 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
       // Trace-to-Pin clearance exemption at a net-tie junction:
       // A trace terminating on its net-tie target pin is allowed to overlap foreign partner
       // pins belonging to the same net-tie cluster.
-      if (isObstacle && ((dynamic_cast<Trace*>(this) != nullptr &&
-                          dynamic_cast<Pin*>(currentItem) != nullptr) ||
-                         (dynamic_cast<Pin*>(this) != nullptr &&
-                          dynamic_cast<Trace*>(currentItem) != nullptr))) {
-        Trace* trace = (dynamic_cast<Trace*>(this) != nullptr) ? dynamic_cast<Trace*>(this)
-                                                               : dynamic_cast<Trace*>(currentItem);
-        Pin* pin = (dynamic_cast<Pin*>(this) != nullptr) ? dynamic_cast<Pin*>(this)
-                                                         : dynamic_cast<Pin*>(currentItem);
+      if (isObstacle && ((jrt::fast_cast<Trace>(this) != nullptr &&
+                          jrt::fast_cast<Pin>(currentItem) != nullptr) ||
+                         (jrt::fast_cast<Pin>(this) != nullptr &&
+                          jrt::fast_cast<Trace>(currentItem) != nullptr))) {
+        Trace* trace = (jrt::fast_cast<Trace>(this) != nullptr) ? jrt::fast_cast<Trace>(this)
+                                                               : jrt::fast_cast<Trace>(currentItem);
+        Pin* pin = (jrt::fast_cast<Pin>(this) != nullptr) ? jrt::fast_cast<Pin>(this)
+                                                         : jrt::fast_cast<Pin>(currentItem);
         if (pin->getNetTieClusterId() > 0) {
           Point* p1 = trace->firstCorner();
           Point* p2 = trace->lastCorner();
           for (Item* contact : *trace->getNormalContacts(p1, true)) {
-            auto* cp = dynamic_cast<Pin*>(contact);
+            auto* cp = jrt::fast_cast<Pin>(contact);
             if (cp != nullptr && cp->getNetTieClusterId() == pin->getNetTieClusterId()) {
               isObstacle = false;
               break;
@@ -356,7 +356,7 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
           }
           if (isObstacle) {
             for (Item* contact : *trace->getNormalContacts(p2, true)) {
-              auto* cp = dynamic_cast<Pin*>(contact);
+              auto* cp = jrt::fast_cast<Pin>(contact);
               if (cp != nullptr && cp->getNetTieClusterId() == pin->getNetTieClusterId()) {
                 isObstacle = false;
                 break;
@@ -367,10 +367,10 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
       }
 
       if (isObstacle) {
-        auto* thisOutline = dynamic_cast<BoardOutline*>(this);
-        auto* thisTrace = dynamic_cast<Trace*>(this);
-        auto* otherTrace = dynamic_cast<Trace*>(currentItem);
-        auto* otherOutline = dynamic_cast<BoardOutline*>(currentItem);
+        auto* thisOutline = jrt::fast_cast<BoardOutline>(this);
+        auto* thisTrace = jrt::fast_cast<Trace>(this);
+        auto* otherTrace = jrt::fast_cast<Trace>(currentItem);
+        auto* otherOutline = jrt::fast_cast<BoardOutline>(currentItem);
         if (thisOutline != nullptr && otherTrace != nullptr) {
           if (!thisOutline->blocksNets(otherTrace->netNumbers)) {
             isObstacle = false;
@@ -379,14 +379,14 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
           if (!otherOutline->blocksNets(thisTrace->netNumbers)) {
             isObstacle = false;
           }
-        } else if ((thisOutline != nullptr && dynamic_cast<Pin*>(currentItem) != nullptr) ||
-                   (dynamic_cast<Pin*>(this) != nullptr && otherOutline != nullptr)) {
+        } else if ((thisOutline != nullptr && jrt::fast_cast<Pin>(currentItem) != nullptr) ||
+                   (jrt::fast_cast<Pin>(this) != nullptr && otherOutline != nullptr)) {
           BoardOutline* outline = (thisOutline != nullptr) ? thisOutline : otherOutline;
           // Use the actual pad tile-shape (not just its center) to determine containment.
           // A pin whose center is inside but whose pad shape protrudes outside (e.g. edge
           // connectors, castellated pads) must still be reported as an obstacle.
           TileShape* pinTileShape =
-              (dynamic_cast<Pin*>(this) != nullptr)
+              (jrt::fast_cast<Pin>(this) != nullptr)
                   ? currentTileShape
                   : currentItem->getTreeShape(drcTree, currentEntry->shapeIndexInObject);
           if (pinTileShape != nullptr && outlineContainsTileShape(outline, pinTileShape)) {
@@ -424,9 +424,9 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
         int32_t clComp2 = static_cast<int32_t>(jrt::Math::round(minimumClearance - clComp1));
 
         TileShape* enlargedShape1 =
-            (clComp1 > 0) ? dynamic_cast<TileShape*>(shape1->enlarge(clComp1)) : shape1;
+            (clComp1 > 0) ? jrt::fast_cast<TileShape>(shape1->enlarge(clComp1)) : shape1;
         TileShape* enlargedShape2 =
-            (clComp2 > 0) ? dynamic_cast<TileShape*>(shape2->enlarge(clComp2)) : shape2;
+            (clComp2 > 0) ? jrt::fast_cast<TileShape>(shape2->enlarge(clComp2)) : shape2;
 
         TileShape* intersection = enlargedShape1->intersection(enlargedShape2);
         if (intersection->dimension() == 2) {
@@ -434,12 +434,12 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
           Circle* exact2 = nullptr;
           ShapeSearchTree* defaultTree = board->searchTreeManager->getDefaultTree();
           {
-            auto* drill1 = dynamic_cast<DrillItem*>(this);
-            auto* drill2 = dynamic_cast<DrillItem*>(currentItem);
+            auto* drill1 = jrt::fast_cast<DrillItem>(this);
+            auto* drill2 = jrt::fast_cast<DrillItem>(currentItem);
             if (drill1 != nullptr && drill2 != nullptr) {
-              auto* circle1 = dynamic_cast<Circle*>(drill1->getShapeOnLayer(shapeLayer(i)));
+              auto* circle1 = jrt::fast_cast<Circle>(drill1->getShapeOnLayer(shapeLayer(i)));
               if (circle1 != nullptr) {
-                auto* circle2 = dynamic_cast<Circle*>(drill2->getShapeOnLayer(shapeLayer(i)));
+                auto* circle2 = jrt::fast_cast<Circle>(drill2->getShapeOnLayer(shapeLayer(i)));
                 if (circle2 != nullptr &&
                     defaultTree->drillHoleClearanceDelta(drill1, circle1, shapeLayer(i)) == 0 &&
                     defaultTree->drillHoleClearanceDelta(drill2, circle2, shapeLayer(i)) == 0) {
@@ -516,7 +516,7 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
 }
 
 bool Item::overlapsBeyond(TileShape* shape1, TileShape* shape2, double depth) {
-  TileShape* shrunk = depth > 0 ? dynamic_cast<TileShape*>(shape1->offset(-depth)) : shape1;
+  TileShape* shrunk = depth > 0 ? jrt::fast_cast<TileShape>(shape1->offset(-depth)) : shape1;
   return !shrunk->isEmpty() && shrunk->intersection(shape2)->dimension() == 2;
 }
 
@@ -534,8 +534,8 @@ double Item::calculateClearanceBetweenTwoShapes(TileShape* rawShape1, TileShape*
 
   for (int32_t iter = 0; iter < 16; iter++) {
     double mid = (low + high) * 0.5;
-    TileShape* s1 = dynamic_cast<TileShape*>(rawShape1->enlarge(mid * factor1));
-    TileShape* s2 = dynamic_cast<TileShape*>(rawShape2->enlarge(mid * factor2));
+    TileShape* s1 = jrt::fast_cast<TileShape>(rawShape1->enlarge(mid * factor1));
+    TileShape* s2 = jrt::fast_cast<TileShape>(rawShape2->enlarge(mid * factor2));
     if (s1->intersection(s2)->dimension() == 2) {
       high = mid;
     } else {
@@ -558,18 +558,18 @@ bool Item::outlineContainsTileShape(BoardOutline* outline, TileShape* tileShape)
 
 jrt::Set<Item*>* Item::getAllContacts() {
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
-  if (dynamic_cast<Connectable*>(this) == nullptr) {
+  if (jrt::fast_cast<Connectable>(this) == nullptr) {
     return result;
   }
   for (int32_t i = 0; i < this->tileShapeCount(); i++) {
     jrt::Collection<SearchTreeObject*>* overlappingItems =
         board->overlappingObjects(getTileShape(i), shapeLayer(i));
     for (SearchTreeObject* currentObject : *overlappingItems) {
-      auto* currentItem = dynamic_cast<Item*>(currentObject);
+      auto* currentItem = jrt::fast_cast<Item>(currentObject);
       if (currentItem == nullptr) {
         continue;
       }
-      if (currentItem != this && dynamic_cast<Connectable*>(currentItem) != nullptr &&
+      if (currentItem != this && jrt::fast_cast<Connectable>(currentItem) != nullptr &&
           currentItem->sharesNet(this)) {
         result->add(currentItem);
       }
@@ -580,7 +580,7 @@ jrt::Set<Item*>* Item::getAllContacts() {
 
 jrt::Set<Item*>* Item::getAllContacts(int32_t layer) {
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
-  if (dynamic_cast<Connectable*>(this) == nullptr) {
+  if (jrt::fast_cast<Connectable>(this) == nullptr) {
     return result;
   }
   for (int32_t i = 0; i < this->tileShapeCount(); i++) {
@@ -590,11 +590,11 @@ jrt::Set<Item*>* Item::getAllContacts(int32_t layer) {
     jrt::Collection<SearchTreeObject*>* overlappingItems =
         board->overlappingObjects(getTileShape(i), layer);
     for (SearchTreeObject* currentObject : *overlappingItems) {
-      auto* currentItem = dynamic_cast<Item*>(currentObject);
+      auto* currentItem = jrt::fast_cast<Item>(currentObject);
       if (currentItem == nullptr) {
         continue;
       }
-      if (currentItem != this && dynamic_cast<Connectable*>(currentItem) != nullptr &&
+      if (currentItem != this && jrt::fast_cast<Connectable>(currentItem) != nullptr &&
           currentItem->sharesNet(this)) {
         result->add(currentItem);
       }
@@ -637,15 +637,15 @@ void Item::getConnectedSetRecu(jrt::Set<Item*>* result, int32_t netNumber, bool 
     return;
   }
   for (Item* currentContact : *contactList) {
-    if (stopAtPlane && dynamic_cast<ConductionArea*>(currentContact) != nullptr &&
+    if (stopAtPlane && jrt::fast_cast<ConductionArea>(currentContact) != nullptr &&
         currentContact->getComponentId() <= 0) {
       continue;
     }
     if (netNumber > 0 && !currentContact->containsNet(netNumber)) {
       continue;
     }
-    if (result->add(currentContact) || (dynamic_cast<ConductionArea*>(currentContact) != nullptr &&
-                                        dynamic_cast<ConductionArea*>(currentContact)->isFractured())) {
+    if (result->add(currentContact) || (jrt::fast_cast<ConductionArea>(currentContact) != nullptr &&
+                                        jrt::fast_cast<ConductionArea>(currentContact)->isFractured())) {
       currentContact->getConnectedSetRecu(result, netNumber, stopAtPlane);
     }
   }
@@ -653,7 +653,7 @@ void Item::getConnectedSetRecu(jrt::Set<Item*>* result, int32_t netNumber, bool 
 
 bool Item::isCycleRecu(jrt::Set<Item*>* visitedItems, Item* searchItem, Item* comeFromItem,
                        bool ignoreAreas) {
-  if (ignoreAreas && dynamic_cast<ConductionArea*>(this) != nullptr) {
+  if (ignoreAreas && jrt::fast_cast<ConductionArea>(this) != nullptr) {
     return false;
   }
   jrt::Collection<Item*>* contactList = normalContactsForWalk();
@@ -695,7 +695,7 @@ jrt::Set<Item*>* Item::getUnconnectedSet(int32_t netNumber) {
 jrt::Set<Item*>* Item::getConnectionItems(Item_StopConnectionOption stopOption) {
   jrt::Set<Item*>* contacts = this->getNormalContacts();
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
-  if (auto* trace = dynamic_cast<Trace*>(this)) {
+  if (auto* trace = jrt::fast_cast<Trace>(this)) {
     if (trace->hasInteriorContacts()) {
       return result;
     }
@@ -711,7 +711,7 @@ jrt::Set<Item*>* Item::getConnectionItems(Item_StopConnectionOption stopOption) 
       continue;
     }
     int32_t prevContactLayer = this->firstCommonLayer(currentItem);
-    if (auto* startTrace = dynamic_cast<Trace*>(this)) {
+    if (auto* startTrace = jrt::fast_cast<Trace>(this)) {
       // Check, that there is only 1 contact at this location.
       // Only for pins and vias items of more than 1 connection
       // are collected
@@ -738,12 +738,12 @@ jrt::Set<Item*>* Item::getConnectionItems(Item_StopConnectionOption stopOption) 
         ringLayer = prevContactLayer;
         ringMark *= 2;
       }
-      if (!currentItem->isRoutable() || (dynamic_cast<Trace*>(currentItem) != nullptr &&
-                                         dynamic_cast<Trace*>(currentItem)->hasInteriorContacts())) {
+      if (!currentItem->isRoutable() || (jrt::fast_cast<Trace>(currentItem) != nullptr &&
+                                         jrt::fast_cast<Trace>(currentItem)->hasInteriorContacts())) {
         // An unsplit interior junction is a fork, not a removable whole connection item.
         break;
       }
-      if (dynamic_cast<Via*>(currentItem) != nullptr) {
+      if (jrt::fast_cast<Via>(currentItem) != nullptr) {
         if (stopOption == Item_StopConnectionOption::VIA) {
           break;
         }
@@ -817,7 +817,7 @@ bool Item::isDeletionForbidden() {
     return true;
   }
   // Also power planes are delete_fixed.
-  if (auto* area = dynamic_cast<ConductionArea*>(this)) {
+  if (auto* area = jrt::fast_cast<ConductionArea>(this)) {
     return !(*this->board->layerStructure->layers)[area->getLayer()]->isSignal;
   }
   return false;
@@ -839,7 +839,7 @@ void Item::unfix() {
     FixedState oldState = fixedState;
     jrt::List<Point*>* junctions = nullptr;
     if (FixedState_isPreservedRoute(oldState)) {
-      if (auto* trace = dynamic_cast<Trace*>(this)) {
+      if (auto* trace = jrt::fast_cast<Trace>(this)) {
         if (isOnTheBoard()) {
           junctions = trace->interiorJunctions();
         }
@@ -848,13 +848,13 @@ void Item::unfix() {
     fixedState = FixedState::UNFIXED;
     noteIfPreservedChanged(oldState);
     if (junctions != nullptr && !junctions->isEmpty()) {
-      static_cast<Trace*>(dynamic_cast<Trace*>(this))->splitAt(junctions);
+      static_cast<Trace*>(jrt::fast_cast<Trace>(this))->splitAt(junctions);
     }
   }
 }
 
 void Item::noteIfPreservedChanged(FixedState oldState) {
-  if (dynamic_cast<Trace*>(this) != nullptr &&
+  if (jrt::fast_cast<Trace>(this) != nullptr &&
       FixedState_isPreservedRoute(oldState) != FixedState_isPreservedRoute(this->fixedState)) {
     if (this->board != nullptr) {
       this->board->noteNetAssignmentChanged();
@@ -865,7 +865,7 @@ void Item::noteIfPreservedChanged(FixedState oldState) {
 bool Item::isPreservedRoute() { return FixedState_isPreservedRoute(this->fixedState); }
 
 bool Item::isConnectable() {
-  return (dynamic_cast<Connectable*>(this) != nullptr) && this->netCount() > 0;
+  return (jrt::fast_cast<Connectable>(this) != nullptr) && this->netCount() > 0;
 }
 
 bool Item::removeFromNet(int32_t netNumber) {
@@ -947,7 +947,7 @@ void Item::assignNetNo(int32_t netNumber) {
   if (this->board != nullptr) {
     this->board->noteNetAssignmentChanged();
   }
-  if (dynamic_cast<Pin*>(this) != nullptr) {
+  if (jrt::fast_cast<Pin>(this) != nullptr) {
     board->invalidateEdgePinNetCache();
   }
 }
@@ -965,7 +965,7 @@ void Item::assignNetNumbers(jrt::Array<int32_t>* netNumbers) {
   if (this->board != nullptr) {
     this->board->noteNetAssignmentChanged();
   }
-  if (dynamic_cast<Pin*>(this) != nullptr) {
+  if (jrt::fast_cast<Pin>(this) != nullptr) {
     board->invalidateEdgePinNetCache();
   }
 }
@@ -1135,12 +1135,12 @@ bool Item::netsEqual(jrt::Array<int32_t>* netNumbers) {
 bool Item::isFanoutVia(jrt::Set<Item*>* ignoreItems) {
   jrt::Collection<Item*>* contactList = this->getNormalContacts();
   for (Item* currentContact : *contactList) {
-    if (dynamic_cast<Pin*>(currentContact) != nullptr &&
+    if (jrt::fast_cast<Pin>(currentContact) != nullptr &&
         currentContact->firstLayer() == currentContact->lastLayer() &&
         currentContact->getNormalContacts()->size() <= 1) {
       return true;
     }
-    if (auto* currentTrace = dynamic_cast<Trace*>(currentContact)) {
+    if (auto* currentTrace = jrt::fast_cast<Trace>(currentContact)) {
       if (ignoreItems != nullptr && ignoreItems->contains(currentContact)) {
         continue;
       }
@@ -1149,12 +1149,12 @@ bool Item::isFanoutVia(jrt::Set<Item*>* ignoreItems) {
       }
       jrt::Collection<Item*>* traceContactList = currentTrace->getNormalContacts();
       for (Item* tmpContact : *traceContactList) {
-        if (dynamic_cast<Pin*>(tmpContact) != nullptr &&
+        if (jrt::fast_cast<Pin>(tmpContact) != nullptr &&
             tmpContact->firstLayer() == tmpContact->lastLayer() &&
             tmpContact->getNormalContacts()->size() <= 1) {
           return true;
         }
-        auto* contactTrace = dynamic_cast<PolylineTrace*>(tmpContact);
+        auto* contactTrace = jrt::fast_cast<PolylineTrace>(tmpContact);
         if (contactTrace != nullptr && tmpContact->getFixedState() == FixedState::SHOVE_FIXED) {
           // look for shove fixed exit traces of SMD-pins
           if (contactTrace->cornerCount() == 2) {

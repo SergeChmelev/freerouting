@@ -354,7 +354,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
     jrt::Collection<ExpansionDoor*>* roomDoors = room->getDoors();
     for (ExpansionDoor* currentDoor : *roomDoors) {
       ExpansionRoom* otherRoom = currentDoor->otherRoom(static_cast<ExpansionRoom*>(room));
-      auto* freeRoom = dynamic_cast<CompleteFreeSpaceExpansionRoom*>(otherRoom);
+      auto* freeRoom = jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(otherRoom);
       if (freeRoom != nullptr && currentDoor->dimension == 2) {
         fromDoorShape = currentDoor->getShape();
         ignoreObject = freeRoom;
@@ -437,7 +437,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
 CompleteFreeSpaceExpansionRoom* AutorouteEngine::addCompleteRoom(
     IncompleteFreeSpaceExpansionRoom* room) {
   CompleteFreeSpaceExpansionRoom* completedRoom =
-      dynamic_cast<CompleteFreeSpaceExpansionRoom*>(calculateDoors(room));
+      jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(calculateDoors(room));
   if (completedRoom == nullptr || completedRoom->getShape()->dimension() != 2) {
     return nullptr;
   }
@@ -482,10 +482,10 @@ void AutorouteEngine::completeNeighbourRooms(CompleteExpansionRoom* room) {
     if (neighbourRoom == nullptr) {
       continue;
     }
-    if (auto* freeRoom = dynamic_cast<IncompleteFreeSpaceExpansionRoom*>(neighbourRoom)) {
+    if (auto* freeRoom = jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(neighbourRoom)) {
       this->completeExpansionRoom(freeRoom);
       it = room->getDoors()->iterator();
-    } else if (auto* obstacleNeighbourRoom = dynamic_cast<ObstacleExpansionRoom*>(neighbourRoom)) {
+    } else if (auto* obstacleNeighbourRoom = jrt::fast_cast<ObstacleExpansionRoom>(neighbourRoom)) {
       if (!obstacleNeighbourRoom->allDoorsCalculated()) {
         this->calculateDoors(obstacleNeighbourRoom);
         obstacleNeighbourRoom->setDoorsCalculated(true);
@@ -505,7 +505,7 @@ void AutorouteEngine::removeAllDoors(ExpansionRoom* room) {
       continue;
     }
     otherRoom->removeDoor(currentDoor);
-    if (auto* freeRoom = dynamic_cast<IncompleteFreeSpaceExpansionRoom*>(otherRoom)) {
+    if (auto* freeRoom = jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(otherRoom)) {
       this->removeIncompleteExpansionRoom(freeRoom);
     }
   }

@@ -69,7 +69,7 @@ void DrillItem::moveBy(Vector* vector) {
   jrt::Set<DrillItem_TraceInfo*>* contactTraceInfo = new jrt::TreeSet<DrillItem_TraceInfo*>();
   jrt::Collection<Item*>* contacts = this->getNormalContacts();
   for (Item* currentContact : *contacts) {
-    if (auto* currentTrace = dynamic_cast<Trace*>(currentContact)) {
+    if (auto* currentTrace = jrt::fast_cast<Trace>(currentContact)) {
       auto* currentTraceInfo =
           new DrillItem_TraceInfo(currentTrace->getLayer(), currentTrace->getHalfWidth(),
                                   currentTrace->clearanceClassIndex());
@@ -84,8 +84,8 @@ void DrillItem::moveBy(Vector* vector) {
   connectPointList->add(oldCenter);
   Point* newCenter = this->getCenter();
   IntPoint* addCorner = nullptr;
-  auto* point = dynamic_cast<IntPoint*>(oldCenter);
-  auto* point1 = dynamic_cast<IntPoint*>(newCenter);
+  auto* point = jrt::fast_cast<IntPoint>(oldCenter);
+  auto* point1 = jrt::fast_cast<IntPoint>(newCenter);
   if (point != nullptr && point1 != nullptr) {
     // Make sure, that the traces will remain 90- or 45-degree.
     if (board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
@@ -225,7 +225,7 @@ jrt::Set<Item*>* DrillItem::getNormalContacts() {
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
   // A plane is a contact where it overlaps the copper of a pin, its centre lying in the plane or
   // not: look up the planes on each layer by the shape of the pin there.
-  for (int32_t layer = firstLayer(); dynamic_cast<Pin*>(this) != nullptr && layer <= lastLayer();
+  for (int32_t layer = firstLayer(); jrt::fast_cast<Pin>(this) != nullptr && layer <= lastLayer();
        layer++) {
     TileShape* layerShape =
         getTreeShapeOnLayer(board->searchTreeManager->getDefaultTree(), layer);
@@ -233,19 +233,19 @@ jrt::Set<Item*>* DrillItem::getNormalContacts() {
       continue;
     }
     for (SearchTreeObject* currentObject : *board->overlappingObjects(layerShape, layer)) {
-      auto* area = dynamic_cast<ConductionArea*>(currentObject);
+      auto* area = jrt::fast_cast<ConductionArea>(currentObject);
       if (area != nullptr && area->overlapsCopperOf(this)) {
         result->add(area);
       }
     }
   }
   for (SearchTreeObject* currentObject : *overlaps) {
-    auto* currentItem = dynamic_cast<Item*>(currentObject);
+    auto* currentItem = jrt::fast_cast<Item>(currentObject);
     if (currentItem == nullptr) {
       continue;
     }
     if (currentItem != this && currentItem->sharesNet(this) && currentItem->sharesLayer(this)) {
-      if (auto* currentTrace = dynamic_cast<Trace*>(currentItem)) {
+      if (auto* currentTrace = jrt::fast_cast<Trace>(currentItem)) {
         // Use exact matching to match trace endpoints or centerline to pin/via center.
         // Tolerance-based matching causes false cycle detection during trace normalization
         // when nearby trace endpoints (but not at pin center) are incorrectly treated as
@@ -255,11 +255,11 @@ jrt::Set<Item*>* DrillItem::getNormalContacts() {
                                        currentTrace->contains(drillCenter))) {
           result->add(currentItem);
         }
-      } else if (auto* currentDrillItem = dynamic_cast<DrillItem*>(currentItem)) {
+      } else if (auto* currentDrillItem = jrt::fast_cast<DrillItem>(currentItem)) {
         if (drillCenter->equals(currentDrillItem->getCenter())) {
           result->add(currentItem);
         }
-      } else if (auto* currentArea = dynamic_cast<ConductionArea*>(currentItem)) {
+      } else if (auto* currentArea = jrt::fast_cast<ConductionArea>(currentItem)) {
         if (currentArea->getArea()->contains(drillCenter)) {
           result->add(currentItem);
         }

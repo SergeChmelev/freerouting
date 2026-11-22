@@ -66,13 +66,13 @@ jrt::Array<double>* CoordinateTransform::boardToDsn(fr::IntBox* box) {
 
 fr::dsn::Shape* CoordinateTransform::boardToDsn(fr::Shape* boardShape, fr::dsn::Layer* layer) {
   fr::dsn::Shape* result;
-  if (auto* box = dynamic_cast<fr::IntBox*>(boardShape)) {
+  if (auto* box = jrt::fast_cast<fr::IntBox>(boardShape)) {
     result = new fr::dsn::Rectangle(layer, boardToDsn(box));
-  } else if (dynamic_cast<fr::PolylineShape*>(boardShape) != nullptr) {
+  } else if (jrt::fast_cast<fr::PolylineShape>(boardShape) != nullptr) {
     jrt::Array<fr::FloatPoint*>* corners = boardShape->cornerApproxArr();
     jrt::Array<double>* coordinates = boardToDsn(corners);
     result = new fr::dsn::Polygon(layer, coordinates);
-  } else if (auto* boardCircle = dynamic_cast<fr::Circle*>(boardShape)) {
+  } else if (auto* boardCircle = jrt::fast_cast<fr::Circle>(boardShape)) {
     double diameter = 2 * boardToDsn(static_cast<double>(boardCircle->radius));
     jrt::Array<double>* centerCoordinates = boardToDsn(boardCircle->center->toFloat());
     result = new fr::dsn::Circle(layer, diameter, (*centerCoordinates)[0], (*centerCoordinates)[1]);
@@ -111,13 +111,13 @@ jrt::Array<double>* CoordinateTransform::boardToDsnRel(fr::IntBox* box) {
 fr::dsn::Shape* CoordinateTransform::boardToDsnRel(fr::Shape* boardShape,
                                                    fr::dsn::Layer* layer) {
   fr::dsn::Shape* result;
-  if (auto* box = dynamic_cast<fr::IntBox*>(boardShape)) {
+  if (auto* box = jrt::fast_cast<fr::IntBox>(boardShape)) {
     result = new fr::dsn::Rectangle(layer, boardToDsnRel(box));
-  } else if (dynamic_cast<fr::PolylineShape*>(boardShape) != nullptr) {
+  } else if (jrt::fast_cast<fr::PolylineShape>(boardShape) != nullptr) {
     jrt::Array<fr::FloatPoint*>* corners = boardShape->cornerApproxArr();
     jrt::Array<double>* coordinates = boardToDsnRel(corners);
     result = new fr::dsn::Polygon(layer, coordinates);
-  } else if (auto* boardCircle = dynamic_cast<fr::Circle*>(boardShape)) {
+  } else if (auto* boardCircle = jrt::fast_cast<fr::Circle>(boardShape)) {
     double diameter = 2 * boardToDsn(static_cast<double>(boardCircle->radius));
     jrt::Array<double>* centerCoordinates = boardToDsnRel(boardCircle->center->toFloat());
     result = new fr::dsn::Circle(layer, diameter, (*centerCoordinates)[0], (*centerCoordinates)[1]);

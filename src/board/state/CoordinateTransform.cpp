@@ -35,11 +35,11 @@ FloatPoint* CoordinateTransform::boardToUser(FloatPoint* point) {
 
 PrintableShape* CoordinateTransform::boardToUser(Shape* shape, const std::string& locale) {
   PrintableShape* result;
-  if (auto* circle = dynamic_cast<Circle*>(shape)) {
+  if (auto* circle = jrt::fast_cast<Circle>(shape)) {
     result = boardToUser(circle, locale);
-  } else if (auto* box = dynamic_cast<IntBox*>(shape)) {
+  } else if (auto* box = jrt::fast_cast<IntBox>(shape)) {
     result = boardToUser(box, locale);
-  } else if (auto* polylineShape = dynamic_cast<PolylineShape*>(shape)) {
+  } else if (auto* polylineShape = jrt::fast_cast<PolylineShape>(shape)) {
     result = boardToUser(polylineShape, locale);
   } else {
     FRLogger::warn("CoordinateTransform.board_to_user not yet implemented for shape");

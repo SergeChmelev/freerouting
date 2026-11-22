@@ -49,7 +49,7 @@ bool ObstacleExpansionRoom::createOverlapDoor(ObstacleExpansionRoom* other) {
     return false;
   }
   if (this->item == other->item) {
-    if (dynamic_cast<PolylineTrace*>(this->item) == nullptr) {
+    if (jrt::fast_cast<PolylineTrace>(this->item) == nullptr) {
       return false;
     }
     // create only doors between consecutive trace segments
@@ -67,8 +67,8 @@ bool ObstacleExpansionRoom::createOverlapDoor(ObstacleExpansionRoom* other) {
 }
 
 bool ObstacleExpansionRoom::meetOnPin(Item* first, Item* second) {
-  PolylineTrace* a = dynamic_cast<PolylineTrace*>(first);
-  PolylineTrace* b = dynamic_cast<PolylineTrace*>(second);
+  PolylineTrace* a = jrt::fast_cast<PolylineTrace>(first);
+  PolylineTrace* b = jrt::fast_cast<PolylineTrace>(second);
   if (a == nullptr || b == nullptr) {
     return false;
   }
@@ -100,7 +100,7 @@ SearchTreeObject* ObstacleExpansionRoom::getObject() { return this->item; }
 
 bool ObstacleExpansionRoom::removeDoor(ExpandableObject* door) {
   // Java: doors.remove(Object); an object that is no ExpansionDoor is never contained.
-  ExpansionDoor* expansionDoor = dynamic_cast<ExpansionDoor*>(door);
+  ExpansionDoor* expansionDoor = jrt::fast_cast<ExpansionDoor>(door);
   if (expansionDoor == nullptr) {
     return false;
   }

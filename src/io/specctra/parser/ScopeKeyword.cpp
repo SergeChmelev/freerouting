@@ -53,7 +53,7 @@ bool ScopeKeyword::readScope(ReadScopeParameter* scopeParameter) {
     if (prevToken == OPEN_BRACKET()) {
       ScopeKeyword* nextScope;
       // a new scope is expected
-      if (auto* keyword = dynamic_cast<ScopeKeyword*>(nextToken)) {
+      if (auto* keyword = jrt::fast_cast<ScopeKeyword>(nextToken)) {
         // read the next scope, which is the "structure" part of the DSN file
         nextScope = keyword;
         if (!nextScope->readScope(scopeParameter)) {

@@ -39,7 +39,7 @@ Package* Package::readScope(IJFlexScanner* scanner, LayerStructure* layerStructu
     jrt::Collection<Shape_ReadAreaScopeResult*>* placeKeepouts =
         new jrt::LinkedList<Shape_ReadAreaScopeResult*>();
     jrt::Object* nextToken = scanner->nextToken();
-    auto* packageNameToken = dynamic_cast<JString*>(nextToken);
+    auto* packageNameToken = jrt::fast_cast<JString>(nextToken);
     if (packageNameToken == nullptr) {
       FRLogger::warn("Package.read_scope: String expected at '" + scanner->getScopeIdentifier() +
                      "'");
@@ -190,7 +190,7 @@ void Package::writePackageKeepout(fr::Package_Keepout* keepout,
   }
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
-  if (auto* shape = dynamic_cast<fr::Shape*>(keepout->area)) {
+  if (auto* shape = jrt::fast_cast<fr::Shape>(keepout->area)) {
     boundaryShape = shape;
     holes = new jrt::Array<fr::Shape*>(0);
   } else {
@@ -219,8 +219,8 @@ Package_PinInfo* Package::readPinInfo(IJFlexScanner* scanner) {
     // Read the padstack name.
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     jrt::Object* nextToken = scanner->nextToken();
-    if (dynamic_cast<JString*>(nextToken) == nullptr &&
-        dynamic_cast<JInteger*>(nextToken) == nullptr) {
+    if (jrt::fast_cast<JString>(nextToken) == nullptr &&
+        jrt::fast_cast<JInteger>(nextToken) == nullptr) {
       FRLogger::warn("Package.read_pin_info: String or Integer expected at '" +
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
@@ -243,8 +243,8 @@ Package_PinInfo* Package::readPinInfo(IJFlexScanner* scanner) {
       nextToken = scanner->nextToken();
     }
     // Read the pin name.
-    if (dynamic_cast<JString*>(nextToken) == nullptr &&
-        dynamic_cast<JInteger*>(nextToken) == nullptr) {
+    if (jrt::fast_cast<JString>(nextToken) == nullptr &&
+        jrt::fast_cast<JInteger>(nextToken) == nullptr) {
       FRLogger::warn("Package.read_pin_info: String or Integer expected at '" +
                      scanner->getScopeIdentifier() + "'");
       return nullptr;
@@ -254,9 +254,9 @@ Package_PinInfo* Package::readPinInfo(IJFlexScanner* scanner) {
     auto* pinCoor = new jrt::Array<double>(2);
     for (int32_t i = 0; i < 2; i++) {
       nextToken = scanner->nextToken();
-      if (auto* double1 = dynamic_cast<JDouble*>(nextToken)) {
+      if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
         (*pinCoor)[i] = double1->value;
-      } else if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+      } else if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
         (*pinCoor)[i] = integer->value;
       } else {
         FRLogger::warn("Package.read_pin_info: number expected at '" +

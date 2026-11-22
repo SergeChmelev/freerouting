@@ -77,7 +77,7 @@ class MazeExpansionList : public jrt::TreeSet<MazeListElement*> {
           return false;
         }
       }
-      if (auto* drill = dynamic_cast<ExpansionDrill*>(element->door)) {
+      if (auto* drill = jrt::fast_cast<ExpansionDrill>(element->door)) {
         double minLen =
             ctrl->settings->fanout != nullptr && ctrl->settings->fanout->minEscapeLengthMm.has_value()
                 ? *ctrl->settings->fanout->minEscapeLengthMm * 1000.0
@@ -129,16 +129,16 @@ void MazeSearchEngine::reduceTraceShapesAtTiePins(jrt::Collection<Item*>* itemLi
                                                   int32_t ownNetNo,
                                                   ShapeSearchTree* autorouteTree) {
   for (Item* currentItem : *itemList) {
-    auto* currentTiePin = dynamic_cast<Pin*>(currentItem);
+    auto* currentTiePin = jrt::fast_cast<Pin>(currentItem);
     if (currentTiePin != nullptr && currentItem->netCount() > 1) {
       jrt::Collection<Item*>* pinContacts = currentItem->getNormalContacts();
       for (Item* currentContact : *pinContacts) {
-        if (dynamic_cast<PolylineTrace*>(currentContact) == nullptr ||
+        if (jrt::fast_cast<PolylineTrace>(currentContact) == nullptr ||
             currentContact->containsNet(ownNetNo)) {
           continue;
         }
         autorouteTree->reduceTraceShapeAtTiePin(currentTiePin,
-                                                dynamic_cast<PolylineTrace*>(currentContact));
+                                                jrt::fast_cast<PolylineTrace>(currentContact));
       }
     }
   }
@@ -182,12 +182,12 @@ std::string MazeSearchEngine::describeExpandable(ExpandableObject* door) {
     return "null";
   }
   std::string sectionCount = safeMazeSectionCount(door);
-  if (auto* targetDoor = dynamic_cast<TargetItemExpansionDoor*>(door)) {
+  if (auto* targetDoor = jrt::fast_cast<TargetItemExpansionDoor>(door)) {
     return "TargetItemExpansionDoor" + std::string("/item=") + jrt::str(targetDoor->item->getId()) +
            "/tree_entry=" + jrt::str(targetDoor->treeEntryNo) +
            "/dim=" + jrt::str(door->getDimension()) + "/sections=" + sectionCount;
   }
-  if (auto* drill = dynamic_cast<ExpansionDrill*>(door)) {
+  if (auto* drill = jrt::fast_cast<ExpansionDrill>(door)) {
     return "ExpansionDrill" + std::string("/location=") + jrt::str(drill->location) +
            "/layers=" + jrt::str(drill->firstLayer) + "-" + jrt::str(drill->lastLayer) +
            "/dim=" + jrt::str(door->getDimension()) + "/sections=" + sectionCount;
@@ -202,7 +202,7 @@ std::string MazeSearchEngine::describeExpandable(ExpandableObject* door) {
 std::string MazeSearchEngine::safeMazeSectionCount(ExpandableObject* door) {
   // PORT NOTE: Java catches the NullPointerException of an ExpansionDoor whose sections are not
   // allocated yet; the null check reproduces that without dereferencing.
-  if (auto* expansionDoor = dynamic_cast<ExpansionDoor*>(door)) {
+  if (auto* expansionDoor = jrt::fast_cast<ExpansionDoor>(door)) {
     if (expansionDoor->sectionArr == nullptr) {
       return "uninitialized";
     }
@@ -290,12 +290,12 @@ bool MazeSearchEngine::occupyNextElement() {
   currentDoorSection->ripupCost = listElement->ripupCost;
   currentDoorSection->adjustment = listElement->adjustment;
 
-  if (dynamic_cast<DrillPage*>(listElement->door) != nullptr) {
+  if (jrt::fast_cast<DrillPage>(listElement->door) != nullptr) {
     expansionEngine->expandToDrillsOfPage(listElement);
     return true;
   }
 
-  if (auto* currentDoor = dynamic_cast<TargetItemExpansionDoor*>(listElement->door)) {
+  if (auto* currentDoor = jrt::fast_cast<TargetItemExpansionDoor>(listElement->door)) {
     if (currentDoor->isDestinationDoor()) {
       // The destination is reached.
       this->destinationDoor = currentDoor;
@@ -303,16 +303,16 @@ bool MazeSearchEngine::occupyNextElement() {
       return false;
     }
   }
-  if (ctrl->isFanout && dynamic_cast<ExpansionDrill*>(listElement->door) != nullptr &&
-      dynamic_cast<ExpansionDrill*>(listElement->backtrackDoor) != nullptr &&
+  if (ctrl->isFanout && jrt::fast_cast<ExpansionDrill>(listElement->door) != nullptr &&
+      jrt::fast_cast<ExpansionDrill>(listElement->backtrackDoor) != nullptr &&
       fanoutMayStopAt(listElement)) {
     // algorithm completed after the first drill;
     this->destinationDoor = listElement->door;
     this->sectionNoOfDestinationDoor = listElement->sectionNoOfDoor;
     return false;
   }
-  if (ctrl->viasAllowed && dynamic_cast<ExpansionDrill*>(listElement->door) != nullptr &&
-      !(dynamic_cast<ExpansionDrill*>(listElement->backtrackDoor) != nullptr)) {
+  if (ctrl->viasAllowed && jrt::fast_cast<ExpansionDrill>(listElement->door) != nullptr &&
+      !(jrt::fast_cast<ExpansionDrill>(listElement->backtrackDoor) != nullptr)) {
     expansionEngine->expandToOtherLayers(listElement);
   }
 
@@ -328,7 +328,7 @@ bool MazeSearchEngine::occupyNextElement() {
 }
 
 bool MazeSearchEngine::fanoutMayStopAt(MazeListElement* listElement) {
-  ExpansionDrill* drill = dynamic_cast<ExpansionDrill*>(listElement->door);
+  ExpansionDrill* drill = jrt::fast_cast<ExpansionDrill>(listElement->door);
   int32_t layer = drill->firstLayer + listElement->sectionNoOfDoor;
   if ((*ctrl->layerActive)[layer]) {
     return true;
@@ -336,7 +336,7 @@ bool MazeSearchEngine::fanoutMayStopAt(MazeListElement* listElement) {
   if ((*autorouteEngine->board->layerStructure->layers)[layer]->isSignal) {
     return false;
   }
-  ExpansionDrill* fromDrill = dynamic_cast<ExpansionDrill*>(listElement->backtrackDoor);
+  ExpansionDrill* fromDrill = jrt::fast_cast<ExpansionDrill>(listElement->backtrackDoor);
   int32_t fromLayer = fromDrill->firstLayer + listElement->sectionNoOfBacktrackDoor;
   if (everyViaThroughPlaneReachesAnActiveLayer(fromLayer, layer)) {
     return true;
@@ -414,7 +414,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
 
   double halfWidth = (*ctrl->compensatedTraceHalfWidth)[layerIndex];
   bool currentDoorIsSmall = false;
-  if (auto* currentDoor = dynamic_cast<ExpansionDoor*>(listElement->door)) {
+  if (auto* currentDoor = jrt::fast_cast<ExpansionDoor>(listElement->door)) {
     double halfWidthAdd = halfWidth + AutorouteEngine::TRACE_WIDTH_TOLERANCE;
     if (this->ctrl->withNeckdown) {
       // try evtl. neckdown at a destination pin
@@ -445,10 +445,10 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
       listElement->shapeEntry->a->middlePoint(listElement->shapeEntry->b);
 
   if (this->ctrl->withNeckdown) {
-    if (auto* door = dynamic_cast<TargetItemExpansionDoor*>(listElement->door)) {
+    if (auto* door = jrt::fast_cast<TargetItemExpansionDoor>(listElement->door)) {
       // try evtl. neckdown at a start pin
       Item* startItem = door->item;
-      if (auto* pin = dynamic_cast<Pin*>(startItem)) {
+      if (auto* pin = jrt::fast_cast<Pin>(startItem)) {
         double neckdownHalfWidth = pin->getTraceNeckdownHalfwidth(layerIndex);
         if (neckdownHalfWidth > 0) {
           halfWidth = jrt::Math::min(halfWidth, neckdownHalfWidth);
@@ -458,7 +458,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
   }
 
   bool nextRoomIsThick = true;
-  if (auto* room = dynamic_cast<ObstacleExpansionRoom*>(listElement->nextRoom)) {
+  if (auto* room = jrt::fast_cast<ObstacleExpansionRoom>(listElement->nextRoom)) {
     nextRoomIsThick = roomShapeIsThick(room);
   } else {
     TileShape* nextRoomShape = listElement->nextRoom->getShape();
@@ -482,7 +482,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
     }
   }
   if (!layerActive) {
-    if (auto* drill = dynamic_cast<ExpansionDrill*>(listElement->door)) {
+    if (auto* drill = jrt::fast_cast<ExpansionDrill>(listElement->door)) {
       // check for drill to a foreign conduction area on split plane.
       Point* drillLocation = drill->location;
       ItemSelectionFilter* filter =
@@ -505,7 +505,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
 
   int32_t ripupCosts = 0;
 
-  if (dynamic_cast<FreeSpaceExpansionRoom*>(listElement->nextRoom) != nullptr) {
+  if (jrt::fast_cast<FreeSpaceExpansionRoom>(listElement->nextRoom) != nullptr) {
     if (!listElement->alreadyChecked) {
       if (currentDoorIsSmall) {
         bool enterThroughSmallDoor = false;
@@ -519,7 +519,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
         }
       }
     }
-  } else if (auto* obstacleRoom = dynamic_cast<ObstacleExpansionRoom*>(listElement->nextRoom)) {
+  } else if (auto* obstacleRoom = jrt::fast_cast<ObstacleExpansionRoom>(listElement->nextRoom)) {
     if (!listElement->alreadyChecked) {
       bool roomRippable = false;
       if (this->ctrl->ripupAllowed) {
@@ -531,7 +531,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
       if (ripupCosts != ALREADY_RIPPED_COSTS && nextRoomIsThick) {
         Item* obstacleItem = obstacleRoom->getItem();
         if (!currentDoorIsSmall && this->ctrl->maxShoveTraceRecursionDepth > 0 &&
-            dynamic_cast<PolylineTrace*>(obstacleItem) != nullptr) {
+            jrt::fast_cast<PolylineTrace>(obstacleItem) != nullptr) {
           bool shoved = shoveTraceRoom(listElement, obstacleRoom);
           if (!shoved) {
             if (ripupCosts > 0) {
@@ -588,9 +588,9 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
   }
 
   // Expand also the drill pages intersecting the room.
-  if (ctrl->viasAllowed && !(dynamic_cast<ExpansionDrill*>(listElement->door) != nullptr)) {
+  if (ctrl->viasAllowed && !(jrt::fast_cast<ExpansionDrill>(listElement->door) != nullptr)) {
     if ((somethingExpanded || nextRoomIsThick) &&
-        dynamic_cast<CompleteFreeSpaceExpansionRoom*>(listElement->nextRoom) != nullptr) {
+        jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(listElement->nextRoom) != nullptr) {
       // avoid setting somethingExpanded to true when nextRoom is thin to allow
       // occupying by
       // different sections of the door
@@ -603,9 +603,9 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
           somethingExpanded = true;
         }
       }
-    } else if (auto* room = dynamic_cast<ObstacleExpansionRoom*>(listElement->nextRoom)) {
+    } else if (auto* room = jrt::fast_cast<ObstacleExpansionRoom>(listElement->nextRoom)) {
       Item* currentObstacleItem = room->getItem();
-      if (auto* currentVia = dynamic_cast<Via*>(currentObstacleItem)) {
+      if (auto* currentVia = jrt::fast_cast<Via>(currentObstacleItem)) {
         ExpansionDrill* viaDrillInfo =
             currentVia->getAutorouteDrillInfo(this->autorouteEngine->autorouteSearchTree);
         expansionEngine->expandToDrill(viaDrillInfo, listElement, ripupCosts);
@@ -621,9 +621,9 @@ bool MazeSearchEngine::expandToTargetDoors(MazeListElement* listElement, bool ne
                                            FloatPoint* shapeEntryMiddle) {
   if (currentDoorIsSmall) {
     bool enterThroughSmallDoor = false;
-    if (dynamic_cast<ExpansionDoor*>(listElement->door) != nullptr) {
+    if (jrt::fast_cast<ExpansionDoor>(listElement->door) != nullptr) {
       CompleteExpansionRoom* fromRoom = listElement->door->otherRoom(listElement->nextRoom);
-      if (dynamic_cast<ObstacleExpansionRoom*>(fromRoom) != nullptr) {
+      if (jrt::fast_cast<ObstacleExpansionRoom>(fromRoom) != nullptr) {
         // otherwise entering through the small door may fail, because it was not
         // checked.
         enterThroughSmallDoor = true;
@@ -700,8 +700,8 @@ bool MazeSearchEngine::expandToDoor(ExpansionDoor* toDoor, MazeListElement* list
     if (nextRoomIsThick) {
       newShapeEntry = (*lineSections)[i];
       if (toDoor->dimension == 1 && lineSections->length == 1 &&
-          dynamic_cast<CompleteFreeSpaceExpansionRoom*>(toDoor->firstRoom) != nullptr &&
-          dynamic_cast<CompleteFreeSpaceExpansionRoom*>(toDoor->secondRoom) != nullptr) {
+          jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(toDoor->firstRoom) != nullptr &&
+          jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(toDoor->secondRoom) != nullptr) {
         // check entering the toDoor at an acute corner of the shape of
         // listElement.nextRoom
         FloatPoint* shapeEntryMiddle = newShapeEntry->a->middlePoint(newShapeEntry->b);
@@ -738,8 +738,8 @@ bool MazeSearchEngine::expandToDoor(ExpansionDoor* toDoor, MazeListElement* list
 
 bool MazeSearchEngine::doorIsSmall(ExpansionDoor* door, double traceWidth) {
   if (door->dimension == 1 ||
-      (dynamic_cast<CompleteFreeSpaceExpansionRoom*>(door->firstRoom) != nullptr &&
-       dynamic_cast<CompleteFreeSpaceExpansionRoom*>(door->secondRoom) != nullptr)) {
+      (jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(door->firstRoom) != nullptr &&
+       jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(door->secondRoom) != nullptr)) {
     TileShape* doorShape = door->getShape();
     if (doorShape->isEmpty()) {
       if (FRLogger::isTraceEnabled()) {
@@ -940,7 +940,7 @@ bool MazeSearchEngine::init(jrt::Set<Item*>* startItems, jrt::Set<Item*>* destin
     ItemAutorouteInfo* currentInfo = currentItem->getAutorouteInfo();
     currentInfo->setStartInfo(true);
     currentInfo->setDestinationInfo(false);
-    if (auto* connectable = dynamic_cast<Connectable*>(currentItem)) {
+    if (auto* connectable = jrt::fast_cast<Connectable>(currentItem)) {
       for (int32_t i = 0; i < currentItem->treeShapeCount(searchTree); i++) {
         TileShape* containedShape = connectable->getTraceConnectionShape(searchTree, i);
         IncompleteFreeSpaceExpansionRoom* newStartRoom = autorouteEngine->addIncompleteExpansionRoom(
@@ -1019,12 +1019,12 @@ bool MazeSearchEngine::roomShapeIsThick(ObstacleExpansionRoom* obstacleRoom) {
   Item* obstacleItem = obstacleRoom->getItem();
   int32_t layer = obstacleRoom->getLayer();
   double obstacleHalfWidth;
-  if (auto* trace = dynamic_cast<Trace*>(obstacleItem)) {
+  if (auto* trace = jrt::fast_cast<Trace>(obstacleItem)) {
     obstacleHalfWidth =
         trace->getHalfWidth() +
         this->searchTree->clearanceCompensationValue(obstacleItem->clearanceClassIndex(), layer);
 
-  } else if (auto* via = dynamic_cast<Via*>(obstacleItem)) {
+  } else if (auto* via = jrt::fast_cast<Via>(obstacleItem)) {
     TileShape* viaShape = via->getTreeShapeOnLayer(this->searchTree, layer);
     obstacleHalfWidth = 0.5 * viaShape->maxWidth();
   } else {
@@ -1100,7 +1100,7 @@ TileShape* MazeSearchEngine::getWidthSafeTargetShape(TargetItemExpansionDoor* ta
   if (layer < 0 || layer >= this->ctrl->layerCount) {
     return nullptr;
   }
-  auto* connectable = dynamic_cast<Connectable*>(targetDoor->item);
+  auto* connectable = jrt::fast_cast<Connectable>(targetDoor->item);
   if (connectable == nullptr) {
     return nullptr;
   }
@@ -1114,17 +1114,17 @@ TileShape* MazeSearchEngine::getWidthSafeTargetShape(TargetItemExpansionDoor* ta
   if (targetShape == nullptr || targetShape->isEmpty()) {
     return nullptr;
   }
-  if (dynamic_cast<DrillItem*>(targetDoor->item) != nullptr) {
+  if (jrt::fast_cast<DrillItem>(targetDoor->item) != nullptr) {
     TileShape* connectionShape = targetShape->intersection(targetDoor->room->getShape());
     return connectionShape->isEmpty() ? nullptr : connectionShape;
   }
 
-  int32_t shrinkOffset = (dynamic_cast<ObstacleExpansionRoom*>(targetDoor->room) != nullptr)
+  int32_t shrinkOffset = (jrt::fast_cast<ObstacleExpansionRoom>(targetDoor->room) != nullptr)
                              ? (*this->ctrl->compensatedTraceHalfWidth)[layer]
                              : this->ctrl->getTraceClearanceOffset(layer);
 
   TileShape* safeRoomShape =
-      dynamic_cast<TileShape*>(targetDoor->room->getShape()->offset(-shrinkOffset));
+      jrt::fast_cast<TileShape>(targetDoor->room->getShape()->offset(-shrinkOffset));
   if (!safeRoomShape->isEmpty()) {
     TileShape* safeShape = targetShape->intersection(safeRoomShape);
     if (!safeShape->isEmpty()) {
@@ -1138,7 +1138,7 @@ TileShape* MazeSearchEngine::getWidthSafeTargetShape(TargetItemExpansionDoor* ta
 double MazeSearchEngine::checkNeckDownAtDestPin(CompleteExpansionRoom* room) {
   jrt::Collection<TargetItemExpansionDoor*>* targetDoors = room->getTargetDoors();
   for (TargetItemExpansionDoor* currentTargetDoor : *targetDoors) {
-    if (auto* pin = dynamic_cast<Pin*>(currentTargetDoor->item)) {
+    if (auto* pin = jrt::fast_cast<Pin>(currentTargetDoor->item)) {
       return pin->getTraceNeckdownHalfwidth(room->getLayer());
     }
   }

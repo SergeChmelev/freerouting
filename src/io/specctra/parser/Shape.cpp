@@ -98,10 +98,10 @@ namespace {
 
 /** Java: token instanceof Double d -> d; token instanceof Integer i -> i; else failure. */
 bool tokenToDouble(jrt::Object* token, double& out) {
-  if (auto* double1 = dynamic_cast<JDouble*>(token)) {
+  if (auto* double1 = jrt::fast_cast<JDouble>(token)) {
     out = double1->value;
     return true;
-  } else if (auto* integer = dynamic_cast<JInteger*>(token)) {
+  } else if (auto* integer = jrt::fast_cast<JInteger>(token)) {
     out = integer->value;
     return true;
   }
@@ -170,7 +170,7 @@ Shape_ReadAreaScopeResult* Shape::readAreaScope(IJFlexScanner* scanner,
                    scanner->getScopeIdentifier() + "'");
     return nullptr;
   }
-  if (auto* currentName = dynamic_cast<JString*>(nextToken)) {
+  if (auto* currentName = jrt::fast_cast<JString>(nextToken)) {
     scanner->setScopeIdentifier(currentName->value);
     if (!currentName->value.empty()) {
       areaName = currentName->value;
@@ -281,7 +281,7 @@ Polygon* Shape::readPolygonScope(IJFlexScanner* scanner, LayerStructure* layerSt
       // "Signal" arrives here as the keyword. Like getLayer() for the other shapes, only the
       // exact keyword spelling means the layer type; another spelling names that layer when
       // the board has one.
-      Layer* namedLayer = dynamic_cast<Keyword*>(nextToken)->getName() == scanner->yytext()
+      Layer* namedLayer = jrt::fast_cast<Keyword>(nextToken)->getName() == scanner->yytext()
                               ? nullptr
                               : findLayerByExactName(layerStructure, scanner->yytext());
       if (namedLayer != nullptr) {
@@ -297,7 +297,7 @@ Polygon* Shape::readPolygonScope(IJFlexScanner* scanner, LayerStructure* layerSt
                        scanner->getScopeIdentifier() + "'");
         return nullptr;
       }
-      auto* layerNameToken = dynamic_cast<JString*>(nextToken);
+      auto* layerNameToken = jrt::fast_cast<JString>(nextToken);
       if (layerNameToken == nullptr) {
         FRLogger::warn("Shape.read_polygon_scope: layer name string expected at '" +
                        scanner->getScopeIdentifier() + "'");
@@ -472,7 +472,7 @@ fr::Area* Shape::transformAreaToBoard(jrt::Collection<Shape*>* area,
     result = boundaryShape;
   } else {
     // Area with holes
-    auto* border = dynamic_cast<fr::PolylineShape*>(boundaryShape);
+    auto* border = jrt::fast_cast<fr::PolylineShape>(boundaryShape);
     if (border == nullptr) {
       FRLogger::warn("Shape.transform_area_to_board: PolylineShape expected");
       return nullptr;
@@ -480,11 +480,11 @@ fr::Area* Shape::transformAreaToBoard(jrt::Collection<Shape*>* area,
     jrt::Array<fr::PolylineShape*>* holes = new jrt::Array<fr::PolylineShape*>(holeCount);
     for (int32_t i = 0; i < holes->length; i++) {
       fr::Shape* holeShape = it->next()->transformToBoard(coordinateTransform);
-      if (dynamic_cast<fr::PolylineShape*>(holeShape) == nullptr) {
+      if (jrt::fast_cast<fr::PolylineShape>(holeShape) == nullptr) {
         FRLogger::warn("Shape.transform_area_to_board: PolylineShape expected");
         return nullptr;
       }
-      (*holes)[i] = dynamic_cast<fr::PolylineShape*>(holeShape);
+      (*holes)[i] = jrt::fast_cast<fr::PolylineShape>(holeShape);
     }
     result = new fr::PolylineArea(border, holes);
   }
@@ -506,7 +506,7 @@ fr::Area* Shape::transformAreaToBoardRel(jrt::Collection<Shape*>* area,
     result = boundaryShape;
   } else {
     // Area with holes
-    auto* border = dynamic_cast<fr::PolylineShape*>(boundaryShape);
+    auto* border = jrt::fast_cast<fr::PolylineShape>(boundaryShape);
     if (border == nullptr) {
       FRLogger::warn("Shape.transform_area_to_board_rel: PolylineShape expected");
       return nullptr;
@@ -514,11 +514,11 @@ fr::Area* Shape::transformAreaToBoardRel(jrt::Collection<Shape*>* area,
     jrt::Array<fr::PolylineShape*>* holes = new jrt::Array<fr::PolylineShape*>(holeCount);
     for (int32_t i = 0; i < holes->length; i++) {
       fr::Shape* holeShape = it->next()->transformToBoardRel(coordinateTransform);
-      if (dynamic_cast<fr::PolylineShape*>(holeShape) == nullptr) {
+      if (jrt::fast_cast<fr::PolylineShape>(holeShape) == nullptr) {
         FRLogger::warn("Shape.transform_area_to_board: PolylineShape expected");
         return nullptr;
       }
-      (*holes)[i] = dynamic_cast<fr::PolylineShape*>(holeShape);
+      (*holes)[i] = jrt::fast_cast<fr::PolylineShape>(holeShape);
     }
     result = new fr::PolylineArea(border, holes);
   }

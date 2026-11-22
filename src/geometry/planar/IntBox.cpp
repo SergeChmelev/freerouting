@@ -297,14 +297,14 @@ IntBox* IntBox::translateBy(Vector* relCoor) {
     return this;
   }
   IntVector* translation = relCoor->toIntegerExact();
-  IntPoint* newLl = dynamic_cast<IntPoint*>(ll->translateBy(translation));
-  IntPoint* newUr = dynamic_cast<IntPoint*>(ur->translateBy(translation));
+  IntPoint* newLl = jrt::fast_cast<IntPoint>(ll->translateBy(translation));
+  IntPoint* newUr = jrt::fast_cast<IntPoint>(ur->translateBy(translation));
   return new IntBox(newLl, newUr);
 }
 
 IntBox* IntBox::turn90Degree(int32_t factor, IntPoint* pole) {
-  IntPoint* p1 = dynamic_cast<IntPoint*>(ll->turn90Degree(factor, pole));
-  IntPoint* p2 = dynamic_cast<IntPoint*>(ur->turn90Degree(factor, pole));
+  IntPoint* p1 = jrt::fast_cast<IntPoint>(ll->turn90Degree(factor, pole));
+  IntPoint* p2 = jrt::fast_cast<IntPoint>(ur->turn90Degree(factor, pole));
 
   int32_t lowerLeftX = jrt::Math::min(p1->x, p2->x);
   int32_t lowerLeftY = jrt::Math::min(p1->y, p2->y);

@@ -23,7 +23,7 @@ class SesNumbers_Interval : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<SesNumbers_Interval*>(o);
+    auto* other = jrt::fast_cast<SesNumbers_Interval>(o);
     return other != nullptr && low_.equals(other->low_) && high_.equals(other->high_);
   }
   int32_t hashCode() override {

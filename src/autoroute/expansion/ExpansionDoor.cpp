@@ -53,10 +53,10 @@ CompleteExpansionRoom* ExpansionDoor::otherRoom(CompleteExpansionRoom* room) {
   } else {
     result = nullptr;
   }
-  if (dynamic_cast<CompleteExpansionRoom*>(result) == nullptr) {
+  if (jrt::fast_cast<CompleteExpansionRoom>(result) == nullptr) {
     result = nullptr;
   }
-  return dynamic_cast<CompleteExpansionRoom*>(result);
+  return jrt::fast_cast<CompleteExpansionRoom>(result);
 }
 
 jrt::Array<FloatLine*>* ExpansionDoor::getSectionSegments(double offsetParam) {
@@ -78,8 +78,8 @@ jrt::Array<FloatLine*>* ExpansionDoor::getSectionSegments(double offsetParam) {
   if (this->dimension == 1) {
     doorLineSegment = doorShape->diagonalCornerSegment();
     shrinkedLineSegment = doorLineSegment->shrinkSegment(offset);
-  } else if (this->dimension == 2 && dynamic_cast<CompleteFreeSpaceExpansionRoom*>(this->firstRoom) != nullptr &&
-             dynamic_cast<CompleteFreeSpaceExpansionRoom*>(this->secondRoom) != nullptr) {
+  } else if (this->dimension == 2 && jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(this->firstRoom) != nullptr &&
+             jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(this->secondRoom) != nullptr) {
     // Overlapping doors at a corner possible in case of 90- or 45-degree routing.
     // In case of freeangle routing the corners are cut off.
     doorLineSegment = calcDoorLineSegment(doorShape);

@@ -62,7 +62,7 @@ bool DifferentialPair::isNegative(Net* net) {
 
 bool DifferentialPair::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<DifferentialPair*>(o);
+  auto* other = jrt::fast_cast<DifferentialPair>(o);
   return other != nullptr && jrt::equalsOf(positiveNet_, other->positiveNet_) &&
          jrt::equalsOf(negativeNet_, other->negativeNet_) && baseName_ == other->baseName_ &&
          jrt::equalsOf(coupledSpacing_, other->coupledSpacing_) &&

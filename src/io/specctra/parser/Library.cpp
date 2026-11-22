@@ -144,7 +144,7 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
   jrt::Collection<Shape*>* shapeList = new jrt::LinkedList<Shape*>();
   try {
     jrt::Object* nextToken = scanner->nextToken();
-    if (auto* string = dynamic_cast<JString*>(nextToken)) {
+    if (auto* string = jrt::fast_cast<JString>(nextToken)) {
       padstackName = string->value;
       scanner->setScopeIdentifier(padstackName);
     } else {
@@ -162,7 +162,7 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
         return false;
       }
       if (prevToken == Keyword::OPEN_BRACKET()) {
-        auto* nextString = dynamic_cast<JString*>(nextToken);
+        auto* nextString = jrt::fast_cast<JString>(nextToken);
         if (nextToken == Keyword::SHAPE()) {
           Shape* currentShape = Shape::readScope(scanner, layerStructure);
           if (currentShape != nullptr) {
@@ -190,9 +190,9 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
         } else if (nextString != nullptr && nextString->value == "freerouting_drill_diameter") {
           jrt::Object* diaToken = scanner->nextToken();
           double diameter = jrt::Double::NaN;
-          if (auto* intVal = dynamic_cast<JInteger*>(diaToken)) {
+          if (auto* intVal = jrt::fast_cast<JInteger>(diaToken)) {
             diameter = static_cast<double>(intVal->value);
-          } else if (auto* doubleVal = dynamic_cast<JDouble*>(diaToken)) {
+          } else if (auto* doubleVal = jrt::fast_cast<JDouble>(diaToken)) {
             diameter = doubleVal->value;
           }
           // PORT NOTE: the Java Float branch is dropped (the scanner never produces Floats).
@@ -235,9 +235,9 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
     fr::Shape* currentShape = padShape->transformToBoardRel(coordinateTransform);
     jrt::List<fr::ConvexShape*>* pieces = new jrt::ArrayList<fr::ConvexShape*>();
 
-    if (auto* shape1 = dynamic_cast<fr::ConvexShape*>(currentShape)) {
+    if (auto* shape1 = jrt::fast_cast<fr::ConvexShape>(currentShape)) {
       pieces->add(shape1);
-      if (auto* path = dynamic_cast<PolygonPath*>(padShape)) {
+      if (auto* path = jrt::fast_cast<PolygonPath>(padShape)) {
         fr::PadOval* oval = path->padOvalRel(coordinateTransform);
         if (oval != nullptr) {
           ovalOfPiece->put(shape1, oval);
@@ -245,7 +245,7 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
       }
     } else {
       jrt::Array<fr::TileShape*>* convexPieces = nullptr;
-      if (auto* shape = dynamic_cast<fr::PolygonShape*>(currentShape)) {
+      if (auto* shape = jrt::fast_cast<fr::PolygonShape>(currentShape)) {
         convexPieces = shape->splitToConvex();
       } else if (currentShape != nullptr) {
         convexPieces = currentShape->splitToConvex();
@@ -254,13 +254,13 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
       if (convexPieces != nullptr && convexPieces->length > 0) {
         for (fr::TileShape* piece : *convexPieces) {
           fr::ConvexShape* convexPiece = piece;
-          if (auto* simplex = dynamic_cast<fr::Simplex*>(convexPiece)) {
+          if (auto* simplex = jrt::fast_cast<fr::Simplex>(convexPiece)) {
             convexPiece = simplex->simplify();
           }
           pieces->add(convexPiece);
         }
       } else {
-        if (auto* shape = dynamic_cast<fr::PolygonShape*>(currentShape)) {
+        if (auto* shape = jrt::fast_cast<fr::PolygonShape>(currentShape)) {
           currentShape = shape->convexHull();
         }
         jrt::Array<fr::TileShape*>* fallback =
@@ -271,7 +271,7 @@ bool Library::readPadstackScope(IJFlexScanner* scanner, LayerStructure* layerStr
         }
         fr::ConvexShape* fallbackShape =
             (fallback != nullptr && fallback->length > 0) ? (*fallback)[0] : nullptr;
-        if (auto* simplex = dynamic_cast<fr::Simplex*>(fallbackShape)) {
+        if (auto* simplex = jrt::fast_cast<fr::Simplex>(fallbackShape)) {
           fallbackShape = simplex->simplify();
         }
         if (fallbackShape != nullptr) {
@@ -468,7 +468,7 @@ bool Library::readScope(ReadScopeParameter* scopeParameter) {
       Shape* currentShape = it3->next();
       if (currentShape != nullptr) {
         (*outlines)[i] = currentShape->transformToBoardRel(scopeParameter->coordinateTransform);
-        if (auto* path = dynamic_cast<Path*>(currentShape)) {
+        if (auto* path = jrt::fast_cast<Path>(currentShape)) {
           (*outlineWidths)[i] = path->width;
           jrt::Array<double>* coords = path->coordinateArr;
           if (coords->length >= 4) {

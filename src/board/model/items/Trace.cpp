@@ -50,11 +50,11 @@ int32_t Trace::getCompensatedHalfWidth(ShapeSearchTree* searchTree) {
 }
 
 bool Trace::isObstacle(Item* other) {
-  if (other == this || dynamic_cast<ViaObstacleArea*>(other) != nullptr ||
-      dynamic_cast<ComponentObstacleArea*>(other) != nullptr) {
+  if (other == this || jrt::fast_cast<ViaObstacleArea>(other) != nullptr ||
+      jrt::fast_cast<ComponentObstacleArea>(other) != nullptr) {
     return false;
   }
-  if (auto* area = dynamic_cast<ConductionArea*>(other)) {
+  if (auto* area = jrt::fast_cast<ConductionArea>(other)) {
     if (!area->getIsObstacle()) {
       return false;
     }
@@ -181,7 +181,7 @@ jrt::Set<Item*>* Trace::getNormalContacts() {
   // this trace at internal bends or along the centerline (e.g. preserved T-junctions)
   if (board != nullptr) {
     TileShape* contactBounds;
-    if (auto* polylineTrace = dynamic_cast<PolylineTrace*>(this)) {
+    if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(this)) {
       contactBounds = polylineTrace->polyline()
                           ->boundingOctagon(0, polylineTrace->cornerCount() - 1)
                           ->offset(this->getHalfWidth());
@@ -190,18 +190,18 @@ jrt::Set<Item*>* Trace::getNormalContacts() {
     }
     jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(contactBounds, this->layer);
     for (SearchTreeObject* obj : *overlaps) {
-      auto* item = dynamic_cast<Item*>(obj);
+      auto* item = jrt::fast_cast<Item>(obj);
       if (item == nullptr || item == this || !item->sharesNet(this) || !item->sharesLayer(this)) {
         continue;
       }
-      if (auto* otherTrace = dynamic_cast<Trace*>(item)) {
+      if (auto* otherTrace = jrt::fast_cast<Trace>(item)) {
         Point* p1 = otherTrace->firstCorner();
         Point* p2 = otherTrace->lastCorner();
         if ((p1 != nullptr && this->centreLineContains(p1)) ||
             (p2 != nullptr && this->centreLineContains(p2))) {
           result->add(item);
         }
-      } else if (auto* drillItem = dynamic_cast<DrillItem*>(item)) {
+      } else if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
         Point* center = drillItem->getCenter();
         if (center != nullptr && this->centreLineContains(center)) {
           result->add(item);
@@ -221,21 +221,21 @@ jrt::Set<Item*>* Trace::getNormalContacts(Point* point, bool ignoreNet) {
   jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(searchShape, this->layer);
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
-    auto* currentItem = dynamic_cast<Item*>(currentObject);
+    auto* currentItem = jrt::fast_cast<Item>(currentObject);
     if (currentItem == nullptr) {
       continue;
     }
     if (currentItem != this && currentItem->sharesLayer(this) &&
         (ignoreNet || currentItem->sharesNet(this))) {
-      if (auto* currentTrace = dynamic_cast<Trace*>(currentItem)) {
+      if (auto* currentTrace = jrt::fast_cast<Trace>(currentItem)) {
         if (currentTrace->isConnectionPoint(point)) {
           result->add(currentItem);
         }
-      } else if (auto* currentDrillItem = dynamic_cast<DrillItem*>(currentItem)) {
+      } else if (auto* currentDrillItem = jrt::fast_cast<DrillItem>(currentItem)) {
         if (point->equals(currentDrillItem->getCenter())) {
           result->add(currentItem);
         }
-      } else if (auto* currentArea = dynamic_cast<ConductionArea*>(currentItem)) {
+      } else if (auto* currentArea = jrt::fast_cast<ConductionArea>(currentItem)) {
         if (currentArea->getArea()->contains(point)) {
           result->add(currentItem);
         }
@@ -251,7 +251,7 @@ bool Trace::isTail() { return !hasContactAt(true) || !hasContactAt(false); }
 
 bool Trace::hasContactAt(bool first) {
   for (Item* contact : *(first ? getStartContacts() : getEndContacts())) {
-    auto* area = dynamic_cast<ConductionArea*>(contact);
+    auto* area = jrt::fast_cast<ConductionArea>(contact);
     if (area == nullptr || area->touchesEndOf(this, first)) {
       return true;
     }
@@ -261,11 +261,11 @@ bool Trace::hasContactAt(bool first) {
 
 bool Trace::hasInteriorContacts() {
   for (Item* contact : *getNormalContacts()) {
-    if (auto* trace = dynamic_cast<Trace*>(contact)) {
+    if (auto* trace = jrt::fast_cast<Trace>(contact)) {
       if (isInteriorPoint(trace->firstCorner()) || isInteriorPoint(trace->lastCorner())) {
         return true;
       }
-    } else if (auto* drill = dynamic_cast<DrillItem*>(contact)) {
+    } else if (auto* drill = jrt::fast_cast<DrillItem>(contact)) {
       if (isInteriorPoint(drill->getCenter())) {
         return true;
       }
@@ -287,7 +287,7 @@ bool Trace::isOverlap() {
   jrt::Set<Item*>* startContacts = this->getStartContacts();
   for (Item* contact : *this->getEndContacts()) {
     // a fractured plane under both ends joins them only if they touch a common island
-    auto* area = dynamic_cast<ConductionArea*>(contact);
+    auto* area = jrt::fast_cast<ConductionArea>(contact);
     if (startContacts->contains(contact) && !(area != nullptr && !area->joinsEndsOf(this))) {
       return true;
     }
@@ -434,7 +434,7 @@ jrt::Set<Pin*>* Trace::touchingPinsAtEndCorners() {
     jrt::Set<Item*>* currentOverlaps = this->board->overlappingItemsWithClearance(
         currentOct, this->layer, new jrt::Array<int32_t>(0), this->clearanceClassIndex());
     for (Item* currentItem : *currentOverlaps) {
-      auto* pin = dynamic_cast<Pin*>(currentItem);
+      auto* pin = jrt::fast_cast<Pin>(currentItem);
       if (pin != nullptr && currentItem->sharesNet(this)) {
         result->add(pin);
       }

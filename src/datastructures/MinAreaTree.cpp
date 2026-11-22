@@ -97,7 +97,7 @@ void MinAreaTree::collectOverlapsUnlocked(RegularTileShape* shape,
     while ((currentNode = stack->pop()) != nullptr) {
       onNodeVisited();
       if (currentNode->boundingShape->intersects(static_cast<Shape*>(shape))) {
-        if (auto* leaf = dynamic_cast<ShapeTree_Leaf*>(currentNode)) {
+        if (auto* leaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
           result->add(leaf);
         } else {
           auto* inner = static_cast<ShapeTree_InnerNode*>(currentNode);
@@ -157,7 +157,7 @@ ShapeTree_Leaf* MinAreaTree::positionLocate(ShapeTree_TreeNode* currentNode,
                                             ShapeTree_Leaf* leafToInsert) {
   ShapeTree_TreeNode* node = currentNode;
 
-  while (dynamic_cast<ShapeTree_Leaf*>(node) == nullptr) {
+  while (jrt::fast_cast<ShapeTree_Leaf>(node) == nullptr) {
     auto* currentInnerNode = static_cast<ShapeTree_InnerNode*>(node);
     currentInnerNode->boundingShape =
         leafToInsert->boundingShape->union_(currentInnerNode->boundingShape);

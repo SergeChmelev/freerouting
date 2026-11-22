@@ -128,7 +128,7 @@ Line* LineSegment::splitLine(Point* point) {
   if (!contains(point)) {
     return nullptr;
   }
-  if (dynamic_cast<IntPoint*>(point) != nullptr) {
+  if (jrt::fast_cast<IntPoint>(point) != nullptr) {
     return new Line(point, middle->direction()->turn45Degree(2));
   }
   if (start->sideOf(point) == Side::COLLINEAR()) {
@@ -137,7 +137,7 @@ Line* LineSegment::splitLine(Point* point) {
   if (end->sideOf(point) == Side::COLLINEAR()) {
     return end;
   }
-  RationalPoint* rational = dynamic_cast<RationalPoint*>(point);
+  RationalPoint* rational = jrt::fast_cast<RationalPoint>(point);
   jrt::BigInteger baseX = rational->x.divide(rational->z);
   jrt::BigInteger baseY = rational->y.divide(rational->z);
   if (!withinIntegerBounds(baseX) || !withinIntegerBounds(baseY)) {

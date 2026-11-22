@@ -104,14 +104,14 @@ jrt::Collection<FloatPoint*>* FoundConnectionLocator45Degree::calculateNextTrace
 
   int32_t traceHalfwidth = (*this->ctrl->compensatedTraceHalfWidth)[this->currentTraceLayer];
   int32_t shrinkOffset;
-  if (dynamic_cast<ObstacleExpansionRoom*>(currentFromInfo->nextRoom) != nullptr) {
+  if (jrt::fast_cast<ObstacleExpansionRoom>(currentFromInfo->nextRoom) != nullptr) {
     shrinkOffset = traceHalfwidth;
   } else {
     shrinkOffset = this->ctrl->getTraceClearanceOffset(this->currentTraceLayer);
   }
   int32_t traceHalfwidthAdd = shrinkOffset;
 
-  auto* shrinkedRoomShape = dynamic_cast<TileShape*>(roomShape->offset(-shrinkOffset));
+  auto* shrinkedRoomShape = jrt::fast_cast<TileShape>(roomShape->offset(-shrinkOffset));
   if (this->ctrl->netNumber == 33 || this->ctrl->netNumber == 66 || this->ctrl->netNumber == 67) {
     FRLogger::trace("compare_trace_room_shrink_raw net=" + jrt::str(this->ctrl->netNumber)
                     + ", mode=45" + ", layer=" + jrt::str(this->currentTraceLayer)
@@ -166,7 +166,7 @@ jrt::Collection<FloatPoint*>* FoundConnectionLocator45Degree::calculateNextTrace
 
   FoundConnectionLocator_BacktrackElement* currentToInfo =
       (*this->backtrackArray)[this->currentToDoorIndex];
-  auto* currentToDoor = dynamic_cast<ExpansionDoor*>(currentToInfo->door);
+  auto* currentToDoor = jrt::fast_cast<ExpansionDoor>(currentToInfo->door);
   if (currentToDoor == nullptr) {
     FRLogger::warn(
         "FoundConnectionLocator45Degree.calculate_next_trace_corners: ExpansionDoor expected");
@@ -178,7 +178,7 @@ jrt::Collection<FloatPoint*>* FoundConnectionLocator45Degree::calculateNextTrace
     // May not happen in free angle routing mode because then corners are cut off.
     TileShape* toDoorShape = currentToDoor->getShape();
 
-    auto* shrinkedToDoorShape = dynamic_cast<TileShape*>(toDoorShape->shrink(shrinkOffset));
+    auto* shrinkedToDoorShape = jrt::fast_cast<TileShape>(toDoorShape->shrink(shrinkOffset));
     nearestToDoorPoint = shrinkedToDoorShape->nearestPointApprox(this->currentFromPoint);
     nearestToDoorPoint = roundToInteger(nearestToDoorPoint);
   } else {

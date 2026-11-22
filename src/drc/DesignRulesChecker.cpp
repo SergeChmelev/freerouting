@@ -77,7 +77,7 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
   // Group items by net
   auto* itemsByNet = new jrt::HashMap<int32_t, jrt::List<Item*>*>();
   for (Item* item : *board->getItems()) {
-    if (dynamic_cast<Connectable*>(item) != nullptr && item->netCount() > 0) {
+    if (jrt::fast_cast<Connectable>(item) != nullptr && item->netCount() > 0) {
       int32_t netNumber = item->getNetNumber(0);
       itemsByNet
           ->computeIfAbsent(netNumber,
@@ -136,7 +136,7 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
 
   // Check for dangling traces - traces with unconnected ends
   for (Item* item : *board->getItems()) {
-    if (auto* trace = dynamic_cast<Trace*>(item)) {
+    if (auto* trace = jrt::fast_cast<Trace>(item)) {
       jrt::Collection<Item*>* startContacts = trace->getStartContacts();
       jrt::Collection<Item*>* endContacts = trace->getEndContacts();
 
@@ -159,7 +159,7 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
 
   // Check for dangling vias - vias not connected or connected on only one layer
   for (Item* item : *board->getItems()) {
-    if (auto* via = dynamic_cast<Via*>(item)) {
+    if (auto* via = jrt::fast_cast<Via>(item)) {
       // Use the isTail() method which checks if via has contacts on at most 1 layer
       if (via->isTail()) {
         unconnectedItems->add(new UnconnectedItems(via, nullptr, std::string("via_dangling")));
@@ -197,7 +197,7 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
     // Find all connectable items belonging to this net on this layer
     auto* sameNetItemsOnLayer = new jrt::ArrayList<Item*>();
     for (Item* item : *board->getItems()) {
-      if (item != static_cast<Item*>(ca) && dynamic_cast<Connectable*>(item) != nullptr &&
+      if (item != static_cast<Item*>(ca) && jrt::fast_cast<Connectable>(item) != nullptr &&
           item->sharesNet(ca) && item->sharesLayer(ca)) {
         sameNetItemsOnLayer->add(item);
       }
@@ -209,9 +209,9 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
       auto* contained = new jrt::ArrayList<Item*>();
       for (Item* item : *sameNetItemsOnLayer) {
         Point* center = nullptr;
-        if (auto* drillItem = dynamic_cast<DrillItem*>(item)) {
+        if (auto* drillItem = jrt::fast_cast<DrillItem>(item)) {
           center = drillItem->getCenter();
-        } else if (auto* trace = dynamic_cast<Trace*>(item)) {
+        } else if (auto* trace = jrt::fast_cast<Trace>(item)) {
           center = trace->firstCorner();
         }
         if (center != nullptr) {
@@ -281,13 +281,13 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
 Item* DesignRulesChecker::findRepresentativeItem(jrt::Set<Item*>* connectedSet) {
   // Prefer Pins
   for (Item* item : *connectedSet) {
-    if (dynamic_cast<Pin*>(item) != nullptr) {
+    if (jrt::fast_cast<Pin>(item) != nullptr) {
       return item;
     }
   }
   // Then Traces
   for (Item* item : *connectedSet) {
-    if (dynamic_cast<Trace*>(item) != nullptr) {
+    if (jrt::fast_cast<Trace>(item) != nullptr) {
       return item;
     }
   }
@@ -300,24 +300,24 @@ Item* DesignRulesChecker::findRepresentativeItem(jrt::Set<Item*>* connectedSet) 
 // out of scope and dropped (see header). The helpers below are kept.
 
 bool DesignRulesChecker::isHole(Item* item) {
-  if (dynamic_cast<Via*>(item) != nullptr) {
+  if (jrt::fast_cast<Via>(item) != nullptr) {
     return true;
   }
   // Pins are treated as holes for DRC classification to match expected output,
   // although this might include SMT pins (DrillItem).
-  return dynamic_cast<Pin*>(item) != nullptr;
+  return jrt::fast_cast<Pin>(item) != nullptr;
 }
 
 std::string DesignRulesChecker::getItemDescription(Item* item) {
   std::string desc;
 
-  if (dynamic_cast<Trace*>(item) != nullptr) {
+  if (jrt::fast_cast<Trace>(item) != nullptr) {
     desc += "Trace";
-  } else if (dynamic_cast<Via*>(item) != nullptr) {
+  } else if (jrt::fast_cast<Via>(item) != nullptr) {
     desc += "Via";
-  } else if (dynamic_cast<Pin*>(item) != nullptr) {
+  } else if (jrt::fast_cast<Pin>(item) != nullptr) {
     desc += "Pin";
-  } else if (dynamic_cast<ConductionArea*>(item) != nullptr) {
+  } else if (jrt::fast_cast<ConductionArea>(item) != nullptr) {
     desc += "Conduction Area";
   } else {
     desc += jrt::className(item);
@@ -343,7 +343,7 @@ std::string DesignRulesChecker::getDetailedTraceDescription(Item* item,
   }
 
   // Add layer information
-  if (auto* trace = dynamic_cast<Trace*>(item)) {
+  if (auto* trace = jrt::fast_cast<Trace>(item)) {
     int32_t layer = trace->getLayer();
     std::string layerName = (*board->layerStructure->layers)[layer]->name;
     desc += " on " + layerName;
@@ -398,11 +398,11 @@ void DesignRulesChecker::calculateAllIncompletes() {
   }
   auto* it = board->itemList->startReadObject();
   for (;;) {
-    Item* currentItem = dynamic_cast<Item*>(board->itemList->readObject(it));
+    Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
-    if (dynamic_cast<Connectable*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Connectable>(currentItem) != nullptr) {
       for (int32_t i = 0; i < currentItem->netCount(); i++) {
         netItemLists->get(currentItem->getNetNumber(i) - 1)->add(currentItem);
       }
@@ -417,7 +417,7 @@ void DesignRulesChecker::calculateAllIncompletes() {
     }
     int64_t endpointCount = 0;
     for (Item* item : *list) {
-      if (dynamic_cast<Pin*>(item) != nullptr || dynamic_cast<ConductionArea*>(item) != nullptr) {
+      if (jrt::fast_cast<Pin>(item) != nullptr || jrt::fast_cast<ConductionArea>(item) != nullptr) {
         endpointCount++;
       }
     }
@@ -451,7 +451,7 @@ void DesignRulesChecker::calculateAllIncompletes() {
       // Let's validate all the polyline traces for this net
       jrt::Collection<Item*>* netItems = netItemLists->get(netNumber - 1);
       for (Item* item : *netItems) {
-        if (auto* trace = dynamic_cast<PolylineTrace*>(item)) {
+        if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
           (void)trace;  // trace.validateAndLogPolylineIntegrity();
         }
       }
@@ -764,7 +764,7 @@ std::string DesignRulesChecker::formatItemWithContext(Item* item) {
     return "none";
   }
   std::string sb;
-  if (auto* pin = dynamic_cast<Pin*>(item)) {
+  if (auto* pin = jrt::fast_cast<Pin>(item)) {
     sb += "Pin ";
     Component* comp = board->components->get(pin->getComponentId());
     if (comp != nullptr) {
@@ -778,11 +778,11 @@ std::string DesignRulesChecker::formatItemWithContext(Item* item) {
     } else {
       sb += "#" + jrt::str(pin->pinIndex + 1);
     }
-  } else if (dynamic_cast<Trace*>(item) != nullptr) {
+  } else if (jrt::fast_cast<Trace>(item) != nullptr) {
     sb += "Trace";
-  } else if (dynamic_cast<Via*>(item) != nullptr) {
+  } else if (jrt::fast_cast<Via>(item) != nullptr) {
     sb += "Via";
-  } else if (dynamic_cast<ConductionArea*>(item) != nullptr) {
+  } else if (jrt::fast_cast<ConductionArea>(item) != nullptr) {
     sb += "ConductionArea";
   } else {
     sb += jrt::className(item);

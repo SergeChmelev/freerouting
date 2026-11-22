@@ -22,7 +22,7 @@ bool Resolution::readScope(ReadScopeParameter* scopeParameter) {
   try {
     // read the unit
     jrt::Object* nextToken = scopeParameter->scanner->nextToken();
-    auto* unitString = dynamic_cast<JString*>(nextToken);
+    auto* unitString = jrt::fast_cast<JString>(nextToken);
     if (unitString == nullptr) {
       FRLogger::warn("Resolution.read_scope: string expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");
@@ -39,7 +39,7 @@ bool Resolution::readScope(ReadScopeParameter* scopeParameter) {
     scopeParameter->unit = *unit;
     // read the scale factor
     nextToken = scopeParameter->scanner->nextToken();
-    auto* scale = dynamic_cast<JInteger*>(nextToken);
+    auto* scale = jrt::fast_cast<JInteger>(nextToken);
     if (scale == nullptr) {
       FRLogger::warn("Resolution.read_scope: integer expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");

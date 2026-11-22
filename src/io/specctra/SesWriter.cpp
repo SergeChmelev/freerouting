@@ -273,10 +273,10 @@ void SesWriter::writeNet(int32_t netNumber, fr::BasicBoard* board,
     if (fr::FixedState_isFix(currentItem->getFixedState())) {
       continue;
     }
-    bool isWire = dynamic_cast<fr::PolylineTrace*>(currentItem) != nullptr;
-    bool isVia = dynamic_cast<fr::Via*>(currentItem) != nullptr;
+    bool isWire = jrt::fast_cast<fr::PolylineTrace>(currentItem) != nullptr;
+    bool isVia = jrt::fast_cast<fr::Via>(currentItem) != nullptr;
     bool isConductionArea =
-        dynamic_cast<fr::ConductionArea*>(currentItem) != nullptr &&
+        jrt::fast_cast<fr::ConductionArea>(currentItem) != nullptr &&
         (*board->layerStructure->layers)[currentItem->firstLayer()]->isSignal;
     if (!headerWritten && (isWire || isVia || isConductionArea)) {
       file->startScope();
@@ -290,13 +290,13 @@ void SesWriter::writeNet(int32_t netNumber, fr::BasicBoard* board,
       headerWritten = true;
     }
     if (isWire) {
-      writeWire(dynamic_cast<fr::PolylineTrace*>(currentItem), board, identifierType,
+      writeWire(jrt::fast_cast<fr::PolylineTrace>(currentItem), board, identifierType,
                 coordinateTransform, file);
     } else if (isVia) {
-      writeVia(dynamic_cast<fr::Via*>(currentItem), board, identifierType, coordinateTransform,
+      writeVia(jrt::fast_cast<fr::Via>(currentItem), board, identifierType, coordinateTransform,
                file);
     } else if (isConductionArea) {
-      writeConductionArea(dynamic_cast<fr::ConductionArea*>(currentItem), board, identifierType,
+      writeConductionArea(jrt::fast_cast<fr::ConductionArea>(currentItem), board, identifierType,
                           coordinateTransform, file);
     }
   }
@@ -368,7 +368,7 @@ void SesWriter::writeConductionArea(fr::ConductionArea* conductionArea, fr::Basi
   Layer* conductionLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
-  if (auto* shape = dynamic_cast<fr::Shape*>(currentArea)) {
+  if (auto* shape = jrt::fast_cast<fr::Shape>(currentArea)) {
     boundaryShape = shape;
     holes = new jrt::Array<fr::Shape*>(0);
   } else {

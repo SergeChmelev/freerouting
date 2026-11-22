@@ -22,7 +22,7 @@ Shape* KiCadRoundRectPad::correct(const std::string& padstackName, Shape* shape,
                                   std::optional<fr::Unit> dsnUnitOpt,
                                   fr::io::CoordinateTransform* coordinateTransform) {
   // PORT NOTE: padstackName is never null in C++.
-  auto* polygon = dynamic_cast<Polygon*>(shape);
+  auto* polygon = jrt::fast_cast<Polygon>(shape);
   if (polygon == nullptr || !dsnUnitOpt.has_value() || coordinateTransform == nullptr ||
       polygon->coor->length < 6) {
     return shape;

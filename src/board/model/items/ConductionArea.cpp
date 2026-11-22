@@ -143,7 +143,7 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
 
     jrt::Set<SearchTreeObject*>* overlaps = this->board->overlappingObjects(inflatedBbox, layerIndex);
     for (SearchTreeObject* ob : *overlaps) {
-      auto* currentItem = dynamic_cast<Item*>(ob);
+      auto* currentItem = jrt::fast_cast<Item>(ob);
       if (currentItem == nullptr || currentItem == this) {
         continue;
       }
@@ -151,8 +151,8 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
         continue;
       }
 
-      if (dynamic_cast<Trace*>(currentItem) != nullptr ||
-          dynamic_cast<ConductionArea*>(currentItem) != nullptr) {
+      if (jrt::fast_cast<Trace>(currentItem) != nullptr ||
+          jrt::fast_cast<ConductionArea>(currentItem) != nullptr) {
         if (currentItem->sharesNet(this)) {
           continue;
         }
@@ -163,7 +163,7 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
       double clearanceDist = this->board->clearanceValue(clClass1, clClass2, layerIndex);
 
       if (currentItem->sharesNet(this)) {
-        if (auto* drillItem = dynamic_cast<DrillItem*>(currentItem)) {
+        if (auto* drillItem = jrt::fast_cast<DrillItem>(currentItem)) {
           FloatPoint* center = drillItem->getCenter()->toFloat();
           Shape* shape = drillItem->getShapeOnLayer(layerIndex);
           if (shape == nullptr) {
@@ -194,7 +194,7 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
           }
         }
       } else {
-        if (auto* drillItem = dynamic_cast<DrillItem*>(currentItem)) {
+        if (auto* drillItem = jrt::fast_cast<DrillItem>(currentItem)) {
           Shape* shape = drillItem->getShapeOnLayer(layerIndex);
           if (shape != nullptr) {
             Shape* enlargedShape = shape->enlarge(clearanceDist);
@@ -268,38 +268,38 @@ jrt::Set<Item*>* ConductionArea::getNormalContacts() {
       TileShape* tile = getTileShape(i);
       for (SearchTreeObject* currentObject : *board->overlappingObjects(tile, getLayer())) {
         if (isContactInTile(currentObject, tile)) {
-          result->add(dynamic_cast<Item*>(currentObject));
+          result->add(jrt::fast_cast<Item>(currentObject));
         }
       }
     }
     return result;
   }
   for (SearchTreeObject* currentObject : *overlaps) {
-    result->add(dynamic_cast<Item*>(currentObject));
+    result->add(jrt::fast_cast<Item>(currentObject));
   }
   return result;
 }
 
 jrt::Array<Point*>* ConductionArea::contactPoints(SearchTreeObject* object) {
-  auto* item = dynamic_cast<Item*>(object);
+  auto* item = jrt::fast_cast<Item>(object);
   if (item == nullptr || item == this || !item->sharesNet(this) || !item->sharesLayer(this)) {
     return nullptr;
   }
-  if (auto* trace = dynamic_cast<Trace*>(item)) {
+  if (auto* trace = jrt::fast_cast<Trace>(item)) {
     return jrt::Array<Point*>::of({trace->firstCorner(), trace->lastCorner()});
   }
-  auto* via = dynamic_cast<Via*>(item);
+  auto* via = jrt::fast_cast<Via>(item);
   return via != nullptr ? jrt::Array<Point*>::of({via->getCenter()}) : nullptr;
 }
 
 bool ConductionArea::isPinCandidate(SearchTreeObject* object) {
-  auto* pin = dynamic_cast<Pin*>(object);
+  auto* pin = jrt::fast_cast<Pin>(object);
   return pin != nullptr && pin->sharesNet(this) && pin->sharesLayer(this);
 }
 
 bool ConductionArea::isContactInTile(SearchTreeObject* object, TileShape* tile) {
   if (isPinCandidate(object)) {
-    return overlapsTile(dynamic_cast<Pin*>(object), tile);
+    return overlapsTile(jrt::fast_cast<Pin>(object), tile);
   }
   jrt::Array<Point*>* points = contactPoints(object);
   if (points != nullptr) {
@@ -353,10 +353,10 @@ bool ConductionArea::coversAllPlanesOfNet(jrt::Collection<Item*>* connectedSet,
   bool onPlane = false;
   bool hasPin = false;
   for (Item* item : *connectedSet) {
-    auto* ca = dynamic_cast<ConductionArea*>(item);
+    auto* ca = jrt::fast_cast<ConductionArea>(item);
     if (ca != nullptr && !ca->isFractured()) {
       onPlane = true;
-    } else if (dynamic_cast<Pin*>(item) != nullptr) {
+    } else if (jrt::fast_cast<Pin>(item) != nullptr) {
       hasPin = true;
     }
   }
@@ -368,13 +368,13 @@ bool ConductionArea::coversAllPlanesOfNet(jrt::Collection<Item*>* connectedSet,
     return true;
   }
   for (Item* item : *unconnectedSet) {
-    auto* ca = dynamic_cast<ConductionArea*>(item);
+    auto* ca = jrt::fast_cast<ConductionArea>(item);
     if (ca != nullptr && !ca->isFloatingFragment(netNo)) {
       return false;
     }
   }
   for (Item* item : *connectedSet) {
-    auto* ca = dynamic_cast<ConductionArea*>(item);
+    auto* ca = jrt::fast_cast<ConductionArea>(item);
     if (ca != nullptr && ca->hasUnreachedPinIsland(connectedSet)) {
       return false;
     }
@@ -396,7 +396,7 @@ bool ConductionArea::hasPinOnAnyIsland(int32_t netNo) {
   }
   for (jrt::List<Item*>* island : *res->islandItems->values()) {
     for (Item* item : *island) {
-      if (dynamic_cast<Pin*>(item) != nullptr && (netNo <= 0 || item->containsNet(netNo))) {
+      if (jrt::fast_cast<Pin>(item) != nullptr && (netNo <= 0 || item->containsNet(netNo))) {
         return true;
       }
     }
@@ -411,7 +411,7 @@ bool ConductionArea::hasUnreachedPinIsland(jrt::Collection<Item*>* connectedSet)
   }
   for (jrt::List<Item*>* island : *res->islandItems->values()) {
     for (Item* item : *island) {
-      if (dynamic_cast<Pin*>(item) != nullptr && !connectedSet->contains(item)) {
+      if (jrt::fast_cast<Pin>(item) != nullptr && !connectedSet->contains(item)) {
         return true;
       }
     }
@@ -421,7 +421,7 @@ bool ConductionArea::hasUnreachedPinIsland(jrt::Collection<Item*>* connectedSet)
 
 bool ConductionArea::reachesPinOfNet(int32_t netNo) {
   for (Item* item : *getConnectedSet(netNo)) {
-    if (dynamic_cast<Pin*>(item) != nullptr) {
+    if (jrt::fast_cast<Pin>(item) != nullptr) {
       return true;
     }
   }
@@ -435,7 +435,7 @@ void ConductionArea::collectPinsOnFracturedIslands(jrt::Collection<Pin*>* out) {
   }
   for (jrt::List<Item*>* island : *res->islandItems->values()) {
     for (Item* item : *island) {
-      if (auto* pin = dynamic_cast<Pin*>(item)) {
+      if (auto* pin = jrt::fast_cast<Pin>(item)) {
         out->add(pin);
         break;
       }
@@ -579,7 +579,7 @@ void ConductionArea::addLaterReachedIslands(jrt::Set<Item*>* result, int32_t net
     changed = false;
     jrt::List<ConductionArea*>* fractured = new jrt::ArrayList<ConductionArea*>();
     for (Item* item : *result) {
-      auto* ca = dynamic_cast<ConductionArea*>(item);
+      auto* ca = jrt::fast_cast<ConductionArea>(item);
       if (ca != nullptr && ca->board != nullptr && ca->isFractured()) {
         fractured->add(ca);
       }

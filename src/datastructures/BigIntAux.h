@@ -19,7 +19,7 @@ class BigIntAux_RationalCoordinates : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<BigIntAux_RationalCoordinates*>(o);
+    auto* other = jrt::fast_cast<BigIntAux_RationalCoordinates>(o);
     return other != nullptr && x_.equals(other->x_) && y_.equals(other->y_) &&
            z_.equals(other->z_);
   }

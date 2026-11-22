@@ -25,7 +25,7 @@ bool componentEquals(T* a, T* b) {
 
 bool BoardReadResult_Success::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BoardReadResult_Success*>(o);
+  auto* other = jrt::fast_cast<BoardReadResult_Success>(o);
   if (other == nullptr) return false;
   return componentEquals(board_, other->board_) && componentEquals(metadata_, other->metadata_) &&
          componentEquals(warnings_, other->warnings_);
@@ -46,7 +46,7 @@ std::string BoardReadResult_Success::toString() {
 
 bool BoardReadResult_OutlineMissing::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BoardReadResult_OutlineMissing*>(o);
+  auto* other = jrt::fast_cast<BoardReadResult_OutlineMissing>(o);
   if (other == nullptr) return false;
   return componentEquals(board_, other->board_) && componentEquals(metadata_, other->metadata_) &&
          componentEquals(warnings_, other->warnings_);
@@ -67,7 +67,7 @@ std::string BoardReadResult_OutlineMissing::toString() {
 
 bool BoardReadResult_ParseError::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BoardReadResult_ParseError*>(o);
+  auto* other = jrt::fast_cast<BoardReadResult_ParseError>(o);
   if (other == nullptr) return false;
   return location_ == other->location_ && detail_ == other->detail_;
 }

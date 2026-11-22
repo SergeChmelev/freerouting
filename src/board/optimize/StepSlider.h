@@ -28,7 +28,7 @@ class StepSlider_Result : public virtual jrt::Object {
   int32_t violationsAfter() { return violationsAfter_; }
 
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<StepSlider_Result*>(o);
+    auto* other = jrt::fast_cast<StepSlider_Result>(o);
     if (other == nullptr) return false;
     return passes_ == other->passes_ &&
            triedMoves_ == other->triedMoves_ &&
@@ -104,7 +104,7 @@ class StepSlider_Cost : public virtual jrt::Object {
   int32_t vias() { return vias_; }
 
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<StepSlider_Cost*>(o);
+    auto* other = jrt::fast_cast<StepSlider_Cost>(o);
     if (other == nullptr) return false;
     return jrt::equalsOf(length_, other->length_) &&
            bends_ == other->bends_ &&

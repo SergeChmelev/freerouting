@@ -13,20 +13,20 @@
 namespace fr {
 
 BigIntAux_RationalCoordinates* Point::exactCoordinates() {
-  if (auto* integer = dynamic_cast<IntPoint*>(this)) {
+  if (auto* integer = jrt::fast_cast<IntPoint>(this)) {
     return new BigIntAux_RationalCoordinates(jrt::BigInteger::valueOf(integer->x),
                                              jrt::BigInteger::valueOf(integer->y),
                                              jrt::BigInteger::ONE());
   }
-  auto* rational = dynamic_cast<RationalPoint*>(this);
+  auto* rational = jrt::fast_cast<RationalPoint>(this);
   return new BigIntAux_RationalCoordinates(rational->x, rational->y, rational->z);
 }
 
 IntPoint* Point::toIntegerExact() {
-  if (auto* integer = dynamic_cast<IntPoint*>(this)) {
+  if (auto* integer = jrt::fast_cast<IntPoint>(this)) {
     return integer;
   }
-  auto* rational = dynamic_cast<RationalPoint*>(this);
+  auto* rational = jrt::fast_cast<RationalPoint>(this);
   if (rational->isInfinite()) {
     throw jrt::IllegalArgumentException("An infinite point is not an integer board position");
   }

@@ -188,7 +188,7 @@ void Structure::writeConductionAreas(WriteScopeParameter* scopeParameter) {
     if (currentObject == nullptr) {
       break;
     }
-    auto* currentArea = dynamic_cast<fr::ConductionArea*>(currentObject);
+    auto* currentArea = jrt::fast_cast<fr::ConductionArea>(currentObject);
     if (currentArea == nullptr) {
       continue;
     }
@@ -209,7 +209,7 @@ void Structure::writeKeepouts(WriteScopeParameter* scopeParameter) {
     if (currentObject == nullptr) {
       break;
     }
-    auto* currentKeepout = dynamic_cast<fr::ObstacleArea*>(currentObject);
+    auto* currentKeepout = jrt::fast_cast<fr::ObstacleArea>(currentObject);
     if (currentKeepout == nullptr) {
       continue;
     }
@@ -221,7 +221,7 @@ void Structure::writeKeepouts(WriteScopeParameter* scopeParameter) {
       // auxiliary companion tiles generated for custom padstacks are not standalone keepouts
       continue;
     }
-    if (dynamic_cast<fr::ConductionArea*>(currentKeepout) != nullptr) {
+    if (jrt::fast_cast<fr::ConductionArea>(currentKeepout) != nullptr) {
       // conduction area will be written later.
       continue;
     }
@@ -247,7 +247,7 @@ void Structure::writeBoundaries(WriteScopeParameter* scopeParameter) {
     if (currentObject == nullptr) {
       break;
     }
-    if (dynamic_cast<fr::BoardOutline*>(currentObject) != nullptr) {
+    if (jrt::fast_cast<fr::BoardOutline>(currentObject) != nullptr) {
       break;
     }
   }
@@ -255,7 +255,7 @@ void Structure::writeBoundaries(WriteScopeParameter* scopeParameter) {
     FRLogger::warn("Structure.write_scope: board outline not found");
     return;
   }
-  fr::BoardOutline* outline = dynamic_cast<fr::BoardOutline*>(currentObject);
+  fr::BoardOutline* outline = jrt::fast_cast<fr::BoardOutline>(currentObject);
 
   // write the outline
   for (int32_t i = 0; i < outline->shapeCount(); i++) {
@@ -326,7 +326,7 @@ void Structure::writeKeepoutScope(WriteScopeParameter* scopeParameter, fr::Obsta
   Layer* const keepoutLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
-  if (auto* shape = dynamic_cast<fr::Shape*>(keepoutArea)) {
+  if (auto* shape = jrt::fast_cast<fr::Shape>(keepoutArea)) {
     boundaryShape = shape;
     holes = new jrt::Array<fr::Shape*>(0);
   } else {
@@ -334,9 +334,9 @@ void Structure::writeKeepoutScope(WriteScopeParameter* scopeParameter, fr::Obsta
     holes = keepoutArea->getHoles();
   }
   scopeParameter->file->startScope();
-  if (dynamic_cast<fr::ViaObstacleArea*>(keepout) != nullptr) {
+  if (jrt::fast_cast<fr::ViaObstacleArea>(keepout) != nullptr) {
     scopeParameter->file->write("via_keepout");
-  } else if (dynamic_cast<fr::WireObstacleArea*>(keepout) != nullptr) {
+  } else if (jrt::fast_cast<fr::WireObstacleArea>(keepout) != nullptr) {
     scopeParameter->file->write("wire_keepout");
   } else {
     scopeParameter->file->write("keepout");
@@ -401,8 +401,8 @@ void Structure::addBoundaryShape(Structure_BoardConstructionInfo* boardConstruct
   if (shape == nullptr) {
     return;
   }
-  if (dynamic_cast<PolylinePath*>(shape) != nullptr ||
-      dynamic_cast<PolygonPath*>(shape) != nullptr) {
+  if (jrt::fast_cast<PolylinePath>(shape) != nullptr ||
+      jrt::fast_cast<PolygonPath>(shape) != nullptr) {
     boardConstructionInfo->outlineShapes->add(shape);
     return;
   }
@@ -447,7 +447,7 @@ bool Structure::readLayerScope(IJFlexScanner* scanner,
             throw jrt::NullPointerException("nextToken.toString()");
           }
           if (!(nextToken->toString() == Keyword::JUMPER()->getName())) {
-            if (dynamic_cast<JString*>(nextToken) != nullptr) {
+            if (jrt::fast_cast<JString>(nextToken) != nullptr) {
               FRLogger::error("Structure.read_layer_scope: the layer '" + layerString +
                                   "' has an unknown layer type '" + jrt::str(nextToken) + "'",
                               static_cast<const std::exception*>(nullptr));
@@ -476,7 +476,7 @@ bool Structure::readLayerScope(IJFlexScanner* scanner,
           if (nextToken == Keyword::CLOSED_BRACKET()) {
             break;
           }
-          if (auto* string = dynamic_cast<JString*>(nextToken)) {
+          if (auto* string = jrt::fast_cast<JString>(nextToken)) {
             netNames->add(string->value);
           } else {
             FRLogger::warn("Structure.read_layer_scope: string expected at '" +
@@ -517,7 +517,7 @@ jrt::Collection<std::string>* Structure::readViaPadstacks(IJFlexScanner* scanner
         } else {
           skipScope(scanner);
         }
-      } else if (auto* string = dynamic_cast<JString*>(nextToken)) {
+      } else if (auto* string = jrt::fast_cast<JString>(nextToken)) {
         normalVias->add(string->value);
       } else {
         FRLogger::warn("Structure.read_via_padstack: String expected at '" +
@@ -688,7 +688,7 @@ void Structure::updateBoardRules(ReadScopeParameter* scopeParameter,
   bool smdToTurnGapFound = false;
   // update the clearance matrix
   for (Rule* currentObject : *boardConstructionInfo->defaultRules) {
-    if (auto* currentRule = dynamic_cast<Rule_ClearanceRule*>(currentObject)) {
+    if (auto* currentRule = jrt::fast_cast<Rule_ClearanceRule>(currentObject)) {
       if (setClearanceRule(currentRule, -1, scopeParameter->coordinateTransform, boardRules,
                            scopeParameter->stringQuote)) {
         smdToTurnGapFound = true;
@@ -697,7 +697,7 @@ void Structure::updateBoardRules(ReadScopeParameter* scopeParameter,
   }
   // update width rules
   for (Rule* currentObject : *boardConstructionInfo->defaultRules) {
-    if (auto* rule = dynamic_cast<Rule_WidthRule*>(currentObject)) {
+    if (auto* rule = jrt::fast_cast<Rule_WidthRule>(currentObject)) {
       const double wireWidth = rule->value;
       int32_t traceHalfwidth = jrt::l2i(
           jrt::Math::round(scopeParameter->coordinateTransform->dsnToBoard(wireWidth) / 2));
@@ -705,7 +705,7 @@ void Structure::updateBoardRules(ReadScopeParameter* scopeParameter,
                       " → board=" + jrt::str(traceHalfwidth * 2) + " (" +
                       jrt::str(traceHalfwidth * 2 / 40000.0) + " mm)");
       boardRules->setDefaultTraceHalfWidths(traceHalfwidth);
-    } else if (auto* rule = dynamic_cast<Rule_MeanderRule*>(currentObject)) {
+    } else if (auto* rule = jrt::fast_cast<Rule_MeanderRule>(currentObject)) {
       fr::NetMeanderConstraint* currentDefault =
           boardRules->getDefaultMeanderConstraint(fr::MeanderPatternType::SINGLE_TRACK);
       fr::NetMeanderConstraint* updated =
@@ -723,12 +723,12 @@ void Structure::updateBoardRules(ReadScopeParameter* scopeParameter,
       throw jrt::NullPointerException("layerRule.rule");
     }
     for (Rule* currentObject : *layerRule->rule) {
-      if (auto* rule = dynamic_cast<Rule_WidthRule*>(currentObject)) {
+      if (auto* rule = jrt::fast_cast<Rule_WidthRule>(currentObject)) {
         const double wireWidth = rule->value;
         int32_t traceHalfwidth = jrt::l2i(
             jrt::Math::round(scopeParameter->coordinateTransform->dsnToBoard(wireWidth) / 2));
         boardRules->setDefaultTraceHalfWidth(layerIndex, traceHalfwidth);
-      } else if (auto* currentRule = dynamic_cast<Rule_ClearanceRule*>(currentObject)) {
+      } else if (auto* currentRule = jrt::fast_cast<Rule_ClearanceRule>(currentObject)) {
         setClearanceRule(currentRule, layerIndex, scopeParameter->coordinateTransform, boardRules,
                          scopeParameter->stringQuote);
       }
@@ -1288,7 +1288,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
   scopeParameter->coordinateTransform = new fr::io::CoordinateTransform(scaleFactor, 0, 0);
 
   fr::IntBox* bounds =
-      dynamic_cast<fr::IntBox*>(boundingBox->transformToBoard(scopeParameter->coordinateTransform));
+      jrt::fast_cast<fr::IntBox>(boundingBox->transformToBoard(scopeParameter->coordinateTransform));
   if (bounds == nullptr) {
     throw jrt::ClassCastException("Structure.create_board: IntBox expected");
   }
@@ -1297,7 +1297,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
   jrt::Collection<fr::PolylineShape*>* boardOutlineShapes =
       new jrt::LinkedList<fr::PolylineShape*>();
   for (Shape* currentShape : *boardConstructionInfo->outlineShapes) {
-    if (auto* currentPath = dynamic_cast<PolygonPath*>(currentShape)) {
+    if (auto* currentPath = jrt::fast_cast<PolygonPath>(currentShape)) {
       if (currentPath->width != 0) {
         // set the width to 0, because the offset function used in transform_to_board is
         // not
@@ -1307,7 +1307,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
       }
     }
     fr::Shape* transformed = currentShape->transformToBoard(scopeParameter->coordinateTransform);
-    fr::PolylineShape* currentBoardShape = dynamic_cast<fr::PolylineShape*>(transformed);
+    fr::PolylineShape* currentBoardShape = jrt::fast_cast<fr::PolylineShape>(transformed);
     if (currentBoardShape == nullptr) {
       throw jrt::ClassCastException("Structure.create_board: PolylineShape expected");
     }
@@ -1317,7 +1317,7 @@ bool Structure::createBoard(ReadScopeParameter* scopeParameter,
   }
   if (boardOutlineShapes->isEmpty()) {
     // construct an outline from the boundingShape, if the outline is missing.
-    fr::PolylineShape* currentBoardShape = dynamic_cast<fr::PolylineShape*>(
+    fr::PolylineShape* currentBoardShape = jrt::fast_cast<fr::PolylineShape>(
         boardConstructionInfo->boundingShape->transformToBoard(
             scopeParameter->coordinateTransform));
     if (currentBoardShape == nullptr) {

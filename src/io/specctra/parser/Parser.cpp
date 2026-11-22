@@ -15,14 +15,14 @@ fr::Communication_SpecctraParserInfo_WriteResolution* Parser::readWriteSolution(
     ReadScopeParameter* scopeParameter) {
   try {
     jrt::Object* nextToken = scopeParameter->scanner->nextToken();
-    auto* resolutionString = dynamic_cast<JString*>(nextToken);
+    auto* resolutionString = jrt::fast_cast<JString>(nextToken);
     if (resolutionString == nullptr) {
       FRLogger::warn("Parser.read_write_solution: string expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");
       return nullptr;
     }
     nextToken = scopeParameter->scanner->nextToken();
-    auto* resolutionInteger = dynamic_cast<JInteger*>(nextToken);
+    auto* resolutionInteger = jrt::fast_cast<JInteger>(nextToken);
     if (resolutionInteger == nullptr) {
       FRLogger::warn("Parser.read_write_solution: integer expected expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");
@@ -48,7 +48,7 @@ jrt::Array<std::string>* Parser::readConstant(ReadScopeParameter* scopeParameter
     auto* result = new jrt::Array<std::string>(2);
     scopeParameter->scanner->yybegin(SpecctraDsnStreamReader::NAME);
     jrt::Object* nextToken = scopeParameter->scanner->nextToken();
-    auto* firstString = dynamic_cast<JString*>(nextToken);
+    auto* firstString = jrt::fast_cast<JString>(nextToken);
     if (firstString == nullptr) {
       FRLogger::warn("Parser.read_constant: string expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");
@@ -57,7 +57,7 @@ jrt::Array<std::string>* Parser::readConstant(ReadScopeParameter* scopeParameter
     (*result)[0] = firstString->value;
     scopeParameter->scanner->yybegin(SpecctraDsnStreamReader::NAME);
     nextToken = scopeParameter->scanner->nextToken();
-    auto* secondString = dynamic_cast<JString*>(nextToken);
+    auto* secondString = jrt::fast_cast<JString>(nextToken);
     if (secondString == nullptr) {
       FRLogger::warn("Parser.read_constant: string expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");
@@ -132,7 +132,7 @@ void Parser::writeScope(fr::IndentFileWriter* file,
 std::optional<std::string> Parser::readQuoteChar(IJFlexScanner* scanner) {
   try {
     jrt::Object* nextToken = scanner->nextToken();
-    auto* result = dynamic_cast<JString*>(nextToken);
+    auto* result = jrt::fast_cast<JString>(nextToken);
     if (result == nullptr) {
       FRLogger::warn("Parser.read_quote_char: string expected at '" +
                      scanner->getScopeIdentifier() + "'");

@@ -12,7 +12,7 @@
 namespace fr {
 
 IntVector* Vector::toIntegerExact() {
-  if (auto* integer = dynamic_cast<IntVector*>(this)) {
+  if (auto* integer = jrt::fast_cast<IntVector>(this)) {
     return integer;
   }
   IntPoint* integer = Point::ZERO()->translateBy(this)->toIntegerExact();

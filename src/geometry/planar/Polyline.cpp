@@ -754,7 +754,7 @@ bool Polyline::contains(Point* point) {
 }
 
 std::string Polyline::debugPoint(Point* point) {
-  if (auto* intPoint = dynamic_cast<IntPoint*>(point)) {
+  if (auto* intPoint = jrt::fast_cast<IntPoint>(point)) {
     return "(" + jrt::str(intPoint->x) + "," + jrt::str(intPoint->y) + ")";
   }
   return jrt::str(point);
@@ -802,7 +802,7 @@ LineSegment* Polyline::projectionLine(Point* point) {
   if (nearestLine == nullptr) {
     return nullptr;
   }
-  Line* startLine = dynamic_cast<IntPoint*>(point) != nullptr
+  Line* startLine = jrt::fast_cast<IntPoint>(point) != nullptr
                         ? new Line(point, nearestLine->direction())
                         : resultLine->capAt(point);
   if (startLine == nullptr) {

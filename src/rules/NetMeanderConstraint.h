@@ -139,7 +139,7 @@ class NetMeanderConstraint : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<NetMeanderConstraint*>(o);
+    auto* other = jrt::fast_cast<NetMeanderConstraint>(o);
     return other != nullptr && jrt::equalsOf(minAmplitude_, other->minAmplitude_) &&
            jrt::equalsOf(maxAmplitude_, other->maxAmplitude_) &&
            jrt::equalsOf(spacing_, other->spacing_) && cornerStyle_ == other->cornerStyle_ &&

@@ -130,7 +130,7 @@ class ExitStubs_RowKey : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<ExitStubs_RowKey*>(o);
+    auto* other = jrt::fast_cast<ExitStubs_RowKey>(o);
     if (other == nullptr) return false;
     return dx_ == other->dx_ && dy_ == other->dy_ && line_ == other->line_;
   }
@@ -197,7 +197,7 @@ class ExitStubs_DiagonalResult : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<ExitStubs_DiagonalResult*>(o);
+    auto* other = jrt::fast_cast<ExitStubs_DiagonalResult>(o);
     if (other == nullptr) return false;
     return dx_ == other->dx_ && dy_ == other->dy_ && jrt::equalsOf(halfLength_, other->halfLength_) &&
            jrt::equalsOf(halfWidth_, other->halfWidth_);

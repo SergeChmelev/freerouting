@@ -28,7 +28,7 @@ class BallFields_Field : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<BallFields_Field*>(o);
+    auto* other = jrt::fast_cast<BallFields_Field>(o);
     if (other == nullptr) return false;
     return layer_ == other->layer_ && jrt::equalsOf(x0_, other->x0_) && jrt::equalsOf(y0_, other->y0_) &&
            jrt::equalsOf(x1_, other->x1_) && jrt::equalsOf(y1_, other->y1_);

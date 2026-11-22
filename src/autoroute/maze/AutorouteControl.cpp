@@ -123,7 +123,7 @@ bool AutorouteControl::isPureSmdNet(RoutingBoard* board, int32_t netNumber) {
   }
 
   for (Item* item : *netItems) {
-    auto* pin = dynamic_cast<Pin*>(item);
+    auto* pin = jrt::fast_cast<Pin>(item);
     if (pin == nullptr || pin->firstLayer() != pin->lastLayer()) {
       return false;
     }
@@ -135,7 +135,7 @@ bool AutorouteControl::isPureSmdNet(RoutingBoard* board, int32_t netNumber) {
 bool AutorouteControl::hasSmdPin(RoutingBoard* board, int32_t netNumber) {
   jrt::Collection<Item*>* netItems = board->getConnectableItems(netNumber);
   for (Item* item : *netItems) {
-    auto* pin = dynamic_cast<Pin*>(item);
+    auto* pin = jrt::fast_cast<Pin>(item);
     if (pin != nullptr && pin->firstLayer() == pin->lastLayer()) {
       return true;
     }

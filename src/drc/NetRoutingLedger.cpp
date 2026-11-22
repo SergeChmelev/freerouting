@@ -32,7 +32,7 @@ void NetRoutingLedger::invalidate() {
 }
 
 void NetRoutingLedger::noteInserted(Item* item) {
-  if (!built || dynamic_cast<Connectable*>(item) == nullptr) {
+  if (!built || jrt::fast_cast<Connectable>(item) == nullptr) {
     return;
   }
   itemNets->put(item, item->netNumbers->clone());
@@ -40,7 +40,7 @@ void NetRoutingLedger::noteInserted(Item* item) {
 }
 
 void NetRoutingLedger::noteRemoved(Item* item) {
-  if (!built || dynamic_cast<Connectable*>(item) == nullptr) {
+  if (!built || jrt::fast_cast<Connectable>(item) == nullptr) {
     return;
   }
   removeItem(item);
@@ -124,11 +124,11 @@ int32_t NetRoutingLedger::buildItemLists() {
   }
   conductionAreas->clear();
   for (Item* item : *board->getItems()) {
-    if (dynamic_cast<Connectable*>(item) != nullptr) {
+    if (jrt::fast_cast<Connectable>(item) != nullptr) {
       addItemToLists(item);
       itemNets->put(item, item->netNumbers->clone());
     }
-    if (auto* ca = dynamic_cast<ConductionArea*>(item)) {
+    if (auto* ca = jrt::fast_cast<ConductionArea>(item)) {
       conductionAreas->add(ca);
     }
   }
@@ -162,7 +162,7 @@ int32_t NetRoutingLedger::countMaximumConnections() {
   for (int32_t netNumber = 1; netNumber < itemsByNet->length; netNumber++) {
     int64_t endpoints = 0;
     for (Item* item : *(*itemsByNet)[netNumber]) {
-      if (dynamic_cast<Pin*>(item) != nullptr || dynamic_cast<ConductionArea*>(item) != nullptr) {
+      if (jrt::fast_cast<Pin>(item) != nullptr || jrt::fast_cast<ConductionArea>(item) != nullptr) {
         endpoints++;
       }
     }
@@ -173,7 +173,7 @@ int32_t NetRoutingLedger::countMaximumConnections() {
 
 void NetRoutingLedger::addItem(Item* item) {
   addItemToLists(item);
-  auto* ca = dynamic_cast<ConductionArea*>(item);
+  auto* ca = jrt::fast_cast<ConductionArea>(item);
   if (ca != nullptr && !conductionAreas->contains(ca)) {
     conductionAreas->add(ca);
   }
@@ -196,7 +196,7 @@ void NetRoutingLedger::removeItem(Item* item) {
       (*itemsByNet)[netNumber]->remove(item);
     }
   }
-  if (auto* ca = dynamic_cast<ConductionArea*>(item)) {
+  if (auto* ca = jrt::fast_cast<ConductionArea>(item)) {
     conductionAreas->remove(ca);
   }
   markNets(item);

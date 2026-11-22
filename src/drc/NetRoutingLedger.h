@@ -21,7 +21,7 @@ class NetRoutingLedger_Counts : public virtual jrt::Object {
   int32_t maximumConnections() { return maximumConnections_; }
 
   bool equals(jrt::Object* o) override {
-    auto* other = dynamic_cast<NetRoutingLedger_Counts*>(o);
+    auto* other = jrt::fast_cast<NetRoutingLedger_Counts>(o);
     if (other == nullptr) return false;
     // Java record equality on an array component is reference equality.
     return incompleteByNet_ == other->incompleteByNet_ &&

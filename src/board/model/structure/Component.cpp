@@ -151,7 +151,7 @@ void Component::changeSide(IntPoint* pole, bool flipStyleRotateFirst) {
 }
 
 int32_t Component::compareTo(jrt::Object* other) {
-  if (auto* component = dynamic_cast<Component*>(other)) {
+  if (auto* component = jrt::fast_cast<Component>(other)) {
     return jrt::compareStringsIgnoreCase(this->name, component->name);
   }
   return 1;

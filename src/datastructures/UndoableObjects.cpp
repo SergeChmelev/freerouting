@@ -134,7 +134,7 @@ bool UndoableObjects::delete_(UndoableObjects_Storable* object) {
     return false;
   }
 
-  if (auto* item = dynamic_cast<Item*>(object)) {
+  if (auto* item = jrt::fast_cast<Item>(object)) {
     // PORT NOTE: guarded so that the message is only built when granular tracing is active
     // (FRLogger.trace has no other effect in the port).
     if (FRLogger::isGranularTraceActive()) {
@@ -328,7 +328,7 @@ void UndoableObjects::saveForUndo(UndoableObjects_Storable* object) {
   }
   if (currentNode->level < this->stackLevel) {
     auto* oldNode =
-        new UONode(dynamic_cast<UndoableObjects_Storable*>(object->clone()), currentNode->level);
+        new UONode(jrt::fast_cast<UndoableObjects_Storable>(object->clone()), currentNode->level);
     oldNode->undoObject = currentNode->undoObject;
     oldNode->redoObject = currentNode;
     currentNode->undoObject = oldNode;

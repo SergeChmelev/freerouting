@@ -26,7 +26,7 @@ class RoutingSupervisor_Attempt : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<RoutingSupervisor_Attempt*>(o);
+    auto* other = jrt::fast_cast<RoutingSupervisor_Attempt>(o);
     if (other == nullptr) return false;
     return kind_ == other->kind_ && name_ == other->name_ && seed_ == other->seed_ && tryNumber_ == other->tryNumber_;
   }
@@ -59,7 +59,7 @@ class RoutingSupervisor_Stats : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<RoutingSupervisor_Stats*>(o);
+    auto* other = jrt::fast_cast<RoutingSupervisor_Stats>(o);
     if (other == nullptr) return false;
     return tries_ == other->tries_ && closed_ == other->closed_;
   }

@@ -42,10 +42,10 @@ double MazeRipupResolver::calcFanoutViaRipupCostFactor(Trace* trace) {
     }
     Item* currentTraceContact = currentEndContacts->iterator()->next();
     bool protectFanoutVia = false;
-    if (dynamic_cast<Pin*>(currentTraceContact) != nullptr &&
+    if (jrt::fast_cast<Pin>(currentTraceContact) != nullptr &&
         currentTraceContact->firstLayer() == currentTraceContact->lastLayer()) {
       protectFanoutVia = true;
-    } else if (auto* contactTrace = dynamic_cast<PolylineTrace*>(currentTraceContact);
+    } else if (auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentTraceContact);
                contactTrace != nullptr &&
                currentTraceContact->getFixedState() == FixedState::SHOVE_FIXED) {
       if (contactTrace->cornerCount() == 2) {
@@ -82,7 +82,7 @@ int32_t MazeRipupResolver::checkRipup(MazeListElement* listElement, Item* obstac
   CompleteExpansionRoom* previousRoom = listElement->door->otherRoom(listElement->nextRoom);
   bool roomWasShoved = listElement->adjustment != MazeSearchElement_Adjustment::NONE;
   Item* previousItem = nullptr;
-  if (auto* room = dynamic_cast<ObstacleExpansionRoom*>(previousRoom)) {
+  if (auto* room = jrt::fast_cast<ObstacleExpansionRoom>(previousRoom)) {
     previousItem = room->getItem();
   }
   if (roomWasShoved) {
@@ -98,17 +98,17 @@ int32_t MazeRipupResolver::checkRipup(MazeListElement* listElement, Item* obstac
   double costFactor = 1;
   bool preserveFanoutProtection = !ctrl->removeUnconnectedVias &&
                                   ctrl->ripupCosts <= (ctrl->settings->getStartRipupCosts() * 2);
-  if (auto* obstacleTrace = dynamic_cast<Trace*>(obstacleItem)) {
+  if (auto* obstacleTrace = jrt::fast_cast<Trace>(obstacleItem)) {
     costFactor = obstacleTrace->getHalfWidth();
     if (preserveFanoutProtection) {
       fanoutViaCostFactor = calcFanoutViaRipupCostFactor(obstacleTrace);
     }
-  } else if (dynamic_cast<Via*>(obstacleItem) != nullptr) {
+  } else if (jrt::fast_cast<Via>(obstacleItem) != nullptr) {
     bool lookIfFanoutVia = preserveFanoutProtection;
     jrt::Collection<Item*>* contactList = obstacleItem->getNormalContacts();
     int32_t contactCount = 0;
     for (Item* currentContact : *contactList) {
-      auto* obstacleTrace = dynamic_cast<Trace*>(currentContact);
+      auto* obstacleTrace = jrt::fast_cast<Trace>(currentContact);
       if (obstacleTrace == nullptr || currentContact->isUserFixed()) {
         return -1;
       }
@@ -193,12 +193,12 @@ int32_t MazeRipupResolver::checkRipup(MazeListElement* listElement, Item* obstac
 }
 
 bool MazeRipupResolver::checkLeavingRippedItem(MazeListElement* listElement) {
-  auto* currentDoor = dynamic_cast<ExpansionDoor*>(listElement->door);
+  auto* currentDoor = jrt::fast_cast<ExpansionDoor>(listElement->door);
   if (currentDoor == nullptr) {
     return false;
   }
   CompleteExpansionRoom* fromRoom = currentDoor->otherRoom(listElement->nextRoom);
-  auto* obstacleRoom = dynamic_cast<ObstacleExpansionRoom*>(fromRoom);
+  auto* obstacleRoom = jrt::fast_cast<ObstacleExpansionRoom>(fromRoom);
   if (obstacleRoom == nullptr) {
     return false;
   }
@@ -247,7 +247,7 @@ bool MazeRipupResolver::enterThroughSmallDoor(MazeListElement* listElement, Item
                                                                    ignoreNetNos, overlappingObjects);
 
   for (SearchTreeObject* currentObject : *overlappingObjects) {
-    auto* currentItem = dynamic_cast<Item*>(currentObject);
+    auto* currentItem = jrt::fast_cast<Item>(currentObject);
     if (currentItem == nullptr || currentItem == ignoreItem) {
       continue;
     }

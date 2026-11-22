@@ -230,7 +230,7 @@ int32_t DsnFile::readIntegerScope(IJFlexScanner* scanner) {
   try {
     int32_t value;
     jrt::Object* nextToken = scanner->nextToken();
-    if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+    if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
       value = integer->value;
     } else {
       FRLogger::warn("DsnFile.read_integer_scope: number expected at '" +
@@ -254,9 +254,9 @@ double DsnFile::readFloatScope(IJFlexScanner* scanner) {
   try {
     double value;
     jrt::Object* nextToken = scanner->nextToken();
-    if (auto* double1 = dynamic_cast<JDouble*>(nextToken)) {
+    if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
       value = double1->value;
-    } else if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+    } else if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
       value = integer->value;
     } else {
       FRLogger::warn("DsnFile.read_float_scope: number expected at '" +

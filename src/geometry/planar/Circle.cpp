@@ -176,7 +176,7 @@ bool Circle::isContainedIn(IntBox* box) {
 }
 
 Circle* Circle::turn90Degree(int32_t factor, IntPoint* pole) {
-  IntPoint* newCenter = dynamic_cast<IntPoint*>(center->turn90Degree(factor, pole));
+  IntPoint* newCenter = jrt::fast_cast<IntPoint>(center->turn90Degree(factor, pole));
   return new Circle(newCenter, radius);
 }
 
@@ -186,12 +186,12 @@ Circle* Circle::rotateApprox(double angle, FloatPoint* pole) {
 }
 
 Circle* Circle::mirrorVertical(IntPoint* pole) {
-  IntPoint* newCenter = dynamic_cast<IntPoint*>(center->mirrorVertical(pole));
+  IntPoint* newCenter = jrt::fast_cast<IntPoint>(center->mirrorVertical(pole));
   return new Circle(newCenter, radius);
 }
 
 Circle* Circle::mirrorHorizontal(IntPoint* pole) {
-  IntPoint* newCenter = dynamic_cast<IntPoint*>(center->mirrorHorizontal(pole));
+  IntPoint* newCenter = jrt::fast_cast<IntPoint>(center->mirrorHorizontal(pole));
   return new Circle(newCenter, radius);
 }
 

@@ -109,7 +109,7 @@ void TraceTightener::optChangedArea(
         if (this->isStopRequested()) {
           return;
         }
-        if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentObject)) {
+        if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentObject)) {
           if (currentTrace->pullTight(this)) {
             somethingChanged = true;
             if (this->splitTracesAtKeepPoint()) {
@@ -119,7 +119,7 @@ void TraceTightener::optChangedArea(
             somethingChanged = true;
             break;  // because items may be removed
           }
-        } else if (auto* via = dynamic_cast<Via*>(currentObject);
+        } else if (auto* via = jrt::fast_cast<Via>(currentObject);
                    via != nullptr && traceCosts != nullptr) {
           if (ViaOptimizer::optViaLocation(this->board, via, traceCosts, this->minTranslateDist,
                                            10, viaMoves)) {
@@ -223,7 +223,7 @@ Line* TraceTightener::repositionLine(jrt::Array<Line*>* lines, int32_t no) {
   (*checkLines)[2] = (*lines)[no + 1];
   bool firstTime = true;
   while (firstTime || jrt::Math::abs(deltaDist) > minTranslateDist) {
-    if (firstTime && dynamic_cast<IntPoint*>(nearestPoint) != nullptr) {
+    if (firstTime && jrt::fast_cast<IntPoint>(nearestPoint) != nullptr) {
       (*checkLines)[1] = Line::getInstance(nearestPoint, translateLine->direction());
     } else {
       (*checkLines)[1] = translateLine->translate(-translateDist);
@@ -400,7 +400,7 @@ bool TraceTightener::splitTracesAtKeepPoint() {
   jrt::Collection<Item*>* pickedItems =
       this->board->pickItems(this->keepPoint, this->keepPointLayer, filter);
   for (Item* currentItem : *pickedItems) {
-    jrt::Array<Trace*>* splitPieces = dynamic_cast<Trace*>(currentItem)->split(this->keepPoint);
+    jrt::Array<Trace*>* splitPieces = jrt::fast_cast<Trace>(currentItem)->split(this->keepPoint);
     if (splitPieces != nullptr) {
       return true;
     }

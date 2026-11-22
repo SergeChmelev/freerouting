@@ -27,7 +27,7 @@ class RetryNeighbourhood_Reach : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (o == this) return true;
-    auto* other = dynamic_cast<RetryNeighbourhood_Reach*>(o);
+    auto* other = jrt::fast_cast<RetryNeighbourhood_Reach>(o);
     if (other == nullptr) return false;
     return jrt::equalsOf(radiusMm_, other->radiusMm_) && contenders_ == other->contenders_ &&
            anyNet_ == other->anyNet_;

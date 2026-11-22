@@ -42,8 +42,8 @@ bool DrillItemMover::check(DrillItem* drillItem, Vector* vector, int32_t maxRecu
   // Check, that drillitem is only connected to traces.
   jrt::Collection<Item*>* contactList = drillItem->getNormalContacts();
   for (Item* currentContact : *contactList) {
-    if (!(dynamic_cast<Trace*>(currentContact) != nullptr ||
-          dynamic_cast<ConductionArea*>(currentContact) != nullptr)) {
+    if (!(jrt::fast_cast<Trace>(currentContact) != nullptr ||
+          jrt::fast_cast<ConductionArea>(currentContact) != nullptr)) {
       return false;
     }
   }
@@ -56,7 +56,7 @@ bool DrillItemMover::check(DrillItem* drillItem, Vector* vector, int32_t maxRecu
   effectiveIgnoreItems->add(drillItem);
   ForcedPadRouter* forcedPadRouter = new ForcedPadRouter(board);
   bool attachAllowed = false;
-  if (auto* via = dynamic_cast<Via*>(drillItem)) {
+  if (auto* via = jrt::fast_cast<Via>(drillItem)) {
     attachAllowed = via->attachAllowed;
     if (via->getPadstack() != nullptr &&
         !HoleSpacing::clear(board, via->getPadstack(), via->getCenter()->translateBy(vector), via,
@@ -72,7 +72,7 @@ bool DrillItemMover::check(DrillItem* drillItem, Vector* vector, int32_t maxRecu
     if (currentShape == nullptr) {
       continue;
     }
-    ConvexShape* newShape = dynamic_cast<ConvexShape*>(currentShape->translateBy(vector));
+    ConvexShape* newShape = jrt::fast_cast<ConvexShape>(currentShape->translateBy(vector));
     TileShape* currentTileShape;
     if (board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
       currentTileShape = newShape->boundingBox();
@@ -112,7 +112,7 @@ bool DrillItemMover::insertJoiningTidyRegion(DrillItem* drillItem, Vector* vecto
   }
 
   bool attachAllowed = false;
-  if (auto* via = dynamic_cast<Via*>(drillItem)) {
+  if (auto* via = jrt::fast_cast<Via>(drillItem)) {
     attachAllowed = via->attachAllowed;
     if (via->getPadstack() != nullptr &&
         !HoleSpacing::clear(board, via->getPadstack(), via->getCenter()->translateBy(vector),
@@ -131,7 +131,7 @@ bool DrillItemMover::insertJoiningTidyRegion(DrillItem* drillItem, Vector* vecto
     if (currentShape == nullptr) {
       continue;
     }
-    ConvexShape* newShape = dynamic_cast<ConvexShape*>(currentShape->translateBy(vector));
+    ConvexShape* newShape = jrt::fast_cast<ConvexShape>(currentShape->translateBy(vector));
     TileShape* currentTileShape;
     if (board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
       currentTileShape = newShape->boundingBox();
@@ -164,16 +164,16 @@ bool DrillItemMover::insertJoiningTidyRegion(DrillItem* drillItem, Vector* vecto
 Shape* DrillItemMover::movedCopper(DrillItem* drillItem, int32_t index, Vector* vector,
                                    ShapeSearchTree* tree) {
   Shape* copper = drillItem->getShape(index);
-  if (dynamic_cast<Circle*>(copper) == nullptr && dynamic_cast<TileShape*>(copper) == nullptr) {
+  if (jrt::fast_cast<Circle>(copper) == nullptr && jrt::fast_cast<TileShape>(copper) == nullptr) {
     return nullptr;
   }
   int32_t layer = drillItem->shapeLayer(index);
   int32_t grow = tree->clearanceCompensationValue(drillItem->clearanceClassIndex(), layer) +
                  tree->drillHoleClearanceDelta(drillItem, copper, layer);
-  if (auto* circle = dynamic_cast<Circle*>(copper)) {
+  if (auto* circle = jrt::fast_cast<Circle>(copper)) {
     return circle->translateBy(vector)->enlarge(grow);
   }
-  return grow == 0 ? static_cast<Shape*>(dynamic_cast<TileShape*>(copper)->translateBy(vector))
+  return grow == 0 ? static_cast<Shape*>(jrt::fast_cast<TileShape>(copper)->translateBy(vector))
                    : nullptr;
 }
 
@@ -228,7 +228,7 @@ bool DrillItemMover::shoveVias(TileShape* obstacleShape, ShapeEntrySide* fromSid
     double maxDist =
         0.5 * currentVia->getShapeOnLayer(layer)->boundingBox()->maxWidth() + shapeRadius;
     double maxDistSquare = maxDist * maxDist;
-    IntPoint* currentViaCenter = dynamic_cast<IntPoint*>(currentVia->getCenter());
+    IntPoint* currentViaCenter = jrt::fast_cast<IntPoint>(currentVia->getCenter());
     FloatPoint* checkViaCenter = currentViaCenter->toFloat();
     Vector* relCoor = nullptr;
     for (int32_t i = 0; i < tryViaCenters->length; i++) {
@@ -286,7 +286,7 @@ jrt::Array<IntPoint*>* DrillItemMover::tryShoveViaPoints(TileShape* obstacleShap
   // shoving.
   shoveDistance += 2;
 
-  IntPoint* currentViaCenter = dynamic_cast<IntPoint*>(via->getCenter());
+  IntPoint* currentViaCenter = jrt::fast_cast<IntPoint>(via->getCenter());
   jrt::Array<IntPoint*>* tryViaCenters;
   int32_t tryCount = 1;
   if (board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
@@ -303,8 +303,8 @@ jrt::Array<IntPoint*>* DrillItemMover::tryShoveViaPoints(TileShape* obstacleShap
 
     tryViaCenters = currentOffsetOctagon->nearestBorderProjections(currentViaCenter, tryCount);
   } else {
-    TileShape* currentOffsetShape = dynamic_cast<TileShape*>(obstacleShape->enlarge(shoveDistance));
-    currentViaShape = dynamic_cast<TileShape*>(currentViaShape->enlarge(0.5 * clearanceValue));
+    TileShape* currentOffsetShape = jrt::fast_cast<TileShape>(obstacleShape->enlarge(shoveDistance));
+    currentViaShape = jrt::fast_cast<TileShape>(currentViaShape->enlarge(0.5 * clearanceValue));
     if (extendedCheck) {
       tryCount = 4;
     }
@@ -313,7 +313,7 @@ jrt::Array<IntPoint*>* DrillItemMover::tryShoveViaPoints(TileShape* obstacleShap
     tryViaCenters = new jrt::Array<IntPoint*>(shoveDeltas->length);
     for (int32_t i = 0; i < tryViaCenters->length; i++) {
       Vector* currentDelta = (*shoveDeltas)[i]->round()->differenceBy(Point::ZERO());
-      (*tryViaCenters)[i] = dynamic_cast<IntPoint*>(currentViaCenter->translateBy(currentDelta));
+      (*tryViaCenters)[i] = jrt::fast_cast<IntPoint>(currentViaCenter->translateBy(currentDelta));
     }
   }
   return tryViaCenters;

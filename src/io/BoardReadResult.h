@@ -10,7 +10,7 @@ namespace fr::io {
  *
  * PORT NOTE: Java sealed interface + records -> abstract class hierarchy. Callers replace the
  * pattern-matching switch with dynamic_cast chains:
- *   if (auto* s = dynamic_cast<BoardReadResult_Success*>(r)) ... else if (... OutlineMissing ...)
+ *   if (auto* s = jrt::fast_cast<BoardReadResult_Success>(r)) ... else if (... OutlineMissing ...)
  */
 class BoardReadResult : public virtual jrt::Object {
  public:

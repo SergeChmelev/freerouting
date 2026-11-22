@@ -19,7 +19,7 @@ namespace fr {
 
 bool BgaEscapeSolver_PinEscapeProposal::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BgaEscapeSolver_PinEscapeProposal*>(o);
+  auto* other = jrt::fast_cast<BgaEscapeSolver_PinEscapeProposal>(o);
   if (other == nullptr) return false;
   return jrt::equalsOf<BgaEscapeDescriptor_BgaPinDescriptor*>(pinDescriptor_,
                                                               other->pinDescriptor_) &&

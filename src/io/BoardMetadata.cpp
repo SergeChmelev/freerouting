@@ -8,7 +8,7 @@ namespace fr::io {
 
 bool BoardMetadata::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<BoardMetadata*>(o);
+  auto* other = jrt::fast_cast<BoardMetadata>(o);
   if (other == nullptr) return false;
   return hostCad_ == other->hostCad_ && hostVersion_ == other->hostVersion_ &&
          layerCount_ == other->layerCount_ && unit_ == other->unit_ &&

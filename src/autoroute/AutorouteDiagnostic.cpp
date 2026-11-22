@@ -35,7 +35,7 @@ AutorouteDiagnostic::AutorouteDiagnostic(AutorouteDiagnostic_Kind kind, TileShap
 
 bool AutorouteDiagnostic::equals(jrt::Object* o) {
   if (this == o) return true;
-  auto* other = dynamic_cast<AutorouteDiagnostic*>(o);
+  auto* other = jrt::fast_cast<AutorouteDiagnostic>(o);
   if (other == nullptr) return false;
   return kind_ == other->kind_ && jrt::equalsOf<TileShape*>(shape_, other->shape_) &&
          layer_ == other->layer_ && jrt::equalsOf<double>(intensity_, other->intensity_);

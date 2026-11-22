@@ -123,7 +123,7 @@ Shape* Via::getShape(int32_t index) {
       if (currentShape == nullptr) {
         (*this->precalculatedShapes)[i] = nullptr;
       } else {
-        (*this->precalculatedShapes)[i] = dynamic_cast<Shape*>(currentShape->translateBy(translateVector));
+        (*this->precalculatedShapes)[i] = jrt::fast_cast<Shape>(currentShape->translateBy(translateVector));
       }
     }
   }
@@ -133,11 +133,11 @@ Shape* Via::getShape(int32_t index) {
 bool Via::isRoutable() { return !isUserFixed() && (this->netCount() > 0); }
 
 bool Via::isObstacle(Item* other) {
-  if (other == this || dynamic_cast<ComponentObstacleArea*>(other) != nullptr ||
-      dynamic_cast<WireObstacleArea*>(other) != nullptr) {
+  if (other == this || jrt::fast_cast<ComponentObstacleArea>(other) != nullptr ||
+      jrt::fast_cast<WireObstacleArea>(other) != nullptr) {
     return false;
   }
-  if (auto* area = dynamic_cast<ConductionArea*>(other)) {
+  if (auto* area = jrt::fast_cast<ConductionArea>(other)) {
     if (!area->getIsObstacle()) {
       return false;
     }
@@ -145,10 +145,10 @@ bool Via::isObstacle(Item* other) {
   if (!other->sharesNet(this)) {
     return true;
   }
-  if (dynamic_cast<Trace*>(other) != nullptr || dynamic_cast<Via*>(other) != nullptr) {
+  if (jrt::fast_cast<Trace>(other) != nullptr || jrt::fast_cast<Via>(other) != nullptr) {
     return false;
   }
-  if (auto* pin = dynamic_cast<Pin*>(other)) {
+  if (auto* pin = jrt::fast_cast<Pin>(other)) {
     return !pin->drillAllowed() ||
            (!this->attachAllowed && !pin->viaMayAttach() && !ownPadAllowedByRules(pin));
   }
@@ -167,7 +167,7 @@ bool Via::ownPadAllowedByRules(Pin* pin) {
 
 bool Via::holeInPad(Pin* pin) {
   double drillRadius = this->getPadstack()->getDrillRadius();
-  auto* center = dynamic_cast<IntPoint*>(this->getCenter());
+  auto* center = jrt::fast_cast<IntPoint>(this->getCenter());
   if (drillRadius <= 0 || center == nullptr) {
     return false;
   }

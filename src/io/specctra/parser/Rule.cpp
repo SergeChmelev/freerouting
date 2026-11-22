@@ -99,7 +99,7 @@ Rule_LayerRule* Rule::readLayerRuleScope(IJFlexScanner* scanner) {
       if (nextToken == Keyword::OPEN_BRACKET()) {
         break;
       }
-      auto* layerName = dynamic_cast<JString*>(nextToken);
+      auto* layerName = jrt::fast_cast<JString>(nextToken);
       if (layerName == nullptr) {
 
         FRLogger::warn("Rule.read_layer_rule_scope: string expected at '" +

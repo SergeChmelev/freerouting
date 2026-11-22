@@ -36,7 +36,7 @@ void Plane::writeScope(WriteScopeParameter* scopeParameter, fr::ConductionArea* 
   Layer* planeLayer = new Layer(boardLayer->name, layerIndex, boardLayer->isSignal);
   fr::Shape* boundaryShape;
   jrt::Array<fr::Shape*>* holes;
-  if (auto* shape = dynamic_cast<fr::Shape*>(currentArea)) {
+  if (auto* shape = jrt::fast_cast<fr::Shape>(currentArea)) {
     boundaryShape = shape;
     holes = new jrt::Array<fr::Shape*>(0);
   } else {
@@ -67,7 +67,7 @@ bool Plane::readScope(ReadScopeParameter* scopeParameter) {
   Shape_ReadAreaScopeResult* conductionArea;
   try {
     jrt::Object* nextToken = scopeParameter->scanner->nextToken();
-    auto* nextString = dynamic_cast<JString*>(nextToken);
+    auto* nextString = jrt::fast_cast<JString>(nextToken);
     if (nextString == nullptr) {
       FRLogger::warn("Plane.read_scope: String expected at '" +
                      scopeParameter->scanner->getScopeIdentifier() + "'");

@@ -44,7 +44,7 @@ jrt::Map<std::string, jrt::Set<std::string>*>* PolygonWireScan::netsByLayer(std:
         } else if (wireDepth >= 0 && depth == wireDepth + 1) {
           if (token == Keyword::POLYGON()) {
             jrt::Object* layerToken = scanner->nextToken();
-            if (auto* layerName = dynamic_cast<JString*>(layerToken)) {
+            if (auto* layerName = jrt::fast_cast<JString>(layerToken)) {
               wireLayer = layerName->value;
             }
           } else if (token == Keyword::NET()) {

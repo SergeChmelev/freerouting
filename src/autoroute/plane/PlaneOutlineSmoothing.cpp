@@ -17,7 +17,7 @@ Area* PlaneOutlineSmoothing::smooth(Area* area, bool fillets, double distance) {
   if (distance <= 0) {
     return area;
   }
-  PolylineShape* border = dynamic_cast<PolylineShape*>(area->getBorder());
+  PolylineShape* border = jrt::fast_cast<PolylineShape>(area->getBorder());
   if (border == nullptr) {
     return area;
   }
@@ -103,7 +103,7 @@ Area* PlaneOutlineSmoothing::smooth(Area* area, bool fillets, double distance) {
   jrt::Array<Shape*>* holes = area->getHoles();
   auto* polylineHoles = new jrt::ArrayList<PolylineShape*>();
   for (Shape* hole : *holes) {
-    if (auto* polylineHole = dynamic_cast<PolylineShape*>(hole)) {
+    if (auto* polylineHole = jrt::fast_cast<PolylineShape>(hole)) {
       polylineHoles->add(polylineHole);
     }
   }

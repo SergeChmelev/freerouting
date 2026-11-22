@@ -51,7 +51,7 @@ RoutingBoard* RoutingBoardUndoFacade::deepCopy() {
   BasicBoard* copied = board->copyAsDeserialized(itemMap);
   jrt::List<ConductionArea*>* writtenPlanes = new jrt::ArrayList<ConductionArea*>();
   for (auto* entry : *itemMap->entrySet()) {
-    if (auto* plane = dynamic_cast<ConductionArea*>(entry->getKey())) {
+    if (auto* plane = jrt::fast_cast<ConductionArea>(entry->getKey())) {
       writtenPlanes->add(plane);
     }
   }
@@ -64,10 +64,10 @@ RoutingBoard* RoutingBoardUndoFacade::deepCopy() {
   // Taken with the board written: the copy has the same items, so the same counts.
   ledgerCounts = board->routingLedger()->counts();
 
-  auto* boardCopy = dynamic_cast<RoutingBoard*>(copied);
+  auto* boardCopy = jrt::fast_cast<RoutingBoard>(copied);
   for (int32_t i = 0; i < writtenPlanes->size(); i++) {
     ConductionArea* writtenPlane = writtenPlanes->get(i);
-    auto* readPlane = dynamic_cast<ConductionArea*>(itemMap->get(writtenPlane));
+    auto* readPlane = jrt::fast_cast<ConductionArea>(itemMap->get(writtenPlane));
     if (readPlane != nullptr && readPlane->getId() == writtenPlane->getId()) {
       readPlane->adoptFractureMemo(planeMemos->get(i));
     }
@@ -85,7 +85,7 @@ void RoutingBoardUndoFacade::applyUndoRedoSideEffects(
     jrt::Collection<UndoableObjects_Storable*>* cancelledObjects,
     jrt::Collection<UndoableObjects_Storable*>* restoredObjects, jrt::Set<int32_t>* changedNets) {
   for (UndoableObjects_Storable* storable : *cancelledObjects) {
-    Item* currentItem = dynamic_cast<Item*>(storable);
+    Item* currentItem = jrt::fast_cast<Item>(storable);
     board->searchTreeManager->remove(currentItem);
     board->incrementRevision(currentItem);
     board->routingLedger()->noteRemoved(currentItem);
@@ -99,7 +99,7 @@ void RoutingBoardUndoFacade::applyUndoRedoSideEffects(
     }
   }
   for (UndoableObjects_Storable* storable : *restoredObjects) {
-    Item* currentItem = dynamic_cast<Item*>(storable);
+    Item* currentItem = jrt::fast_cast<Item>(storable);
     currentItem->board = board;
     board->searchTreeManager->insert(currentItem);
     board->incrementRevision(currentItem);

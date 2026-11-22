@@ -143,18 +143,18 @@ bool ShapeTraceEntries::storeItems(jrt::Collection<Item*>* itemList, bool isPadC
 bool ShapeTraceEntries::storeItems(jrt::Collection<Item*>* itemList, bool isPadCheck,
                                    bool copperSharingAllowed, bool holeOnly) {
   for (Item* currentItem : *itemList) {
-    if ((!isPadCheck && dynamic_cast<ViaObstacleArea*>(currentItem) != nullptr) ||
-        dynamic_cast<ComponentObstacleArea*>(currentItem) != nullptr ||
-        (isPadCheck && dynamic_cast<WireObstacleArea*>(currentItem) != nullptr)) {
+    if ((!isPadCheck && jrt::fast_cast<ViaObstacleArea>(currentItem) != nullptr) ||
+        jrt::fast_cast<ComponentObstacleArea>(currentItem) != nullptr ||
+        (isPadCheck && jrt::fast_cast<WireObstacleArea>(currentItem) != nullptr)) {
       continue;
     }
     bool containsOwnNet = currentItem->sharesNetNo(this->ownNetNos);
-    if (auto* area = dynamic_cast<ConductionArea*>(currentItem)) {
+    if (auto* area = jrt::fast_cast<ConductionArea>(currentItem)) {
       if (containsOwnNet || !area->getIsObstacle()) {
         continue;
       }
     }
-    if (auto* outline = dynamic_cast<BoardOutline*>(currentItem)) {
+    if (auto* outline = jrt::fast_cast<BoardOutline>(currentItem)) {
       if (!(isPadCheck ? outline->blocksNets(this->ownNetNos)
                        : outline->blocksTraceAt(this->shape, this->layer, this->ownNetNos,
                                                 this->clearanceClassIndex))) {
@@ -165,8 +165,8 @@ bool ShapeTraceEntries::storeItems(jrt::Collection<Item*>* itemList, bool isPadC
       this->foundObstacle = currentItem;
       return false;
     }
-    auto* ownPin = dynamic_cast<Pin*>(currentItem);
-    if (auto* via = dynamic_cast<Via*>(currentItem)) {
+    auto* ownPin = jrt::fast_cast<Pin>(currentItem);
+    if (auto* via = jrt::fast_cast<Via>(currentItem)) {
       if (!containsOwnNet) {
         shoveViaList->add(via);
       }
@@ -177,7 +177,7 @@ bool ShapeTraceEntries::storeItems(jrt::Collection<Item*>* itemList, bool isPadC
         this->foundObstacle = currentItem;
         return false;
       }
-    } else if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+    } else if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentItem)) {
       if (!storeTrace(currentTrace)) {
         return false;
       }
@@ -187,7 +187,7 @@ bool ShapeTraceEntries::storeItems(jrt::Collection<Item*>* itemList, bool isPadC
           this->foundObstacle = currentItem;
           return false;
         }
-        auto* pin = dynamic_cast<Pin*>(currentItem);
+        auto* pin = jrt::fast_cast<Pin>(currentItem);
         if (isPadCheck && !(pin != nullptr && pin->drillAllowed())) {
           this->foundObstacle = currentItem;
           return false;
@@ -228,14 +228,14 @@ PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece() {
         searchTree->additionalClearance(clearanceClassIndex, currentTrace->clearanceClassIndex(),
                                         layer) +
         c_offset_add;
-    offsetShape = dynamic_cast<TileShape*>(shape->offset(currentOffset));
+    offsetShape = jrt::fast_cast<TileShape>(shape->offset(currentOffset));
   } else {
     // enlarge the shape in 2 steps  for symmetry reasons
-    offsetShape = dynamic_cast<TileShape*>(shape->offset(currentTrace->getHalfWidth()));
+    offsetShape = jrt::fast_cast<TileShape>(shape->offset(currentTrace->getHalfWidth()));
     double clOffset =
         board->clearanceValue(currentTrace->clearanceClassIndex(), clearanceClassIndex, layer) +
         c_offset_add;
-    offsetShape = dynamic_cast<TileShape*>(offsetShape->offset(clOffset));
+    offsetShape = jrt::fast_cast<TileShape>(offsetShape->offset(clOffset));
   }
   int32_t edgeCount = shape->borderLineCount();
   int32_t edgeDiff = (*entries)[1]->edgeIndex - (*entries)[0]->edgeIndex;
@@ -277,7 +277,7 @@ bool ShapeTraceEntries::traceTailsInShape() { return this->shapeContainsTraceTai
 
 void ShapeTraceEntries::cutoutTraces(jrt::Collection<Item*>* itemList) {
   for (Item* currentItem : *itemList) {
-    auto* trace = dynamic_cast<PolylineTrace*>(currentItem);
+    auto* trace = jrt::fast_cast<PolylineTrace>(currentItem);
     if (trace != nullptr && !currentItem->sharesNetNo(this->ownNetNos)) {
       cutoutTrace(trace, this->shape, this->clearanceClassIndex);
     }
@@ -295,14 +295,14 @@ bool ShapeTraceEntries::storeTrace(PolylineTrace* trace) {
                                                            trace->clearanceClassIndex(),
                                                            trace->getLayer()) +
                            c_offset_add;
-    offsetShape = dynamic_cast<TileShape*>(shape->offset(currentOffset));
+    offsetShape = jrt::fast_cast<TileShape>(shape->offset(currentOffset));
   } else {
     // enlarge the shape in 2 steps  for symmetry reasons
     double clOffset = board->clearanceValue(trace->clearanceClassIndex(),
                                             this->clearanceClassIndex, trace->getLayer()) +
                       c_offset_add;
-    offsetShape = dynamic_cast<TileShape*>(shape->offset(trace->getHalfWidth()));
-    offsetShape = dynamic_cast<TileShape*>(offsetShape->offset(clOffset));
+    offsetShape = jrt::fast_cast<TileShape>(shape->offset(trace->getHalfWidth()));
+    offsetShape = jrt::fast_cast<TileShape>(offsetShape->offset(clOffset));
   }
 
   // using enlarge here instead offset causes problems because of a
@@ -340,7 +340,7 @@ bool ShapeTraceEntries::storeTrace(PolylineTrace* trace) {
             this->foundObstacle = contactItem;
             return false;
           }
-          if (auto* contactTrace = dynamic_cast<Trace*>(contactItem)) {
+          if (auto* contactTrace = jrt::fast_cast<Trace>(contactItem)) {
             if (contactItem->isShoveFixed() ||
                 contactTrace->getHalfWidth() != trace->getHalfWidth() ||
                 contactItem->clearanceClassIndex() != contactTrace->clearanceClassIndex()) {
@@ -349,7 +349,7 @@ bool ShapeTraceEntries::storeTrace(PolylineTrace* trace) {
                 return false;
               }
             }
-          } else if (auto* via = dynamic_cast<Via*>(contactItem)) {
+          } else if (auto* via = jrt::fast_cast<Via>(contactItem)) {
             TileShape* viaShape = via->getTileShapeOnLayer(layer);
 
             double viaTraceDiff =

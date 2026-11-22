@@ -289,7 +289,7 @@ void BasicBoard::insertTrace(Polyline* polyline, int32_t layer, int32_t halfWidt
     return;
   }
   IntOctagon* clipShape = nullptr;
-  if (auto* board = dynamic_cast<RoutingBoard*>(this)) {
+  if (auto* board = jrt::fast_cast<RoutingBoard>(this)) {
     ChangedArea* changedArea = board->changedArea;
     if (changedArea != nullptr) {
       clipShape = changedArea->getArea(layer);
@@ -568,14 +568,14 @@ void BasicBoard::invalidateEdgePinNetCache() {
 
 void BasicBoard::removeItem(Item* item) {
   getItemRepository()->removeItem(item);
-  if (dynamic_cast<Pin*>(item) != nullptr || dynamic_cast<BoardOutline*>(item) != nullptr) {
+  if (jrt::fast_cast<Pin>(item) != nullptr || jrt::fast_cast<BoardOutline>(item) != nullptr) {
     invalidateEdgePinNetCache();
   }
 }
 
 void BasicBoard::detachItemForMove(Item* item) {
   getItemRepository()->detachItemForMove(item);
-  if (dynamic_cast<Pin*>(item) != nullptr || dynamic_cast<BoardOutline*>(item) != nullptr) {
+  if (jrt::fast_cast<Pin>(item) != nullptr || jrt::fast_cast<BoardOutline>(item) != nullptr) {
     invalidateEdgePinNetCache();
   }
 }
@@ -624,7 +624,7 @@ jrt::Collection<ConductionArea*>* BasicBoard::getConductionAreas() {
 jrt::Set<Item*>* BasicBoard::powerLayerPlanes(jrt::Collection<Item*>* items) {
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
   for (Item* item : *items) {
-    if (auto* area = dynamic_cast<ConductionArea*>(item)) {
+    if (auto* area = jrt::fast_cast<ConductionArea>(item)) {
       if (area->getComponentId() <= 0 &&
           !(*layerStructure->layers)[area->getLayer()]->isSignal) {
         result->add(area);
@@ -655,12 +655,12 @@ bool BasicBoard::combineTraces(int32_t netNumber) {
     somethingChanged = false;
     jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
     for (;;) {
-      Item* currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+      Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
       if (currentItem == nullptr) {
         break;
       }
       if (netNumber < 0 || currentItem->containsNet(netNumber)) {
-        if (auto* trace = dynamic_cast<Trace*>(currentItem)) {
+        if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
           if (currentItem->isOnTheBoard()) {
             if (trace->combine()) {
               somethingChanged = true;
@@ -720,7 +720,7 @@ bool BasicBoard::normalizeTraces(int32_t netNumber) {
     for (;;) {
       Item* currentItem;
       try {
-        currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+        currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
       } catch (const jrt::ConcurrentModificationException&) {
         somethingChanged = true;
         break;
@@ -729,7 +729,7 @@ bool BasicBoard::normalizeTraces(int32_t netNumber) {
         break;
       }
       if (currentItem->containsNet(netNumber)) {
-        if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+        if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentItem)) {
           if (currentItem->isOnTheBoard()) {
             netTraces->add(currentTrace);
           }
@@ -764,7 +764,7 @@ bool BasicBoard::normalizeAllTraces() {
   for (;;) {
     Item* currentItem;
     try {
-      currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+      currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
     } catch (const jrt::ConcurrentModificationException&) {
       // Retry collection if modified
       tracesByNet->clear();
@@ -774,7 +774,7 @@ bool BasicBoard::normalizeAllTraces() {
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+    if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentItem)) {
       if (currentItem->isOnTheBoard()) {
         for (int32_t netNumber : *currentTrace->netNumbers) {
           tracesByNet
@@ -822,7 +822,7 @@ bool BasicBoard::normalizeAllTraces() {
         for (;;) {
           Item* currentItem;
           try {
-            currentItem = dynamic_cast<Item*>(itemList->readObject(it2));
+            currentItem = jrt::fast_cast<Item>(itemList->readObject(it2));
           } catch (const jrt::ConcurrentModificationException&) {
             netTraces->clear();
             it2 = itemList->startReadObject();
@@ -832,7 +832,7 @@ bool BasicBoard::normalizeAllTraces() {
             break;
           }
           if (currentItem->containsNet(netNumber)) {
-            if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+            if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentItem)) {
               if (currentItem->isOnTheBoard()) {
                 netTraces->add(currentTrace);
               }
@@ -852,7 +852,7 @@ bool BasicBoard::splitTraces(Point* location, int32_t layer, int32_t netNumber) 
   IntOctagon* locationShape = TileShape::getInstance(location)->boundingOctagon();
   bool traceSplit = false;
   for (Item* currentItem : *pickedItems) {
-    Trace* currentTrace = dynamic_cast<Trace*>(currentItem);
+    Trace* currentTrace = jrt::fast_cast<Trace>(currentItem);
     if (currentTrace->containsNet(netNumber)) {
       jrt::Collection<PolylineTrace*>* splitPieces = currentTrace->split(locationShape);
       if (splitPieces->size() != 1) {
@@ -884,7 +884,7 @@ jrt::Set<Item*>* BasicBoard::overlappingItems(Area* area, int32_t layer) {
   for (int32_t i = 0; i < tileShapes->length; i++) {
     jrt::Set<SearchTreeObject*>* currentOverlaps = overlappingObjects((*tileShapes)[i], layer);
     for (SearchTreeObject* currentOverlap : *currentOverlaps) {
-      if (auto* item = dynamic_cast<Item*>(currentOverlap)) {
+      if (auto* item = jrt::fast_cast<Item>(currentOverlap)) {
         result->add(item);
       }
     }
@@ -905,7 +905,7 @@ bool BasicBoard::checkShape(Area* shape, int32_t layer, jrt::Array<int32_t>* net
     int32_t compensation = defaultTree->clearanceCompensationValue(clearanceClassIndex, layer);
     TileShape* queryShape =
         compensation == 0 ? currentShape
-                          : dynamic_cast<TileShape*>(currentShape->enlarge(compensation));
+                          : jrt::fast_cast<TileShape>(currentShape->enlarge(compensation));
     jrt::Set<SearchTreeObject*>* obstacles = new jrt::TreeSet<SearchTreeObject*>();
     defaultTree->overlappingObjectsWithClearance(queryShape, layer, netNumbers,
                                                  clearanceClassIndex, obstacles);
@@ -935,12 +935,12 @@ bool BasicBoard::checkTraceShape(TileShape* shape, int32_t layer, jrt::Array<int
   defaultTree->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                                    treeEntries);
   for (ShapeTree_TreeEntry* currentTreeEntry : *treeEntries) {
-    auto* currentItem = dynamic_cast<Item*>(currentTreeEntry->object);
+    auto* currentItem = jrt::fast_cast<Item>(currentTreeEntry->object);
     if (currentItem == nullptr) {
       continue;
     }
     if (contactPins != nullptr) {
-      auto* currentPin = dynamic_cast<Pin*>(currentItem);
+      auto* currentPin = jrt::fast_cast<Pin>(currentItem);
       if (currentPin != nullptr && contactPins->contains(currentPin)) {
         continue;
       }
@@ -951,7 +951,7 @@ bool BasicBoard::checkTraceShape(TileShape* shape, int32_t layer, jrt::Array<int
       }
     }
     bool isObstacle = true;
-    if (auto* outline = dynamic_cast<BoardOutline*>(currentItem)) {
+    if (auto* outline = jrt::fast_cast<BoardOutline>(currentItem)) {
       isObstacle = !outline->exemptsTrace(currentTreeEntry->shapeIndexInObject, netNumbers);
     } else {
       for (int32_t i = 0; i < netNumbers->length; i++) {
@@ -961,7 +961,7 @@ bool BasicBoard::checkTraceShape(TileShape* shape, int32_t layer, jrt::Array<int
         }
       }
     }
-    if (isObstacle && (dynamic_cast<PolylineTrace*>(currentItem) != nullptr) &&
+    if (isObstacle && (jrt::fast_cast<PolylineTrace>(currentItem) != nullptr) &&
         contactPins != nullptr) {
       // check for traces of foreign nets at tie pins, which will be ignored inside the pin shape
       TileShape* intersection = nullptr;
@@ -1011,7 +1011,7 @@ jrt::Set<Item*>* BasicBoard::pickItems(Point* location, int32_t layer,
   jrt::Collection<SearchTreeObject*>* overlaps = overlappingObjects(pointShape, layer);
   jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
-    if (auto* item = dynamic_cast<Item*>(currentObject)) {
+    if (auto* item = jrt::fast_cast<Item>(currentObject)) {
       result->add(item);
     }
   }
@@ -1084,12 +1084,12 @@ Connectable* BasicBoard::makeConductive(ObstacleArea* area, int32_t netNumber) {
                                true, fixedState, this);
   removeItem(area);
   insertItem(newItem);
-  return dynamic_cast<Connectable*>(newItem);
+  return jrt::fast_cast<Connectable>(newItem);
 }
 
 void BasicBoard::insertItem(Item* item) {
   getItemRepository()->insertItem(item);
-  if (auto* pin = dynamic_cast<Pin*>(item)) {
+  if (auto* pin = jrt::fast_cast<Pin>(item)) {
     BoardOutline* outline = getOutline();
     if (outline != nullptr) {
       outline->invalidateEdgePinNets();
@@ -1097,7 +1097,7 @@ void BasicBoard::insertItem(Item* item) {
         outline->updateSlicesToTraceWidths();
       }
     }
-  } else if (dynamic_cast<BoardOutline*>(item) != nullptr) {
+  } else if (jrt::fast_cast<BoardOutline>(item) != nullptr) {
     BoardOutline* outline = getOutline();
     if (outline != nullptr) {
       outline->invalidateEdgePinNets();
@@ -1132,7 +1132,7 @@ void BasicBoard::applyUndoRedoSideEffects(
     jrt::Collection<UndoableObjects_Storable*>* restoredObjects, jrt::Set<int32_t>* changedNets) {
   jrt::Iterator<UndoableObjects_Storable*>* it = cancelledObjects->iterator();
   while (it->hasNext()) {
-    Item* currentItem = dynamic_cast<Item*>(it->next());
+    Item* currentItem = jrt::fast_cast<Item>(it->next());
     searchTreeManager->remove(currentItem);
     routingLedger()->noteRemoved(currentItem);
     if ((communication != nullptr) && (communication->observers != nullptr)) {
@@ -1146,7 +1146,7 @@ void BasicBoard::applyUndoRedoSideEffects(
   }
   it = restoredObjects->iterator();
   while (it->hasNext()) {
-    Item* currentItem = dynamic_cast<Item*>(it->next());
+    Item* currentItem = jrt::fast_cast<Item>(it->next());
     currentItem->board = this;
     searchTreeManager->insert(currentItem);
     routingLedger()->noteInserted(currentItem);
@@ -1171,7 +1171,7 @@ Trace* BasicBoard::getTraceTail(Point* location, int32_t layer, jrt::Array<int32
   TileShape* pointShape = TileShape::getInstance(location);
   jrt::Collection<SearchTreeObject*>* foundItems = overlappingObjects(pointShape, layer);
   for (SearchTreeObject* currentObject : *foundItems) {
-    if (auto* currentTrace = dynamic_cast<Trace*>(currentObject)) {
+    if (auto* currentTrace = jrt::fast_cast<Trace>(currentObject)) {
       if (!currentTrace->netsEqual(netNumbers) || currentTrace->hasInteriorContacts()) {
         continue;
       }
@@ -1233,7 +1233,7 @@ void BasicBoard::keepJunctionVias(jrt::Set<Item*>* connectionItems) {
   // Java: Set.copyOf(connectionItems) (an immutable copy, only used for contains).
   jrt::Set<Item*>* walked = new jrt::HashSet<Item*>(connectionItems);
   connectionItems->removeIf([walked](Item* item) {
-    auto* via = dynamic_cast<Via*>(item);
+    auto* via = jrt::fast_cast<Via>(item);
     return via != nullptr && touchesItemOutside(via, walked);
   });
 }
@@ -1301,26 +1301,26 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
     if (known != nullptr) {
       return known;
     }
-    auto* originalItem = dynamic_cast<Item*>(original);
+    auto* originalItem = jrt::fast_cast<Item>(original);
     if (originalItem == nullptr) {
       // Not an item (does not occur on a board): plain clone like Java serialization would copy it.
-      auto* copied = dynamic_cast<UndoableObjects_Storable*>(original->clone());
+      auto* copied = jrt::fast_cast<UndoableObjects_Storable>(original->clone());
       memo->put(original, copied);
       return copied;
     }
     // Item.clone(): copy(getId()) with onTheBoard copied.
-    auto* copiedItem = dynamic_cast<Item*>(originalItem->clone());
+    auto* copiedItem = jrt::fast_cast<Item>(originalItem->clone());
     // PORT NOTE: non-transient fields Java serialization keeps but copy(id) does not carry.
     // (Pin.changedTo is not remapped: it only changes by a GUI pin swap, out of scope.)
     copiedItem->smallestClearance = originalItem->smallestClearance;
-    if (auto* originalArea = dynamic_cast<ConductionArea*>(originalItem)) {
-      auto* copiedArea = dynamic_cast<ConductionArea*>(copiedItem);
+    if (auto* originalArea = jrt::fast_cast<ConductionArea>(originalItem)) {
+      auto* copiedArea = jrt::fast_cast<ConductionArea>(copiedItem);
       if (copiedArea != nullptr && copiedArea->getIsFilled() != originalArea->getIsFilled()) {
         copiedArea->setIsFilled(originalArea->getIsFilled());
       }
     }
-    if (auto* originalOutline = dynamic_cast<BoardOutline*>(originalItem)) {
-      auto* copiedOutline = dynamic_cast<BoardOutline*>(copiedItem);
+    if (auto* originalOutline = jrt::fast_cast<BoardOutline>(originalItem)) {
+      auto* copiedOutline = jrt::fast_cast<BoardOutline>(copiedItem);
       if (copiedOutline != nullptr) {
         copiedOutline->edgePinNetsCrossOutline = originalOutline->edgePinNetsCrossOutline;
         copiedItem->board = self;  // searchTreeManager is still null: no tree reinsertion
@@ -1338,13 +1338,13 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
   // Second pass, now that this->itemList exists (setClearanceClassIndex notes a content change on
   // the board's item list): restore what copy(id) of some classes drops.
   for (auto* entry : *memo->entrySet()) {
-    auto* originalItem = dynamic_cast<Item*>(entry->getKey());
-    auto* copiedItem = dynamic_cast<Item*>(entry->getValue());
+    auto* originalItem = jrt::fast_cast<Item>(entry->getKey());
+    auto* copiedItem = jrt::fast_cast<Item>(entry->getValue());
     if (originalItem == nullptr || copiedItem == nullptr) {
       continue;
     }
-    if (dynamic_cast<ComponentObstacleArea*>(originalItem) != nullptr ||
-        dynamic_cast<ComponentOutline*>(originalItem) != nullptr) {
+    if (jrt::fast_cast<ComponentObstacleArea>(originalItem) != nullptr ||
+        jrt::fast_cast<ComponentOutline>(originalItem) != nullptr) {
       // copy drops the net numbers (and ComponentOutline also the clearance class).
       copiedItem->netNumbers =
           originalItem->netNumbers != nullptr ? originalItem->netNumbers->clone() : nullptr;
@@ -1375,11 +1375,11 @@ void BasicBoard::deleteAllTracksAndVias() {
     if (currentItem == nullptr) {
       break;
     }
-    if (dynamic_cast<Trace*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Trace>(currentItem) != nullptr) {
       // delete the trace
       itemList->delete_(currentItem);
     }
-    if (dynamic_cast<Via*>(currentItem) != nullptr) {
+    if (jrt::fast_cast<Via>(currentItem) != nullptr) {
       // delete the via
       itemList->delete_(currentItem);
     }
@@ -1394,7 +1394,7 @@ void BasicBoard::unfillConductionAreas() {
     if (currentItem == nullptr) {
       break;
     }
-    if (auto* currentConductionArea = dynamic_cast<ConductionArea*>(currentItem)) {
+    if (auto* currentConductionArea = jrt::fast_cast<ConductionArea>(currentItem)) {
       currentConductionArea->setIsFilled(false);
       currentConductionArea->setIsObstacle(false);
     }
@@ -1411,7 +1411,7 @@ void BasicBoard::areThereItemsOnInactiveLayer(AutorouteControl* ctrl) {
       if (currentObject == nullptr) {
         break;
       }
-      if (auto* currentItem = dynamic_cast<PolylineTrace*>(currentObject)) {
+      if (auto* currentItem = jrt::fast_cast<PolylineTrace>(currentObject)) {
         // This is a connectable item, like PolylineTrace or Pin
         if (!(*ctrl->layerActive)[currentItem->getLayer()]) {
           hasSomethingOnInactiveLayer = true;
@@ -1427,7 +1427,7 @@ void BasicBoard::areThereItemsOnInactiveLayer(AutorouteControl* ctrl) {
 int32_t BasicBoard::getNon45DegreeTraceCount() {
   int32_t count = 0;
   for (Item* currentObject : *getItems()) {
-    if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentObject)) {
+    if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentObject)) {
       if (!currentTrace->polyline()->isMultipleOf45Degree()) {
         ++count;
       }

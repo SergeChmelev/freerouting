@@ -81,7 +81,7 @@ bool RulesReader::read(std::istream& in, const std::string& designName, fr::Basi
     }
     scanner->yybegin(SpecctraDsnStreamReader::NAME);
     currentToken = scanner->nextToken();
-    auto* currentString = dynamic_cast<JString*>(currentToken);
+    auto* currentString = jrt::fast_cast<JString>(currentToken);
     if (currentString == nullptr || currentString->value != designName) {
       FRLogger::warn("RulesReader.read: designName not matching at '" +
                      scanner->getScopeIdentifier() + "' (expected '" + designName + "', got '" +
@@ -238,7 +238,7 @@ LayerStructure* RulesReader::discoverLayerStructure(jrt::Array<int8_t>* data) {
         if (token == obj(Keyword::LAYER_RULE()) || token == obj(Keyword::LAYER())) {
           scanner->yybegin(SpecctraDsnStreamReader::NAME);
           jrt::Object* nameToken = scanner->nextToken();
-          if (auto* s = dynamic_cast<JString*>(nameToken);
+          if (auto* s = jrt::fast_cast<JString>(nameToken);
               s != nullptr && !jrt::strip(s->value).empty()) {
             layerNames->add(s->value);
           }
@@ -277,7 +277,7 @@ void RulesReader::applyRules(jrt::Collection<Rule*>* rules, fr::BasicBoard* boar
   fr::io::CoordinateTransform* coordinateTransform = board->communication->coordinateTransform;
   std::string stringQuote = board->communication->specctraParserInfo->stringQuote;
   for (Rule* rule : *rules) {
-    if (auto* widthRule = dynamic_cast<Rule_WidthRule*>(rule)) {
+    if (auto* widthRule = jrt::fast_cast<Rule_WidthRule>(rule)) {
       int32_t traceHalfwidth =
           jrt::l2i(jrt::Math::round(coordinateTransform->dsnToBoard(widthRule->value) / 2));
       if (layerIndex < 0) {
@@ -285,7 +285,7 @@ void RulesReader::applyRules(jrt::Collection<Rule*>* rules, fr::BasicBoard* boar
       } else {
         board->rules->setDefaultTraceHalfWidth(layerIndex, traceHalfwidth);
       }
-    } else if (auto* clearanceRule = dynamic_cast<Rule_ClearanceRule*>(rule)) {
+    } else if (auto* clearanceRule = jrt::fast_cast<Rule_ClearanceRule>(rule)) {
       Structure::setClearanceRule(clearanceRule, layerIndex, coordinateTransform, board->rules,
                                   stringQuote);
     }
@@ -295,7 +295,7 @@ void RulesReader::applyRules(jrt::Collection<Rule*>* rules, fr::BasicBoard* boar
 void RulesReader::applyLayerRules(IJFlexScanner* scanner, fr::BasicBoard* board) {
   try {
     jrt::Object* nextToken = scanner->nextToken();
-    auto* layerString = dynamic_cast<JString*>(nextToken);
+    auto* layerString = jrt::fast_cast<JString>(nextToken);
     if (layerString == nullptr) {
       FRLogger::warn("RulesReader.applyLayerRules: String expected at '" +
                      scanner->getScopeIdentifier() + "'");

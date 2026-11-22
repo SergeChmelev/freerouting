@@ -53,7 +53,7 @@ RoutingBoard* toRoutingBoard(BasicBoard* board) {
   if (board == nullptr) {
     return nullptr;
   }
-  auto* result = dynamic_cast<RoutingBoard*>(board);
+  auto* result = jrt::fast_cast<RoutingBoard>(board);
   if (result == nullptr) {
     throw jrt::ClassCastException("BasicBoard cannot be cast to RoutingBoard");
   }
@@ -88,15 +88,15 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
       dsn::DsnReader::readBoard(dsnBytes, nullptr, nullptr, request->designName());
 
   RoutingBoard* board;
-  if (auto* s = dynamic_cast<io::BoardReadResult_Success*>(readResult)) {
+  if (auto* s = jrt::fast_cast<io::BoardReadResult_Success>(readResult)) {
     board = toRoutingBoard(s->board());
-  } else if (auto* o = dynamic_cast<io::BoardReadResult_OutlineMissing*>(readResult)) {
+  } else if (auto* o = jrt::fast_cast<io::BoardReadResult_OutlineMissing>(readResult)) {
     board = toRoutingBoard(o->board());
-  } else if (auto* p = dynamic_cast<io::BoardReadResult_ParseError*>(readResult)) {
+  } else if (auto* p = jrt::fast_cast<io::BoardReadResult_ParseError>(readResult)) {
     return HeadlessRoutingResult::failure(
         "DSN parse error at '" + p->location() + "': " + p->detail(),
         jrt::System::currentTimeMillis() - startTime);
-  } else if (auto* io = dynamic_cast<io::BoardReadResult_IoError*>(readResult)) {
+  } else if (auto* io = jrt::fast_cast<io::BoardReadResult_IoError>(readResult)) {
     return HeadlessRoutingResult::failure("DSN IO error: " + io->cause().getMessage(),
                                           jrt::System::currentTimeMillis() - startTime);
   } else {
@@ -330,14 +330,14 @@ jrt::Collection<ClearanceViolation*>* FreeroutingHeadlessEngine::checkDrc(
   }
   io::BoardReadResult* result =
       dsn::DsnReader::readBoard(dsnBytes, nullptr, nullptr, std::string("drc_check.dsn"));
-  if (auto* s = dynamic_cast<io::BoardReadResult_Success*>(result)) {
+  if (auto* s = jrt::fast_cast<io::BoardReadResult_Success>(result)) {
     return checkDrc(toRoutingBoard(s->board()));
-  } else if (auto* o = dynamic_cast<io::BoardReadResult_OutlineMissing*>(result)) {
+  } else if (auto* o = jrt::fast_cast<io::BoardReadResult_OutlineMissing>(result)) {
     return checkDrc(toRoutingBoard(o->board()));
-  } else if (auto* p = dynamic_cast<io::BoardReadResult_ParseError*>(result)) {
+  } else if (auto* p = jrt::fast_cast<io::BoardReadResult_ParseError>(result)) {
     throw jrt::IllegalArgumentException("DSN parse error at '" + p->location() +
                                         "': " + p->detail());
-  } else if (auto* io = dynamic_cast<io::BoardReadResult_IoError*>(result)) {
+  } else if (auto* io = jrt::fast_cast<io::BoardReadResult_IoError>(result)) {
     // PORT NOTE: UncheckedIOException -> jrt::IOException.
     throw jrt::IOException("DSN IO error: " + io->cause().getMessage());
   }

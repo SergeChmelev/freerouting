@@ -25,7 +25,7 @@ namespace fr::dsn {
 
 ComponentPlacement* Component::readScope(IJFlexScanner* scanner) {
   jrt::Object* nextToken = scanner->nextToken();
-  auto* name = dynamic_cast<JString*>(nextToken);
+  auto* name = jrt::fast_cast<JString>(nextToken);
   if (name == nullptr) {
     FRLogger::warn("Component.read_scope: component name expected at '" +
                    scanner->getScopeIdentifier() + "'");
@@ -160,12 +160,12 @@ fr::ObstacleArea* Component::getKeepout(fr::BasicBoard* board, int32_t component
                                         const std::string& name) {
   jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
   for (;;) {
-    fr::Item* currentItem = dynamic_cast<fr::Item*>(board->itemList->readObject(it));
+    fr::Item* currentItem = jrt::fast_cast<fr::Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
       break;
     }
     if (currentItem->getComponentId() == componentId) {
-      if (auto* currentArea = dynamic_cast<fr::ObstacleArea*>(currentItem)) {
+      if (auto* currentArea = jrt::fast_cast<fr::ObstacleArea>(currentItem)) {
         if (currentArea->name.has_value() && *currentArea->name == name) {
           return currentArea;
         }
@@ -192,9 +192,9 @@ ComponentPlacement_ComponentLocation* Component::readPlaceScope(IJFlexScanner* s
     jrt::Array<double>* location = new jrt::Array<double>(2);
     for (int32_t i = 0; i < 2; i++) {
       nextToken = scanner->nextToken();
-      if (auto* double1 = dynamic_cast<JDouble*>(nextToken)) {
+      if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
         (*location)[i] = double1->value;
-      } else if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+      } else if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
         (*location)[i] = integer->value;
       } else if (nextToken == CLOSED_BRACKET()) {
         // component is not yet placed
@@ -220,9 +220,9 @@ ComponentPlacement_ComponentLocation* Component::readPlaceScope(IJFlexScanner* s
     }
     double rotation;
     nextToken = scanner->nextToken();
-    if (auto* double1 = dynamic_cast<JDouble*>(nextToken)) {
+    if (auto* double1 = jrt::fast_cast<JDouble>(nextToken)) {
       rotation = double1->value;
-    } else if (auto* integer = dynamic_cast<JInteger*>(nextToken)) {
+    } else if (auto* integer = jrt::fast_cast<JInteger>(nextToken)) {
       rotation = integer->value;
     } else {
       FRLogger::warn("Component.read_place_scope: number expected at '" +
@@ -234,7 +234,7 @@ ComponentPlacement_ComponentLocation* Component::readPlaceScope(IJFlexScanner* s
     nextToken = scanner->nextToken();
     while (nextToken == OPEN_BRACKET()) {
       nextToken = scanner->nextToken();
-      auto* stringToken = dynamic_cast<JString*>(nextToken);
+      auto* stringToken = jrt::fast_cast<JString>(nextToken);
       if (nextToken == LOCK_TYPE()) {
         positionFixed = readLockType(scanner);
       } else if (nextToken == PIN()) {
@@ -287,7 +287,7 @@ ComponentPlacement_ComponentLocation* Component::readPlaceScope(IJFlexScanner* s
 ComponentPlacement_ItemClearanceInfo* Component::readItemClearanceInfo(IJFlexScanner* scanner) {
   scanner->yybegin(SpecctraDsnStreamReader::NAME);
   jrt::Object* nextToken = scanner->nextToken();
-  auto* name = dynamic_cast<JString*>(nextToken);
+  auto* name = jrt::fast_cast<JString>(nextToken);
   if (name == nullptr) {
     FRLogger::warn("Component.read_item_clearance_info: String expected at '" +
                    scanner->getScopeIdentifier() + "'");
@@ -297,7 +297,7 @@ ComponentPlacement_ItemClearanceInfo* Component::readItemClearanceInfo(IJFlexSca
   nextToken = scanner->nextToken();
   while (nextToken == OPEN_BRACKET()) {
     nextToken = scanner->nextToken();
-    auto* s = dynamic_cast<JString*>(nextToken);
+    auto* s = jrt::fast_cast<JString>(nextToken);
     if (nextToken == CLEARANCE_CLASS() ||
         (s != nullptr && (jrt::equalsIgnoreCase("clearance_class", s->value) ||
                           jrt::equalsIgnoreCase("clearanceClass", s->value)))) {

@@ -24,7 +24,7 @@ class PinClearanceSource : public virtual jrt::Object {
 
   bool equals(jrt::Object* o) override {
     if (this == o) return true;
-    auto* other = dynamic_cast<PinClearanceSource*>(o);
+    auto* other = jrt::fast_cast<PinClearanceSource>(o);
     return other != nullptr && originalClass_ == other->originalClass_ &&
            maskClearance_ == other->maskClearance_ && localClearance_ == other->localClearance_;
   }

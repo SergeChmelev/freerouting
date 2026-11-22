@@ -29,11 +29,11 @@ bool MazeTraceShover::checkShoveTraceLine(
     MazeListElement* listElement, ObstacleExpansionRoom* obstacleRoom, RoutingBoard* board,
     AutorouteControl* ctrl, bool shoveToTheLeft,
     jrt::Collection<MazeTraceShover_DoorSection*>* toDoorList) {
-  auto* fromDoor = dynamic_cast<ExpansionDoor*>(listElement->door);
+  auto* fromDoor = jrt::fast_cast<ExpansionDoor>(listElement->door);
   if (fromDoor == nullptr) {
     return true;
   }
-  auto* obstacleTrace = dynamic_cast<PolylineTrace*>(obstacleRoom->getItem());
+  auto* obstacleTrace = jrt::fast_cast<PolylineTrace>(obstacleRoom->getItem());
   if (obstacleTrace == nullptr) {
     return true;
   }
@@ -68,10 +68,10 @@ bool MazeTraceShover::checkShoveTraceLine(
     // shove from a link door into the direction of the other link door.
     CompleteExpansionRoom* otherRoom =
         fromDoor->otherRoom(static_cast<CompleteExpansionRoom*>(obstacleRoom));
-    if (dynamic_cast<ObstacleExpansionRoom*>(otherRoom) == nullptr) {
+    if (jrt::fast_cast<ObstacleExpansionRoom>(otherRoom) == nullptr) {
       return false;
     }
-    if (!endPointsMatching(obstacleTrace, dynamic_cast<ObstacleExpansionRoom*>(otherRoom)->getItem())) {
+    if (!endPointsMatching(obstacleTrace, jrt::fast_cast<ObstacleExpansionRoom>(otherRoom)->getItem())) {
       return false;
     }
     FloatPoint* doorCenter = fromDoorShape->centreOfGravity();
@@ -209,8 +209,8 @@ bool MazeTraceShover::checkShoveTraceLine(
     if (currentDoor == fromDoor) {
       continue;
     }
-    auto* room = dynamic_cast<ObstacleExpansionRoom*>(currentDoor->firstRoom);
-    auto* room1 = dynamic_cast<ObstacleExpansionRoom*>(currentDoor->secondRoom);
+    auto* room = jrt::fast_cast<ObstacleExpansionRoom>(currentDoor->firstRoom);
+    auto* room1 = jrt::fast_cast<ObstacleExpansionRoom>(currentDoor->secondRoom);
     if (room != nullptr && room1 != nullptr) {
       Item* firstRoomItem = room->getItem();
       Item* secondRoomItem = room1->getItem();
@@ -296,11 +296,11 @@ bool MazeTraceShover::endPointsMatching(PolylineTrace* trace, Item* fromItem) {
     return false;
   }
   bool pointsMatching;
-  if (auto* item = dynamic_cast<DrillItem*>(fromItem)) {
+  if (auto* item = jrt::fast_cast<DrillItem>(fromItem)) {
     Point* fromCenter = item->getCenter();
     pointsMatching = fromCenter->equals(trace->firstCorner()) ||
                      fromCenter->equals(trace->lastCorner());
-  } else if (auto* fromTrace = dynamic_cast<PolylineTrace*>(fromItem)) {
+  } else if (auto* fromTrace = jrt::fast_cast<PolylineTrace>(fromItem)) {
     pointsMatching = trace->firstCorner()->equals(fromTrace->firstCorner()) ||
                      trace->firstCorner()->equals(fromTrace->lastCorner()) ||
                      trace->lastCorner()->equals(fromTrace->firstCorner()) ||

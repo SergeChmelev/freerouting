@@ -10,7 +10,7 @@ namespace fr {
 
 Communication* Communication::copyForBoard() {
   IdGenerator* idCopy = nullptr;
-  if (auto* itemIdGenerator = dynamic_cast<ItemIdGenerator*>(this->idGenerator)) {
+  if (auto* itemIdGenerator = jrt::fast_cast<ItemIdGenerator>(this->idGenerator)) {
     idCopy = itemIdGenerator->copy();
   } else if (this->idGenerator != nullptr) {
     // TODO(port): only ItemIdGenerator is used as IdGenerator in the port.

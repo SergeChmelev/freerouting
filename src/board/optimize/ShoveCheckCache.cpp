@@ -64,14 +64,14 @@ void ShoveCheckCache::reset(RoutingBoard* board, int64_t contentStamp) {
 }
 
 bool ShoveCheckCache::supported(TileShape* shape, Direction* dir, jrt::Array<int32_t>* nets) {
-  return (dynamic_cast<IntOctagon*>(shape) != nullptr || dynamic_cast<IntBox*>(shape) != nullptr ||
+  return (jrt::fast_cast<IntOctagon>(shape) != nullptr || jrt::fast_cast<IntBox>(shape) != nullptr ||
           integerSimplex(shape)) &&
-         (dir == nullptr || dynamic_cast<IntDirection*>(dir) != nullptr) &&
+         (dir == nullptr || jrt::fast_cast<IntDirection>(dir) != nullptr) &&
          (nets == nullptr || nets->length <= 2);
 }
 
 bool ShoveCheckCache::integerSimplex(TileShape* shape) {
-  auto* s = dynamic_cast<Simplex*>(shape);
+  auto* s = jrt::fast_cast<Simplex>(shape);
   if (s == nullptr || typeid(*shape) != typeid(Simplex)) {
     return false;
   }
@@ -81,8 +81,8 @@ bool ShoveCheckCache::integerSimplex(TileShape* shape) {
   }
   for (int32_t i = 0; i < n; i++) {
     Line* line = s->borderLine(i);
-    if (dynamic_cast<IntPoint*>(line->a) == nullptr ||
-        dynamic_cast<IntPoint*>(line->b) == nullptr) {
+    if (jrt::fast_cast<IntPoint>(line->a) == nullptr ||
+        jrt::fast_cast<IntPoint>(line->b) == nullptr) {
       return false;
     }
   }
@@ -112,25 +112,25 @@ ShoveCheckCache_Key::ShoveCheckCache_Key(TileShape* shape, ShapeEntrySide* fromS
                                          jrt::Array<int32_t>* nets, int32_t clearanceClass,
                                          int32_t depth, int32_t viaDepth, int32_t springOverDepth,
                                          bool timed) {
-  if (auto* o = dynamic_cast<IntOctagon*>(shape)) {
+  if (auto* o = jrt::fast_cast<IntOctagon>(shape)) {
     this->kind = 1;
     this->lineCount = 0;
     this->coords = jrt::Array<int32_t>::of({o->leftX, o->bottomY, o->rightX, o->topY,
                                             o->upperLeftDiagonalX, o->lowerRightDiagonalX,
                                             o->lowerLeftDiagonalX, o->upperRightDiagonalX});
-  } else if (auto* b = dynamic_cast<IntBox*>(shape)) {
+  } else if (auto* b = jrt::fast_cast<IntBox>(shape)) {
     this->kind = 2;
     this->lineCount = 0;
     this->coords = jrt::Array<int32_t>::of({b->ll->x, b->ll->y, b->ur->x, b->ur->y});
   } else {
-    Simplex* x = dynamic_cast<Simplex*>(shape);
+    Simplex* x = jrt::fast_cast<Simplex>(shape);
     this->kind = 3;
     this->lineCount = x->borderLineCount();
     this->coords = new jrt::Array<int32_t>(4 * this->lineCount);
     for (int32_t i = 0; i < this->lineCount; i++) {
       Line* line = x->borderLine(i);
-      IntPoint* a = dynamic_cast<IntPoint*>(line->a);
-      IntPoint* bp = dynamic_cast<IntPoint*>(line->b);
+      IntPoint* a = jrt::fast_cast<IntPoint>(line->a);
+      IntPoint* bp = jrt::fast_cast<IntPoint>(line->b);
       (*this->coords)[4 * i] = a->x;
       (*this->coords)[4 * i + 1] = a->y;
       (*this->coords)[4 * i + 2] = bp->x;
@@ -151,7 +151,7 @@ ShoveCheckCache_Key::ShoveCheckCache_Key(TileShape* shape, ShapeEntrySide* fromS
     this->sideY = p == nullptr ? 0 : jrt::Double::doubleToLongBits(p->y);
   }
 
-  if (auto* d = dynamic_cast<IntDirection*>(dir)) {
+  if (auto* d = jrt::fast_cast<IntDirection>(dir)) {
     jrt::Array<int32_t>* prim = ShoveCheckCache::primitive(d->x, d->y);
     this->dirX = (*prim)[0];
     this->dirY = (*prim)[1];
@@ -196,7 +196,7 @@ bool ShoveCheckCache_Key::equals(jrt::Object* obj) {
   if (this == obj) {
     return true;
   }
-  auto* o = dynamic_cast<ShoveCheckCache_Key*>(obj);
+  auto* o = jrt::fast_cast<ShoveCheckCache_Key>(obj);
   if (o == nullptr) {
     return false;
   }
