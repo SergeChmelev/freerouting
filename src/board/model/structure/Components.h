@@ -9,6 +9,8 @@ namespace fr {
 /** Contains the lists of components on the board. */
 class Components : public virtual jrt::Object {
  public:
+  // PORT NOTE (board deepCopy hook): independent deep copy including the undo/redo state.
+  Components* deepCopy();
   Components();
 
   /**

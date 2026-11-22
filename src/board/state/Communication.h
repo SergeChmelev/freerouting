@@ -51,6 +51,9 @@ class Communication_SpecctraParserInfo : public virtual jrt::Object {
 /** Communication information to host systems or host design formats. */
 class Communication : public virtual jrt::Object {
  public:
+  // PORT NOTE (board deepCopy hook): copy with a deep-copied idGenerator (continues issuing the same
+  // ids) and observers = nullptr; other fields copied by value.
+  Communication* copyForBoard();
   /** Creates a new instance of BoardCommunication. */
   Communication(Unit unit, int32_t resolution, Communication_SpecctraParserInfo* specctraParserInfo,
                 io::CoordinateTransform* coordinateTransform, IdGenerator* idGenerator,

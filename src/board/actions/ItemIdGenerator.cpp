@@ -5,6 +5,13 @@
 
 namespace fr {
 
+ItemIdGenerator* ItemIdGenerator::copy() {
+  auto* c = new ItemIdGenerator();
+  c->lastGeneratedId = lastGeneratedId;
+  c->wrapAroundCount = wrapAroundCount;
+  return c;
+}
+
 int32_t ItemIdGenerator::newId() {
   if (lastGeneratedId >= MAX_ID) {
     // Wrap around to 1 instead of overflowing into negative territory.

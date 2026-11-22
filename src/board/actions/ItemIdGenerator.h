@@ -21,6 +21,8 @@ class ItemIdGenerator : public virtual IdGenerator {
   int64_t wrapAroundCount = 0;
 
  public:
+  // PORT NOTE (board deepCopy hook): independent copy continuing from the same counter.
+  ItemIdGenerator* copy();
   /** Creates a new ItemIdGenerator. */
   ItemIdGenerator() {}
 

@@ -72,6 +72,10 @@ class UndoableObjects_NodeIterator
  */
 class UndoableObjects : public virtual jrt::Object {
  public:
+  // PORT NOTE (board deepCopy hook): fresh copy with identical map order, node levels, stack level
+  // and undo/redo stacks; every stored object (also those only in undo/redo history) is replaced by
+  // mapObject(original). mapObject must be memoizing (same original -> same copy).
+  UndoableObjects* copyMapped(std::function<UndoableObjects_Storable*(UndoableObjects_Storable*)> mapObject);
   /** Returns the current change stamp; equal stamps mean the readable objects are unchanged. */
   int64_t getVersion() { return version; }
 

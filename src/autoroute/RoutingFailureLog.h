@@ -38,6 +38,8 @@ class RoutingFailureLog_ItemFailureInfo : public virtual jrt::Object {
  */
 class RoutingFailureLog : public virtual jrt::Object {
  public:
+  // PORT NOTE (board deepCopy hook): independent deep copy.
+  RoutingFailureLog* deepCopy();
   /** Failure threshold - give up after this many failures for the same item. */
   static constexpr int32_t FAILURE_THRESHOLD = 50;
 

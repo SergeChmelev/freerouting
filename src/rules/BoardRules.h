@@ -9,6 +9,9 @@ namespace fr {
 /** Contains the rules and constraints required for items to be inserted into a routing board. */
 class BoardRules : public virtual jrt::Object {
  public:
+  // PORT NOTE (board deepCopy hook): independent deep copy of all mutable rule state (nets, net
+  // classes, clearance matrix, via infos/rules, ...). The caller re-points nets to the new board.
+  BoardRules* deepCopy();
   /** Creates a new instance of this class. */
   BoardRules(LayerStructure* layerStructure, ClearanceMatrix* clearanceMatrix);
 
