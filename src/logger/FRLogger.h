@@ -2,6 +2,7 @@
 #pragma once
 
 #include <exception>
+#include <functional>
 
 #include "fwd.h"
 #include "jrt/jrt.h"
@@ -46,6 +47,11 @@ class FRLogger final {
 
   /** PORT NOTE: replaces the Log4j configuration of the logger's level. */
   static inline int32_t logLevel = LEVEL_INFO;
+  /** PORT EXTENSION (not in Java): optional receiver of every emitted log line (level, text),
+   * e.g. a UI log panel. Called on the logging thread. */
+  static inline std::function<void(int32_t, const std::string&)> sink;
+  /** PORT EXTENSION: whether emitted lines are also printed to stderr. */
+  static inline bool consoleOutput = true;
 
   static FRLogger_DecimalFormat* defaultFloatFormat();
   static FRLogger_DecimalFormat* defaultSignedFloatFormat();

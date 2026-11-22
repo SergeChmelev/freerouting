@@ -1,2 +1,4 @@
 upstream/
 build/
+ui/frcore.so
+build_shots/

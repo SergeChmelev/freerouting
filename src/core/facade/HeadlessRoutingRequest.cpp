@@ -119,8 +119,11 @@ HeadlessRoutingRequest_Builder* HeadlessRoutingRequest_Builder::computeSes(bool 
 }
 
 HeadlessRoutingRequest* HeadlessRoutingRequest_Builder::build() {
-  return new HeadlessRoutingRequest(dsnBytes_, designName_, rulesBytes_, rulesName_, settings_,
-                                    cancellationToken_, progressListener_, runDrc_, computeSes_);
+  auto* request = new HeadlessRoutingRequest(dsnBytes_, designName_, rulesBytes_, rulesName_,
+                                             settings_, cancellationToken_, progressListener_,
+                                             runDrc_, computeSes_);
+  request->boardObserver = boardObserver_;
+  return request;
 }
 
 // ---------------------------------------------------------------------------------------------

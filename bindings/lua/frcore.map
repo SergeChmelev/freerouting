@@ -1,0 +1,7 @@
+/* Only the Lua entry point is exported: the module carries its own (static) libstdc++ and a
+   global operator new backed by the Boehm collector, which must not leak into, or be replaced
+   by, other C++ libraries in the host process (Mesa/LLVM, GLFW, ...). */
+{
+  global: luaopen_frcore;
+  local: *;
+};

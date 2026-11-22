@@ -219,6 +219,20 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
         }));
   }
 
+  // PORT EXTENSION: live-board observer for front ends (see HeadlessRoutingRequest).
+  if (request->boardObserver) {
+    auto observer = request->boardObserver;
+    observer(job->board, "routing started");
+    pipeline->addBoardUpdatedEventListener(BoardUpdatedEventListener::of(
+        [observer, job](BoardUpdatedEvent* event) { observer(job->board, "board updated"); }));
+    pipeline->addStageListener(RoutingPipeline_StageListener::of(
+        [observer, job](BatchAutorouter* autorouter) { observer(job->board, "routing finished"); },
+        [observer, job](BatchOptimizer* optimizer) { observer(job->board, "optimization started"); },
+        [observer, job](BatchOptimizer* optimizer) {
+          observer(job->board, "optimization finished");
+        }));
+  }
+
   // 5. Execute routing pipeline
   try {
     pipeline->run();

@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Everything is PIC so the core can also be linked into the Lua module (bindings/lua).
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -14,17 +16,20 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(BDWGC REQUIRED IMPORTED_TARGET bdw-gc)
 # Static GC/GMP by default: the collector's thread-local free lists are then reached through the
 # fast initial-exec TLS model instead of __tls_get_addr on every allocation.
-option(FR_STATIC_GC "Link Boehm GC and GMP statically" ON)
+option(FR_STATIC_GC "Link Boehm GC and GMP statically into executables" ON)
+find_library(GMP_SHARED_LIB gmp REQUIRED)
+# Shared GC/GMP: always used by the Lua module (Ubuntu's libgc.a uses local-exec TLS, which a
+# shared object cannot contain).
+add_library(fr_gc_shared INTERFACE)
+target_link_libraries(fr_gc_shared INTERFACE PkgConfig::BDWGC ${GMP_SHARED_LIB})
 if(FR_STATIC_GC)
   find_library(GC_STATIC_LIB libgc.a REQUIRED)
-  find_library(GMP_LIB libgmp.a REQUIRED)
-  add_library(fr_gc INTERFACE)
-  target_include_directories(fr_gc INTERFACE ${BDWGC_INCLUDE_DIRS})
-  target_link_libraries(fr_gc INTERFACE ${GC_STATIC_LIB} pthread dl)
+  find_library(GMP_STATIC_LIB libgmp.a REQUIRED)
+  add_library(fr_gc_exe INTERFACE)
+  target_link_libraries(fr_gc_exe INTERFACE ${GC_STATIC_LIB} ${GMP_STATIC_LIB} pthread dl)
 else()
-  find_library(GMP_LIB gmp REQUIRED)
-  add_library(fr_gc INTERFACE)
-  target_link_libraries(fr_gc INTERFACE PkgConfig::BDWGC)
+  add_library(fr_gc_exe INTERFACE)
+  target_link_libraries(fr_gc_exe INTERFACE fr_gc_shared)
 endif()
 # GEOS = C++ port of JTS (used by geometry/planar/PlanarArea, like JTS in Java).
 find_library(GEOS_LIB geos_c REQUIRED)
@@ -38,7 +43,7 @@ file(GLOB JRT_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/runtime/jrt/*.cpp)
 add_library(jrt OBJECT ${JRT_SOURCES})
 target_include_directories(jrt PUBLIC ${CMAKE_SOURCE_DIR}/runtime)
 target_compile_options(jrt PRIVATE ${FR_COMMON_FLAGS})
-target_link_libraries(jrt PUBLIC fr_gc ${GMP_LIB})
+target_include_directories(jrt PUBLIC ${BDWGC_INCLUDE_DIRS})
 
 # --- Ported freerouting core
 file(GLOB_RECURSE FR_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
@@ -51,20 +56,39 @@ if(FR_SOURCES)
   if(EXISTS ${CMAKE_SOURCE_DIR}/src/main.cpp)
     add_executable(freerouting-cpp ${CMAKE_SOURCE_DIR}/src/main.cpp)
     target_compile_options(freerouting-cpp PRIVATE ${FR_COMMON_FLAGS})
-    target_link_libraries(freerouting-cpp PRIVATE frcore jrt)
+    target_link_libraries(freerouting-cpp PRIVATE frcore jrt fr_gc_exe)
   endif()
   # Differential-testing helpers (see tools/parity/)
   add_executable(board_dump ${CMAKE_SOURCE_DIR}/tools/parity/board_dump.cpp)
   target_compile_options(board_dump PRIVATE ${FR_COMMON_FLAGS})
-  target_link_libraries(board_dump PRIVATE frcore jrt)
+  target_link_libraries(board_dump PRIVATE frcore jrt fr_gc_exe)
   add_executable(trace_route ${CMAKE_SOURCE_DIR}/tools/parity/trace_route.cpp)
   target_compile_options(trace_route PRIVATE ${FR_COMMON_FLAGS})
-  target_link_libraries(trace_route PRIVATE frcore jrt)
+  target_link_libraries(trace_route PRIVATE frcore jrt fr_gc_exe)
 endif()
 
 # --- Tests
 enable_testing()
 add_executable(jrt_test ${CMAKE_SOURCE_DIR}/tests/jrt_test.cpp)
 target_compile_options(jrt_test PRIVATE ${FR_COMMON_FLAGS})
-target_link_libraries(jrt_test PRIVATE jrt)
+target_link_libraries(jrt_test PRIVATE jrt fr_gc_exe)
 add_test(NAME jrt_test COMMAND jrt_test)
+
+# --- Lua 5.3 module "frcore" for the Nuklear/MoonGL front end (ui/)
+pkg_check_modules(LUA53 IMPORTED_TARGET lua5.3)
+if(LUA53_FOUND AND TARGET frcore)
+  add_library(frcore_lua MODULE
+              ${CMAKE_SOURCE_DIR}/bindings/lua/lfrcore.cpp
+              ${CMAKE_SOURCE_DIR}/bindings/lua/engine.cpp)
+  target_include_directories(frcore_lua PRIVATE ${LUA53_INCLUDE_DIRS})
+  target_compile_options(frcore_lua PRIVATE ${FR_COMMON_FLAGS} -fvisibility=hidden)
+  target_link_libraries(frcore_lua PRIVATE frcore jrt fr_gc_shared)
+  # Self-contained: own libstdc++ (so every C++ allocation inside the module goes through the
+  # GC-backed operator new), symbols bound locally, only luaopen_frcore exported.
+  target_link_options(frcore_lua PRIVATE
+                      -static-libstdc++ -static-libgcc -Wl,-Bsymbolic
+                      -Wl,--version-script=${CMAKE_SOURCE_DIR}/bindings/lua/frcore.map)
+  set_target_properties(frcore_lua PROPERTIES
+                        PREFIX "" OUTPUT_NAME "frcore"
+                        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/ui)
+endif()

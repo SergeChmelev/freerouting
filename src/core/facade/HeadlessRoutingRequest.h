@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <istream>
 #include <optional>
 #include <string>
@@ -40,10 +41,17 @@ class HeadlessRoutingRequest_Builder : public virtual jrt::Object {
   HeadlessRoutingRequest_Builder* runDrc(bool runDrc);
   /** Whether to serialize the final board to Specctra SES format (default true). */
   HeadlessRoutingRequest_Builder* computeSes(bool computeSes);
+  /** PORT EXTENSION (not in Java): observer of the live board, see HeadlessRoutingRequest. */
+  HeadlessRoutingRequest_Builder* boardObserver(
+      std::function<void(RoutingBoard*, const std::string&)> observer) {
+    boardObserver_ = std::move(observer);
+    return this;
+  }
   /** Builds the immutable HeadlessRoutingRequest. */
   HeadlessRoutingRequest* build();
 
  private:
+  std::function<void(RoutingBoard*, const std::string&)> boardObserver_;
   jrt::Array<int8_t>* dsnBytes_ = nullptr;
   std::optional<std::string> designName_ = std::string("design.dsn");
   jrt::Array<int8_t>* rulesBytes_ = nullptr;
@@ -92,6 +100,14 @@ class HeadlessRoutingRequest : public virtual jrt::Object {
   bool equals(jrt::Object* o) override;
   int32_t hashCode() override;
   std::string toString() override;
+
+  /**
+   * PORT EXTENSION (not in Java): if set, called on the routing thread with the live board
+   * (job.board) and a short reason ("loaded", "board updated", "routing finished",
+   * "optimization finished", ...) whenever the pipeline reports progress. Used by front ends to
+   * take render snapshots. Must not modify the board.
+   */
+  std::function<void(RoutingBoard*, const std::string&)> boardObserver;
 
   /** Creates a new builder for HeadlessRoutingRequest. */
   static HeadlessRoutingRequest_Builder* builder();

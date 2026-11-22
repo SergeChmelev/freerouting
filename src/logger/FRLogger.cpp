@@ -79,6 +79,12 @@ void FRLogger::emit(int32_t level, const std::string& msg, const std::exception*
   if (level > logLevel || level <= LEVEL_OFF) {
     return;
   }
+  if (sink) {
+    sink(level, exception != nullptr ? msg + " (" + exception->what() + ")" : msg);
+  }
+  if (!consoleOutput) {
+    return;
+  }
   static const char* const NAMES[] = {"OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"};
   auto now = std::chrono::system_clock::now();
   std::time_t t = std::chrono::system_clock::to_time_t(now);

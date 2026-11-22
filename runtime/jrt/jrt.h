@@ -4,3 +4,4 @@
 #include "jrt/bignum.h"
 #include "jrt/collections.h"
 #include "jrt/lang.h"
+#include "jrt/threads.h"

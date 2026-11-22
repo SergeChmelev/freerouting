@@ -12,8 +12,11 @@
 // malloc'ed by the C++ runtime, so jrt exceptions keep their message in uncollectable
 // storage (see jrt::Throwable).
 
+#define GC_THREADS 1
 #include <gc.h>
 #include <gmp.h>
+
+#include "jrt/threads.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -41,6 +44,8 @@ void gmp_gc_free(void* p, std::size_t) { GC_FREE(p); }
 struct GcInit {
   GcInit() {
     GC_INIT();
+    // Worker threads (e.g. the Lua binding's engine thread) register themselves explicitly.
+    GC_allow_register_threads();
     // Start with a reasonably large heap to avoid frequent early collections.
     GC_expand_hp(256u * 1024u * 1024u);
     mp_set_memory_functions(gmp_gc_alloc, gmp_gc_realloc, gmp_gc_free);
@@ -76,6 +81,18 @@ namespace jrt {
 void* alloc_uncollectable(std::size_t n) { return GC_MALLOC_UNCOLLECTABLE(n == 0 ? 1 : n); }
 void free_uncollectable(void* p) { GC_FREE(p); }
 std::size_t gc_heap_size() { return GC_get_heap_size(); }
+
+GcThreadScope::GcThreadScope() {
+  GC_stack_base sb;
+  if (GC_get_stack_base(&sb) == GC_SUCCESS) {
+    int r = GC_register_my_thread(&sb);
+    registered_ = (r == GC_SUCCESS);  // GC_DUPLICATE: already known (e.g. the main thread)
+  }
+}
+
+GcThreadScope::~GcThreadScope() {
+  if (registered_) GC_unregister_my_thread();
+}
 void gc_collect() { GC_gcollect(); }
 
 }  // namespace jrt
