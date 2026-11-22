@@ -37,6 +37,7 @@ class BigInteger {
   BigInteger abs() const;
   BigInteger gcd(const BigInteger& o) const;
   BigInteger pow(int32_t e) const;
+  BigInteger modInverse(const BigInteger& m) const;  // throws ArithmeticException if not invertible
   BigInteger sqrt() const;  // floor(sqrt(this)), throws for negative
   BigInteger shiftLeft(int32_t n) const;
   BigInteger shiftRight(int32_t n) const;  // floor
@@ -73,16 +74,30 @@ class BigInteger {
 
 inline std::string str(const BigInteger& b) { return b.toString(); }
 
+// java.math.RoundingMode
+enum class RoundingMode : int32_t { UP, DOWN, CEILING, FLOOR, HALF_UP, HALF_DOWN, HALF_EVEN, UNNECESSARY };
+
+// Integer quotient n/d rounded with the given Java rounding mode.
+BigInteger roundedDivide(const BigInteger& n, const BigInteger& d, RoundingMode mode);
+
 // Minimal java.math.BigDecimal: unscaled * 10^-scale.
 class BigDecimal {
  public:
   BigDecimal() : unscaled_(int64_t{0}), scale_(0) {}
   BigDecimal(BigInteger unscaled, int32_t scale) : unscaled_(std::move(unscaled)), scale_(scale) {}
+  explicit BigDecimal(const BigInteger& unscaled) : unscaled_(unscaled), scale_(0) {}
   explicit BigDecimal(const std::string& s);  // parses like new BigDecimal(String)
   static BigDecimal valueOf(int64_t v) { return BigDecimal(BigInteger(v), 0); }
+  // Java BigDecimal.valueOf(double) == new BigDecimal(Double.toString(d)).
+  static BigDecimal valueOf(double d) { return BigDecimal(Double::toString(d)); }
   const BigInteger& unscaledValue() const { return unscaled_; }
   int32_t scale() const { return scale_; }
+  int32_t precision() const;  // number of decimal digits of the unscaled value (1 for zero)
   int32_t signum() const { return unscaled_.signum(); }
+  // this / divisor, rounded to `scale` fractional digits.
+  BigDecimal divide(const BigDecimal& divisor, int32_t scale, RoundingMode mode) const;
+  BigDecimal setScale(int32_t scale, RoundingMode mode) const;
+  BigDecimal stripTrailingZeros() const;
   BigDecimal ulp() const { return BigDecimal(BigInteger::ONE(), scale_); }
   BigDecimal negate() const { return BigDecimal(unscaled_.negate(), scale_); }
   BigDecimal abs() const { return BigDecimal(unscaled_.abs(), scale_); }
@@ -127,6 +142,8 @@ class BigFraction {
   int32_t hashCode() const { return hashCombine(num_.hashCode(), den_.hashCode()); }
   double doubleValue() const;
   BigInteger bigIntegerValue() const { return num_.divide(den_); }  // truncation
+  // commons-numbers BigFraction.bigDecimalValue(scale, roundingMode)
+  BigDecimal bigDecimalValue(int32_t scale, RoundingMode mode) const;
   int64_t longValue() const { return bigIntegerValue().longValue(); }
   int32_t intValue() const { return bigIntegerValue().intValue(); }
   std::string toString() const;

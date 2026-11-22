@@ -109,6 +109,13 @@ BigInteger BigInteger::pow(int32_t e) const {
   mpz_pow_ui(r->v, rep_->v, static_cast<unsigned long>(e));
   return BigInteger(r);
 }
+BigInteger BigInteger::modInverse(const BigInteger& m) const {
+  if (m.signum() <= 0) throw ArithmeticException("BigInteger: modulus not positive");
+  Rep* r = newRep();
+  if (mpz_invert(r->v, rep_->v, m.rep_->v) == 0) throw ArithmeticException("BigInteger not invertible.");
+  if (mpz_sgn(r->v) < 0) mpz_add(r->v, r->v, m.rep_->v);  // Java returns a value in [0, m)
+  return BigInteger(r);
+}
 BigInteger BigInteger::sqrt() const {
   if (signum() < 0) throw ArithmeticException("Negative BigInteger");
   Rep* r = newRep();
@@ -232,6 +239,66 @@ BigDecimal::BigDecimal(const std::string& s0) : scale_(0) {
   unscaled_ = BigInteger(digits);
   if (neg) unscaled_ = unscaled_.negate();
   scale_ = scale - exp;
+}
+
+BigInteger roundedDivide(const BigInteger& n, const BigInteger& d, RoundingMode mode) {
+  if (d.signum() == 0) throw ArithmeticException("Division by zero");
+  BigInteger q = n.divide(d);      // truncated toward zero
+  BigInteger r = n.remainder(d);   // sign of n
+  if (r.signum() == 0) return q;
+  int32_t sign = n.signum() * d.signum();  // sign of the exact quotient
+  int32_t cmpHalf = r.abs().shiftLeft(1).compareTo(d.abs());  // |r|*2 vs |d|
+  bool up;  // increment magnitude
+  switch (mode) {
+    case RoundingMode::UP: up = true; break;
+    case RoundingMode::DOWN: up = false; break;
+    case RoundingMode::CEILING: up = sign > 0; break;
+    case RoundingMode::FLOOR: up = sign < 0; break;
+    case RoundingMode::HALF_UP: up = cmpHalf >= 0; break;
+    case RoundingMode::HALF_DOWN: up = cmpHalf > 0; break;
+    case RoundingMode::HALF_EVEN:
+      up = cmpHalf > 0 || (cmpHalf == 0 && q.remainder(BigInteger::TWO()).signum() != 0);
+      break;
+    default: throw ArithmeticException("Rounding necessary");
+  }
+  return up ? q.add(BigInteger(static_cast<int64_t>(sign))) : q;
+}
+
+int32_t BigDecimal::precision() const {
+  if (unscaled_.signum() == 0) return 1;
+  return static_cast<int32_t>(unscaled_.abs().toString().size());
+}
+
+BigDecimal BigDecimal::divide(const BigDecimal& divisor, int32_t scale, RoundingMode mode) const {
+  // (ua*10^-sa) / (ub*10^-sb) * 10^scale = ua * 10^(sb - sa + scale) / ub
+  int64_t e = static_cast<int64_t>(divisor.scale_) - scale_ + scale;
+  BigInteger n = unscaled_, d = divisor.unscaled_;
+  if (e >= 0) n = n.multiply(BigInteger::TEN().pow(static_cast<int32_t>(e)));
+  else d = d.multiply(BigInteger::TEN().pow(static_cast<int32_t>(-e)));
+  return BigDecimal(roundedDivide(n, d, mode), scale);
+}
+
+BigDecimal BigDecimal::setScale(int32_t scale, RoundingMode mode) const {
+  if (scale >= scale_) return BigDecimal(unscaled_.multiply(BigInteger::TEN().pow(scale - scale_)), scale);
+  return BigDecimal(roundedDivide(unscaled_, BigInteger::TEN().pow(scale_ - scale), mode), scale);
+}
+
+BigDecimal BigDecimal::stripTrailingZeros() const {
+  if (unscaled_.signum() == 0) return BigDecimal(BigInteger::ZERO(), 0);
+  BigInteger u = unscaled_;
+  int32_t s = scale_;
+  while (u.remainder(BigInteger::TEN()).signum() == 0) {
+    u = u.divide(BigInteger::TEN());
+    --s;
+  }
+  return BigDecimal(u, s);
+}
+
+BigDecimal BigFraction::bigDecimalValue(int32_t scale, RoundingMode mode) const {
+  BigInteger n = num_, d = den_;
+  if (scale >= 0) n = n.multiply(BigInteger::TEN().pow(scale));
+  else d = d.multiply(BigInteger::TEN().pow(-scale));
+  return BigDecimal(roundedDivide(n, d, mode), scale);
 }
 
 double BigDecimal::doubleValue() const { return Double::parseDouble(toPlainString()); }

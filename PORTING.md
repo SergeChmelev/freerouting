@@ -110,6 +110,10 @@ The process uses the **Boehm garbage collector for all `new` allocations** (see
     Integer/Long/Double/Boolean/String/enum keys hash exactly like Java (enums hash by ordinal —
     Java's would be random). Ported classes that override `hashCode()/equals()` in Java **must**
     override them identically in C++ (see Object below).
+* Declaring a field `jrt::ArrayList<X*>*` with `X` only forward-declared is fine, but
+  **instantiating** it (`new jrt::ArrayList<X*>()`, also via a default member initializer or an
+  inline constructor) needs `X` complete (hashing/equality check `X`'s base classes). So create
+  collections of forward-declared element types in the `.cpp` constructor, not in the header.
 * `java.util.function.*` (`Function`, `Predicate`, `Consumer`, `Supplier`, `BiFunction`,
   `IntUnaryOperator`, ...) → `std::function<...>` by value. The project's own interfaces stay
   abstract classes even if Java passes lambdas to them; at lambda call sites write a small

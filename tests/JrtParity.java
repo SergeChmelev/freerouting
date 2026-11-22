@@ -110,6 +110,24 @@ public class JrtParity {
       flush("bigint");
     }
     {
+      String[] ds = {"1.250", "-7.5", "0.000", "123.4500", "1E+3", "-0.05", "2.5", "3.5", "100"};
+      for (String s : ds) {
+        java.math.BigDecimal d = new java.math.BigDecimal(s);
+        out(d.toPlainString() + "|" + d.scale() + "|" + d.precision() + "|"
+            + d.stripTrailingZeros().toPlainString() + "|" + d.stripTrailingZeros().scale() + "|"
+            + d.divide(new java.math.BigDecimal("3"), 4, java.math.RoundingMode.HALF_EVEN).toPlainString() + "|"
+            + d.setScale(0, java.math.RoundingMode.HALF_EVEN).toPlainString());
+      }
+      out(java.math.BigDecimal.valueOf(0.1).toPlainString());
+      out(java.math.BigDecimal.valueOf(1e7).toPlainString());
+      out(new java.math.BigDecimal(-7).divide(new java.math.BigDecimal(2), 0, java.math.RoundingMode.HALF_EVEN).toPlainString());
+      out(new java.math.BigDecimal(5).divide(new java.math.BigDecimal(2), 0, java.math.RoundingMode.HALF_EVEN).toPlainString());
+      out(java.math.BigDecimal.ONE.divide(new java.math.BigDecimal(3), 5, java.math.RoundingMode.HALF_EVEN).toPlainString());
+      out(BigInteger.valueOf(3).modInverse(BigInteger.valueOf(11)));
+      out(BigInteger.valueOf(-3).modInverse(BigInteger.valueOf(11)));
+      flush("bigdec");
+    }
+    {
       Random r = new Random(42);
       for (int i = 0; i < 5; ++i) out(r.nextInt(100));
       out(r.nextDouble());

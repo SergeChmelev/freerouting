@@ -107,8 +107,12 @@ template <class T>
 int32_t compareOf(const T& a, const T& b) {
   if constexpr (std::is_pointer_v<T>) {
     using P = std::remove_cv_t<std::remove_pointer_t<T>>;
-    static_assert(HasCompareToPtr<P>, "jrt::compareOf: pointee needs int32_t compareTo(P*)");
-    return const_cast<P*>(a)->compareTo(const_cast<P*>(b));
+    if constexpr (HasCompareToPtr<P>) {
+      return const_cast<P*>(a)->compareTo(const_cast<P*>(b));
+    } else {
+      // Java: natural ordering of a non-Comparable type fails at run time.
+      throw ClassCastException("jrt::compareOf: type is not Comparable");
+    }
   } else if constexpr (std::is_same_v<T, double>) {
     return Double::compare(a, b);
   } else if constexpr (std::is_same_v<T, float>) {
@@ -122,7 +126,7 @@ int32_t compareOf(const T& a, const T& b) {
   } else if constexpr (HasCompareToVal<T>) {
     return const_cast<T&>(a).compareTo(const_cast<T&>(b));
   } else {
-    static_assert(sizeof(T) == 0, "jrt::compareOf: type has no natural ordering");
+    throw ClassCastException("jrt::compareOf: type has no natural ordering");
   }
 }
 

@@ -30,6 +30,10 @@ void gc_collect();
 // ---------------------------------------------------------------------------------------------
 class Object {
  public:
+  Object() = default;
+  // A copy is a new object: it must not inherit the identity hash of its source.
+  Object(const Object&) : identity_hash_(0) {}
+  Object& operator=(const Object&) { return *this; }
   virtual ~Object() = default;
   // Java Object.equals: identity by default.
   virtual bool equals(Object* other) { return this == other; }

@@ -13,6 +13,8 @@ endif()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(BDWGC REQUIRED IMPORTED_TARGET bdw-gc)
 find_library(GMP_LIB gmp REQUIRED)
+# GEOS = C++ port of JTS (used by geometry/planar/PlanarArea, like JTS in Java).
+find_library(GEOS_LIB geos_c REQUIRED)
 
 # Java semantics: signed overflow wraps; no strict-aliasing surprises.
 set(FR_COMMON_FLAGS -fwrapv -fno-strict-aliasing -Wall -Wextra -Wno-unused-parameter
@@ -32,7 +34,7 @@ if(FR_SOURCES)
   add_library(frcore STATIC ${FR_SOURCES})
   target_include_directories(frcore PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/runtime)
   target_compile_options(frcore PRIVATE ${FR_COMMON_FLAGS})
-  target_link_libraries(frcore PUBLIC jrt)
+  target_link_libraries(frcore PUBLIC jrt ${GEOS_LIB})
   if(EXISTS ${CMAKE_SOURCE_DIR}/src/main.cpp)
     add_executable(freerouting-cpp ${CMAKE_SOURCE_DIR}/src/main.cpp)
     target_compile_options(freerouting-cpp PRIVATE ${FR_COMMON_FLAGS})

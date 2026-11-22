@@ -116,6 +116,25 @@ int main() {
     out(str(c.bitLength()));
     flush("bigint");
   }
+  // 7b. BigDecimal / BigFraction rounding
+  {
+    const char* ds[] = {"1.250", "-7.5", "0.000", "123.4500", "1E+3", "-0.05", "2.5", "3.5", "100"};
+    for (auto* s : ds) {
+      BigDecimal d{std::string(s)};
+      out(d.toPlainString() + "|" + str(d.scale()) + "|" + str(d.precision()) + "|" +
+          d.stripTrailingZeros().toPlainString() + "|" + str(d.stripTrailingZeros().scale()) + "|" +
+          d.divide(BigDecimal(std::string("3")), 4, RoundingMode::HALF_EVEN).toPlainString() + "|" +
+          d.setScale(0, RoundingMode::HALF_EVEN).toPlainString());
+    }
+    out(BigDecimal::valueOf(0.1).toPlainString());
+    out(BigDecimal::valueOf(1e7).toPlainString());
+    out(BigFraction::of(-7, 2).bigDecimalValue(0, RoundingMode::HALF_EVEN).toPlainString());
+    out(BigFraction::of(5, 2).bigDecimalValue(0, RoundingMode::HALF_EVEN).toPlainString());
+    out(BigFraction::of(1, 3).bigDecimalValue(5, RoundingMode::HALF_EVEN).toPlainString());
+    out(BigInteger(3).modInverse(BigInteger(11)).toString());
+    out(BigInteger(-3).modInverse(BigInteger(11)).toString());
+    flush("bigdec");
+  }
   // 8. Random + shuffle
   {
     auto* r = new Random(42);
