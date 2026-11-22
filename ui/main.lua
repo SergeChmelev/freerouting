@@ -40,6 +40,19 @@ glfw.init_hint('platform', 'x11')
 glfw.init()
 glfw.window_hint('context creation api', 'native')
 glfw.version_hint(3, 3, 'core')
+
+-- The window must fit the monitor (WSLg does not present windows larger than the desktop well);
+-- like the Demopaja port, clamp to the primary monitor's video mode.
+do
+   local ok, mode = pcall(function() return glfw.get_video_mode(glfw.get_primary_monitor()) end)
+   if ok and type(mode) == 'table' then
+      local mw = mode.width or mode[1]
+      local mh = mode.height or mode[2]
+      if mw then WIN_W = math.min(WIN_W, mw - S(40)) end
+      if mh then WIN_H = math.min(WIN_H, mh - S(90)) end
+   end
+end
+
 local window = glfw.create_window(WIN_W, WIN_H, 'Freerouting C++')
 glfw.make_context_current(window)
 gl.init()
