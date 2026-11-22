@@ -47,6 +47,8 @@ class ViaRule : public virtual ItemInfoPrinter_Printable {
   const std::string name;
 
  private:
+  friend class BoardRules;  // PORT NOTE: BoardRules::deepCopy fills the copied list
+
   /** Java: LinkedList. */
   jrt::List<ViaInfo*>* list;
 };

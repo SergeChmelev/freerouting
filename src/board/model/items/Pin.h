@@ -37,7 +37,11 @@ class Pin : public DrillItem {
   /** How the host CAD system connects this pad to the fill of a plane of its net; null if unknown. */
   PadPlaneConnection* planeConnection = nullptr;
 
-  /** The pin, this pin was changed to by swapping or this pin, if no pin swap occurred. */
+  /**
+   * The pin, this pin was changed to by swapping or this pin, if no pin swap occurred.
+   * PORT NOTE (board deep copy): not carried by copy(id) (as in Java); serialization would keep it
+   * (pointing to the copy of the swapped pin).
+   */
   Pin* changedTo = this;
 
   jrt::Array<Shape*>* precalculatedShapes = nullptr;  // transient

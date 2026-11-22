@@ -130,6 +130,8 @@ class NetClass : public virtual ItemInfoPrinter_Printable {
   bool isRoutedFirst = false;
 
  private:
+  friend class BoardRules;  // PORT NOTE: BoardRules::deepCopy copies the private state
+
   ClearanceMatrix* clearanceMatrix;     // final
   LayerStructure* boardLayerStructure;  // final
   jrt::Array<int32_t>* traceHalfWidthArr;

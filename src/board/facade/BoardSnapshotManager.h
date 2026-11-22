@@ -50,7 +50,8 @@ class BoardSnapshotManager final : public virtual jrt::Object {
   /**
    * PORT NOTE (new): canonical dump of the trace-state profile in item-list order: for every item
    * its class, id, nets, layers, clearance class, fixed state and geometry (trace corners and half
-   * width, via padstack and center, other items' shapes), followed by the undo stack level.
+   * width, via padstack and center, other items' bounding boxes). The undo history is not part
+   * of the dump (UndoableObjects exposes no read access to it).
    */
   std::string basicProfileDump();
 

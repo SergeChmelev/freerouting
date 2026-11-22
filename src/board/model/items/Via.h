@@ -26,6 +26,8 @@ class Via : public DrillItem {
   int32_t escapeViaSmdLayer = -1;
 
  private:
+  // PORT NOTE (board deep copy): copy(id) shares this padstack reference with the original (as
+  // Java's copy does); serialization would point it into the copied board library.
   Padstack* padstack;
   jrt::Array<Shape*>* precalculatedShapes = nullptr;  // transient
 

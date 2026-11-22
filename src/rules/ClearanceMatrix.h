@@ -12,6 +12,9 @@ class ClearanceMatrix_MatrixEntry final : public virtual jrt::Object {
  public:
   explicit ClearanceMatrix_MatrixEntry(ClearanceMatrix* outer);
 
+  /** PORT NOTE: copy helper for ClearanceMatrix::deepCopy (takes over layer). */
+  ClearanceMatrix_MatrixEntry(ClearanceMatrix* outer, jrt::Array<int32_t>* layer);
+
   using jrt::Object::equals;
 
   /** Returns true if all clearance values of this entry and other are equal. */
@@ -39,6 +42,9 @@ class ClearanceMatrix_Row final : public virtual ItemInfoPrinter_Printable {
   friend class ClearanceMatrix;
 
   ClearanceMatrix_Row(ClearanceMatrix* outer, const std::string& name);
+
+  /** PORT NOTE: copy helper for ClearanceMatrix::deepCopy (empty columns, maxValue null). */
+  ClearanceMatrix_Row(ClearanceMatrix* outer, const std::string& name, int32_t columnCount);
 };
 
 /**
@@ -131,7 +137,16 @@ class ClearanceMatrix : public virtual jrt::Object {
   /** Returns true if all clearance values of class first are equal to those of class second. */
   bool isEqual(int32_t first, int32_t second);
 
+  /**
+   * PORT NOTE (board deepCopy hook, used by BoardRules::deepCopy): independent copy of the matrix
+   * preserving the identities inside it. The layer structure is shared.
+   */
+  ClearanceMatrix* deepCopy();
+
  private:
+  /** PORT NOTE: uninitialised instance for deepCopy. */
+  ClearanceMatrix() = default;
+
   friend class ClearanceMatrix_Row;
   friend class ClearanceMatrix_MatrixEntry;
 

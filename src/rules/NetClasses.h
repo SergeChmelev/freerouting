@@ -41,6 +41,8 @@ class NetClasses : public virtual jrt::Object {
   bool remove(NetClass* netClass);
 
  private:
+  friend class BoardRules;  // PORT NOTE: BoardRules::deepCopy fills the copied class list
+
   /** Java: Vector. */
   jrt::ArrayList<NetClass*>* classArr;
 };

@@ -54,6 +54,8 @@ class Nets : public virtual jrt::Object {
   void setBoard(BasicBoard* board) { this->board = board; }
 
  private:
+  friend class BoardRules;  // PORT NOTE: BoardRules::deepCopy fills the copied net list
+
   /** The list of electrical nets on the board (Java: Vector). */
   jrt::ArrayList<Net*>* nets;
 

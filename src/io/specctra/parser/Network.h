@@ -124,8 +124,9 @@ class Network : public ScopeKeyword {
                                     fr::NetClass* secondClass, fr::BasicBoard* board,
                                     jrt::List<Network_ClassPairRule*>* rules);
 
-  static jrt::Set<int32_t>* effectiveClearanceClasses(fr::NetClass* netClass,
-                                                      fr::DefaultItemClearanceClasses_ItemClass type);
+  /** PORT NOTE: type is nullable in Java (null = all item classes) -> std::optional. */
+  static jrt::Set<int32_t>* effectiveClearanceClasses(
+      fr::NetClass* netClass, std::optional<fr::DefaultItemClearanceClasses_ItemClass> type);
 
   static jrt::Set<int32_t>* mixedClearanceClasses(fr::ClearanceMatrix* matrix,
                                                   fr::NetClass* netClass,

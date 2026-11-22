@@ -24,8 +24,7 @@ class RationalPoint final : public Point {
 
   /** Creates a RationalPoint from 3 BigIntegers x, y and z. They represent the 2-dimensional
    * point with the rational coordinates x/z and y/z. */
-  RationalPoint(const jrt::BigInteger& x, const jrt::BigInteger& y, const jrt::BigInteger& z)
-      : x(x), y(y), z(z) {}
+  RationalPoint(const jrt::BigInteger& x, const jrt::BigInteger& y, const jrt::BigInteger& z);
 
   /** Creates a RationalPoint from an IntPoint. */
   explicit RationalPoint(IntPoint* point);

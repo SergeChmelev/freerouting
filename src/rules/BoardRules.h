@@ -10,7 +10,10 @@ namespace fr {
 class BoardRules : public virtual jrt::Object {
  public:
   // PORT NOTE (board deepCopy hook): independent deep copy of all mutable rule state (nets, net
-  // classes, clearance matrix, via infos/rules, ...). The caller re-points nets to the new board.
+  // classes, clearance matrix, via infos/rules, ...). The caller re-points nets to the new board
+  // (copy->nets->setBoard(copyBoard)); until then the copied Nets point to the source board.
+  // Identity relations are preserved; LayerStructure, padstacks and the immutable constraint
+  // records are shared (see BoardRules.cpp).
   BoardRules* deepCopy();
   /** Creates a new instance of this class. */
   BoardRules(LayerStructure* layerStructure, ClearanceMatrix* clearanceMatrix);
@@ -215,6 +218,9 @@ class BoardRules : public virtual jrt::Object {
   jrt::Map<int32_t, PinClearanceSource*>* pinClearanceSources = nullptr;  // transient
 
  private:
+  /** PORT NOTE: uninitialised instance for deepCopy. */
+  BoardRules() = default;
+
   LayerStructure* layerStructure;  // final
 
   /** The angle restriction for traces: 90 degree, 45 degree or none. */

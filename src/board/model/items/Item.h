@@ -161,6 +161,11 @@ class Item : public virtual SearchTreeObject,
   /**
    * Creates a copy of this item with ID id. If id <= 0, the id of the new item is generated
    * internally.
+   *
+   * PORT NOTE (board deep copy): copy(id) is a faithful port of Java's copy and, like it, does NOT
+   * carry these non-transient Item fields that Java serialization would keep: smallestClearance
+   * (reset to -1), onTheBoard (only clone() copies it). The copy is created on this->board (the
+   * source board); a deep copy must re-point `board` to the copied board.
    */
   virtual Item* copy(int32_t id) = 0;
 

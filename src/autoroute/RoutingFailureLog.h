@@ -38,8 +38,11 @@ class RoutingFailureLog_ItemFailureInfo : public virtual jrt::Object {
  */
 class RoutingFailureLog : public virtual jrt::Object {
  public:
-  // PORT NOTE (board deepCopy hook): independent deep copy.
+  // PORT NOTE (board deepCopy hook): independent deep copy. The ItemFailureInfo objects are copied;
+  // their `item` references are mapped through itemMap when given (Java serialization would
+  // point them at the copied board's items), else kept (shared with the source).
   RoutingFailureLog* deepCopy();
+  RoutingFailureLog* deepCopy(jrt::IdentityHashMap<Item*, Item*>* itemMap);
   /** Failure threshold - give up after this many failures for the same item. */
   static constexpr int32_t FAILURE_THRESHOLD = 50;
 

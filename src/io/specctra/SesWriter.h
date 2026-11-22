@@ -22,10 +22,8 @@ class SesWriter final : public virtual jrt::Object {
 
   /**
    * Formats component rotation in the style KiCad exports: whole degrees as integers, fractional
-   * degrees with minimal decimal precision, never trailing zeros.
-   * PORT NOTE: Java BigDecimal.valueOf(degrees).stripTrailingZeros().toPlainString(); i.e. the
-   * Double.toString digits of degrees, written without exponent and without trailing zeros
-   * (jrt::BigDecimal has no stripTrailingZeros yet).
+   * degrees with minimal decimal precision, never trailing zeros
+   * (BigDecimal.valueOf(degrees).stripTrailingZeros().toPlainString()).
    */
   static std::string formatPlacementRotation(double degrees);
 

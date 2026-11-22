@@ -118,6 +118,15 @@ class Net : public virtual ItemInfoPrinter_Printable {
   Nets* netList;  // final
 
  private:
+  friend class BoardRules;
+
+  /**
+   * PORT NOTE (BoardRules::deepCopy): copy of source belonging to netList, with all fields of
+   * source except the net class (left null, set by the caller). Constraints are immutable and
+   * shared.
+   */
+  Net(Net* source, Nets* netList);
+
   /**
    * Indicates whether this net contains a power plane.
    * PORT NOTE: renamed from containsPlane (clashes with the method of that name).

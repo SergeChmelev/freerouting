@@ -1,0 +1,1439 @@
+// Port of app.freerouting.board.facade.BasicBoard
+#include "board/facade/BasicBoard.h"
+
+#include "autoroute/maze/AutorouteControl.h"
+#include "board/actions/ItemSelectionFilter.h"
+#include "board/facade/BoardConnectivityQueries.h"
+#include "board/facade/BoardItemRepository.h"
+#include "board/facade/BoardSnapshotManager.h"
+#include "board/facade/RoutingBoard.h"
+#include "board/model/items/ComponentObstacleArea.h"
+#include "board/model/items/ComponentOutline.h"
+#include "board/model/items/ConductionArea.h"
+#include "board/model/items/Connectable.h"
+#include "board/model/items/Item.h"
+#include "board/model/items/ObstacleArea.h"
+#include "board/model/items/Pin.h"
+#include "board/model/items/Trace.h"
+#include "board/model/items/Via.h"
+#include "board/model/items/ViaObstacleArea.h"
+#include "board/model/items/WireObstacleArea.h"
+#include "board/model/structure/BoardOutline.h"
+#include "board/model/structure/Components.h"
+#include "board/model/structure/FixedState.h"
+#include "board/model/structure/Layer.h"
+#include "board/model/structure/LayerStructure.h"
+#include "board/model/structure/Unit.h"
+#include "board/searchtree/SearchTreeManager.h"
+#include "board/searchtree/SearchTreeObject.h"
+#include "board/searchtree/ShapeSearchTree.h"
+#include "board/state/BoardObservers.h"
+#include "board/state/ChangedArea.h"
+#include "board/state/Communication.h"
+#include "board/trace/PolylineTrace.h"
+#include "core/library/BoardLibrary.h"
+#include "core/library/Padstack.h"
+#include "datastructures/ShapeTree.h"
+#include "datastructures/UndoableObjects.h"
+#include "drc/NetRoutingLedger.h"
+#include "geometry/planar/Area.h"
+#include "geometry/planar/ConvexShape.h"
+#include "geometry/planar/IntBox.h"
+#include "geometry/planar/IntOctagon.h"
+#include "geometry/planar/Point.h"
+#include "geometry/planar/Polyline.h"
+#include "geometry/planar/PolylineShape.h"
+#include "geometry/planar/TileShape.h"
+#include "geometry/planar/Vector.h"
+#include "logger/FRLogger.h"
+#include "rules/BoardRules.h"
+#include "rules/ClearanceMatrix.h"
+#include "rules/Net.h"
+#include "rules/Nets.h"
+
+namespace fr {
+
+BasicBoard::BasicBoard(IntBox* boundingBox, LayerStructure* layerStructure,
+                       jrt::Array<PolylineShape*>* outlineShapes, int32_t outlineClClassNo,
+                       BoardRules* rules, Communication* communication) {
+  // Java field initializers of transient fields.
+  normalizeSuppressedNetNos = new jrt::HashSet<int32_t>();
+  updateBox = IntBox::EMPTY();
+  this->layerStructure = layerStructure;
+  this->rules = rules;
+  library = new BoardLibrary();
+  itemList = new UndoableObjects();
+  components = new Components();
+  this->communication = communication;
+  this->boundingBox = boundingBox;
+  searchTreeManager = new SearchTreeManager(this);
+  rules->nets->setBoard(this);
+  insertOutline(outlineShapes, outlineClClassNo);
+}
+
+BasicBoard::BasicBoard(BasicBoard_CopyTag tag, BasicBoard* source) {
+  (void)tag;
+  // PORT NOTE: replaces Java deserialization (see RoutingBoardUndoFacade.h). Non-transient state:
+  // mutable parts deep copied, immutable parts (library, layer structure, bounding box) shared.
+  itemList = nullptr;  // set by copyItemListFrom
+  components = source->components->deepCopy();
+  rules = source->rules->deepCopy();
+  library = source->library;
+  layerStructure = source->layerStructure;
+  communication = source->communication->copyForBoard();
+  boundingBox = source->boundingBox;
+  preExistingClearanceViolationsCount = source->preExistingClearanceViolationsCount;
+  maxTraceHalfWidth = source->maxTraceHalfWidth;
+  minTraceHalfWidth = source->minTraceHalfWidth;
+  // Transient fields get the Java default values (not their initializers).
+  searchTreeManager = nullptr;
+  routingLedger_ = nullptr;
+  normalContactCache = nullptr;
+  normalContactCacheVersion = 0;
+  normalizeSuppressedNetNos = nullptr;
+  revision = 0;
+  changeRevisions = nullptr;
+  changeBoxes = nullptr;
+  changeFirstLayers = nullptr;
+  changeLastLayers = nullptr;
+  pendingBox = nullptr;
+  pendingFirstLayer = 0;
+  pendingLastLayer = 0;
+  pendingUnknown = false;
+  journalEnabled = false;
+  netAssignmentChangeCount = 0;
+  itemRepository = nullptr;
+  connectivityQueries = nullptr;
+  snapshotManager = nullptr;
+  unfixableClearanceViolationsCount = 0;
+  ruleBlockedPins = nullptr;
+  tolerancePins = nullptr;
+  clearanceBaseline = nullptr;
+  updateBox = nullptr;
+  // The nets of the copied rules belong to this board.
+  if (rules != nullptr && rules->nets != nullptr) {
+    rules->nets->setBoard(this);
+  }
+}
+
+BasicBoard* BasicBoard::deserialize(BasicBoard* snapshot) {
+  return BoardSnapshotManager::deserialize(snapshot);
+}
+
+jrt::Set<Item*>* BasicBoard::cachedNormalContacts(Item* item) {
+  int64_t version = itemList->getContentVersion();
+  if (normalContactCache == nullptr || normalContactCacheVersion != version) {
+    normalContactCache = new jrt::IdentityHashMap<Item*, jrt::Set<Item*>*>();
+    normalContactCacheVersion = version;
+  }
+  jrt::Set<Item*>* contacts = normalContactCache->get(item);
+  if (contacts == nullptr) {
+    contacts = item->getNormalContacts();
+    if (contacts != nullptr) {
+      normalContactCache->put(item, contacts);
+    }
+  }
+  return contacts;
+}
+
+NetRoutingLedger* BasicBoard::routingLedger() {
+  if (routingLedger_ == nullptr) {
+    routingLedger_ = new NetRoutingLedger(this);
+  }
+  return routingLedger_;
+}
+
+void BasicBoard::incrementRevision() {
+  revision++;
+  if (!journalEnabled) {
+    return;
+  }
+  if (pendingUnknown || pendingBox == nullptr) {
+    journalChange(nullptr, 0, -1);
+  } else {
+    journalChange(pendingBox, pendingFirstLayer, pendingLastLayer);
+  }
+  pendingBox = nullptr;
+  pendingFirstLayer = jrt::Integer::MAX_VALUE;
+  pendingLastLayer = jrt::Integer::MIN_VALUE;
+  pendingUnknown = false;
+}
+
+void BasicBoard::incrementRevision(Item* item) {
+  noteChange(item);
+  incrementRevision();
+}
+
+void BasicBoard::noteChange(Item* item) {
+  if (!journalEnabled) {
+    return;
+  }
+  IntBox* box = item->boundingBox();
+  if (box == nullptr) {
+    pendingUnknown = true;
+    return;
+  }
+  noteChange(box, item->firstLayer(), item->lastLayer());
+}
+
+void BasicBoard::noteChange(IntBox* box, int32_t firstLayer, int32_t lastLayer) {
+  if (!journalEnabled) {
+    return;
+  }
+  pendingBox = pendingBox == nullptr ? box : pendingBox->union_(box);
+  pendingFirstLayer = jrt::Math::min(pendingFirstLayer, firstLayer);
+  pendingLastLayer = jrt::Math::max(pendingLastLayer, lastLayer);
+}
+
+void BasicBoard::noteUnknownChange() {
+  if (!journalEnabled) {
+    return;
+  }
+  pendingUnknown = true;
+}
+
+void BasicBoard::journalChange(IntBox* box, int32_t firstLayer, int32_t lastLayer) {
+  if (changeRevisions == nullptr) {
+    changeRevisions = new jrt::Array<int32_t>(CHANGE_JOURNAL_SIZE);
+    for (int32_t i = 0; i < changeRevisions->length; i++) {
+      (*changeRevisions)[i] = jrt::Integer::MIN_VALUE;
+    }
+    changeBoxes = new jrt::Array<IntBox*>(CHANGE_JOURNAL_SIZE);
+    changeFirstLayers = new jrt::Array<int32_t>(CHANGE_JOURNAL_SIZE);
+    changeLastLayers = new jrt::Array<int32_t>(CHANGE_JOURNAL_SIZE);
+  }
+  int32_t slot = jrt::Math::floorMod(revision, CHANGE_JOURNAL_SIZE);
+  (*changeRevisions)[slot] = revision;
+  (*changeBoxes)[slot] = box;
+  (*changeFirstLayers)[slot] = firstLayer;
+  (*changeLastLayers)[slot] = lastLayer;
+}
+
+bool BasicBoard::changedSince(int32_t sinceRevision, int32_t layer, IntBox* box) {
+  if (sinceRevision == revision) {
+    return false;
+  }
+  if (!journalEnabled) {
+    // the changes so far are not known: from now on they are
+    journalEnabled = true;
+    return true;
+  }
+  if (changeRevisions == nullptr || sinceRevision > revision ||
+      revision - sinceRevision > CHANGE_JOURNAL_SIZE) {
+    return true;
+  }
+  for (int32_t r = sinceRevision + 1; r <= revision; r++) {
+    int32_t slot = jrt::Math::floorMod(r, CHANGE_JOURNAL_SIZE);
+    if ((*changeRevisions)[slot] != r || (*changeBoxes)[slot] == nullptr) {
+      return true;
+    }
+    if (layer >= (*changeFirstLayers)[slot] && layer <= (*changeLastLayers)[slot] &&
+        (*changeBoxes)[slot]->intersects(box)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void BasicBoard::noteNetAssignmentChanged() {
+  netAssignmentChangeCount++;
+  itemList->noteContentChange();
+  if (routingLedger_ != nullptr) {
+    routingLedger_->invalidate();
+  }
+}
+
+BasicBoard* BasicBoard::serialize(bool basicProfile) {
+  return getSnapshotManager()->serialize(basicProfile);
+}
+
+BasicBoard* BasicBoard::clone() {
+  return BoardSnapshotManager::deserialize(getSnapshotManager()->serialize(false));
+}
+
+std::string BasicBoard::getHash() { return getSnapshotManager()->getHash(); }
+
+int32_t BasicBoard::diffTraces(BasicBoard* compareTo) {
+  return getSnapshotManager()->diffTraces(compareTo);
+}
+
+PolylineTrace* BasicBoard::insertTraceWithoutCleaning(Polyline* polyline, int32_t layer,
+                                                      int32_t halfWidth,
+                                                      jrt::Array<int32_t>* netNumbers,
+                                                      int32_t clearanceClass,
+                                                      FixedState fixedState) {
+  if (polyline->cornerCount() < 2) {
+    return nullptr;
+  }
+  PolylineTrace* newTrace = new PolylineTrace(polyline, layer, halfWidth, netNumbers,
+                                              clearanceClass, 0, 0, fixedState, this);
+  if (newTrace->firstCorner()->equals(newTrace->lastCorner())) {
+    if (static_cast<int32_t>(fixedState) < static_cast<int32_t>(FixedState::USER_FIXED)) {
+      return nullptr;
+    }
+  }
+  insertItem(newTrace);
+  if (newTrace->netsNormal()) {
+    maxTraceHalfWidth = jrt::Math::max(maxTraceHalfWidth, halfWidth);
+    minTraceHalfWidth = jrt::Math::min(minTraceHalfWidth, halfWidth);
+  }
+  return newTrace;
+}
+
+void BasicBoard::insertTrace(Polyline* polyline, int32_t layer, int32_t halfWidth,
+                             jrt::Array<int32_t>* netNumbers, int32_t clearanceClass,
+                             FixedState fixedState) {
+  PolylineTrace* newTrace =
+      insertTraceWithoutCleaning(polyline, layer, halfWidth, netNumbers, clearanceClass, fixedState);
+  if (newTrace == nullptr) {
+    return;
+  }
+  IntOctagon* clipShape = nullptr;
+  if (auto* board = dynamic_cast<RoutingBoard*>(this)) {
+    ChangedArea* changedArea = board->changedArea;
+    if (changedArea != nullptr) {
+      clipShape = changedArea->getArea(layer);
+    }
+  }
+
+  try {
+    newTrace->normalize(clipShape);
+  } catch (const jrt::Exception& e) {
+    // Normalization can fail for geometrically degenerate trace segments. The segment is skipped
+    // and the connection may remain unrouted. This is non-critical.
+    FRLogger::warn(
+        "A trace segment could not be normalized and was skipped. "
+        "Affected net may have an unrouted connection. Cause: " +
+        e.getMessage());
+    // PORT NOTE: Java prints the exception's toString(); the C++ exception has no class name.
+    FRLogger::debug("BasicBoard.insert_trace_segment: normalization exception detail: " +
+                    e.getMessage());
+  }
+}
+
+void BasicBoard::insertTrace(jrt::Array<Point*>* points, int32_t layer, int32_t halfWidth,
+                             jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex,
+                             FixedState fixedState) {
+  for (int32_t i = 0; i < points->length; i++) {
+    if (!this->boundingBox->contains((*points)[i])) {
+      FRLogger::warn("LayeredBoard.insert_trace: input point out of range");
+    }
+  }
+  Polyline* poly = new Polyline(points);
+  insertTrace(poly, layer, halfWidth, netNumbers, clearanceClassIndex, fixedState);
+}
+
+Via* BasicBoard::insertVia(Padstack* padstack, Point* center, jrt::Array<int32_t>* netNumbers,
+                           int32_t clearanceClassIndex, FixedState fixedState,
+                           bool attachAllowed) {
+  Via* newVia = new Via(padstack, center, netNumbers, clearanceClassIndex, 0, 0, fixedState,
+                        attachAllowed, this);
+  insertItem(newVia);
+  int32_t fromLayer = padstack->fromLayer();
+  int32_t toLayer = padstack->toLayer();
+  for (int32_t i = fromLayer; i <= toLayer; i++) {
+    for (int32_t currentNetNumber : *netNumbers) {
+      splitTraces(center, i, currentNetNumber);
+    }
+  }
+  return newVia;
+}
+
+Via* BasicBoard::insertEscapeVia(Padstack* padstack, Point* center,
+                                 jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex,
+                                 FixedState fixedState, int32_t smdLayer) {
+  Via* newVia = new Via(padstack, center, netNumbers, clearanceClassIndex, 0, 0, fixedState, true,
+                        this);
+  newVia->isEscapeVia = true;
+  newVia->escapeViaSmdLayer = smdLayer;
+  insertItem(newVia);
+  int32_t fromLayer = padstack->fromLayer();
+  int32_t toLayer = padstack->toLayer();
+  for (int32_t i = fromLayer; i <= toLayer; i++) {
+    for (int32_t currentNetNumber : *netNumbers) {
+      splitTraces(center, i, currentNetNumber);
+    }
+  }
+  return newVia;
+}
+
+Pin* BasicBoard::insertPin(int32_t componentId, int32_t pinIndex, jrt::Array<int32_t>* netNumbers,
+                           int32_t clearanceClassIndex, FixedState fixedState) {
+  Pin* newPin =
+      new Pin(componentId, pinIndex, netNumbers, clearanceClassIndex, 0, fixedState, this);
+  insertItem(newPin);
+  return newPin;
+}
+
+ObstacleArea* BasicBoard::insertObstacle(Area* area, int32_t layer, int32_t clearanceClassIndex,
+                                         FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_obstacle: area is null");
+    return nullptr;
+  }
+  ObstacleArea* obs = new ObstacleArea(area, layer, Vector::ZERO(), 0, false, clearanceClassIndex,
+                                       0, 0, std::nullopt, fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+ObstacleArea* BasicBoard::insertObstacle(Area* area, int32_t layer,
+                                         jrt::Array<int32_t>* netNumbers,
+                                         int32_t clearanceClassIndex, int32_t componentId,
+                                         const std::optional<std::string>& name,
+                                         FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_obstacle: area is null");
+    return nullptr;
+  }
+  ObstacleArea* obs = new ObstacleArea(area, layer, Vector::ZERO(), 0, false, netNumbers,
+                                       clearanceClassIndex, 0, componentId, name, fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+ObstacleArea* BasicBoard::insertObstacle(Area* area, int32_t layer, Vector* translation,
+                                         double rotationInDegree, bool sideChanged,
+                                         int32_t clearanceClassIndex, int32_t componentId,
+                                         const std::optional<std::string>& name,
+                                         FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_obstacle: area is null");
+    return nullptr;
+  }
+  ObstacleArea* obs = new ObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+                                       clearanceClassIndex, 0, componentId, name, fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+ViaObstacleArea* BasicBoard::insertViaObstacle(Area* area, int32_t layer,
+                                               int32_t clearanceClassIndex,
+                                               FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_via_obstacle: area is null");
+    return nullptr;
+  }
+  ViaObstacleArea* obs = new ViaObstacleArea(area, layer, Vector::ZERO(), 0, false,
+                                             clearanceClassIndex, 0, 0, std::nullopt, fixedState,
+                                             this);
+  insertItem(obs);
+  return obs;
+}
+
+ViaObstacleArea* BasicBoard::insertViaObstacle(Area* area, int32_t layer, Vector* translation,
+                                               double rotationInDegree, bool sideChanged,
+                                               int32_t clearanceClassIndex, int32_t componentId,
+                                               const std::optional<std::string>& name,
+                                               FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_via_obstacle: area is null");
+    return nullptr;
+  }
+  ViaObstacleArea* obs =
+      new ViaObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+                          clearanceClassIndex, 0, componentId, name, fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+WireObstacleArea* BasicBoard::insertWireObstacle(Area* area, int32_t layer,
+                                                 int32_t clearanceClassIndex,
+                                                 FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_wire_obstacle: area is null");
+    return nullptr;
+  }
+  WireObstacleArea* obs = new WireObstacleArea(area, layer, Vector::ZERO(), 0, false,
+                                               clearanceClassIndex, 0, 0, std::nullopt,
+                                               fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+WireObstacleArea* BasicBoard::insertWireObstacle(Area* area, int32_t layer, Vector* translation,
+                                                 double rotationInDegree, bool sideChanged,
+                                                 int32_t clearanceClassIndex, int32_t componentId,
+                                                 const std::optional<std::string>& name,
+                                                 FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_wire_obstacle: area is null");
+    return nullptr;
+  }
+  WireObstacleArea* obs =
+      new WireObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+                           clearanceClassIndex, 0, componentId, name, fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+ComponentObstacleArea* BasicBoard::insertComponentObstacle(Area* area, int32_t layer,
+                                                           int32_t clearanceClassIndex,
+                                                           FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_component_obstacle: area is null");
+    return nullptr;
+  }
+  ComponentObstacleArea* obs = new ComponentObstacleArea(area, layer, Vector::ZERO(), 0, false,
+                                                         clearanceClassIndex, 0, 0, std::nullopt,
+                                                         fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+ComponentObstacleArea* BasicBoard::insertComponentObstacle(
+    Area* area, int32_t layer, Vector* translation, double rotationInDegree, bool sideChanged,
+    int32_t clearanceClassIndex, int32_t componentId, const std::optional<std::string>& name,
+    FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_component_obstacle: area is null");
+    return nullptr;
+  }
+  ComponentObstacleArea* obs =
+      new ComponentObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+                                clearanceClassIndex, 0, componentId, name, fixedState, this);
+  insertItem(obs);
+  return obs;
+}
+
+ComponentOutline* BasicBoard::insertComponentOutline(Area* area, bool isFront, Vector* translation,
+                                                     double rotationInDegree, int32_t componentId,
+                                                     bool isCourtyard, bool isFabrication,
+                                                     bool isClosed, FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_component_outline: area is null");
+    return nullptr;
+  }
+  if (!area->isBounded()) {
+    FRLogger::warn("BasicBoard.insert_component_outline: area is not bounded");
+    return nullptr;
+  }
+  ComponentOutline* outline =
+      new ComponentOutline(area, isFront, translation, rotationInDegree, 0, componentId,
+                           isCourtyard, isFabrication, isClosed, fixedState, this);
+  insertItem(outline);
+  return outline;
+}
+
+ConductionArea* BasicBoard::insertConductionArea(Area* area, int32_t layer,
+                                                 jrt::Array<int32_t>* netNumbers,
+                                                 int32_t clearanceClassIndex, bool isObstacle,
+                                                 FixedState fixedState) {
+  if (area == nullptr) {
+    FRLogger::warn("BasicBoard.insert_conduction_area: area is null");
+    return nullptr;
+  }
+  ConductionArea* c =
+      new ConductionArea(area, layer, Vector::ZERO(), 0, false, netNumbers, clearanceClassIndex, 0,
+                         0, std::nullopt, isObstacle, fixedState, this);
+  insertItem(c);
+  return c;
+}
+
+BoardOutline* BasicBoard::insertOutline(jrt::Array<PolylineShape*>* outlineShapes,
+                                        int32_t clearanceClassIndex) {
+  BoardOutline* result = new BoardOutline(outlineShapes, clearanceClassIndex, 0, this);
+  insertItem(result);
+  return result;
+}
+
+void BasicBoard::expandBoundingBoxToIncludeAllItems() {
+  IntBox* bounds = this->boundingBox;
+  bool changed = false;
+  for (Item* item : *getItems()) {
+    IntBox* itemBox = item->boundingBox();
+    if (itemBox != nullptr && !itemBox->isEmpty() && !bounds->contains(itemBox)) {
+      bounds = bounds->union_(itemBox);
+      changed = true;
+    }
+  }
+  if (changed) {
+    this->boundingBox = bounds->offset(1000);
+    BoardOutline* outline = getOutline();
+    if (outline != nullptr) {
+      outline->invalidateEdgePinNets();
+    }
+  }
+}
+
+BoardOutline* BasicBoard::getOutline() { return getItemRepository()->getOutline(); }
+
+void BasicBoard::invalidateEdgePinNetCache() {
+  BoardOutline* outline = getOutline();
+  if (outline != nullptr) {
+    outline->invalidateEdgePinNets();
+    outline->updateSlicesToTraceWidths();
+  }
+}
+
+void BasicBoard::removeItem(Item* item) {
+  getItemRepository()->removeItem(item);
+  if (dynamic_cast<Pin*>(item) != nullptr || dynamic_cast<BoardOutline*>(item) != nullptr) {
+    invalidateEdgePinNetCache();
+  }
+}
+
+void BasicBoard::detachItemForMove(Item* item) {
+  getItemRepository()->detachItemForMove(item);
+  if (dynamic_cast<Pin*>(item) != nullptr || dynamic_cast<BoardOutline*>(item) != nullptr) {
+    invalidateEdgePinNetCache();
+  }
+}
+
+Item* BasicBoard::getItem(int32_t id) { return getItemRepository()->getItem(id); }
+
+jrt::Collection<Item*>* BasicBoard::getItems() { return getItemRepository()->getItems(); }
+
+jrt::Collection<Item*>* BasicBoard::getConnectableItems(int32_t netNumber) {
+  return getConnectivityQueries()->getConnectableItems(netNumber);
+}
+
+int32_t BasicBoard::connectableItemCount(int32_t netNumber) {
+  return getConnectivityQueries()->connectableItemCount(netNumber);
+}
+
+jrt::Collection<Item*>* BasicBoard::getComponentItems(int32_t componentId) {
+  return getConnectivityQueries()->getComponentItems(componentId);
+}
+
+jrt::Collection<Pin*>* BasicBoard::getComponentPins(int32_t componentId) {
+  return getConnectivityQueries()->getComponentPins(componentId);
+}
+
+Pin* BasicBoard::getPin(int32_t componentId, int32_t pinIndex) {
+  return getConnectivityQueries()->getPin(componentId, pinIndex);
+}
+
+bool BasicBoard::removeItems(jrt::Collection<Item*>* itemList) {
+  bool result = true;
+  for (Item* currentItem : *itemList) {
+    if (currentItem->isDeletionForbidden() || currentItem->isUserFixed()) {
+      // We are not allowed to delete this item
+      result = false;
+    } else {
+      removeItem(currentItem);
+    }
+  }
+  return result;
+}
+
+jrt::Collection<ConductionArea*>* BasicBoard::getConductionAreas() {
+  return getItemRepository()->getConductionAreas();
+}
+
+jrt::Set<Item*>* BasicBoard::powerLayerPlanes(jrt::Collection<Item*>* items) {
+  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  for (Item* item : *items) {
+    if (auto* area = dynamic_cast<ConductionArea*>(item)) {
+      if (area->getComponentId() <= 0 &&
+          !(*layerStructure->layers)[area->getLayer()]->isSignal) {
+        result->add(area);
+      }
+    }
+  }
+  return result;
+}
+
+jrt::Collection<Pin*>* BasicBoard::getPins() { return getItemRepository()->getPins(); }
+
+int32_t BasicBoard::getPinCount() { return getItemRepository()->getPinCount(); }
+
+jrt::Collection<Pin*>* BasicBoard::getSmdPins() { return getItemRepository()->getSmdPins(); }
+
+jrt::Collection<Via*>* BasicBoard::getVias() { return getItemRepository()->getVias(); }
+
+int32_t BasicBoard::getViaCount() { return getItemRepository()->getViaCount(); }
+
+jrt::Collection<Trace*>* BasicBoard::getTraces() { return getItemRepository()->getTraces(); }
+
+double BasicBoard::cumulativeTraceLength() { return getItemRepository()->cumulativeTraceLength(); }
+
+bool BasicBoard::combineTraces(int32_t netNumber) {
+  bool result = false;
+  bool somethingChanged = true;
+  while (somethingChanged) {
+    somethingChanged = false;
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+    for (;;) {
+      Item* currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+      if (currentItem == nullptr) {
+        break;
+      }
+      if (netNumber < 0 || currentItem->containsNet(netNumber)) {
+        if (auto* trace = dynamic_cast<Trace*>(currentItem)) {
+          if (currentItem->isOnTheBoard()) {
+            if (trace->combine()) {
+              somethingChanged = true;
+              result = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+namespace {
+
+std::string netNameOf(BoardRules* rules, int32_t netNumber) {
+  return rules != nullptr && rules->nets != nullptr && rules->nets->get(netNumber) != nullptr
+             ? rules->nets->get(netNumber)->name
+             : jrt::str(netNumber);
+}
+
+}  // namespace
+
+bool BasicBoard::normalizeTraces(int32_t netNumber) {
+  if (normalizeSuppressedNetNos == nullptr) {
+    normalizeSuppressedNetNos = new jrt::HashSet<int32_t>();
+  }
+  if (normalizeSuppressedNetNos->contains(netNumber)) {
+    std::string netName = netNameOf(rules, netNumber);
+    FRLogger::debug("BasicBoard.normalizeTraces: skipping net '" + netName +
+                    "' because normalization already hit the oscillation cap on this board "
+                    "candidate.");
+    return false;
+  }
+  bool result = false;
+  bool somethingChanged = true;
+  int32_t iterationCount = 0;
+  while (somethingChanged) {
+    if (++iterationCount > MAX_NORMALIZE_ITERATIONS) {
+      // Safety valve: after this many passes the outer loop has not converged.
+      std::string netName = netNameOf(rules, netNumber);
+      FRLogger::warn(
+          "BasicBoard.normalizeTraces: reached " + jrt::str(MAX_NORMALIZE_ITERATIONS) +
+          " iterations for net '" + netName + "' — stopping to prevent hang." +
+          " The board geometry for this net may be oscillating (split/combine cycle);" +
+          " traces are kept as-is and further normalization for this net is suppressed" +
+          " on this board candidate.");
+      normalizeSuppressedNetNos->add(netNumber);
+      break;
+    }
+    somethingChanged = false;
+
+    // Collect traces for this net on this iteration.
+    jrt::List<PolylineTrace*>* netTraces = new jrt::ArrayList<PolylineTrace*>();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+    for (;;) {
+      Item* currentItem;
+      try {
+        currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+      } catch (const jrt::ConcurrentModificationException&) {
+        somethingChanged = true;
+        break;
+      }
+      if (currentItem == nullptr) {
+        break;
+      }
+      if (currentItem->containsNet(netNumber)) {
+        if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+          if (currentItem->isOnTheBoard()) {
+            netTraces->add(currentTrace);
+          }
+        }
+      }
+    }
+
+    if (somethingChanged) {
+      continue;
+    }
+
+    for (PolylineTrace* currentTrace : *netTraces) {
+      if (currentTrace->isOnTheBoard()) {
+        if (currentTrace->normalize(nullptr)) {
+          somethingChanged = true;
+          result = true;
+        } else if (!currentTrace->isUserFixed() && this->removeIfCycle(currentTrace)) {
+          somethingChanged = true;
+          result = true;
+        }
+      }
+    }
+  }
+  return result;
+}
+
+bool BasicBoard::normalizeAllTraces() {
+  bool result = false;
+  // Group all PolylineTrace items by net
+  auto* tracesByNet = new jrt::HashMap<int32_t, jrt::List<PolylineTrace*>*>();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+  for (;;) {
+    Item* currentItem;
+    try {
+      currentItem = dynamic_cast<Item*>(itemList->readObject(it));
+    } catch (const jrt::ConcurrentModificationException&) {
+      // Retry collection if modified
+      tracesByNet->clear();
+      it = itemList->startReadObject();
+      continue;
+    }
+    if (currentItem == nullptr) {
+      break;
+    }
+    if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+      if (currentItem->isOnTheBoard()) {
+        for (int32_t netNumber : *currentTrace->netNumbers) {
+          tracesByNet
+              ->computeIfAbsent(netNumber,
+                                [](int32_t) -> jrt::List<PolylineTrace*>* {
+                                  return new jrt::ArrayList<PolylineTrace*>();
+                                })
+              ->add(currentTrace);
+        }
+      }
+    }
+  }
+
+  for (auto* entry : *tracesByNet->entrySet()) {
+    int32_t netNumber = entry->getKey();
+    jrt::List<PolylineTrace*>* netTraces = entry->getValue();
+    bool somethingChanged = true;
+    int32_t iterationCount = 0;
+    while (somethingChanged) {
+      if (++iterationCount > MAX_NORMALIZE_ITERATIONS) {
+        std::string netName = netNameOf(rules, netNumber);
+        FRLogger::warn("BasicBoard.normalize_all_traces: reached " +
+                       jrt::str(MAX_NORMALIZE_ITERATIONS) + " iterations for net '" + netName +
+                       "' — stopping to prevent hang.");
+        break;
+      }
+      somethingChanged = false;
+
+      for (PolylineTrace* currentTrace : *netTraces) {
+        if (currentTrace->isOnTheBoard()) {
+          if (currentTrace->normalize(nullptr)) {
+            somethingChanged = true;
+            result = true;
+          } else if (!currentTrace->isUserFixed() && this->removeIfCycle(currentTrace)) {
+            somethingChanged = true;
+            result = true;
+          }
+        }
+      }
+
+      // If something changed, collect the traces for this net again
+      if (somethingChanged) {
+        netTraces->clear();
+        jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it2 = itemList->startReadObject();
+        for (;;) {
+          Item* currentItem;
+          try {
+            currentItem = dynamic_cast<Item*>(itemList->readObject(it2));
+          } catch (const jrt::ConcurrentModificationException&) {
+            netTraces->clear();
+            it2 = itemList->startReadObject();
+            continue;
+          }
+          if (currentItem == nullptr) {
+            break;
+          }
+          if (currentItem->containsNet(netNumber)) {
+            if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentItem)) {
+              if (currentItem->isOnTheBoard()) {
+                netTraces->add(currentTrace);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+bool BasicBoard::splitTraces(Point* location, int32_t layer, int32_t netNumber) {
+  ItemSelectionFilter* filter =
+      new ItemSelectionFilter(ItemSelectionFilter_SelectableChoices::TRACES);
+  jrt::Collection<Item*>* pickedItems = this->pickItems(location, layer, filter);
+  IntOctagon* locationShape = TileShape::getInstance(location)->boundingOctagon();
+  bool traceSplit = false;
+  for (Item* currentItem : *pickedItems) {
+    Trace* currentTrace = dynamic_cast<Trace*>(currentItem);
+    if (currentTrace->containsNet(netNumber)) {
+      jrt::Collection<PolylineTrace*>* splitPieces = currentTrace->split(locationShape);
+      if (splitPieces->size() != 1) {
+        traceSplit = true;
+      }
+    }
+  }
+  return traceSplit;
+}
+
+jrt::Collection<jrt::Collection<Item*>*>* BasicBoard::getConnectedSets(int32_t netNumber) {
+  return getConnectivityQueries()->getConnectedSets(netNumber);
+}
+
+jrt::Set<SearchTreeObject*>* BasicBoard::overlappingObjects(ConvexShape* shape, int32_t layer) {
+  return this->searchTreeManager->getDefaultTree()->overlappingObjects(shape, layer);
+}
+
+jrt::Set<Item*>* BasicBoard::overlappingItemsWithClearance(ConvexShape* shape, int32_t layer,
+                                                           jrt::Array<int32_t>* ignoreNetNos,
+                                                           int32_t clearanceClass) {
+  ShapeSearchTree* defaultTree = this->searchTreeManager->getDefaultTree();
+  return defaultTree->overlappingItemsWithClearance(shape, layer, ignoreNetNos, clearanceClass);
+}
+
+jrt::Set<Item*>* BasicBoard::overlappingItems(Area* area, int32_t layer) {
+  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  jrt::Array<TileShape*>* tileShapes = area->splitToConvex();
+  for (int32_t i = 0; i < tileShapes->length; i++) {
+    jrt::Set<SearchTreeObject*>* currentOverlaps = overlappingObjects((*tileShapes)[i], layer);
+    for (SearchTreeObject* currentOverlap : *currentOverlaps) {
+      if (auto* item = dynamic_cast<Item*>(currentOverlap)) {
+        result->add(item);
+      }
+    }
+  }
+  return result;
+}
+
+bool BasicBoard::checkShape(Area* shape, int32_t layer, jrt::Array<int32_t>* netNumbers,
+                            int32_t clearanceClassIndex) {
+  jrt::Array<TileShape*>* tiles = shape->splitToConvex();
+  ShapeSearchTree* defaultTree = this->searchTreeManager->getDefaultTree();
+  for (int32_t i = 0; i < tiles->length; i++) {
+    TileShape* currentShape = (*tiles)[i];
+    if (!currentShape->isContainedIn(boundingBox)) {
+      return false;
+    }
+    // Area input is physical geometry, unlike Item.getTileShape(), which is tree-prepared.
+    int32_t compensation = defaultTree->clearanceCompensationValue(clearanceClassIndex, layer);
+    TileShape* queryShape =
+        compensation == 0 ? currentShape
+                          : dynamic_cast<TileShape*>(currentShape->enlarge(compensation));
+    jrt::Set<SearchTreeObject*>* obstacles = new jrt::TreeSet<SearchTreeObject*>();
+    defaultTree->overlappingObjectsWithClearance(queryShape, layer, netNumbers,
+                                                 clearanceClassIndex, obstacles);
+    for (SearchTreeObject* currentObject : *obstacles) {
+      bool isObstacle = true;
+      for (int32_t j = 0; j < netNumbers->length; j++) {
+        if (!currentObject->isObstacle((*netNumbers)[j])) {
+          isObstacle = false;
+        }
+      }
+      if (isObstacle) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+bool BasicBoard::checkTraceShape(TileShape* shape, int32_t layer, jrt::Array<int32_t>* netNumbers,
+                                 int32_t clearanceClassIndex, jrt::Set<Pin*>* contactPins) {
+  if (!shape->isContainedIn(boundingBox)) {
+    return false;
+  }
+  ShapeSearchTree* defaultTree = this->searchTreeManager->getDefaultTree();
+  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::Array<int32_t>* ignoreNetNos = new jrt::Array<int32_t>(0);
+  defaultTree->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
+                                                   treeEntries);
+  for (ShapeTree_TreeEntry* currentTreeEntry : *treeEntries) {
+    auto* currentItem = dynamic_cast<Item*>(currentTreeEntry->object);
+    if (currentItem == nullptr) {
+      continue;
+    }
+    if (contactPins != nullptr) {
+      auto* currentPin = dynamic_cast<Pin*>(currentItem);
+      if (currentPin != nullptr && contactPins->contains(currentPin)) {
+        continue;
+      }
+      if (currentPin != nullptr) {
+        // The contact pins of the trace should be contained in ignoreItems.
+        // Other pins are handled as obstacles to avoid acid traps.
+        return false;
+      }
+    }
+    bool isObstacle = true;
+    if (auto* outline = dynamic_cast<BoardOutline*>(currentItem)) {
+      isObstacle = !outline->exemptsTrace(currentTreeEntry->shapeIndexInObject, netNumbers);
+    } else {
+      for (int32_t i = 0; i < netNumbers->length; i++) {
+        if (!currentItem->isTraceObstacle((*netNumbers)[i],
+                                          currentTreeEntry->shapeIndexInObject)) {
+          isObstacle = false;
+        }
+      }
+    }
+    if (isObstacle && (dynamic_cast<PolylineTrace*>(currentItem) != nullptr) &&
+        contactPins != nullptr) {
+      // check for traces of foreign nets at tie pins, which will be ignored inside the pin shape
+      TileShape* intersection = nullptr;
+      for (Pin* currentContactPin : *contactPins) {
+        if (currentContactPin->netCount() <= 1 || !currentContactPin->sharesNet(currentItem)) {
+          continue;
+        }
+        if (intersection == nullptr) {
+          TileShape* obstacleTraceShape =
+              currentItem->getTileShape(currentTreeEntry->shapeIndexInObject);
+          intersection = shape->intersection(obstacleTraceShape);
+        }
+        TileShape* pinShape = currentContactPin->getTileShapeOnLayer(layer);
+        if (pinShape->containsApprox(intersection)) {
+          isObstacle = false;
+          break;
+        }
+      }
+    }
+    if (isObstacle) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool BasicBoard::checkPolylineTrace(Polyline* polyline, int32_t layer, int32_t penHalfWidth,
+                                    jrt::Array<int32_t>* netNumbers,
+                                    int32_t clearanceClassIndex) {
+  Trace* tmpTrace = new PolylineTrace(polyline, layer, penHalfWidth, netNumbers,
+                                      clearanceClassIndex, 0, 0, FixedState::UNFIXED, this);
+  jrt::Set<Pin*>* contactPins = tmpTrace->touchingPinsAtEndCorners();
+  for (int32_t i = 0; i < tmpTrace->tileShapeCount(); i++) {
+    if (!this->checkTraceShape(tmpTrace->getTileShape(i), layer, netNumbers, clearanceClassIndex,
+                               contactPins)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int32_t BasicBoard::getLayerCount() { return layerStructure->layers->length; }
+
+jrt::Set<Item*>* BasicBoard::pickItems(Point* location, int32_t layer,
+                                       ItemSelectionFilter* filter) {
+  TileShape* pointShape = TileShape::getInstance(location);
+  jrt::Collection<SearchTreeObject*>* overlaps = overlappingObjects(pointShape, layer);
+  jrt::Set<Item*>* result = new jrt::TreeSet<Item*>();
+  for (SearchTreeObject* currentObject : *overlaps) {
+    if (auto* item = dynamic_cast<Item*>(currentObject)) {
+      result->add(item);
+    }
+  }
+  if (filter != nullptr) {
+    result = filter->filter(result);
+  }
+  return result;
+}
+
+bool BasicBoard::contains(Point* point) { return point->isContainedIn(boundingBox); }
+
+int32_t BasicBoard::clearanceValue(int32_t class1, int32_t class2, int32_t layer) {
+  if (rules == nullptr || rules->clearanceMatrix == nullptr) {
+    return 0;
+  }
+  return rules->clearanceMatrix->getValue(class1, class2, layer, true);
+}
+
+IntBox* BasicBoard::getBoundingBox(jrt::Collection<Item*>* itemList) {
+  IntBox* result = IntBox::EMPTY();
+  for (Item* currentItem : *itemList) {
+    result = result->union_(currentItem->boundingBox());
+  }
+  return result;
+}
+
+void BasicBoard::resetGraphicsUpdateBox() { updateBox = IntBox::EMPTY(); }
+
+void BasicBoard::joinGraphicsUpdateBox(IntBox* box) {
+  if (updateBox == nullptr) {
+    resetGraphicsUpdateBox();
+  }
+  updateBox = updateBox->union_(box);
+}
+
+void BasicBoard::startNotifyObservers() {
+  if ((communication != nullptr) && (this->communication->observers != nullptr)) {
+    communication->observers->activate();
+  }
+}
+
+void BasicBoard::endNotifyObservers() {
+  if ((communication != nullptr) && (this->communication->observers != nullptr)) {
+    communication->observers->deactivate();
+  }
+}
+
+bool BasicBoard::observersActive() {
+  bool result;
+  if ((communication != nullptr) && (this->communication->observers != nullptr)) {
+    result = communication->observers->isActive();
+  } else {
+    result = false;
+  }
+  return result;
+}
+
+Connectable* BasicBoard::makeConductive(ObstacleArea* area, int32_t netNumber) {
+  Item* newItem;
+  Area* currentArea = area->getRelativeArea();
+  int32_t layer = area->getLayer();
+  FixedState fixedState = area->getFixedState();
+  Vector* translation = area->getTranslation();
+  double rotation = area->getRotationInDegree();
+  bool sideChanged = area->getSideChanged();
+  jrt::Array<int32_t>* netNumbers = new jrt::Array<int32_t>(1);
+  (*netNumbers)[0] = netNumber;
+  newItem = new ConductionArea(currentArea, layer, translation, rotation, sideChanged, netNumbers,
+                               area->clearanceClassIndex(), 0, area->getComponentId(), area->name,
+                               true, fixedState, this);
+  removeItem(area);
+  insertItem(newItem);
+  return dynamic_cast<Connectable*>(newItem);
+}
+
+void BasicBoard::insertItem(Item* item) {
+  getItemRepository()->insertItem(item);
+  if (auto* pin = dynamic_cast<Pin*>(item)) {
+    BoardOutline* outline = getOutline();
+    if (outline != nullptr) {
+      outline->invalidateEdgePinNets();
+      if (outline->isEdgePin(pin)) {
+        outline->updateSlicesToTraceWidths();
+      }
+    }
+  } else if (dynamic_cast<BoardOutline*>(item) != nullptr) {
+    BoardOutline* outline = getOutline();
+    if (outline != nullptr) {
+      outline->invalidateEdgePinNets();
+    }
+  }
+}
+
+bool BasicBoard::undo(jrt::Set<int32_t>* changedNets) {
+  this->components->undo(this->communication->observers);
+  jrt::Collection<UndoableObjects_Storable*>* cancelledObjects =
+      new jrt::LinkedList<UndoableObjects_Storable*>();
+  jrt::Collection<UndoableObjects_Storable*>* restoredObjects =
+      new jrt::LinkedList<UndoableObjects_Storable*>();
+  bool result = itemList->undo(cancelledObjects, restoredObjects);
+  applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
+  return result;
+}
+
+bool BasicBoard::redo(jrt::Set<int32_t>* changedNets) {
+  this->components->redo(this->communication->observers);
+  jrt::Collection<UndoableObjects_Storable*>* cancelledObjects =
+      new jrt::LinkedList<UndoableObjects_Storable*>();
+  jrt::Collection<UndoableObjects_Storable*>* restoredObjects =
+      new jrt::LinkedList<UndoableObjects_Storable*>();
+  bool result = itemList->redo(cancelledObjects, restoredObjects);
+  applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
+  return result;
+}
+
+void BasicBoard::applyUndoRedoSideEffects(
+    jrt::Collection<UndoableObjects_Storable*>* cancelledObjects,
+    jrt::Collection<UndoableObjects_Storable*>* restoredObjects, jrt::Set<int32_t>* changedNets) {
+  jrt::Iterator<UndoableObjects_Storable*>* it = cancelledObjects->iterator();
+  while (it->hasNext()) {
+    Item* currentItem = dynamic_cast<Item*>(it->next());
+    searchTreeManager->remove(currentItem);
+    routingLedger()->noteRemoved(currentItem);
+    if ((communication != nullptr) && (communication->observers != nullptr)) {
+      communication->observers->notifyDeleted(currentItem);
+    }
+    if (changedNets != nullptr) {
+      for (int32_t i = 0; i < currentItem->netCount(); i++) {
+        changedNets->add(currentItem->getNetNumber(i));
+      }
+    }
+  }
+  it = restoredObjects->iterator();
+  while (it->hasNext()) {
+    Item* currentItem = dynamic_cast<Item*>(it->next());
+    currentItem->board = this;
+    searchTreeManager->insert(currentItem);
+    routingLedger()->noteInserted(currentItem);
+    currentItem->clearAutorouteInfo();
+    if ((communication != nullptr) && (communication->observers != nullptr)) {
+      communication->observers->notifyNew(currentItem);
+    }
+    if (changedNets != nullptr) {
+      for (int32_t i = 0; i < currentItem->netCount(); i++) {
+        changedNets->add(currentItem->getNetNumber(i));
+      }
+    }
+  }
+  invalidateEdgePinNetCache();
+}
+
+void BasicBoard::generateSnapshot() { getSnapshotManager()->generateSnapshot(); }
+
+bool BasicBoard::popSnapshot() { return getSnapshotManager()->popSnapshot(); }
+
+Trace* BasicBoard::getTraceTail(Point* location, int32_t layer, jrt::Array<int32_t>* netNumbers) {
+  TileShape* pointShape = TileShape::getInstance(location);
+  jrt::Collection<SearchTreeObject*>* foundItems = overlappingObjects(pointShape, layer);
+  for (SearchTreeObject* currentObject : *foundItems) {
+    if (auto* currentTrace = dynamic_cast<Trace*>(currentObject)) {
+      if (!currentTrace->netsEqual(netNumbers) || currentTrace->hasInteriorContacts()) {
+        continue;
+      }
+      if (currentTrace->firstCorner()->equals(location)) {
+        jrt::Collection<Item*>* contacts = currentTrace->getStartContacts();
+        if (contacts->isEmpty()) {
+          return currentTrace;
+        }
+      }
+      if (currentTrace->lastCorner()->equals(location)) {
+        jrt::Collection<Item*>* contacts = currentTrace->getEndContacts();
+        if (contacts->isEmpty()) {
+          return currentTrace;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
+bool BasicBoard::removeIfCycle(Trace* trace) {
+  if (!trace->isOnTheBoard() || trace->isDeletionForbidden()) {
+    return false;
+  }
+  if (!trace->isCycle()) {
+    return false;
+  }
+  jrt::Set<Item*>* connectionItems = trace->getConnectionItems();
+  if (!connectionItems->contains(trace)) {
+    return false;
+  }
+  keepJunctionVias(connectionItems);
+  // Remove tails at the endpoints after removing the cycle, if there was no tail before.
+  int32_t currentLayer = trace->getLayer();
+  jrt::Array<int32_t>* currentNetNumbers = trace->netNumbers;
+  jrt::Array<Point*>* endCorners = new jrt::Array<Point*>(2);
+  (*endCorners)[0] = trace->firstCorner();
+  (*endCorners)[1] = trace->lastCorner();
+  jrt::Array<bool>* tailAtEndpointBefore = new jrt::Array<bool>(2);
+  for (int32_t i = 0; i < 2; i++) {
+    Trace* tail = getTraceTail((*endCorners)[i], currentLayer, currentNetNumbers);
+    (*tailAtEndpointBefore)[i] = tail != nullptr;
+  }
+  this->removeItems(connectionItems);
+  for (int32_t i = 0; i < 2; i++) {
+    if (!(*tailAtEndpointBefore)[i]) {
+      Trace* tail = getTraceTail((*endCorners)[i], currentLayer, currentNetNumbers);
+      if (tail != nullptr) {
+        jrt::Set<Item*>* tailItems = tail->getConnectionItems();
+        keepJunctionVias(tailItems);
+        removeItems(tailItems);
+      }
+    }
+  }
+  return true;
+}
+
+void BasicBoard::keepJunctionVias(jrt::Set<Item*>* connectionItems) {
+  // Java: Set.copyOf(connectionItems) (an immutable copy, only used for contains).
+  jrt::Set<Item*>* walked = new jrt::HashSet<Item*>(connectionItems);
+  connectionItems->removeIf([walked](Item* item) {
+    auto* via = dynamic_cast<Via*>(item);
+    return via != nullptr && touchesItemOutside(via, walked);
+  });
+}
+
+bool BasicBoard::touchesItemOutside(Via* via, jrt::Set<Item*>* items) {
+  for (Item* contact : *via->getNormalContacts()) {
+    if (!items->contains(contact)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+BoardItemRepository* BasicBoard::getItemRepository() {
+  if (itemRepository == nullptr) {
+    itemRepository = new BoardItemRepository(this);
+  }
+  return itemRepository;
+}
+
+BoardConnectivityQueries* BasicBoard::getConnectivityQueries() {
+  if (connectivityQueries == nullptr) {
+    connectivityQueries = new BoardConnectivityQueries(this);
+  }
+  return connectivityQueries;
+}
+
+BoardSnapshotManager* BasicBoard::getSnapshotManager() {
+  if (snapshotManager == nullptr) {
+    snapshotManager = new BoardSnapshotManager(this);
+  }
+  return snapshotManager;
+}
+
+void BasicBoard::afterDeserialize() {
+  // Java readObject after defaultReadObject().
+  if (this->rules != nullptr && this->rules->getMinHoleToHole() <= 0 &&
+      this->communication != nullptr) {
+    this->rules->setMinHoleToHole(jrt::l2i(jrt::Math::round(
+        250.0 * jrt::Math::max(1, this->communication->resolution) /
+        Unit_scale(1.0, this->communication->unit, Unit::UM))));
+  }
+  // insert the items on the board into the search trees
+  searchTreeManager = new SearchTreeManager(this);
+  normalizeSuppressedNetNos = new jrt::HashSet<int32_t>();
+  itemRepository = nullptr;
+  connectivityQueries = nullptr;
+  snapshotManager = nullptr;
+  for (Item* currentItem : *this->getItems()) {
+    currentItem->board = this;
+    searchTreeManager->insert(currentItem);
+  }
+}
+
+void BasicBoard::copyItemListFrom(BasicBoard* source,
+                                  jrt::IdentityHashMap<Item*, Item*>* itemMap) {
+  BasicBoard* self = this;
+  auto* memo = new jrt::IdentityHashMap<UndoableObjects_Storable*, UndoableObjects_Storable*>();
+  auto mapObject = [self, memo, itemMap](UndoableObjects_Storable* original)
+      -> UndoableObjects_Storable* {
+    if (original == nullptr) {
+      return nullptr;
+    }
+    UndoableObjects_Storable* known = memo->get(original);
+    if (known != nullptr) {
+      return known;
+    }
+    auto* originalItem = dynamic_cast<Item*>(original);
+    if (originalItem == nullptr) {
+      // Not an item (does not occur on a board): plain clone like Java serialization would copy it.
+      auto* copied = dynamic_cast<UndoableObjects_Storable*>(original->clone());
+      memo->put(original, copied);
+      return copied;
+    }
+    // Item.clone(): copy(getId()) with onTheBoard copied.
+    auto* copiedItem = dynamic_cast<Item*>(originalItem->clone());
+    // PORT NOTE: non-transient fields Java serialization keeps but copy(id) does not carry.
+    // (Pin.changedTo is not remapped: it only changes by a GUI pin swap, out of scope.)
+    copiedItem->smallestClearance = originalItem->smallestClearance;
+    if (auto* originalArea = dynamic_cast<ConductionArea*>(originalItem)) {
+      auto* copiedArea = dynamic_cast<ConductionArea*>(copiedItem);
+      if (copiedArea != nullptr && copiedArea->getIsFilled() != originalArea->getIsFilled()) {
+        copiedArea->setIsFilled(originalArea->getIsFilled());
+      }
+    }
+    if (auto* originalOutline = dynamic_cast<BoardOutline*>(originalItem)) {
+      auto* copiedOutline = dynamic_cast<BoardOutline*>(copiedItem);
+      if (copiedOutline != nullptr) {
+        copiedOutline->edgePinNetsCrossOutline = originalOutline->edgePinNetsCrossOutline;
+        copiedItem->board = self;  // searchTreeManager is still null: no tree reinsertion
+        copiedOutline->generateKeepoutOutside(originalOutline->keepoutOutsideOutlineGenerated());
+      }
+    }
+    copiedItem->board = self;
+    memo->put(original, copiedItem);
+    if (itemMap != nullptr) {
+      itemMap->put(originalItem, copiedItem);
+    }
+    return copiedItem;
+  };
+  this->itemList = source->itemList->copyMapped(mapObject);
+  // Second pass, now that this->itemList exists (setClearanceClassIndex notes a content change on
+  // the board's item list): restore what copy(id) of some classes drops.
+  for (auto* entry : *memo->entrySet()) {
+    auto* originalItem = dynamic_cast<Item*>(entry->getKey());
+    auto* copiedItem = dynamic_cast<Item*>(entry->getValue());
+    if (originalItem == nullptr || copiedItem == nullptr) {
+      continue;
+    }
+    if (dynamic_cast<ComponentObstacleArea*>(originalItem) != nullptr ||
+        dynamic_cast<ComponentOutline*>(originalItem) != nullptr) {
+      // copy drops the net numbers (and ComponentOutline also the clearance class).
+      copiedItem->netNumbers =
+          originalItem->netNumbers != nullptr ? originalItem->netNumbers->clone() : nullptr;
+      if (copiedItem->clearanceClassIndex() != originalItem->clearanceClassIndex()) {
+        copiedItem->setClearanceClassIndex(originalItem->clearanceClassIndex());
+      }
+    }
+  }
+  // PORT NOTE: not restorable from this bucket (private fields without setters in the item
+  // headers): Pin.changedTo (Java points to the copy of the swapped pin; only a GUI pin swap
+  // changes it), DrillItem.precalculatedMinWidth/FirstLayer/LastLayer (recomputed from the shared
+  // padstack on use; a stale precalculatedMinWidth of the source is not carried over) and the
+  // cached DrillItem center of a Pin (recomputed lazily from the deep-copied component).
+  // Via.padstack stays the source's object, which is correct because the library is shared.
+}
+
+BasicBoard* BasicBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {
+  BasicBoard* copy = new BasicBoard(BasicBoard_CopyTag{}, this);
+  copy->copyItemListFrom(this, itemMap);
+  copy->afterDeserialize();
+  return copy;
+}
+
+void BasicBoard::deleteAllTracksAndVias() {
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+  for (;;) {
+    UndoableObjects_Storable* currentItem = itemList->readObject(it);
+    if (currentItem == nullptr) {
+      break;
+    }
+    if (dynamic_cast<Trace*>(currentItem) != nullptr) {
+      // delete the trace
+      itemList->delete_(currentItem);
+    }
+    if (dynamic_cast<Via*>(currentItem) != nullptr) {
+      // delete the via
+      itemList->delete_(currentItem);
+    }
+  }
+}
+
+void BasicBoard::unfillConductionAreas() {
+  this->rules->setIgnoreConduction(true);
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+  for (;;) {
+    UndoableObjects_Storable* currentItem = itemList->readObject(it);
+    if (currentItem == nullptr) {
+      break;
+    }
+    if (auto* currentConductionArea = dynamic_cast<ConductionArea*>(currentItem)) {
+      currentConductionArea->setIsFilled(false);
+      currentConductionArea->setIsObstacle(false);
+    }
+  }
+  this->searchTreeManager->reinsertTreeItems();
+}
+
+void BasicBoard::areThereItemsOnInactiveLayer(AutorouteControl* ctrl) {
+  if (this->getLayerCount() > 2) {
+    bool hasSomethingOnInactiveLayer = false;
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = this->itemList->startReadObject();
+    for (;;) {
+      UndoableObjects_Storable* currentObject = this->itemList->readObject(it);
+      if (currentObject == nullptr) {
+        break;
+      }
+      if (auto* currentItem = dynamic_cast<PolylineTrace*>(currentObject)) {
+        // This is a connectable item, like PolylineTrace or Pin
+        if (!(*ctrl->layerActive)[currentItem->getLayer()]) {
+          hasSomethingOnInactiveLayer = true;
+          FRLogger::warn("There is an item on an inactive layer.");
+          break;
+        }
+      }
+    }
+    (void)hasSomethingOnInactiveLayer;
+  }
+}
+
+int32_t BasicBoard::getNon45DegreeTraceCount() {
+  int32_t count = 0;
+  for (Item* currentObject : *getItems()) {
+    if (auto* currentTrace = dynamic_cast<PolylineTrace*>(currentObject)) {
+      if (!currentTrace->polyline()->isMultipleOf45Degree()) {
+        ++count;
+      }
+    }
+  }
+  return count;
+}
+
+}  // namespace fr

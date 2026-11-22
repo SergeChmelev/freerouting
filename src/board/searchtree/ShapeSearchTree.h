@@ -44,7 +44,7 @@ class ShapeSearchTree : public MinAreaTree {
    * Reusable result list for spatial overlap queries (Java: ThreadLocal<List<Leaf>>; one shared
    * list in the single-threaded port).
    */
-  static jrt::List<ShapeTree_Leaf*>* QUERY_LEAF_BUFFER();
+  static jrt::ArrayList<ShapeTree_Leaf*>* QUERY_LEAF_BUFFER();
 
  public:
   /**

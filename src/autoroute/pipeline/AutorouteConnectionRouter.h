@@ -71,13 +71,13 @@ class AutorouteConnectionRouter : public virtual jrt::Object {
   /**
    * Rejects the route when its new items carry clearance violations and restores the board from
    * the snapshot taken before it. Without a snapshot the route is kept.
-   * PORT NOTE: the snapshot is whatever BasicBoard::serialize returns (jrt::Array<int8_t>* in
-   * the mechanical mapping).
+   * PORT NOTE: the snapshot is whatever BasicBoard::serialize returns (a frozen BasicBoard*
+   * snapshot instead of Java's byte[]).
    */
   AutorouteAttemptResult* applyStrictDrcAfterRoute(
       int32_t routeNetNo,
       int32_t maxItemIdBefore,
-      jrt::Array<int8_t>* boardSnapshotBeforeRoute,
+      BasicBoard* boardSnapshotBeforeRoute,
       int32_t ripupPassNo);
 };
 

@@ -70,3 +70,11 @@
 - Listener adapters RoutingPipeline_StageListener::of(f1,f2,f3), BatchFanout_FanoutProgressListener::of(fn).
 - BatchOptimizer sequentialization described in its header comment (lazy call() on calling thread).
 - Inner classes with outer ptr: BatchFanout_Component_Pin, BatchOptimizer_ReadSortedRouteItems.
+
+## INTEGRATION TODO (coordinator)
+- DrillItem precalculatedMinWidth/FirstLayer/LastLayer: copy source caches in BasicBoard::copyItemListFrom (needs accessor in DrillItem.h).
+- Pin.changedTo: add Pin::setChangedTo(Pin*), remap via itemMap in copyItemListFrom.
+- JTS default overlay (old SnapIfNeeded) vs GEOS OverlayNG: check parity on boards with planes/zones; if drift, run Java with -Djts.overlay=ng to confirm.
+- Communication::copyForBoard now creates BoardObserverAdaptor (fixed).
+- RoutingFailureLog::deepCopy(itemMap) overload exists: board copy should use it (remap ItemFailureInfo.item to copied items) once itemMap is available (currently RoutingBoard copy ctor uses plain deepCopy()).
+- jrt Math::toDegrees/toRadians fixed to Java 9+ constants.

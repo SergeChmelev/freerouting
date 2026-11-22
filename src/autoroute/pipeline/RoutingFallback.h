@@ -85,6 +85,9 @@ class RoutingFallback_Outcome : public virtual jrt::Object {
  * Ported from freerouting.net (Erik Gavriluk, Experimental Television Center).
  */
 class RoutingFallback : public virtual jrt::Object {
+  // Java: the nested Outcome class uses the private violationsOf().
+  friend class RoutingFallback_Outcome;
+
  private:
   RoutingFallback() = default;
 

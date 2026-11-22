@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "fwd.h"
@@ -281,13 +282,13 @@ class BasicBoard : public virtual jrt::Object {
   /** Inserts an obstacle belonging to a component and associated with specific nets. */
   virtual ObstacleArea* insertObstacle(Area* area, int32_t layer, jrt::Array<int32_t>* netNumbers,
                                        int32_t clearanceClassIndex, int32_t componentId,
-                                       const std::string& name, FixedState fixedState);
+                                       const std::optional<std::string>& name, FixedState fixedState);
 
   /** Inserts an obstacle belonging to a component (name identifies it in the package). */
   virtual ObstacleArea* insertObstacle(Area* area, int32_t layer, Vector* translation,
                                        double rotationInDegree, bool sideChanged,
                                        int32_t clearanceClassIndex, int32_t componentId,
-                                       const std::string& name, FixedState fixedState);
+                                       const std::optional<std::string>& name, FixedState fixedState);
 
   /** Inserts a via obstacle area into the board. */
   virtual ViaObstacleArea* insertViaObstacle(Area* area, int32_t layer,
@@ -297,7 +298,7 @@ class BasicBoard : public virtual jrt::Object {
   virtual ViaObstacleArea* insertViaObstacle(Area* area, int32_t layer, Vector* translation,
                                              double rotationInDegree, bool sideChanged,
                                              int32_t clearanceClassIndex, int32_t componentId,
-                                             const std::string& name, FixedState fixedState);
+                                             const std::optional<std::string>& name, FixedState fixedState);
 
   /** Inserts a wire obstacle area (vias allowed, traces prohibited). */
   virtual WireObstacleArea* insertWireObstacle(Area* area, int32_t layer,
@@ -307,7 +308,7 @@ class BasicBoard : public virtual jrt::Object {
   virtual WireObstacleArea* insertWireObstacle(Area* area, int32_t layer, Vector* translation,
                                                double rotationInDegree, bool sideChanged,
                                                int32_t clearanceClassIndex, int32_t componentId,
-                                               const std::string& name, FixedState fixedState);
+                                               const std::optional<std::string>& name, FixedState fixedState);
 
   /** Inserts a component obstacle area into the board. */
   virtual ComponentObstacleArea* insertComponentObstacle(Area* area, int32_t layer,
@@ -317,7 +318,7 @@ class BasicBoard : public virtual jrt::Object {
   /** Inserts a component obstacle belonging to a component into the board. */
   virtual ComponentObstacleArea* insertComponentObstacle(
       Area* area, int32_t layer, Vector* translation, double rotationInDegree, bool sideChanged,
-      int32_t clearanceClassIndex, int32_t componentId, const std::string& name,
+      int32_t clearanceClassIndex, int32_t componentId, const std::optional<std::string>& name,
       FixedState fixedState);
 
   /** Inserts a component outline into the board. */

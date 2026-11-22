@@ -218,6 +218,9 @@ class BatchOptimizer : public NamedAlgorithm {
   /** Java: volatile. */
   FloatPoint* currentPosition = nullptr;
 
+  /** Java nested class: reads the private getItemPosition. */
+  friend class BatchOptimizer_OptimizeCandidateTask;
+
  private:
   /** Java: ThreadLocal.withInitial(WorkerBoardState::new); one instance (set in constructor). */
   BatchOptimizer_WorkerBoardState* workerBoardStates;

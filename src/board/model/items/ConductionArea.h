@@ -15,6 +15,8 @@ class ConductionArea : public ObstacleArea, public virtual Connectable {
 
   /** PORT NOTE: renamed from isObstacle (clashes with method isObstacle(Item)). */
   bool isObstacle_;
+  // PORT NOTE (board deep copy): isFilled is not carried by copy(id) (as in Java); serialization
+  // would keep it.
   bool isFilled = true;
 
   /** The clearance the fill of the zone keeps to foreign copper, in board units; 0 if unknown. */

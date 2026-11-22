@@ -9,13 +9,14 @@ namespace fr {
  * Private history entry of BoardHistory (Java: BoardHistory.BoardHistoryEntry).
  *
  * PORT NOTE: Java stores the board as a serialized byte[] (board.serialize(false)) and restores
- * it with BasicBoard.deserialize(). The port stores an independent deep copy of the board instead
- * (field `board`), and restoreBoard() hands out a fresh deep copy of it, so the stored snapshot is
- * never mutated by callers. `clearanceBaseline` is kept by reference like the Java transient field.
+ * it with BasicBoard.deserialize(). The port stores the frozen snapshot returned by
+ * board->serialize(false) (field `board`), and restoreBoard() hands out a fresh copy of it via
+ * BasicBoard::deserialize(snapshot), so the stored snapshot is never mutated by callers.
+ * `clearanceBaseline` is kept by reference like the Java transient field.
  */
 class BoardHistory_BoardHistoryEntry : public virtual jrt::Object {
  public:
-  RoutingBoard* board;  // Java: byte[] board (serialized snapshot)
+  BasicBoard* board;  // Java: byte[] board (serialized snapshot)
   std::string hash;
   float score;
   ClearanceBaseline* clearanceBaseline;

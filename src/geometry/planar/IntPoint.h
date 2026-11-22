@@ -17,7 +17,7 @@ class IntPoint final : public Point {
   int32_t y;
 
   /** Creates an IntPoint from two integer coordinates. */
-  IntPoint(int32_t x, int32_t y) : x(x), y(y) {}
+  IntPoint(int32_t x, int32_t y);
 
   using Point::sideOf;
 

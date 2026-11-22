@@ -1474,8 +1474,9 @@ template <class T>
 class TreeSet : public virtual Set<T> {
  public:
   using Collection<T>::addAll;
-  TreeSet() : cmp_(new Comparator<T>(naturalOrder<T>())), s_(CmpLess<T>{cmp_}) {}
-  explicit TreeSet(Comparator<T> c) : cmp_(new Comparator<T>(c ? c : naturalOrder<T>())), s_(CmpLess<T>{cmp_}) {}
+  TreeSet() : cmp_(new Comparator<T>(naturalOrder<T>())), s_(CmpLess<T>{cmp_}), natural_(true) {}
+  explicit TreeSet(Comparator<T> c)
+      : cmp_(new Comparator<T>(c ? c : naturalOrder<T>())), s_(CmpLess<T>{cmp_}), natural_(!c) {}
   explicit TreeSet(Collection<T>* c) : TreeSet() { this->addAll(c); }
   TreeSet(Comparator<T> c, Collection<T>* src) : TreeSet(c) { this->addAll(src); }
 
@@ -1485,6 +1486,8 @@ class TreeSet : public virtual Set<T> {
   bool remove(const T& x) override { return s_.erase(x) > 0; }
   void clear() override { s_.clear(); }
   Comparator<T> comparator() { return *cmp_; }
+  // Java `set.comparator() == null`: true when the set uses natural ordering.
+  bool hasNaturalOrdering() { return natural_; }
 
   T first() {
     if (s_.empty()) throw NoSuchElementException();
@@ -1593,6 +1596,7 @@ class TreeSet : public virtual Set<T> {
  private:
   Comparator<T>* cmp_;
   std::set<T, CmpLess<T>> s_;
+  bool natural_ = true;
 };
 
 template <class T>

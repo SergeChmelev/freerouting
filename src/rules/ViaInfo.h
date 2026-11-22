@@ -47,6 +47,8 @@ class ViaInfo : public virtual ItemInfoPrinter_Printable {
   void printInfo(ItemInfoPrinter* printer, const std::string& locale) override;
 
  private:
+  friend class BoardRules;  // PORT NOTE: BoardRules::deepCopy re-points boardRules
+
   BoardRules* boardRules;  // final
   std::string name;
   Padstack* padstack;

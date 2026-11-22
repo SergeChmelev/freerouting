@@ -47,6 +47,8 @@ class DifferentialPairs : public virtual jrt::Object {
   void clear();
 
  private:
+  friend class BoardRules;  // PORT NOTE: BoardRules::deepCopy fills the copied indices
+
   static bool hasSameIdentity(DifferentialPair* a, DifferentialPair* b);
 
   void checkNetAvailability(Net* net, DifferentialPair* pair);

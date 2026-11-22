@@ -216,8 +216,9 @@ struct Math {
   static double acos(double a) { return std::acos(a); }
   static double atan(double a) { return std::atan(a); }
   static double atan2(double y, double x) { return std::atan2(y, x); }
-  static double toRadians(double deg) { return deg / 180.0 * PI; }
-  static double toDegrees(double rad) { return rad * 180.0 / PI; }
+  // Java 9+: multiplication by precomputed constants (bit-exact with Java).
+  static double toRadians(double deg) { return deg * 0.017453292519943295; }
+  static double toDegrees(double rad) { return rad * 57.29577951308232; }
   static double signum(double d) { return (d == 0.0 || d != d) ? d : (d > 0 ? 1.0 : -1.0); }
   static double ulp(double d) {
     if (std::isnan(d)) return d;

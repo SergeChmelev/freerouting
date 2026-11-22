@@ -35,7 +35,14 @@ class DrillItem_TraceInfo : public virtual jrt::Object {
   virtual int32_t compareTo(DrillItem_TraceInfo* other) { return other->layer - this->layer; }
 };
 
-/** Common superclass for Pins and Vias. */
+/**
+ * Common superclass for Pins and Vias.
+ *
+ * PORT NOTE (board deep copy): the non-transient caches precalculatedMinWidth /
+ * precalculatedFirstLayer / precalculatedLastLayer are not carried by copy(id) (recomputed on
+ * use; precalculatedMinWidth is never invalidated by clearDerivedData, so a serialized copy would
+ * keep a possibly stale value). Pin::copy does not pass `center` either (recomputed lazily).
+ */
 class DrillItem : public Item, public virtual Connectable {
  private:
   /** The center point of the drillitem. */

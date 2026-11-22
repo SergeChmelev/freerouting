@@ -38,8 +38,8 @@ class RoutingFallbackRunner_Attempt : public virtual jrt::Object {
  * whose fanout leaves a board an earlier pass loop already started on stops after that fanout.
  * Ported from freerouting.net (Erik Gavriluk, Experimental Television Center).
  *
- * PORT NOTE: `byte[] input` (BasicBoard.serialize) -> jrt::Array<int8_t>* (mechanical mapping;
- * follows whatever BasicBoard::serialize returns).
+ * PORT NOTE: `byte[] input` (BasicBoard.serialize) -> BasicBoard* frozen snapshot (see
+ * BasicBoard::serialize / deserialize and tools/phase1-decisions.md).
  */
 class RoutingFallbackRunner : public virtual jrt::Object {
  private:
@@ -54,7 +54,7 @@ class RoutingFallbackRunner : public virtual jrt::Object {
       RoutingJob* job,
       BatchAutorouter* defaultRouter,
       jrt::List<RoutingFallback_Strategy*>* strategies,
-      jrt::Array<int8_t>* input);
+      BasicBoard* input);
   static void warnIfAutoNeckFallbackUsed(RoutingJob* job, const std::string& strategy);
   /**
    * Exploration attempts after fallback. Each attempt is a full route of the best board with a
@@ -68,7 +68,7 @@ class RoutingFallbackRunner : public virtual jrt::Object {
       RoutingJob* job, RoutingFallbackRunner_Attempt* bestAttempt, jrt::List<RoutingFallback_Strategy*>* continuations);
   RoutingFallbackRunner_Attempt* runAttempt(
       RoutingJob* job,
-      jrt::Array<int8_t>* input,
+      BasicBoard* input,
       RoutingFallback_Strategy* strategy,
       bool keepFanoutVias,
       ClearanceBaseline* inputBaseline);

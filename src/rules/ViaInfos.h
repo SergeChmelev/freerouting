@@ -35,6 +35,8 @@ class ViaInfos : public virtual ItemInfoPrinter_Printable {
   void printInfo(ItemInfoPrinter* printer, const std::string& locale) override;
 
  private:
+  friend class BoardRules;  // PORT NOTE: BoardRules::deepCopy fills the copied list
+
   /** Java: LinkedList. */
   jrt::List<ViaInfo*>* list;
 };

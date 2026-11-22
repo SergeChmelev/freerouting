@@ -50,10 +50,6 @@ class SesNumbers final : public virtual jrt::Object {
  public:
   static jrt::BigFraction sessionScale(fr::BasicBoard* board, fr::Unit unit, int32_t resolution);
 
-  /**
-   * PORT NOTE: needs BigDecimal.precision() (number of decimal digits of the unscaled value),
-   * which jrt::BigDecimal does not provide yet (compute from unscaledValue().abs().toString()).
-   */
   static jrt::BigFraction exact(const jrt::BigDecimal& value);
 
   /** PORT NOTE: BigDecimal.valueOf(double) == new BigDecimal(Double.toString(value)). */
@@ -68,11 +64,6 @@ class SesNumbers final : public virtual jrt::Object {
 
   static jrt::BigFraction simplest(SesNumbers_Interval* interval);
 
-  /**
-   * PORT NOTE: Java uses new BigDecimal(num).divide(new BigDecimal(den), scale,
-   * RoundingMode.HALF_EVEN).toPlainString(); jrt::BigDecimal has no divide(scale, rounding) yet, so
-   * phase 2 must implement the HALF_EVEN rounded division on BigInteger (num * 10^scale / den).
-   */
   static std::string format(const jrt::BigFraction& value);
 
  private:
