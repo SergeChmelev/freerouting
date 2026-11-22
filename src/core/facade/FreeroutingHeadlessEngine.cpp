@@ -84,11 +84,17 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
 
   // 1. Parse DSN into RoutingBoard (purely in-memory, no temporary files)
   jrt::Array<int8_t>* dsnBytes = request->dsnBytes();
+  // PORT EXTENSION: a front end may route an already loaded (and possibly hand-edited) board;
+  // the DSN bytes are then only used as settings source.
   io::BoardReadResult* readResult =
-      dsn::DsnReader::readBoard(dsnBytes, nullptr, nullptr, request->designName());
+      request->presetBoard != nullptr
+          ? nullptr
+          : dsn::DsnReader::readBoard(dsnBytes, nullptr, nullptr, request->designName());
 
   RoutingBoard* board;
-  if (auto* s = jrt::fast_cast<io::BoardReadResult_Success>(readResult)) {
+  if (request->presetBoard != nullptr) {
+    board = request->presetBoard;
+  } else if (auto* s = jrt::fast_cast<io::BoardReadResult_Success>(readResult)) {
     board = toRoutingBoard(s->board());
   } else if (auto* o = jrt::fast_cast<io::BoardReadResult_OutlineMissing>(readResult)) {
     board = toRoutingBoard(o->board());

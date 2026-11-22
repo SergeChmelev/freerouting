@@ -24,6 +24,8 @@
 
 namespace fr {
 class BasicBoard;
+class RoutingBoard;
+class InteractiveSession;
 }
 namespace jrt {
 template <class T>
@@ -79,6 +81,24 @@ struct Status {
   bool busy = false;
   bool boardLoaded = false;
   bool routed = false;
+  // interactive editing (see InteractiveSession)
+  std::string editMode = "select";  // select | route | drag
+  std::string editMessage;
+  int32_t editLayer = 0;
+  bool editRouting = false;         // a route is being drawn
+  bool editDragging = false;
+  bool hasCorner = false, hasTarget = false;
+  double cornerX = 0, cornerY = 0;  // last corner of the route being drawn
+  double targetX = 0, targetY = 0;  // nearest target point of that route
+  int32_t targetLayer = -1;
+  int32_t penHalfWidth = 0;
+};
+
+/** Interactive editing events (plain data). */
+struct EditEvent {
+  enum Kind { Mode, Press, Drag, Release, Move, Click, Complete, Cancel, Layer, Undo, Redo } kind;
+  double x = 0, y = 0;
+  int32_t value = 0;  // Mode: 0 select, 1 route, 2 drag; Layer: layer index
 };
 
 struct LogLine {
@@ -98,6 +118,8 @@ class Engine {
   void route(const RouteOptions& options);
   void save(const std::string& path);
   void cancel();  // cancels the running routing job and drops queued commands
+  /** Queues an interactive edit event (consecutive Move/Drag events are coalesced). */
+  void edit(const EditEvent& event);
 
   // Plain-data accessors (thread-safe).
   Status status();
@@ -108,15 +130,19 @@ class Engine {
 
  private:
   struct Command {
-    enum Kind { Load, Route, Save, Quit } kind;
+    enum Kind { Load, Route, Save, Edit, Quit } kind;
     std::string path;
     RouteOptions options;
+    EditEvent edit{EditEvent::Mode};
   };
 
   void threadMain();
   void doLoad(const std::string& path);
   void doRoute(const RouteOptions& options);
   void doSave(const std::string& path);
+  void doEdit(const EditEvent& e, bool morePending);
+  void updateEditStatus();
+  fr::RoutingBoard* routingBoard();
   void publish(fr::BasicBoard* board, bool withAirlines);
   void setStatus(const std::function<void(Status&)>& update);
   void appendLog(int32_t level, const std::string& text);
@@ -138,6 +164,7 @@ class Engine {
   // Engine-thread-only state (core objects).
   fr::BasicBoard* board_ = nullptr;  // loaded or routed board
   jrt::Array<int8_t>* dsnBytes_ = nullptr;
+  fr::InteractiveSession* session_ = nullptr;  // interactive editing of board_
   std::string designName_;
   std::string dsnPath_;
   int64_t lastPublishMs_ = 0;

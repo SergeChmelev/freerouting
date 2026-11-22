@@ -47,10 +47,16 @@ class HeadlessRoutingRequest_Builder : public virtual jrt::Object {
     boardObserver_ = std::move(observer);
     return this;
   }
+  /** PORT EXTENSION: route an already loaded board (see HeadlessRoutingRequest::presetBoard). */
+  HeadlessRoutingRequest_Builder* presetBoard(RoutingBoard* board) {
+    presetBoard_ = board;
+    return this;
+  }
   /** Builds the immutable HeadlessRoutingRequest. */
   HeadlessRoutingRequest* build();
 
  private:
+  RoutingBoard* presetBoard_ = nullptr;
   std::function<void(RoutingBoard*, const std::string&)> boardObserver_;
   jrt::Array<int8_t>* dsnBytes_ = nullptr;
   std::optional<std::string> designName_ = std::string("design.dsn");
@@ -108,6 +114,8 @@ class HeadlessRoutingRequest : public virtual jrt::Object {
    * take render snapshots. Must not modify the board.
    */
   std::function<void(RoutingBoard*, const std::string&)> boardObserver;
+  /** PORT EXTENSION: route this board instead of parsing dsnBytes (which still feed the settings). */
+  RoutingBoard* presetBoard = nullptr;
 
   /** Creates a new builder for HeadlessRoutingRequest. */
   static HeadlessRoutingRequest_Builder* builder();

@@ -123,6 +123,7 @@ HeadlessRoutingRequest* HeadlessRoutingRequest_Builder::build() {
                                              settings_, cancellationToken_, progressListener_,
                                              runDrc_, computeSes_);
   request->boardObserver = boardObserver_;
+  request->presetBoard = presetBoard_;
   return request;
 }
 

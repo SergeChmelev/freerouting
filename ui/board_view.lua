@@ -164,12 +164,12 @@ end
 
 -- Mouse handling for the canvas rect r. bOver: the mouse is over the canvas
 -- and not over a UI window. Returns the board coordinates under the cursor.
-function View:input(ctx, nk, r, bOver)
+function View:input(ctx, nk, r, bOver, bLeftPans)
    local mx, my = ctx:mouse_pos()
    if self.fit_pending then self:fit(r[3], r[4]); self.fit_pending = false end
-   -- pan: right, middle or left drag that started on the canvas
+   -- pan: right or middle drag (and left drag in select mode) that started on the canvas
    local bDown = ctx:is_mouse_down(nk.BUTTON_RIGHT) or ctx:is_mouse_down(nk.BUTTON_MIDDLE)
-              or ctx:is_mouse_down(nk.BUTTON_LEFT)
+              or (bLeftPans and ctx:is_mouse_down(nk.BUTTON_LEFT))
    if bDown and (self.drag or bOver) then
       if not self.drag then self.drag = {x = mx, y = my, cx = self.cx, cy = self.cy}
       else
@@ -236,10 +236,21 @@ function View:draw(r, i32WndH, fbScale)
       if self.show.vias then draw(ms.vias, M.VIA) end
       if self.show.outline then draw(ms.outline, M.OUTLINE) end
       if self.show.airlines then draw(ms.airlines, M.AIRLINE) end
+      -- interactive overlay (route in progress): rebuilt every frame, a few vertices only
+      if self.overlay and #self.overlay.lines > 0 then
+         local m = make_mesh(string.pack(("<" .. ("f"):rep(#self.overlay.lines)), table.unpack(self.overlay.lines)), "lines")
+         draw(m, self.overlay.color or M.AIRLINE)
+         free_mesh(m)
+      end
       gl.unbind_vertex_array()
       gl.disable('blend')
    end
    gl.disable('scissor test')
+end
+
+-- Overlay segments in board units: {x0, y0, x1, y1, ...}
+function View:set_overlay(lines, color)
+   self.overlay = lines and {lines = lines, color = color} or nil
 end
 
 -- board units -> the given display unit ('mm', 'mil', 'um', 'in')

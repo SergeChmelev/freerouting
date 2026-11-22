@@ -91,6 +91,14 @@ local cursor = {x = 0, y = 0, valid = false}
 local design_path = nil
 local initial_incompletes = nil
 local click_guard = 0          -- frames to ignore canvas clicks after menus/dialogs
+local edit_mode = 'select'     -- select | route | drag (Java GUI: Mode Route/Drag)
+local mouse_state = {down = false, bx = nil, by = nil}
+
+local function set_edit_mode(m)
+   if edit_mode == m then return end
+   edit_mode = m
+   eng:edit_mode(m)
+end
 
 local LOG_COLORS = {
    [1] = {1.0, 0.35, 0.35, 1}, [2] = {1.0, 0.8, 0.3, 1}, [3] = {0.85, 0.85, 0.85, 1},
@@ -99,6 +107,7 @@ local LOG_COLORS = {
 
 local function busy() return st.busy or st.state == 'loading' or st.state == 'routing' or st.state == 'saving' end
 local function routing() return st.state == 'routing' end
+local function editable() return st.board_loaded and not busy() end
 
 local function open_design(path)
    design_path = path
@@ -155,7 +164,7 @@ end
 local function draw_menubar(w)
    if nk.window_begin(ctx, 'menubar', {0, 0, w, MENU_H}, nk.WINDOW_NO_SCROLLBAR) then
       nk.menubar_begin(ctx)
-      nk.layout_row(ctx, 'static', MENU_H - S(8), {S(50), S(60), S(50), S(50)})
+      nk.layout_row(ctx, 'static', MENU_H - S(8), {S(50), S(50), S(60), S(50), S(50)})
       if nk.menu_begin(ctx, nil, 'File', nk.TEXT_LEFT, {S(200), S(160)}) then
          nk.layout_row_dynamic(ctx, S(24), 1)
          if nk.menu_item(ctx, nil, 'Open design...', nk.TEXT_LEFT) then click_guard = 2 dialog_open() end
@@ -163,6 +172,15 @@ local function draw_menubar(w)
             click_guard = 2 dialog_save()
          end
          if nk.menu_item(ctx, nil, 'Exit', nk.TEXT_LEFT) then glfw.set_window_should_close(window, true) end
+         nk.menu_end(ctx)
+      end
+      if nk.menu_begin(ctx, nil, 'Edit', nk.TEXT_LEFT, {S(260), S(200)}) then
+         nk.layout_row_dynamic(ctx, S(24), 1)
+         if nk.menu_item(ctx, nil, 'Undo  (Ctrl+Z)', nk.TEXT_LEFT) then eng:undo() end
+         if nk.menu_item(ctx, nil, 'Redo  (Ctrl+Y)', nk.TEXT_LEFT) then eng:redo() end
+         if nk.menu_item(ctx, nil, 'Select / pan mode', nk.TEXT_LEFT) then set_edit_mode('select') end
+         if nk.menu_item(ctx, nil, 'Interactive route mode', nk.TEXT_LEFT) then set_edit_mode('route') end
+         if nk.menu_item(ctx, nil, 'Drag mode', nk.TEXT_LEFT) then set_edit_mode('drag') end
          nk.menu_end(ctx)
       end
       if nk.menu_begin(ctx, nil, 'Route', nk.TEXT_LEFT, {S(200), S(120)}) then
@@ -193,8 +211,20 @@ end
 local function draw_toolbar(w)
    if nk.window_begin(ctx, 'toolbar', {0, MENU_H, w, TOOL_H}, nk.WINDOW_NO_SCROLLBAR) then
       nk.layout_row(ctx, 'static', TOOL_H - S(12),
-                    {S(70), S(100), S(60), S(90), S(50), S(20), S(40), S(70), w - S(560)})
+                    {S(60), S(48), S(60), S(56), S(12), S(56), S(56), S(12), S(96), S(52), S(80),
+                     S(40), S(12), S(40), S(70), math.max(S(40), w - S(810))})
       if nk.button(ctx, nil, 'Open') then click_guard = 2 dialog_open() end
+      -- Mode (Java GUI toolbar: Route / Drag); deselecting returns to select/pan
+      nk.label(ctx, 'Mode', nk.TEXT_RIGHT)
+      for _, m in ipairs({{'route', 'Route'}, {'drag', 'Drag'}}) do
+         local sel = nk.selectable(ctx, nil, m[2], nk.TEXT_CENTERED, edit_mode == m[1])
+         if sel and edit_mode ~= m[1] then set_edit_mode(m[1])
+         elseif not sel and edit_mode == m[1] then set_edit_mode('select') end
+      end
+      nk.spacing(ctx, 1)
+      if nk.button(ctx, nil, 'Undo') then eng:undo() end
+      if nk.button(ctx, nil, 'Redo') then eng:redo() end
+      nk.spacing(ctx, 1)
       if routing() then
          nk.label(ctx, 'Routing...', nk.TEXT_CENTERED, {1, 0.8, 0.3, 1})
       elseif nk.button(ctx, nil, 'Autoroute') then
@@ -241,7 +271,10 @@ local function draw_layers()
    for i, L in ipairs(view.layers) do
       nk.layout_row(ctx, 'dynamic', S(22), {0.15, 0.6, 0.25})
       local active, changed = nk.option(ctx, '', view.active_layer == i)
-      if changed and active then view.active_layer = i end
+      if changed and active then
+         view.active_layer = i
+         eng:set_layer(i)     -- routing layer (during a route this inserts a via, like Java)
+      end
       nk.label(ctx, L.name, nk.TEXT_LEFT, L.colors.traces)
       L.visible = nk.checkbox(ctx, '', L.visible)
    end
@@ -324,7 +357,9 @@ local function draw_statusbar(w, h)
       local u = st.unrouted >= 0 and st.unrouted or 0
       nk.label(ctx, ('Violations: %d'):format(v), nk.TEXT_LEFT, v > 0 and {1, 0.35, 1, 1} or nil)
       nk.label(ctx, ('Unrouted: %d'):format(u), nk.TEXT_LEFT, u > 0 and {1, 0.8, 0.3, 1} or nil)
-      nk.label(ctx, st.message, nk.TEXT_LEFT)
+      local em = st.edit and st.edit.message or ''
+      local mode = edit_mode ~= 'select' and ('[' .. edit_mode .. ' L' .. (st.edit and st.edit.layer or 1) .. '] ') or ''
+      nk.label(ctx, mode .. (em ~= '' and em or st.message), nk.TEXT_LEFT)
       if cursor.valid then
          local un = UNITS[unit_idx]
          nk.label(ctx, ('X %.4f  Y %.4f %s'):format(view:convert(cursor.x, un),
@@ -369,8 +404,33 @@ local function autopilot_step(fbw, fbh)
    a.frames = a.frames + 1
    if a.phase == 'load' and st.board_loaded and view.version > 0 and a.frames > 20 then
       screenshot(SHOT .. '_loaded.png', fbw, fbh)
+      if os.getenv('FRUI_EDIT') then
+         -- interactive route along the first airline, through the same engine calls the mouse uses
+         local s = eng:snapshot(0)
+         a.ax0, a.ay0, a.ax1, a.ay1 = string.unpack('<ffff', s.airlines, 1)
+         set_edit_mode('route')
+         eng:mouse('click', a.ax0, a.ay0)
+         a.phase, a.frames, a.step = 'edit', 0, 0
+         return
+      end
       start_routing()
       a.phase, a.frames, a.t0 = 'route', 0, glfw.get_time()
+   elseif a.phase == 'edit' then
+      if a.frames % 3 == 0 and a.step < 10 then
+         a.step = a.step + 1
+         local t = a.step / 20
+         eng:mouse('move', a.ax0 + (a.ax1 - a.ax0) * t, a.ay0 + (a.ay1 - a.ay0) * t)
+      elseif a.step >= 10 and a.frames > 45 and not a.mid then
+         screenshot(SHOT .. '_editing.png', fbw, fbh)
+         a.mid = true
+         for i = 11, 20 do
+            local t = i / 20
+            eng:mouse('move', a.ax0 + (a.ax1 - a.ax0) * t, a.ay0 + (a.ay1 - a.ay0) * t)
+         end
+         eng:key('complete')
+      elseif a.mid and a.frames > 80 then
+         a.phase, a.frames = 'done', 0
+      end
    elseif a.phase == 'route' then
       if routing() and not a.mid and glfw.get_time() - a.t0 > 1.5 then
          screenshot(SHOT .. '_routing.png', fbw, fbh)
@@ -386,6 +446,108 @@ local function autopilot_step(fbw, fbh)
 end
 
 -- --------------------------------------------------------------- main loop
+
+-- ------------------------------------------------------------------ keyboard
+-- Esc cancels the route/drag, Enter/Space completes it, Ctrl+Z / Ctrl+Y undo/redo,
+-- 1..9 / +/- change the routing layer (inserting a via while routing), r/d/s switch mode.
+
+local function signal_layers()
+   local r = {}
+   for i, L in ipairs(view.layers) do if L.signal then r[#r + 1] = i end end
+   return r
+end
+
+local function step_layer(dir)
+   local sig = signal_layers()
+   local cur = st.edit and st.edit.layer or view.active_layer
+   for k = 1, #sig do
+      if sig[k] == cur then
+         local n = sig[k + dir]
+         if n then view.active_layer = n eng:set_layer(n) end
+         return
+      end
+   end
+end
+
+glfw.set_key_callback(window, function(wnd, key, scancode, action, shift, control, alt, super)
+   if action == 'press' and not FileDialog.active() and not nk.item_is_any_active(ctx) then
+      if key == 'escape' then eng:key('cancel') return
+      elseif (key == 'enter' or key == 'space') and edit_mode ~= 'select' then eng:key('complete') return
+      elseif key == 'z' and control then eng:undo() return
+      elseif key == 'y' and control then eng:redo() return
+      elseif key == 'r' and not control then set_edit_mode('route') return
+      elseif key == 'd' and not control then set_edit_mode('drag') return
+      elseif key == 's' and not control then set_edit_mode('select') return
+      elseif key == 'f' and not control then view.fit_pending = true return
+      end
+   end
+   backend.key_callback(wnd, key, scancode, action, shift, control, alt, super)
+end)
+
+glfw.set_char_callback(window, function(wnd, cp)
+   if not FileDialog.active() and not nk.item_is_any_active(ctx) then
+      local ch = utf8.char(cp)
+      if ch:match('%d') and ch ~= '0' then
+         local sig = signal_layers()
+         local n = sig[math.min(tonumber(ch), #sig)]
+         if n then view.active_layer = n eng:set_layer(n) end
+         return
+      elseif ch == '+' then step_layer(1) return
+      elseif ch == '-' then step_layer(-1) return
+      end
+   end
+   if backend.char_callback then backend.char_callback(wnd, cp) end
+end)
+
+-- Canvas mouse -> engine (board coordinates). Route: click starts/finishes, moves follow the
+-- cursor while a route is open. Drag: press/drag/release on the item under the cursor.
+local function canvas_edit_input(over, bx, by)
+   if not editable() or edit_mode == 'select' then
+      mouse_state.down = false
+      return
+   end
+   local pressed = over and ctx:is_mouse_pressed(nk.BUTTON_LEFT)
+   local down = ctx:is_mouse_down(nk.BUTTON_LEFT)
+   local moved = bx ~= mouse_state.bx or by ~= mouse_state.by
+   mouse_state.bx, mouse_state.by = bx, by
+   if edit_mode == 'route' then
+      if pressed then
+         eng:mouse('click', bx, by)
+      elseif moved and over and st.edit and st.edit.routing then
+         eng:mouse('move', bx, by)
+      end
+   elseif edit_mode == 'drag' then
+      if pressed then
+         mouse_state.down = true
+         eng:mouse('press', bx, by)
+      elseif mouse_state.down and down and moved then
+         eng:mouse('drag', bx, by)
+      elseif mouse_state.down and not down then
+         mouse_state.down = false
+         eng:mouse('release')
+      end
+   end
+end
+
+-- overlay of the route being drawn: a line from its last corner to the nearest target
+local function update_overlay()
+   local e = st.edit
+   if e and e.routing and e.corner_x then
+      local L = {}
+      local s = (e.pen_half_width or 0) * 2 + 1
+      -- cross at the route end
+      L[#L + 1], L[#L + 2], L[#L + 3], L[#L + 4] = e.corner_x - s, e.corner_y, e.corner_x + s, e.corner_y
+      L[#L + 1], L[#L + 2], L[#L + 3], L[#L + 4] = e.corner_x, e.corner_y - s, e.corner_x, e.corner_y + s
+      if e.target_x then
+         L[#L + 1], L[#L + 2], L[#L + 3], L[#L + 4] = e.corner_x, e.corner_y, e.target_x, e.target_y
+      end
+      view:set_overlay(L, {1, 1, 1, 1})
+   else
+      view:set_overlay(nil)
+   end
+   -- the routing layer may change through via insertion: follow it in the layer panel
+   if e and e.routing and e.layer and view.layers[e.layer] then view.active_layer = e.layer end
+end
 
 if arg[1] then open_design(arg[1]) end
 
@@ -416,8 +578,10 @@ while not glfw.window_should_close(window) do
    local inside = mx >= cx and my >= cy and mx < cx + cw and my < cy + ch
    local over = inside and not nk.window_is_any_hovered(ctx) and not FileDialog.active()
                 and click_guard == 0 and not Dock.dragging()
-   cursor.x, cursor.y = view:input(ctx, nk, rect, over)
+   cursor.x, cursor.y = view:input(ctx, nk, rect, over, edit_mode == 'select' or not editable())
    cursor.valid = inside and view.bbox ~= nil
+   if view.bbox then canvas_edit_input(over, cursor.x, cursor.y) end
+   update_overlay()
 
    gl.viewport(0, 0, fbw, fbh)
    gl.disable('scissor test')

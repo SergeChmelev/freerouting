@@ -114,6 +114,58 @@ int l_route(lua_State* L) {
   return 0;
 }
 
+// eng:edit_mode("select" | "route" | "drag")
+int l_edit_mode(lua_State* L) {
+  frui::Engine* e = checkEngine(L);
+  static const char* const kModes[] = {"select", "route", "drag", nullptr};
+  frui::EditEvent ev{frui::EditEvent::Mode};
+  ev.value = luaL_checkoption(L, 2, nullptr, kModes);
+  e->edit(ev);
+  return 0;
+}
+
+// eng:mouse("press" | "drag" | "release" | "move" | "click", x, y)  -- board coordinates
+int l_mouse(lua_State* L) {
+  frui::Engine* e = checkEngine(L);
+  static const char* const kKinds[] = {"press", "drag", "release", "move", "click", nullptr};
+  static const frui::EditEvent::Kind kMap[] = {frui::EditEvent::Press, frui::EditEvent::Drag,
+                                               frui::EditEvent::Release, frui::EditEvent::Move,
+                                               frui::EditEvent::Click};
+  frui::EditEvent ev{kMap[luaL_checkoption(L, 2, nullptr, kKinds)]};
+  ev.x = luaL_optnumber(L, 3, 0);
+  ev.y = luaL_optnumber(L, 4, 0);
+  e->edit(ev);
+  return 0;
+}
+
+// eng:key("complete" | "cancel")
+int l_key(lua_State* L) {
+  frui::Engine* e = checkEngine(L);
+  static const char* const kKeys[] = {"complete", "cancel", nullptr};
+  int k = luaL_checkoption(L, 2, nullptr, kKeys);
+  e->edit(frui::EditEvent{k == 0 ? frui::EditEvent::Complete : frui::EditEvent::Cancel});
+  return 0;
+}
+
+// eng:set_layer(index)  -- 1-based like the snapshot layer list
+int l_set_layer(lua_State* L) {
+  frui::Engine* e = checkEngine(L);
+  frui::EditEvent ev{frui::EditEvent::Layer};
+  ev.value = static_cast<int32_t>(luaL_checkinteger(L, 2)) - 1;
+  e->edit(ev);
+  return 0;
+}
+
+int l_undo(lua_State* L) {
+  checkEngine(L)->edit(frui::EditEvent{frui::EditEvent::Undo});
+  return 0;
+}
+
+int l_redo(lua_State* L) {
+  checkEngine(L)->edit(frui::EditEvent{frui::EditEvent::Redo});
+  return 0;
+}
+
 int l_status(lua_State* L) {
   frui::Status s = checkEngine(L)->status();
   lua_createtable(L, 0, 16);
@@ -130,6 +182,23 @@ int l_status(lua_State* L) {
   setBool(L, "busy", s.busy);
   setBool(L, "board_loaded", s.boardLoaded);
   setBool(L, "routed", s.routed);
+  lua_createtable(L, 0, 12);
+  setStr(L, "mode", s.editMode);
+  setStr(L, "message", s.editMessage);
+  setInt(L, "layer", s.editLayer + 1);
+  setBool(L, "routing", s.editRouting);
+  setBool(L, "dragging", s.editDragging);
+  if (s.hasCorner) {
+    setNum(L, "corner_x", s.cornerX);
+    setNum(L, "corner_y", s.cornerY);
+    setInt(L, "pen_half_width", s.penHalfWidth);
+  }
+  if (s.hasTarget) {
+    setNum(L, "target_x", s.targetX);
+    setNum(L, "target_y", s.targetY);
+    setInt(L, "target_layer", s.targetLayer + 1);
+  }
+  lua_setfield(L, -2, "edit");
   return 1;
 }
 
@@ -200,7 +269,9 @@ int l_logs(lua_State* L) {
 const luaL_Reg kEngineMethods[] = {
     {"load", l_load},     {"route", l_route}, {"save", l_save},
     {"cancel", l_cancel}, {"status", l_status}, {"snapshot", l_snapshot},
-    {"logs", l_logs},     {"close", l_close}, {nullptr, nullptr},
+    {"logs", l_logs},     {"close", l_close},
+    {"edit_mode", l_edit_mode}, {"mouse", l_mouse}, {"key", l_key},
+    {"set_layer", l_set_layer}, {"undo", l_undo}, {"redo", l_redo}, {nullptr, nullptr},
 };
 
 const luaL_Reg kModuleFunctions[] = {

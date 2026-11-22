@@ -32,6 +32,9 @@
 #include "geometry/planar/FloatPoint.h"
 #include "geometry/planar/PolylineShape.h"
 #include "geometry/planar/TileShape.h"
+#include "interactive/InteractiveSession.h"
+#include "interactive/Route.h"
+#include "geometry/planar/Point.h"
 #include "io/BoardReadResult.h"
 #include "io/specctra/DsnReader.h"
 #include "io/specctra/SesWriter.h"
@@ -236,6 +239,22 @@ void Engine::cancel() {
   cancelRequested_ = true;
 }
 
+void Engine::edit(const EditEvent& event) {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    bool coalescable = event.kind == EditEvent::Move || event.kind == EditEvent::Drag;
+    if (coalescable && !queue_.empty() && queue_.back().kind == Command::Edit &&
+        queue_.back().edit.kind == event.kind) {
+      queue_.back().edit = event;  // only the latest mouse position matters
+    } else {
+      Command cmd{Command::Edit, {}, {}};
+      cmd.edit = event;
+      queue_.push_back(cmd);
+    }
+  }
+  cv_.notify_all();
+}
+
 Status Engine::status() {
   std::lock_guard<std::mutex> lock(mutex_);
   Status s = status_;
@@ -274,11 +293,13 @@ void Engine::threadMain() {
   jrt::GcThreadScope gcScope;  // this thread runs core code: register it with the collector
   for (;;) {
     Command cmd;
+    bool moreEdits = false;
     {
       std::unique_lock<std::mutex> lock(mutex_);
       cv_.wait(lock, [this] { return !queue_.empty(); });
       cmd = queue_.front();
       queue_.pop_front();
+      moreEdits = !queue_.empty() && queue_.front().kind == Command::Edit;
     }
     if (cmd.kind == Command::Quit) return;
     int64_t start = jrt::System::currentTimeMillis();
@@ -287,6 +308,7 @@ void Engine::threadMain() {
         case Command::Load: doLoad(cmd.path); break;
         case Command::Route: doRoute(cmd.options); break;
         case Command::Save: doSave(cmd.path); break;
+        case Command::Edit: doEdit(cmd.edit, moreEdits); continue;  // no busy/elapsed bookkeeping
         default: break;
       }
     } catch (const jrt::Throwable& e) {
@@ -348,6 +370,7 @@ void Engine::doLoad(const std::string& path) {
   if (board == nullptr) throw jrt::IOException("DSN did not contain a valid board");
 
   board_ = board;
+  session_ = nullptr;
   dsnBytes_ = bytes;
   designName_ = name;
   dsnPath_ = path;
@@ -366,6 +389,10 @@ void Engine::doLoad(const std::string& path) {
 
 void Engine::doRoute(const RouteOptions& o) {
   if (dsnBytes_ == nullptr) throw jrt::IllegalStateException("no design loaded");
+  if (session_ != nullptr) {  // finish a half-drawn route / drag before autorouting
+    session_->cancel();
+    updateEditStatus();
+  }
   cancelRequested_ = false;
   setStatus([&](Status& s) {
     s.state = "routing";
@@ -388,6 +415,7 @@ void Engine::doRoute(const RouteOptions& o) {
   auto* request =
       fr::HeadlessRoutingRequest::builder()
           ->dsnBytes(dsnBytes_)
+          ->presetBoard(routingBoard())  // route the current (possibly hand-edited) board
           ->designName(designName_)
           ->settings(settings)
           ->runDrc(o.drc)
@@ -415,6 +443,7 @@ void Engine::doRoute(const RouteOptions& o) {
 
   fr::HeadlessRoutingResult* result = fr::FreeroutingHeadlessEngine::route(request);
   if (result->board() != nullptr) board_ = result->board();
+  session_ = nullptr;  // recreated on the next edit event, on the routed board
   if (board_ != nullptr) publish(board_, true);
 
   int32_t violations = result->clearanceViolations() ? result->clearanceViolations()->size() : 0;
@@ -450,6 +479,90 @@ void Engine::doSave(const std::string& path) {
     s.state = "ready";
     s.message = "Saved " + path;
   });
+}
+
+}  // namespace frui
+
+namespace frui {
+
+fr::RoutingBoard* Engine::routingBoard() { return jrt::fast_cast<fr::RoutingBoard>(board_); }
+
+void Engine::updateEditStatus() {
+  fr::InteractiveSession* s = session_;
+  setStatus([&](Status& st) {
+    if (s == nullptr) {
+      st.editRouting = st.editDragging = st.hasCorner = st.hasTarget = false;
+      return;
+    }
+    static const char* const kModes[] = {"select", "route", "drag"};
+    st.editMode = kModes[static_cast<int>(s->mode())];
+    st.editMessage = s->statusMessage();
+    st.editLayer = s->layer();
+    st.editRouting = s->routing();
+    st.editDragging = s->dragging();
+    st.hasCorner = st.hasTarget = false;
+    if (fr::Route* r = s->route()) {
+      fr::FloatPoint* c = r->getLastCorner()->toFloat();
+      st.hasCorner = true;
+      st.cornerX = c->x;
+      st.cornerY = c->y;
+      st.penHalfWidth = r->getPenHalfWidth(r->getLayer());
+      st.editLayer = r->getLayer();
+      if (fr::FloatPoint* t = r->getNearestTargetPoint()) {
+        st.hasTarget = true;
+        st.targetX = t->x;
+        st.targetY = t->y;
+        st.targetLayer = r->nearestTargetLayer();
+      }
+    }
+  });
+}
+
+void Engine::doEdit(const EditEvent& e, bool morePending) {
+  fr::RoutingBoard* board = routingBoard();
+  if (board == nullptr) return;
+  if (session_ == nullptr || session_->board() != board) {
+    auto* s = new fr::InteractiveSession(board);
+    // keep the mode and layer chosen in the UI across board replacements
+    Status st = status();
+    s->changeLayer(st.editLayer);
+    if (st.editMode == "route") s->setMode(fr::InteractiveSession::Mode::Route);
+    else if (st.editMode == "drag") s->setMode(fr::InteractiveSession::Mode::Drag);
+    session_ = s;
+  }
+  fr::InteractiveSession* s = session_;
+  bool changed = false;
+  bool finished = false;  // end of an action: recompute incompletes too
+  switch (e.kind) {
+    case EditEvent::Mode:
+      s->setMode(e.value == 1 ? fr::InteractiveSession::Mode::Route
+                 : e.value == 2 ? fr::InteractiveSession::Mode::Drag
+                                : fr::InteractiveSession::Mode::Select);
+      changed = finished = true;
+      break;
+    case EditEvent::Press: changed = s->mousePressed(e.x, e.y); break;
+    case EditEvent::Drag: changed = s->mouseDragged(e.x, e.y); break;
+    case EditEvent::Release: changed = finished = s->mouseReleased(); break;
+    case EditEvent::Move: {
+      bool wasRouting = s->routing();
+      changed = s->mouseMoved(e.x, e.y);
+      finished = wasRouting && !s->routing();  // connection completed
+      break;
+    }
+    case EditEvent::Click: {
+      changed = s->leftClicked(e.x, e.y);
+      finished = !s->routing();
+      changed = changed || finished;
+      break;
+    }
+    case EditEvent::Complete: s->complete(); changed = finished = true; break;
+    case EditEvent::Cancel: changed = finished = s->cancel() || true; break;
+    case EditEvent::Layer: changed = s->changeLayer(e.value); finished = !s->routing(); break;
+    case EditEvent::Undo: changed = finished = s->undo(); break;
+    case EditEvent::Redo: changed = finished = s->redo(); break;
+  }
+  updateEditStatus();
+  if (changed && (!morePending || finished)) publish(board, finished);
 }
 
 }  // namespace frui
