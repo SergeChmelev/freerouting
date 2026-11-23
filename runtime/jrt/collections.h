@@ -1230,6 +1230,18 @@ class HashMap : public virtual Map<K, V> {
     threshold_ = tableSizeFor(initial_capacity);
   }
   explicit HashMap(Map<K, V>* m) { putMapEntries(m); }
+  // PORT NOTE (stage E): the map owns its nodes (a disposed map frees them; arena nodes stay).
+  HashMap(const HashMap&) = delete;
+  HashMap& operator=(const HashMap&) = delete;
+  ~HashMap() override {
+    for (Node* head : table_) {
+      for (Node* e = head; e != nullptr;) {
+        Node* next = e->next;
+        dispose(e);
+        e = next;
+      }
+    }
+  }
 
   int32_t size() override { return size_; }
   Entry* getEntry(const K& k) override { return findNode(k); }
@@ -1554,6 +1566,10 @@ class HashSet : public virtual Set<T> {
 
  protected:
   explicit HashSet(HashMap<T, Present>* m) : m_(m) {}
+  // PORT NOTE (stage E): the set owns its map.
+  HashSet(const HashSet&) = delete;
+  HashSet& operator=(const HashSet&) = delete;
+  ~HashSet() override { dispose(m_); }
   HashMap<T, Present>* m_;
 };
 
@@ -1750,6 +1766,14 @@ class TreeMap : public virtual Map<K, V> {
       : cmp_(new (Like{this}) Comparator<K>(c ? c : naturalOrder<K>())),
         m_(CmpLess<K>{cmp_, !c}, DomainAlloc<std::pair<const K, Entry*>>(domain_arena_of(this))) {}
   explicit TreeMap(Map<K, V>* src) : TreeMap() { this->putAll(src); }
+  // PORT NOTE (stage E): the map owns its entries and comparator.
+  TreeMap(const TreeMap&) = delete;
+  TreeMap& operator=(const TreeMap&) = delete;
+  ~TreeMap() override {
+    for (auto& kv : m_) dispose(kv.second);
+    m_.clear();
+    dispose(cmp_);
+  }
 
   int32_t size() override { return static_cast<int32_t>(m_.size()); }
   Entry* getEntry(const K& k) override {
