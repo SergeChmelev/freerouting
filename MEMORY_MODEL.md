@@ -493,6 +493,13 @@ still run out of memory (Issue022, Issue110-Pajalnaja_stancija / -Паяльна
 Issue178, Issue187, Issue214, Issue269), plus the two old failures (was 37 SAME / 21 out of
 memory after E2). bm02: 184 MB still allocated at exit (was 2.85 GB with E1's start).
 
+Live profile of an out-of-memory board (Issue187, no limit: 5.2 GB still allocated at exit):
+> 1.4 GB are tree-shape caches of removed / replaced items (`getPrecalculatedTreeShapes`,
+`offsetShapes` from `treeShapeCount`, `Line::translate`): nothing frees an item and its
+caches yet — deferred item disposal (TODO) is the main lever for the large boards. About 1 GB
+more is kOp temporaries of main-board shoving (`TraceShover::springOver`, `entrancePoints`,
+`cutout` via `StepSlider`), which main-board regions cannot take yet (TODO).
+
 ## TODO (stage C/E)
 
 * kOp in main-board regions: enabling it for the step slider broke 11/40 smoke boards. The
