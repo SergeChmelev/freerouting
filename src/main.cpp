@@ -143,6 +143,7 @@ int main(int argc, char** argv) {
               result->unroutedConnections(), violations, seconds, result->isCancelled() ? " (cancelled)" : "",
               output.c_str(), ses.size());
   if (std::getenv("FR_MEM_STATS") != nullptr) {
+    jrt::drain_arena_pool();  // cached free chunks are not a leak
     std::fprintf(stderr, "memory: arena peak %.1f MB, GC heap %.1f MB, disposed %zu objects / %.1f MB\n",
                  jrt::Arena::peakBytes() / 1048576.0, jrt::gc_heap_size() / 1048576.0, jrt::disposed_count(),
                  jrt::disposed_bytes() / 1048576.0);

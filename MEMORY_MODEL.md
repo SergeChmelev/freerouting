@@ -488,6 +488,13 @@ regions stay geometry-only until those stores are known.
 
 ## TODO (stage C/E)
 
+* kOp in main-board regions: enabling it for the step slider broke 11/40 smoke boards. The
+  escape check cannot name the holders any more: dead intermediate rooms of `completeShape`
+  (kOp, now in the search region's chunks) keep pointers into released local regions, so every
+  local region shows escapes from live chunks (stale, never read). Needs a check that ignores
+  dead objects in live arena chunks, or reading the main-board stores (caches, ledgers, item
+  fields) one by one.
+
 * Items: deferred disposal of removed items and their geometry (callers keep using an item after
   `removeItem`; caches refer to items).
 * Performance after the migration: domain lookups (`DomainScope`, `keep`, chunk map) slowed long

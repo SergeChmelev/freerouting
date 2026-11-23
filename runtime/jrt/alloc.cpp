@@ -85,12 +85,34 @@ void* chunk_alloc(std::size_t bytes) { return GC_MALLOC_IGNORE_OFF_PAGE(bytes); 
 void chunk_free(void* c) { GC_FREE(c); }
 #endif
 
+void chunk_free(void* c);
+
+// Frees the pooled chunks of a thread's pool (they are a cache: at exit nothing needs them).
+void drain_pool(Pool* pool) {
+  for (void* c = pool->head; c != nullptr;) {
+    void* next = *static_cast<void**>(c);
+    JRT_ASAN_UNPOISON(c, sizeof(void*));
+    chunk_free(c);
+    c = next;
+  }
+  pool->head = nullptr;
+  pool->bytes = 0;
+}
+
+Pool* g_mainPool = nullptr;
+
 Pool* thread_pool() {
   thread_local Pool* pool = nullptr;
   if (pool == nullptr) {
     pool = static_cast<Pool*>(alloc_uncollectable(sizeof(Pool)));
     pool->head = nullptr;
     pool->bytes = 0;
+    // PORT NOTE (stage E): the first pool (the main thread's) is drained at exit, so that the
+    // leak accounting and LeakSanitizer do not see the cached chunks.
+    if (g_mainPool == nullptr) {
+      g_mainPool = pool;
+      std::atexit([] { drain_pool(g_mainPool); });
+    }
   }
   return pool;
 }
@@ -528,6 +550,8 @@ void dispose_block(void* mem, const char* type) noexcept {
 
 std::size_t disposed_count() noexcept { return g_disposedCount.load(std::memory_order_relaxed); }
 std::size_t disposed_bytes() noexcept { return g_disposedBytes.load(std::memory_order_relaxed); }
+
+void drain_arena_pool() { drain_pool(thread_pool()); }
 
 std::size_t Arena::peakBytes() { return g_peak.load(std::memory_order_relaxed); }
 std::size_t Arena::liveBytes() { return g_live.load(std::memory_order_relaxed); }

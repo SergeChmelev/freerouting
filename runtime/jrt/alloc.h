@@ -170,6 +170,9 @@ class Arena {
   std::uintptr_t chunkTag_ = 0;
 };
 
+/** Frees this thread's pool of cached free arena chunks (e.g. before reporting leaks). */
+void drain_arena_pool();
+
 /** The arena kSearch allocations go to on this thread (nullptr: GC heap). */
 Arena*& current_search_arena();
 
