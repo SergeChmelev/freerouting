@@ -35,7 +35,8 @@ BoardOutline* BoardItemRepository::getOutline() {
 }
 
 BoardOutline* BoardItemRepository::findOutline() {
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(iterator);
     if (currentItem == nullptr) {
@@ -51,8 +52,8 @@ Item* BoardItemRepository::getItem(int32_t id) {
   int64_t stamp = board->itemList->getVersion();
   if (idMap == nullptr || stamp != idMapStamp) {
     idMap = new (jrt::kBoard) jrt::HashMap<int32_t, Item*>();
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator =
-        board->itemList->startReadObject();
+    auto iteratorScope = board->itemList->readScope();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
     for (;;) {
       UndoableObjects_Storable* currentItem = board->itemList->readObject(iterator);
       if (currentItem == nullptr) {
@@ -69,7 +70,8 @@ Item* BoardItemRepository::getItem(int32_t id) {
 
 int32_t BoardItemRepository::getViaCount() {
   int32_t result = 0;
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(iterator);
     if (currentItem == nullptr) {
@@ -83,7 +85,8 @@ int32_t BoardItemRepository::getViaCount() {
 
 int32_t BoardItemRepository::getPinCount() {
   int32_t result = 0;
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(iterator);
     if (currentItem == nullptr) {
@@ -97,7 +100,8 @@ int32_t BoardItemRepository::getPinCount() {
 
 jrt::Collection<Item*>* BoardItemRepository::getItems() {
   jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {
@@ -250,7 +254,8 @@ bool BoardItemRepository::removeItems(jrt::Collection<Item*>* items) {
 
 void BoardItemRepository::deleteAllTracksAndVias() {
   board->routingLedger()->invalidate();
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(iterator);
     if (currentItem == nullptr) {

@@ -1,6 +1,9 @@
 ﻿// Port of app.freerouting.datastructures.UndoableObjects
 #include "datastructures/UndoableObjects.h"
 
+#include <algorithm>
+#include <cstdlib>
+
 #include "board/model/items/Item.h"
 #include "logger/FRLogger.h"
 
@@ -13,8 +16,14 @@ using UONode = UndoableObjects_UndoableObjectNode;
 // ---------------------------------------------------------------------------------------------
 
 UndoableObjects_NodeIterator::UndoableObjects_NodeIterator(
-    jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UONode*>* map)
-    : map_(map) {
+    jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UONode*>* map, int32_t* liveIterators)
+    : map_(map), liveIterators_(liveIterators) {
+  ++*liveIterators_;
+  restart();
+}
+
+void UndoableObjects_NodeIterator::restart() {
+  lastReturned_ = nullptr;
   nextIt_ = map_->mapBegin();
   nextStamp_ = map_->eraseCount();
   nextEntry_ = nextIt_ != map_->mapEnd() ? nextIt_->second : nullptr;
@@ -72,7 +81,7 @@ UndoableObjects* UndoableObjects::copyMapped(
     if (existing != nullptr) {
       return existing;
     }
-    auto* copy = new (jrt::kBoardData) UONode(mapObject(original->object), original->level);
+    auto* copy = result->newNode(mapObject(original->object), original->level);
     nodeCopies->put(original, copy);
     pending.push_back(original);
     return copy;
@@ -105,8 +114,59 @@ UndoableObjects::UndoableObjects() {
   deletedObjectsStack = new (jrt::kBoard) jrt::ArrayList<jrt::Collection<UONode*>*>();
 }
 
-jrt::Iterator<UONode*>* UndoableObjects::startReadObject() {
-  return new (jrt::kOp) UndoableObjects_NodeIterator(objects);
+UONode* UndoableObjects::newNode(UndoableObjects_Storable* object, int32_t level) {
+  auto* node = new (jrt::kBoardData) UONode(object, level);
+  if (jrt::is_heap_block(node)) {
+    ownedNodes_.push_back(node);  // board-arena nodes are released with the arena
+  }
+  return node;
+}
+
+std::size_t UndoableObjects::sweepMinimum() {
+  static const std::size_t v = [] {
+    const char* e = std::getenv("FR_UNDO_SWEEP_MIN");
+    return e != nullptr ? static_cast<std::size_t>(std::max(1L, std::atol(e))) : std::size_t{4096};
+  }();
+  return v;
+}
+
+void UndoableObjects::sweepNodes() {
+  // Mark every node reachable from the map and the delete lists (following undo/redo links).
+  uint32_t epoch = ++markEpoch_;
+  if (epoch == 0) {
+    epoch = markEpoch_ = 1;  // wrapped: stale marks of 0 never equal a live epoch
+    for (UONode* n : ownedNodes_) n->mark = 0;
+  }
+  std::vector<UONode*> stack;
+  auto push = [&](UONode* n) {
+    if (n != nullptr && n->mark != epoch) {
+      n->mark = epoch;
+      stack.push_back(n);
+    }
+  };
+  for (auto* entry : *this->objects) push(entry->getValue());
+  for (auto* deleteList : *this->deletedObjectsStack) {
+    for (UONode* n : *deleteList) push(n);
+  }
+  while (!stack.empty()) {
+    UONode* n = stack.back();
+    stack.pop_back();
+    push(n->undoObject);
+    push(n->redoObject);
+  }
+  // Free the others: nothing can reach them any more (no iteration is live).
+  std::size_t kept = 0;
+  for (UONode* n : ownedNodes_) {
+    if (n->mark == epoch) {
+      ownedNodes_[kept++] = n;
+    } else {
+      jrt::dispose(n);
+    }
+  }
+  // Null the tail first: a shrunk std::vector keeps the old pointers in its capacity.
+  std::fill(ownedNodes_.begin() + static_cast<std::ptrdiff_t>(kept), ownedNodes_.end(), nullptr);
+  ownedNodes_.resize(kept);
+  sweepAt_ = std::max<std::size_t>(sweepMinimum(), 2 * kept);
 }
 
 UndoableObjects_Storable* UndoableObjects::readObject(jrt::Iterator<UONode*>* it) {
@@ -124,11 +184,13 @@ void UndoableObjects::insert(UndoableObjects_Storable* object) {
   disableRedo();
   ++version;
   ++contentVersion;
-  auto* currentUndoableObject = new (jrt::kBoardData) UONode(object, stackLevel);
+  maybeSweepNodes();
+  auto* currentUndoableObject = newNode(object, stackLevel);
   objects->put(object, currentUndoableObject);
 }
 
 bool UndoableObjects::delete_(UndoableObjects_Storable* object) {
+  maybeSweepNodes();
   disableRedo();
   jrt::Collection<UONode*>* currentDeleteList;
   if (deletedObjectsStack->isEmpty()) {
@@ -172,6 +234,7 @@ bool UndoableObjects::delete_(UndoableObjects_Storable* object) {
 }
 
 void UndoableObjects::generateSnapshot() {
+  maybeSweepNodes();
   disableRedo();
   jrt::Collection<UONode*>* currentDeletedObjectsList = new (jrt::kOp) jrt::LinkedList<UONode*>();
   deletedObjectsStack->add(currentDeletedObjectsList);
@@ -184,7 +247,8 @@ bool UndoableObjects::undo(jrt::Collection<UndoableObjects_Storable*>* cancelled
   if (stackLevel == 0) {
     return false;  // no more undo possible
   }
-  for (auto it = startReadObject(); it->hasNext();) {
+  for (auto scope = readScope(); scope.hasNext();) {
+    auto* it = &scope;
     UONode* currentNode = it->next();
     if (currentNode->level == stackLevel) {
       if (currentNode->undoObject != nullptr) {
@@ -224,7 +288,8 @@ bool UndoableObjects::redo(jrt::Collection<UndoableObjects_Storable*>* cancelled
   ++this->stackLevel;
   ++version;
   ++contentVersion;
-  for (auto it = startReadObject(); it->hasNext();) {
+  for (auto scope = readScope(); scope.hasNext();) {
+    auto* it = &scope;
     UONode* currentNode = it->next();
     if (currentNode->redoObject != nullptr && currentNode->redoObject->level == this->stackLevel) {
       // Object was created on a lower level and changed on the current level,
@@ -270,7 +335,8 @@ bool UndoableObjects::changesSinceSnapshot(jrt::Collection<UndoableObjects_Stora
   if (stackLevel == 0) {
     return false;
   }
-  for (auto it = startReadObject(); it->hasNext();) {
+  for (auto scope = readScope(); scope.hasNext();) {
+    auto* it = &scope;
     UONode* node = it->next();
     if (node == nullptr || node->level != stackLevel) {
       continue;
@@ -293,7 +359,8 @@ bool UndoableObjects::popSnapshot() {
   if (stackLevel == 0) {
     return false;
   }
-  for (auto it = startReadObject(); it->hasNext();) {
+  for (auto scope = readScope(); scope.hasNext();) {
+    auto* it = &scope;
     UONode* currentNode = it->next();
     if (currentNode->level == stackLevel - 1) {
       if (currentNode->redoObject != nullptr && currentNode->redoObject->level == stackLevel) {
@@ -336,8 +403,7 @@ void UndoableObjects::saveForUndo(UndoableObjects_Storable* object) {
     return;
   }
   if (currentNode->level < this->stackLevel) {
-    auto* oldNode =
-        new (jrt::kBoardData) UONode(jrt::fast_cast<UndoableObjects_Storable>(object->clone()), currentNode->level);
+    auto* oldNode = newNode(jrt::fast_cast<UndoableObjects_Storable>(object->clone()), currentNode->level);
     oldNode->undoObject = currentNode->undoObject;
     oldNode->redoObject = currentNode;
     currentNode->undoObject = oldNode;
@@ -352,7 +418,8 @@ void UndoableObjects::disableRedo() {
   redoPossible = false;
   // shorten the size of the deletedObjectsStack to this.stackLevel
   deletedObjectsStack->removeRange(this->stackLevel, deletedObjectsStack->size());
-  jrt::Iterator<UONode*>* it = startReadObject();
+  auto scope = readScope();
+  jrt::Iterator<UONode*>* it = &scope;
   while (it->hasNext()) {
     UONode* currentNode = it->next();
     if (currentNode->level > this->stackLevel) {

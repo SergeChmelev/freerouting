@@ -181,8 +181,8 @@ void Structure::writeScope(WriteScopeParameter* scopeParameter) {
 
 void Structure::writeConductionAreas(WriteScopeParameter* scopeParameter) {
   fr::UndoableObjects_Storable* currentObject;
-  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it =
-      scopeParameter->board->itemList->startReadObject();
+  auto itScope = scopeParameter->board->itemList->readScope();
+  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     currentObject = scopeParameter->board->itemList->readObject(it);
     if (currentObject == nullptr) {
@@ -202,8 +202,8 @@ void Structure::writeConductionAreas(WriteScopeParameter* scopeParameter) {
 
 void Structure::writeKeepouts(WriteScopeParameter* scopeParameter) {
   fr::UndoableObjects_Storable* currentObject;
-  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it =
-      scopeParameter->board->itemList->startReadObject();
+  auto itScope = scopeParameter->board->itemList->readScope();
+  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     currentObject = scopeParameter->board->itemList->readObject(it);
     if (currentObject == nullptr) {
@@ -240,8 +240,8 @@ void Structure::writeBoundaries(WriteScopeParameter* scopeParameter) {
   scopeParameter->file->endScope();
   // lookup the outline in the board
   fr::UndoableObjects_Storable* currentObject;
-  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it =
-      scopeParameter->board->itemList->startReadObject();
+  auto itScope = scopeParameter->board->itemList->readScope();
+  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     currentObject = scopeParameter->board->itemList->readObject(it);
     if (currentObject == nullptr) {

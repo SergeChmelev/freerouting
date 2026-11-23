@@ -68,8 +68,8 @@ void Wiring::writeScope(WriteScopeParameter* scopeParameter) {
     writeViaScope(scopeParameter, currentVia);
   }
   // write the conduction areas
-  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it2 =
-      scopeParameter->board->itemList->startReadObject();
+  auto it2Scope = scopeParameter->board->itemList->readScope();
+  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it2 = &it2Scope;
   for (;;) {
     fr::UndoableObjects_Storable* currentObject = scopeParameter->board->itemList->readObject(it2);
     if (currentObject == nullptr) {

@@ -1107,7 +1107,8 @@ bool RoutingBoard::removeTraceTails(int32_t netNumber,
 }
 
 void RoutingBoard::clearAllItemTemporaryAutorouteData() {
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = this->itemList->startReadObject();
+  auto itScope = this->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -1121,7 +1122,8 @@ void RoutingBoard::changePlaneAsObstacle(bool value) {
   bool targetIgnore = !value;
   bool somethingChanged = false;
   // Change the isObstacle property of all conduction areas of the board.
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+  auto itScope = itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -1140,7 +1142,8 @@ void RoutingBoard::changePlaneAsObstacle(bool value) {
     somethingChanged = true;
   }
   if (somethingChanged) {
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* clearIt = itemList->startReadObject();
+    auto clearItScope = itemList->readScope();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* clearIt = &clearItScope;
     for (;;) {
       Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(clearIt));
       if (currentItem == nullptr) {
@@ -1161,7 +1164,8 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
   bool somethingChanged = true;
   while (somethingChanged) {
     somethingChanged = false;
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+    auto itScope = itemList->readScope();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
     for (;;) {
       UndoableObjects_Storable* currentObject = itemList->readObject(it);
       if (currentObject == nullptr) {

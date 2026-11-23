@@ -49,12 +49,7 @@ namespace {
 /** Java `try { ... } finally { list.clear(); }` for the shared query leaf buffer. */
 struct ClearListOnExit {
   jrt::List<ShapeTree_Leaf*>* list;
-  // Nulls the slots first: a cleared std::vector keeps the old pointers in its capacity, which the
-  // conservative collector (and FR_DISPOSE_CHECK) would see as references to removed leaves.
-  ~ClearListOnExit() {
-    for (int32_t i = 0, n = list->size(); i < n; i++) list->set(i, nullptr);
-    list->clear();
-  }
+  ~ClearListOnExit() { list->clear(); }  // ArrayList::clear nulls the vacated slots
 };
 
 /** Java `finally { releaseScratchStack(stack); }`. */

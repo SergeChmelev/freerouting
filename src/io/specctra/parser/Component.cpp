@@ -158,7 +158,8 @@ void Component::writeKeepoutInfos(WriteScopeParameter* scopeParameter, fr::Compo
 
 fr::ObstacleArea* Component::getKeepout(fr::BasicBoard* board, int32_t componentId,
                                         const std::string& name) {
-  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<fr::UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     fr::Item* currentItem = jrt::fast_cast<fr::Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {

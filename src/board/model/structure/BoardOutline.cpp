@@ -112,8 +112,8 @@ jrt::Set<int32_t>* BoardOutline::getEdgePinNets() {
     int64_t version = this->board->itemList->getVersion();
     if (version != this->countedVersion || this->countedList != this->board->itemList) {
       this->countedPins = 0;
-      jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator =
-          this->board->itemList->startReadObject();
+      auto iteratorScope = this->board->itemList->readScope();
+      jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
       for (;;) {
         auto* item = jrt::fast_cast<Item>(this->board->itemList->readObject(iterator));
         if (item == nullptr) {

@@ -1334,7 +1334,8 @@ Item* BatchOptimizer_ReadSortedRouteItems::next() {
   Item* result = nullptr;
   FloatPoint* currentMinCoor = new (jrt::kGeom) FloatPoint(jrt::Integer::MAX_VALUE, jrt::Integer::MAX_VALUE);
   int32_t currentMinLayer = jrt::Integer::MAX_VALUE;
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(it);
     if (currentItem == nullptr) {
@@ -1363,7 +1364,7 @@ Item* BatchOptimizer_ReadSortedRouteItems::next() {
     }
   }
   // Read traces last to prefer vias to traces at the same location
-  it = board->itemList->startReadObject();
+  itScope.restart();
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(it);
     if (currentItem == nullptr) {

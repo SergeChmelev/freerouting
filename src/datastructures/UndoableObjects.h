@@ -1,6 +1,8 @@
 ﻿// Port of app.freerouting.datastructures.UndoableObjects
 #pragma once
 
+#include <vector>
+
 #include "fwd.h"
 #include "jrt/jrt.h"
 
@@ -36,6 +38,7 @@ class UndoableObjects_UndoableObjectNode : public virtual jrt::Object {
   int32_t level;  // the level in the Undo stack, where this node was inserted
   UndoableObjects_UndoableObjectNode* undoObject;  // the object to restore in an undo or null.
   UndoableObjects_UndoableObjectNode* redoObject;  // the object to restore in a redo or null.
+  uint32_t mark = 0;  // PORT NOTE (stage C): reachability epoch of UndoableObjects::sweepNodes
 };
 
 /**
@@ -49,13 +52,22 @@ class UndoableObjects_UndoableObjectNode : public virtual jrt::Object {
 class UndoableObjects_NodeIterator
     : public virtual jrt::Iterator<UndoableObjects_UndoableObjectNode*> {
  public:
-  explicit UndoableObjects_NodeIterator(
+  // PORT NOTE (stage C): created only as a scoped value (UndoableObjects::readScope); it counts
+  // itself in `liveIterators` while it exists, because it may hold a node that has been removed
+  // from the map meanwhile (the prefetched next node), so no node is freed during an iteration.
+  UndoableObjects_NodeIterator(
       jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UndoableObjects_UndoableObjectNode*>*
-          map);
+          map,
+      int32_t* liveIterators);
+  ~UndoableObjects_NodeIterator() override { --*liveIterators_; }
+  UndoableObjects_NodeIterator(const UndoableObjects_NodeIterator&) = delete;
+  UndoableObjects_NodeIterator& operator=(const UndoableObjects_NodeIterator&) = delete;
 
   bool hasNext() override { return nextEntry_ != nullptr; }
   UndoableObjects_UndoableObjectNode* next() override;
   void remove() override;
+  /** Starts again at the first object (Java: a new startReadObject() into the same variable). */
+  void restart();
 
  private:
   jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UndoableObjects_UndoableObjectNode*>* map_;
@@ -69,6 +81,7 @@ class UndoableObjects_NodeIterator
   typename jrt::ConcurrentSkipListMap<UndoableObjects_Storable*,
                                       UndoableObjects_UndoableObjectNode*>::MapIt nextIt_{};
   uint64_t nextStamp_ = 0;
+  int32_t* liveIterators_;
 };
 
 /**
@@ -96,12 +109,15 @@ class UndoableObjects : public virtual jrt::Object {
   /**
    * Returns an iterator for sequential reading of the object list (an UndoableObjects_NodeIterator
    * with Java ConcurrentSkipListMap semantics).
+   * PORT NOTE (stage C): Java startReadObject(); returned as a scoped value instead of a heap
+   * object (`auto scope = list->readScope(); auto* it = &scope;`), so that the list knows when
+   * no iteration is live and removed nodes can be freed.
    */
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* startReadObject();
+  UndoableObjects_NodeIterator readScope() { return UndoableObjects_NodeIterator(objects, &liveIterators_); }
 
   /**
    * Reads the next object in this list. Returns null, if the list is exhausted. it must be created
-   * by startReadObject.
+   * by readScope.
    */
   UndoableObjects_Storable* readObject(jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it);
 
@@ -179,6 +195,20 @@ class UndoableObjects : public virtual jrt::Object {
 
   /** Changes whenever an object's content may change. */
   int64_t contentVersion = 0;
+
+  // PORT NOTE (stage C): node ownership. Every node allocated on the heap (not in a board arena)
+  // is registered; when no iteration is live, sweepNodes() frees the nodes that can no longer be
+  // reached from the map, the delete lists or the undo/redo links of reachable nodes.
+  UndoableObjects_UndoableObjectNode* newNode(UndoableObjects_Storable* object, int32_t level);
+  void maybeSweepNodes() {
+    if (liveIterators_ == 0 && ownedNodes_.size() >= sweepAt_) sweepNodes();
+  }
+  void sweepNodes();
+  std::vector<UndoableObjects_UndoableObjectNode*> ownedNodes_;
+  static std::size_t sweepMinimum();  // 4096, or env FR_UNDO_SWEEP_MIN (stress tests)
+  std::size_t sweepAt_ = sweepMinimum();
+  uint32_t markEpoch_ = 0;
+  int32_t liveIterators_ = 0;
 };
 
 }  // namespace fr

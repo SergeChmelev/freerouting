@@ -61,7 +61,8 @@ ShapeSearchTree* SearchTreeManager::getUncompensatedTree() {
   }
   ShapeSearchTree* tree =
       new (jrt::kBoard) ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(), board, 0);
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (Item* item = jrt::fast_cast<Item>(board->itemList->readObject(it)); item != nullptr;
        item = jrt::fast_cast<Item>(board->itemList->readObject(it))) {
     tree->insert(static_cast<ShapeTree_Storable*>(item));
@@ -149,8 +150,8 @@ ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex
   }
   this->compensatedSearchTrees->add(currentAutorouteTree);
 
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
-      this->board->itemList->startReadObject();
+  auto itScope = this->board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -172,8 +173,8 @@ void SearchTreeManager::reinsertTreeItems() {
   // Removing clears the tree entries but NOT the precalculated tree shapes cached on each
   // item; without dropping those, re-insertion silently reuses the stale shapes and rule
   // changes (e.g. the drill-hole clearance override) never reach the trees.
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
-      this->board->itemList->startReadObject();
+  auto itScope = this->board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -189,8 +190,8 @@ void SearchTreeManager::removeAllBoardItems() {
     FRLogger::warn("SearchtreeManager.remove_all_board_items: app.freerouting.board is null");
     return;
   }
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
-      this->board->itemList->startReadObject();
+  auto itScope = this->board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -205,8 +206,8 @@ void SearchTreeManager::insertAllBoardItems() {
     FRLogger::warn("SearchtreeManager.insert_all_board_items: app.freerouting.board is null");
     return;
   }
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it =
-      this->board->itemList->startReadObject();
+  auto itScope = this->board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
     if (currentItem == nullptr) {

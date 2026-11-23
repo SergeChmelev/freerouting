@@ -294,7 +294,8 @@ jrt::List<Item*>* BatchAutorouter::getAutorouteItems(RoutingBoard* board) {
   jrt::List<Item*>* autorouteItemList = reusableAutorouteItemList;
   jrt::Set<Item*>* handledItems = reusableHandledItems;
   jrt::Map<int32_t, BatchAutorouter_NetPlanes*>* planesByNet = new (jrt::kOp) jrt::HashMap<int32_t, BatchAutorouter_NetPlanes*>();
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* currentObject = board->itemList->readObject(it);
     if (currentObject == nullptr) {

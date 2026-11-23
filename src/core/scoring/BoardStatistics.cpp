@@ -254,7 +254,8 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->items->pinCount = 0;
   this->items->componentOutlineCount = 0;
   this->items->otherCount = 0;
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -358,7 +359,8 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
 
   this->traces->totalWeightedLength = 0.0f;
   int32_t defaultClearanceClass = BoardRules::defaultClearanceClass();
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it2 = board->itemList->startReadObject();
+  auto it2Scope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it2 = &it2Scope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(it2);
     if (currentItem == nullptr) {
@@ -1088,7 +1090,8 @@ BoardStatistics_OptimizerMetrics* BoardStatistics_OptimizerMetrics::of(BasicBoar
   float totalWeightedLength = 0.0f;
   int32_t defaultClearanceClass = BoardRules::defaultClearanceClass();
 
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(it);
     if (currentItem == nullptr) {

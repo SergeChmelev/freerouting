@@ -13,8 +13,8 @@ jrt::Map<int32_t, jrt::List<Item*>*>* BoardConnectivityQueries::getConnectableIn
   int64_t currentStamp = board->itemList->getVersion() + board->getNetAssignmentChangeCount();
   if (connectableItemsByNet == nullptr || connectableItemsStamp != currentStamp) {
     jrt::Map<int32_t, jrt::List<Item*>*>* map = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator =
-        board->itemList->startReadObject();
+    auto iteratorScope = board->itemList->readScope();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
     for (;;) {
       UndoableObjects_Storable* currentItem = board->itemList->readObject(iterator);
       if (currentItem == nullptr) {
@@ -54,7 +54,8 @@ int32_t BoardConnectivityQueries::connectableItemCount(int32_t netNumber) {
 
 jrt::Collection<Item*>* BoardConnectivityQueries::getComponentItems(int32_t componentId) {
   jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {
@@ -68,7 +69,8 @@ jrt::Collection<Item*>* BoardConnectivityQueries::getComponentItems(int32_t comp
 
 jrt::Collection<Pin*>* BoardConnectivityQueries::getComponentPins(int32_t componentId) {
   jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {
@@ -83,7 +85,8 @@ jrt::Collection<Pin*>* BoardConnectivityQueries::getComponentPins(int32_t compon
 }
 
 Pin* BoardConnectivityQueries::getPin(int32_t componentId, int32_t pinIndex) {
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = board->itemList->startReadObject();
+  auto iteratorScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(iterator));
     if (currentItem == nullptr) {

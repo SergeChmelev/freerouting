@@ -71,7 +71,8 @@ std::string boxToString(IntBox* box) {
 
 std::string BoardSnapshotManager::basicProfileDump() {
   std::string result;
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* currentObject = board->itemList->readObject(it);
     if (currentObject == nullptr) {

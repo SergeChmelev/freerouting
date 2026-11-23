@@ -396,7 +396,8 @@ void DesignRulesChecker::calculateAllIncompletes() {
   for (int32_t i = 0; i < maxNetNo; i++) {
     netItemLists->add(new (jrt::kOp) jrt::LinkedList<Item*>());
   }
-  auto* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {

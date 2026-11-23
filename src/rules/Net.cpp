@@ -108,7 +108,8 @@ bool Net::hasExplicitMeanderConstraint() {
 jrt::Collection<Item*>* Net::getTerminalItems() {
   jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
   BasicBoard* board = this->netList->getBoard();
-  auto* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -126,7 +127,8 @@ jrt::Collection<Item*>* Net::getTerminalItems() {
 jrt::Collection<Pin*>* Net::getPins() {
   jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
   BasicBoard* board = this->netList->getBoard();
-  auto* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {
@@ -144,7 +146,8 @@ jrt::Collection<Pin*>* Net::getPins() {
 jrt::Collection<Item*>* Net::getItems() {
   jrt::Collection<Item*>* result = new (jrt::kOp) jrt::LinkedList<Item*>();
   BasicBoard* board = this->netList->getBoard();
-  auto* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem = jrt::fast_cast<Item>(board->itemList->readObject(it));
     if (currentItem == nullptr) {

@@ -127,7 +127,8 @@ bool Components::redo(BoardObservers* observers) {
 }
 
 void Components::restoreComponentArrFromUndoList(BoardObservers* observers) {
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = this->undoList->startReadObject();
+  auto itScope = this->undoList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* storable = this->undoList->readObject(it);
     if (storable == nullptr) {

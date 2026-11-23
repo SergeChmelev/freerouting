@@ -653,7 +653,8 @@ bool BasicBoard::combineTraces(int32_t netNumber) {
   bool somethingChanged = true;
   while (somethingChanged) {
     somethingChanged = false;
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+    auto itScope = itemList->readScope();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
     for (;;) {
       Item* currentItem = jrt::fast_cast<Item>(itemList->readObject(it));
       if (currentItem == nullptr) {
@@ -716,7 +717,8 @@ bool BasicBoard::normalizeTraces(int32_t netNumber) {
 
     // Collect traces for this net on this iteration.
     jrt::List<PolylineTrace*>* netTraces = new (jrt::kOp) jrt::ArrayList<PolylineTrace*>();
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+    auto itScope = itemList->readScope();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
     for (;;) {
       Item* currentItem;
       try {
@@ -760,7 +762,8 @@ bool BasicBoard::normalizeAllTraces() {
   bool result = false;
   // Group all PolylineTrace items by net
   auto* tracesByNet = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<PolylineTrace*>*>();
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+  auto itScope = itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     Item* currentItem;
     try {
@@ -768,7 +771,7 @@ bool BasicBoard::normalizeAllTraces() {
     } catch (const jrt::ConcurrentModificationException&) {
       // Retry collection if modified
       tracesByNet->clear();
-      it = itemList->startReadObject();
+      itScope.restart();
       continue;
     }
     if (currentItem == nullptr) {
@@ -818,14 +821,15 @@ bool BasicBoard::normalizeAllTraces() {
       // If something changed, collect the traces for this net again
       if (somethingChanged) {
         netTraces->clear();
-        jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it2 = itemList->startReadObject();
+        auto it2Scope = itemList->readScope();
+        jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it2 = &it2Scope;
         for (;;) {
           Item* currentItem;
           try {
             currentItem = jrt::fast_cast<Item>(itemList->readObject(it2));
           } catch (const jrt::ConcurrentModificationException&) {
             netTraces->clear();
-            it2 = itemList->startReadObject();
+            it2Scope.restart();
             continue;
           }
           if (currentItem == nullptr) {
@@ -1369,7 +1373,8 @@ BasicBoard* BasicBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* i
 }
 
 void BasicBoard::deleteAllTracksAndVias() {
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+  auto itScope = itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = itemList->readObject(it);
     if (currentItem == nullptr) {
@@ -1388,7 +1393,8 @@ void BasicBoard::deleteAllTracksAndVias() {
 
 void BasicBoard::unfillConductionAreas() {
   this->rules->setIgnoreConduction(true);
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = itemList->startReadObject();
+  auto itScope = itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = itemList->readObject(it);
     if (currentItem == nullptr) {
@@ -1405,7 +1411,8 @@ void BasicBoard::unfillConductionAreas() {
 void BasicBoard::areThereItemsOnInactiveLayer(AutorouteControl* ctrl) {
   if (this->getLayerCount() > 2) {
     bool hasSomethingOnInactiveLayer = false;
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = this->itemList->startReadObject();
+    auto itScope = this->itemList->readScope();
+    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
     for (;;) {
       UndoableObjects_Storable* currentObject = this->itemList->readObject(it);
       if (currentObject == nullptr) {

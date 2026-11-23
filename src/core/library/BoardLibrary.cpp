@@ -103,7 +103,8 @@ Padstack* BoardLibrary::getMirroredViaPadstack(Padstack* viaPadstack) {
 }
 
 bool BoardLibrary::isUsed(Padstack* padstack, BasicBoard* board) {
-  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = board->itemList->startReadObject();
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
     UndoableObjects_Storable* currentItem = board->itemList->readObject(it);
     if (currentItem == nullptr) {

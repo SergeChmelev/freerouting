@@ -309,15 +309,23 @@ objects/bytes.
   the checked build; release + `FR_DISPOSE_CHECK=1` 57 SAME + Issue178 (over the 900 s limit in
   check mode, SAME when rerun alone), 289M disposals, 0 survivors.
 
+* **C3 — undo-list nodes (deferred).** A node cannot be freed when it leaves the map:
+  `UndoableObjects_NodeIterator` prefetches the *next* node like Java's weakly consistent
+  skip-list iterator and returns it even if it was deleted meanwhile, and removed nodes stay
+  reachable through the undo/redo links of nodes kept for undo. So the list registers every
+  heap node (board-arena nodes are left to the arena) and, when no iteration is live and the
+  registry has doubled since the last sweep (minimum 4096, env `FR_UNDO_SWEEP_MIN` for stress
+  runs), `sweepNodes()` marks what the map and the delete lists reach through undo/redo links
+  and disposes the rest. Iterations are counted exactly: `startReadObject()` became
+  `readScope()`, which returns the iterator as a scoped value (`auto itScope =
+  list->readScope(); auto* it = &itScope;`, `itScope.restart()` where Java reassigned a new
+  iterator); 47 call sites converted. bm02 frees only ~450 nodes (most undo nodes belong to
+  optimizer worker boards and live in their arenas).
+
 Not yet owned, with the reason found:
 
-* `UndoableObjects` nodes: `UndoableObjects_NodeIterator` prefetches the *next* node like
-  Java's weakly consistent skip-list iterator and returns it even if it was deleted meanwhile,
-  and deleted nodes stay reachable through `redoObject` links of nodes kept for undo. Freeing a
-  node at `delete_` is therefore unsafe; this needs deferred disposal (e.g. at the next
-  snapshot boundary when no iterator is live).
 * Items: callers keep using an item after `removeItem` (observers, building replacement
-  traces); same deferred scheme.
+  traces), and many caches refer to items; needs the same kind of deferred scheme.
 * Dropped search trees (`clearanceValueChanged`, `clearanceClassRemoved`): rare; items keep
   stale `ItemSearchTreesInfo` records for them.
 

@@ -185,6 +185,11 @@ struct ReferrerSearch {
 };
 
 void add_referrer(ReferrerSearch* s, const void* block, std::size_t size, std::size_t off, const char* where) {
+  if (block == nullptr && std::strcmp(where, "stack") == 0) {  // one stack hit is enough to say so
+    for (int i = 0; i < s->count; ++i) {
+      if (std::strcmp(s->found[i].where, "stack") == 0) return;
+    }
+  }
   if (s->count < kMaxReferrers) s->found[s->count++] = Referrer{block, size, off, where};
 }
 
@@ -267,25 +272,40 @@ std::string describe_referrer(const Referrer& r) {
 // Prints up to three levels of referrers of `target` (a block without a vtable, e.g. a
 // std::vector buffer, is explained by its own referrers). Returns true if some heap block or
 // static data refers to it, false if only thread stacks / registers do.
+// True if `block` is held by static data or, through at most four heap blocks, by a block that
+// is itself held that way. Blocks reached only from a stack (a dead object seen through a stale
+// stack slot, e.g. a dropped list that still contains the survivor) are not rooted. At the
+// depth limit the answer is "rooted" (conservative).
+bool is_rooted(void* block, int depth = 0) {
+  if (depth >= 4) return true;
+  ReferrerSearch s{};
+  s.lo = reinterpret_cast<std::uintptr_t>(block);
+  s.hi = s.lo + GC_size(block);
+  GC_call_with_alloc_lock(find_referrers_locked, &s);
+  if (s.count == kMaxReferrers) return true;  // too many to follow
+  for (int i = 0; i < s.count; ++i) {
+    if (std::strcmp(s.found[i].where, "static") == 0) return true;
+    if (s.found[i].block != nullptr && is_rooted(const_cast<void*>(s.found[i].block), depth + 1)) return true;
+  }
+  return false;
+}
+
 bool explain_survivor(void* target, const char* type, bool print, int depth = 0) {
+  if (depth == 0 && !is_rooted(target)) return false;
   ReferrerSearch s{};
   s.lo = reinterpret_cast<std::uintptr_t>(target);
   s.hi = s.lo + GC_size(target);
   GC_call_with_alloc_lock(find_referrers_locked, &s);
-  bool rooted = false;
-  for (int i = 0; i < s.count; ++i) {
-    if (std::strcmp(s.found[i].where, "stack") != 0) rooted = true;
-  }
-  if (!rooted && depth == 0) return false;
   if (print && depth == 0) std::fprintf(stderr, "dispose check: survivor %p (%s), referred by:\n", target, type);
   if (print && s.count == 0) {
     std::fprintf(stderr, "%*s(nothing found: registers or another thread's stack)\n", 2 * depth + 4, "");
   }
   for (int i = 0; i < s.count; ++i) {
     if (print) std::fprintf(stderr, "%*s%s\n", 2 * depth + 4, "", describe_referrer(s.found[i]).c_str());
-    Dl_info info;
-    if (print && s.found[i].block != nullptr && depth < 2 &&
-        dladdr(*static_cast<void* const*>(s.found[i].block), &info) == 0) {  // no vtable
+    // expand every heap referrer (the same block once per level: it may hold several pointers)
+    bool seen = false;
+    for (int j = 0; j < i; ++j) seen = seen || s.found[j].block == s.found[i].block;
+    if (print && s.found[i].block != nullptr && depth < 3 && !seen) {
       explain_survivor(const_cast<void*>(s.found[i].block), nullptr, true, depth + 1);
     }
   }
@@ -345,7 +365,7 @@ void dispose_check_report() {
   for (auto& [type, n] : g_checkSurvivors) survivors += n;
   std::fprintf(stderr,
                "dispose check: %zu disposed, %zu reachable after a full collection "
-               "(+ %zu referred only by a thread stack: conservative noise)\n",
+               "(+ %zu held only through a thread stack: conservative noise)\n",
                g_checkTotal, survivors, g_checkStackOnly);
   for (auto& [type, n] : g_checkSurvivors) std::fprintf(stderr, "  %8zu  %s\n", n, type.c_str());
 }

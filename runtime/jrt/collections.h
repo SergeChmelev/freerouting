@@ -579,6 +579,22 @@ template <class T>
 class ArrayList : public virtual List<T> {
  public:
   using Collection<T>::addAll;
+
+  // PORT NOTE (stage C): removes [from, to). For pointer elements the vacated slots are nulled:
+  // a shrunk std::vector keeps the old pointers in its capacity, where the conservative collector
+  // (and FR_DISPOSE_CHECK) sees them as live references to removed objects.
+  void eraseRange(std::size_t from, std::size_t to) {
+    std::size_t oldSize = v_.size();
+    v_.erase(v_.begin() + static_cast<std::ptrdiff_t>(from), v_.begin() + static_cast<std::ptrdiff_t>(to));
+    if constexpr (std::is_pointer_v<T>) {
+      std::size_t newSize = v_.size();
+      if (oldSize > newSize) {
+        v_.resize(oldSize, nullptr);  // within capacity: writes nulls, no reallocation
+        v_.resize(newSize);
+      }
+    }
+  }
+
   ArrayList() = default;
   explicit ArrayList(int32_t initial_capacity) { v_.reserve(initial_capacity > 0 ? initial_capacity : 0); }
   explicit ArrayList(Collection<T>* c) {
@@ -616,13 +632,13 @@ class ArrayList : public virtual List<T> {
   T removeAt(int32_t i) override {
     check_index(i);
     T old = v_[i];
-    v_.erase(v_.begin() + i);
+    eraseRange(i, i + 1);
     return old;
   }
   bool remove(const T& x) override {
     for (std::size_t i = 0; i < v_.size(); ++i) {
       if (equalsOf<T>(v_[i], x)) {
-        v_.erase(v_.begin() + i);
+        eraseRange(i, i + 1);
         return true;
       }
     }
@@ -632,7 +648,7 @@ class ArrayList : public virtual List<T> {
   bool removeIdentical(const T& x) {
     for (std::size_t i = 0; i < v_.size(); ++i) {
       if (v_[i] == x) {
-        v_.erase(v_.begin() + i);
+        eraseRange(i, i + 1);
         return true;
       }
     }
@@ -644,9 +660,9 @@ class ArrayList : public virtual List<T> {
       if (equalsOf<T>(v_[i], x)) return static_cast<int32_t>(i);
     return -1;
   }
-  void clear() override { v_.clear(); }
+  void clear() override { eraseRange(0, v_.size()); }
   // Java list.subList(from, to).clear()
-  void removeRange(int32_t from, int32_t to) { v_.erase(v_.begin() + from, v_.begin() + to); }
+  void removeRange(int32_t from, int32_t to) { eraseRange(from, to); }
   // Java subList(from, to) as a COPY (Java returns a live view).
   ArrayList* subList(int32_t from, int32_t to) {
     return new ArrayList(std::vector<T>(v_.begin() + from, v_.begin() + to));
@@ -658,7 +674,7 @@ class ArrayList : public virtual List<T> {
   T removeLast() {
     if (v_.empty()) throw NoSuchElementException();
     T x = v_.back();
-    v_.pop_back();
+    eraseRange(v_.size() - 1, v_.size());
     return x;
   }
   void addFirst(T x) { v_.insert(v_.begin(), std::move(x)); }
@@ -682,7 +698,7 @@ class ArrayList : public virtual List<T> {
     }
     void remove() override {
       if (last_ < 0) throw IllegalStateException();
-      l_->v_.erase(l_->v_.begin() + last_);
+      l_->eraseRange(last_, last_ + 1);
       cursor_ = last_;
       last_ = -1;
     }
