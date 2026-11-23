@@ -9,6 +9,11 @@ jrt::Map<std::string, jrt::Set<std::string>*>* PolygonWireScan::netsByLayer(std:
   jrt::Map<std::string, jrt::Set<std::string>*>* result =
       new (jrt::kOp) jrt::LinkedHashMap<std::string, jrt::Set<std::string>*>();
   SpecctraDsnStreamReader* scanner = new (jrt::kOp) SpecctraDsnStreamReader(dsn);
+  // PORT NOTE (stage E): the scanner (and its input buffer) is dropped with this function.
+  struct ScannerOwner {
+    SpecctraDsnStreamReader* s;
+    ~ScannerOwner() { jrt::dispose(s); }
+  } scannerOwner{scanner};
   int32_t depth = 0;
   int32_t wireDepth = -1;
   std::optional<std::string> wireLayer;

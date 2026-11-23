@@ -126,6 +126,11 @@ fr::io::BoardReadResult* DsnReader::readBoardFromStreams(
     const std::optional<std::string>& designName, DsnReadOptions* options) {
   try {
     auto* scanner = new (jrt::kOp) SpecctraDsnStreamReader(parseStream);
+    // PORT NOTE (stage E): the scanner (and its input buffer) is dropped with this function.
+    struct ScannerOwner {
+      SpecctraDsnStreamReader* s;
+      ~ScannerOwner() { jrt::dispose(s); }
+    } scannerOwner{scanner};
 
     // ---------------------------------------------------------------------
     // Validate the "(pcb <name>" header
@@ -209,6 +214,11 @@ fr::io::BoardReadResult* DsnReader::readMetadata(std::istream& inputStream) {
   fr::BoardObservers* observers = new (jrt::kBoard) fr::BoardObserverAdaptor();
   fr::IdGenerator* idGenerator = new (jrt::kBoard) fr::ItemIdGenerator();
   auto* scanner = new (jrt::kOp) SpecctraDsnStreamReader(inputStream);
+  // PORT NOTE (stage E): the scanner (and its input buffer) is dropped with this function.
+  struct ScannerOwner {
+    SpecctraDsnStreamReader* s;
+    ~ScannerOwner() { jrt::dispose(s); }
+  } scannerOwner{scanner};
 
   // -----------------------------------------------------------------------
   // Validate the "(pcb <name>" header: same three-token check as readBoard

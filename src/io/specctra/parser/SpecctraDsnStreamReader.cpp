@@ -10,6 +10,8 @@
 
 namespace fr::dsn {
 
+SpecctraDsnStreamReader::~SpecctraDsnStreamReader() { jrt::dispose(zzBuffer); }
+
 namespace {
 
 // PORT NOTE: the packed DFA tables below are transcribed code unit by code unit from the Java
@@ -889,6 +891,7 @@ bool SpecctraDsnStreamReader::zzRefill() {
     /* if not: blow it up */
     auto* newBuffer = new (jrt::kOp) jrt::Array<char16_t>(zzCurrentPos * 2);
     jrt::arraycopy(zzBuffer, 0, newBuffer, 0, zzBuffer->length);
+    jrt::dispose(zzBuffer);  // PORT NOTE (stage E): the replaced buffer is owned
     zzBuffer = newBuffer;
   }
 

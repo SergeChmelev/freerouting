@@ -55,6 +55,8 @@ class SpecctraDsnStreamReader : public virtual IJFlexScanner {
    * (which wraps the stream in an InputStreamReader); both map to this one.
    */
   explicit SpecctraDsnStreamReader(std::istream& in);
+  // PORT NOTE (stage E): owns its input buffer (grown to the size of the largest token run).
+  ~SpecctraDsnStreamReader() override;
 
   /** Enables decimal numeric tokens for SES without changing legacy DSN token types. */
   SpecctraDsnStreamReader(std::istream& in, bool exactNumbers);
