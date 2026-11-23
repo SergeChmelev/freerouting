@@ -245,6 +245,9 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
         "No new connections were made between " + describeConnection(startSet, destSet) + ".");
   }
 
+  // Stage E: the geometry of ripping and inserting (pull-tight, shove, normalization) is
+  // temporary; board items copy what they store out of this region (geomcopy::keep).
+  jrt::LocalGeomRegion insertRegion;
   // Delete the ripped connections while observers see the insert that follows.
   bool observersActivated = !this->board->observersActive();
   if (observersActivated) {

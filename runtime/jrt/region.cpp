@@ -3,6 +3,7 @@
 #define JRT_NO_GC 0
 #endif
 
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -47,18 +48,28 @@ void region_escape_check(GeomRegion* region);
 // collector. Ordered by ~start, i.e. descending start address.
 // The map object lives in uncollectable (scanned) memory: thread-local storage is not a root of
 // the collector, so its nodes would otherwise be reclaimed.
-std::map<std::uintptr_t, std::uintptr_t>& live_chunks() {
-  thread_local std::map<std::uintptr_t, std::uintptr_t>* m = new_root<std::map<std::uintptr_t, std::uintptr_t>>();
+// Value: complemented end, region id (also for the chunks of a region's companion arena).
+using ChunkMap = std::map<std::uintptr_t, std::pair<std::uintptr_t, std::uint32_t>>;
+ChunkMap& live_chunks() {
+  thread_local ChunkMap* m = new_root<ChunkMap>();
   return *m;
 }
 
-void region_chunk_hook(const char* begin, const char* end, bool added) {
+void region_chunk_hook(std::uintptr_t tag, const char* begin, const char* end, bool added) {
   auto key = ~reinterpret_cast<std::uintptr_t>(begin);
   if (added) {
-    live_chunks()[key] = ~reinterpret_cast<std::uintptr_t>(end);
+    live_chunks()[key] = {~reinterpret_cast<std::uintptr_t>(end), static_cast<std::uint32_t>(tag)};
   } else {
     live_chunks().erase(key);
   }
+}
+
+const ChunkMap::value_type* chunk_of(const void* p) {
+  auto& m = live_chunks();
+  auto q = reinterpret_cast<std::uintptr_t>(p);
+  auto it = m.lower_bound(~q);  // the chunk with the greatest start <= p
+  if (it == m.end() || q >= ~it->second.first) return nullptr;
+  return &*it;
 }
 
 }  // namespace
@@ -70,7 +81,7 @@ GeomRegionScope::GeomRegionScope(GeomRegion* region, bool local) : region_(regio
   }();
   if (disabled == 1 || (disabled == 2 && !local)) region_ = nullptr;
   if (region_ == nullptr) return;
-  region_->arena_.setChunkHook(region_chunk_hook);
+  region_->arena_.setChunkHook(region_chunk_hook, region_->id_);
   region_->outer_ = innermost_region();
   region_->restore_ = current_geom_region();
   region_->active_ = true;
@@ -93,13 +104,36 @@ void GeomRegion::release() {
 
 void GeomRegion::abandon() { arena_.abandon(); }
 
+std::uint32_t GeomRegion::next_id() {
+  static std::atomic<std::uint32_t> next{1};
+  return next.fetch_add(1, std::memory_order_relaxed);
+}
+
+void GeomRegion::setCompanion(Arena* arena) {
+  companion_ = arena;
+  arena->setChunkHook(region_chunk_hook, id_);
+}
+
+std::uint32_t geom_domain_of(const void* p) {
+  const auto* c = chunk_of(p);
+  return c != nullptr ? c->second.second : 0;
+}
+
+GeomRegion* active_geom_region(std::uint32_t id) {
+  for (GeomRegion* r = innermost_region(); r != nullptr; r = r->outer()) {
+    if (r->id() == id) return r;
+  }
+  return nullptr;
+}
+
 bool in_live_geom_region(const void* p) {
-  // the chunk with the greatest start <= p is the first key >= ~p
-  auto& m = live_chunks();
-  auto q = reinterpret_cast<std::uintptr_t>(p);
-  auto it = m.lower_bound(~q);
-  if (it == m.end()) return false;
-  return q < ~it->second;
+  // region chunks only: a companion arena holds no geometry, but be exact anyway
+  const auto* c = chunk_of(p);
+  if (c == nullptr) return false;
+  for (GeomRegion* r = innermost_region(); r != nullptr; r = r->outer()) {
+    if (r->id() == c->second.second) return r->contains(p);
+  }
+  return true;  // an inactive live region (or its companion): conservative
 }
 
 DomainScope::DomainScope(const void* owner) : saved_(current_geom_region()) {
@@ -325,7 +359,12 @@ void region_escape_check(GeomRegion* region) {
         if (!debug_is_rooted(const_cast<void*>(s->hits[i].block))) what = "[dead holder] " + what;
       }
       ++(*g_escapes)[what];
-      if (!region->local() && i < 30) std::fprintf(stderr, "region check (search region): %s\n", what.c_str());
+      static int printed = 0;
+      if (printed < 300 && i < 30) {
+        ++printed;
+        std::fprintf(stderr, "region check (%s region %u): %s\n", region->local() ? "local" : "long-lived",
+                     region->id(), what.c_str());
+      }
     }
   }
   std::free(s);

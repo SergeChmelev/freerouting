@@ -1,5 +1,6 @@
 // Port of app.freerouting.board.model.items.Item.
 #include "board/model/items/Item.h"
+#include "geometry/planar/GeomCopy.h"
 
 #include "autoroute/ItemAutorouteInfo.h"
 #include "board/actions/ItemIdGenerator.h"
@@ -1011,7 +1012,7 @@ void Item::setPrecalculatedTreeShapes(jrt::Array<TileShape*>* shapes, ShapeSearc
     FRLogger::warn("Item.set_precalculated_tree_shapes searchTreesInfo not allocated");
     return;
   }
-  this->searchTreesInfo->setPrecalculatedTreeShapes(shapes, tree);
+  this->searchTreesInfo->setPrecalculatedTreeShapes(geomcopy::keep(shapes, this), tree);
 }
 
 ItemAutorouteInfo* Item::getAutorouteInfo() {

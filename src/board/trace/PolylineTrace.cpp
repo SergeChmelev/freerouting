@@ -54,7 +54,7 @@ PolylineTrace::PolylineTrace(Polyline* polyline, int32_t layer, int32_t halfWidt
   if (polyline->lines->length < 3) {
     FRLogger::warn("PolylineTrace: polyline.lines.length >= 3 expected");
   }
-  lines = geomcopy::keep(polyline);
+  lines = geomcopy::keep(polyline, this);
 }
 
 Item* PolylineTrace::copy(int32_t id) {
@@ -121,21 +121,21 @@ jrt::Array<TileShape*>* PolylineTrace::calculateTreeShapes(ShapeSearchTree* sear
 int32_t PolylineTrace::tileShapeCount() { return PolylineTraceGeometry::tileShapeCount(lines); }
 
 void PolylineTrace::translateBy(Vector* vector) {
-  lines = geomcopy::keep(PolylineTraceGeometry::translate(lines, vector));
+  lines = geomcopy::keep(PolylineTraceGeometry::translate(lines, vector), this);
   this->clearDerivedData();
 }
 
 void PolylineTrace::turn90Degree(int32_t factor, IntPoint* pole) {
-  lines = geomcopy::keep(PolylineTraceGeometry::turn90Degree(lines, factor, pole));
+  lines = geomcopy::keep(PolylineTraceGeometry::turn90Degree(lines, factor, pole), this);
   this->clearDerivedData();
 }
 
 void PolylineTrace::rotateApprox(double angleInDegree, FloatPoint* pole) {
-  this->lines = geomcopy::keep(PolylineTraceGeometry::rotateApprox(lines, angleInDegree, pole));
+  this->lines = geomcopy::keep(PolylineTraceGeometry::rotateApprox(lines, angleInDegree, pole), this);
 }
 
 void PolylineTrace::changePlacementSide(IntPoint* pole) {
-  lines = geomcopy::keep(PolylineTraceGeometry::mirrorVertical(lines, pole));
+  lines = geomcopy::keep(PolylineTraceGeometry::mirrorVertical(lines, pole), this);
 
   if (this->board != nullptr) {
     this->setLayer(board->getLayerCount() - this->getLayer() - 1);
@@ -258,7 +258,7 @@ bool PolylineTrace::combineAtStart(bool ignoreAreas) {
     PolylineTraceSearchTreeAdapter::mergeEntriesInFront(otherTrace, this, joinedPolyline,
                                                         otherLines->length - 3, toNo);
     otherTrace->clearSearchTreeEntries();
-    this->lines = geomcopy::keep(joinedPolyline);
+    this->lines = geomcopy::keep(joinedPolyline, this);
   }
   if (this->lines->lines->length < 3) {
     board->removeItem(this);
@@ -363,7 +363,7 @@ bool PolylineTrace::combineAtEnd(bool ignoreAreas) {
     PolylineTraceSearchTreeAdapter::mergeEntriesAtEnd(otherTrace, this, joinedPolyline,
                                                       thisLines->length - 3, toNo);
     otherTrace->clearSearchTreeEntries();
-    this->lines = geomcopy::keep(joinedPolyline);
+    this->lines = geomcopy::keep(joinedPolyline, this);
   }
   if (this->lines->lines->length < 3) {
     board->removeItem(this);
@@ -753,7 +753,7 @@ TileShape* PolylineTrace::getTraceConnectionShape(ShapeSearchTree* searchTree, i
 void PolylineTrace::change(Polyline* newPolyline) {
   if (!this->isOnTheBoard()) {
     // Just change the polyline of this trace.
-    lines = geomcopy::keep(newPolyline);
+    lines = geomcopy::keep(newPolyline, this);
     return;
   }
 
@@ -798,7 +798,7 @@ void PolylineTrace::change(Polyline* newPolyline) {
       jrt::Math::max(newPolyline->lines->length - indexOfLastDifferentLine - 3, 0);
   PolylineTraceSearchTreeAdapter::changeEntries(this, newPolyline, keepAtStartCount,
                                                 keepAtEndCount);
-  lines = geomcopy::keep(newPolyline);
+  lines = geomcopy::keep(newPolyline, this);
   // the geometry changed in place: caches keyed on the revision of the board must not keep the
   // old ends
   board->incrementRevision();

@@ -1226,9 +1226,13 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
   // this arena, the connection searches on it in their engines' arenas; both are freed when the
   // candidate ends. Only kBoardData goes here, so shared objects (library, geometry caches,
   // statics) and the returned result never receive arena memory.
+  // Stage E: the candidate's geometry lives in `region` (its companion is the arena, so worker
+  // items keep region geometry without copies); only the item position leaves the candidate.
   struct CandidateArena {
     jrt::Arena arena;
+    jrt::GeomRegion region;
     RoutingBoard* board = nullptr;  // the worker board living in the arena
+    CandidateArena() { region.setCompanion(&arena); }
     ~CandidateArena() {
       if (board != nullptr) {
         board->discardAutorouteEngineWithBoard();
@@ -1244,14 +1248,17 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
                      jrt::gc_heap_size() / 1048576.0, jrt::gc_free_bytes() / 1048576.0, jrt::gc_count());
       }
       arena.release();
+      region.release();  // after the arena: arena objects refer into the region
     }
   };
   static const bool boardArenaOff = std::getenv("FR_NO_BOARD_ARENA") != nullptr;  // diagnostics switch
   bool useCandidateArena = !boardArenaOff && !keepBoard && !workerBoardState->hasWorkerBoard();
   CandidateArena candidateArena;
   std::optional<jrt::BoardArenaScope> boardArenaScope;
+  std::optional<jrt::GeomRegionScope> regionScope;
   if (useCandidateArena) {
     boardArenaScope.emplace(&candidateArena.arena);
+    regionScope.emplace(&candidateArena.region);
   }
   RoutingBoard* workerBoard = workerBoardState->acquire(baselineBoard);
   if (useCandidateArena) {
@@ -1266,7 +1273,11 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
       return new (jrt::kOp) BatchOptimizer_CandidateResult(new (jrt::kOp) ItemRouteResult(itemId), nullptr, nullptr, 0, 0);
     }
 
-    FloatPoint* position = BatchOptimizer::getItemPosition(item);
+    FloatPoint* position;
+    {
+      jrt::HeapScope heap;  // returned to the optimizer: outlives the candidate region
+      position = BatchOptimizer::getItemPosition(item);
+    }
 
     RoutingJob* candidateJob = new (jrt::kBoard) RoutingJob();
     candidateJob->name = job->name;

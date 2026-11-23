@@ -133,7 +133,7 @@ void Arena::refill(std::size_t n) {
     std::pair<const char*, const char*> r{data(c), data(c) + size};
     ranges_.insert(std::upper_bound(ranges_.begin(), ranges_.end(), r), r);
   }
-  if (chunkHook_ != nullptr) chunkHook_(data(c), data(c) + size, true);
+  if (chunkHook_ != nullptr) chunkHook_(chunkTag_, data(c), data(c) + size, true);
   cur_ = data(c);
   end_ = cur_ + size;
   std::size_t live = g_live.fetch_add(size, std::memory_order_relaxed) + size;
@@ -185,7 +185,7 @@ void Arena::release() {
   }
   head_ = nullptr;
   if (chunkHook_ != nullptr) {
-    for (auto& r : ranges_) chunkHook_(r.first, r.second, false);
+    for (auto& r : ranges_) chunkHook_(chunkTag_, r.first, r.second, false);
   }
   ranges_.clear();
   cur_ = end_ = nullptr;
@@ -196,7 +196,7 @@ void Arena::abandon() {
   for (Chunk* c = head_; c != nullptr; c = c->next) g_live.fetch_sub(c->size, std::memory_order_relaxed);
   head_ = nullptr;
   if (chunkHook_ != nullptr) {
-    for (auto& r : ranges_) chunkHook_(r.first, r.second, false);
+    for (auto& r : ranges_) chunkHook_(chunkTag_, r.first, r.second, false);
   }
   ranges_.clear();
   cur_ = end_ = nullptr;

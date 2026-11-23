@@ -40,7 +40,7 @@ ObstacleArea::ObstacleArea(Area* area, int32_t layer, Vector* translation, doubl
       name(name),
       relativeArea(area) {
   this->layer = layer;
-  this->translation = geomcopy::keep(translation);
+  this->translation = geomcopy::keep(translation, this);
   this->rotationInDegree = rotationInDegree;
   this->sideChanged = sideChanged;
 }
@@ -145,7 +145,7 @@ TileShape* ObstacleArea::getTileShape(int32_t no) {
 }
 
 void ObstacleArea::translateBy(Vector* vector) {
-  this->translation = geomcopy::keep(this->translation->add(vector));
+  this->translation = geomcopy::keep(this->translation->add(vector), this);
   this->clearDerivedData();
 }
 
@@ -158,7 +158,7 @@ void ObstacleArea::turn90Degree(int32_t factor, IntPoint* pole) {
     this->rotationInDegree += 360;
   }
   Point* relLocation = Point::ZERO()->translateBy(this->translation);
-  this->translation = geomcopy::keep(relLocation->turn90Degree(factor, pole)->differenceBy(Point::ZERO()));
+  this->translation = geomcopy::keep(relLocation->turn90Degree(factor, pole)->differenceBy(Point::ZERO()), this);
   this->clearDerivedData();
 }
 
@@ -176,7 +176,7 @@ void ObstacleArea::rotateApprox(double angleInDegree, FloatPoint* pole) {
   }
   FloatPoint* newTranslation =
       this->translation->toFloat()->rotate(jrt::Math::toRadians(angleInDegree), pole);
-  this->translation = geomcopy::keep(newTranslation->round()->differenceBy(Point::ZERO()));
+  this->translation = geomcopy::keep(newTranslation->round()->differenceBy(Point::ZERO()), this);
   this->clearDerivedData();
 }
 
@@ -186,7 +186,7 @@ void ObstacleArea::changePlacementSide(IntPoint* pole) {
     this->layer = board->getLayerCount() - this->layer - 1;
   }
   Point* relLocation = Point::ZERO()->translateBy(this->translation);
-  this->translation = geomcopy::keep(relLocation->mirrorVertical(pole)->differenceBy(Point::ZERO()));
+  this->translation = geomcopy::keep(relLocation->mirrorVertical(pole)->differenceBy(Point::ZERO()), this);
   this->clearDerivedData();
 }
 

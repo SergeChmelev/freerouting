@@ -30,19 +30,19 @@ namespace fr {
 DrillItem::DrillItem(Point* center, jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex,
                      int32_t id, int32_t groupId, FixedState fixedState, BasicBoard* board)
     : Item(netNumbers, clearanceClassIndex, id, groupId, fixedState, board) {
-  this->center = geomcopy::keep(center == nullptr ? nullptr : center->toIntegerExact());
+  this->center = geomcopy::keep(center == nullptr ? nullptr : center->toIntegerExact(), this);
 }
 
 void DrillItem::translateBy(Vector* vector) {
   if (center != nullptr) {
-    center = center->translateBy(vector)->toIntegerExact();
+    center = geomcopy::keep(center->translateBy(vector)->toIntegerExact(), this);
   }
   this->clearDerivedData();
 }
 
 void DrillItem::turn90Degree(int32_t factor, IntPoint* pole) {
   if (center != nullptr) {
-    center = center->turn90Degree(factor, pole);
+    center = geomcopy::keep(center->turn90Degree(factor, pole), this);
   }
   this->clearDerivedData();
 }
@@ -50,14 +50,14 @@ void DrillItem::turn90Degree(int32_t factor, IntPoint* pole) {
 void DrillItem::rotateApprox(double angleInDegree, FloatPoint* pole) {
   if (center != nullptr) {
     FloatPoint* newCenter = center->toFloat()->rotate(jrt::Math::toRadians(angleInDegree), pole);
-    this->center = geomcopy::keep(newCenter->round());
+    this->center = geomcopy::keep(newCenter->round(), this);
   }
   this->clearDerivedData();
 }
 
 void DrillItem::changePlacementSide(IntPoint* pole) {
   if (center != nullptr) {
-    center = center->mirrorVertical(pole);
+    center = geomcopy::keep(center->mirrorVertical(pole), this);
   }
   this->clearDerivedData();
 }
@@ -178,7 +178,7 @@ double DrillItem::smallestRadius() {
 }
 
 void DrillItem::setCenter(Point* center) {
-  this->center = geomcopy::keep(center == nullptr ? nullptr : center->toIntegerExact());
+  this->center = geomcopy::keep(center == nullptr ? nullptr : center->toIntegerExact(), this);
 }
 
 TileShape* DrillItem::getTreeShapeOnLayer(ShapeSearchTree* tree, int32_t layer) {

@@ -32,6 +32,9 @@ void ShapeTree::insert(ShapeTree_Storable* obj) {
 }
 
 ShapeTree_Leaf* ShapeTree::insert(ShapeTree_Storable* object, int32_t index) {
+  // PORT NOTE (stage E): the leaf's bounding shape lives as long as the object is in the tree:
+  // allocate it in the object's domain (heap item, search-region room, candidate-region item).
+  jrt::DomainScope domain(object);
   Shape* objectShape = object->getTreeShape(this, index);
   if (objectShape == nullptr) {
     return nullptr;

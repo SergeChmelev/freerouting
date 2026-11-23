@@ -394,3 +394,25 @@ the operation is copied out into the holder's domain.
 
 bm02 (no-GC build): leaked 2.85 GB → 2.08 GB, SES identical in the release, checked and no-GC
 builds.
+
+### E2 — candidate and insertion regions, copy-at-store by owner
+
+* Region ids: every live region (and its companion arena) is registered by chunk range with its
+  id (complemented addresses in an uncollectable map, so neither dangling region objects nor
+  collector retention). `geomcopy::keep(x, owner)` copies x (point, vector, polyline, tile shape,
+  array of tile shapes) only when a part lies in a live region that is not the owner's own
+  domain, into the owner's domain (its region while active, else the heap).
+* Optimizer candidates: `CandidateArena` owns a `GeomRegion` whose companion is the candidate
+  arena; worker-board items keep region geometry without copies; only the item position leaves
+  the candidate (computed on the heap). Released after the arena.
+* `AutorouteEngine::autorouteConnection`: a `LocalGeomRegion` around ripping and inserting the
+  found connection (pull-tight, shove, normalization on the main board).
+* Stores fixed by the escape check / crashes in checked builds: precalculated tree shapes
+  (`Item::setPrecalculatedTreeShapes` keeps), drill-item centre in `translateBy` /
+  `turn90Degree` / `changePlacementSide`, leaf bounding shapes (`ShapeTree::insert` in the
+  object's domain).
+
+bm02 (no-GC build): leaked 2.08 → 1.25 GB; SES identical in release, checked and no-GC builds.
+Sample (120 s, 60 boards): checked 56 SAME + 2 over the 900 s limit (Issue110-RelayModule,
+Issue178; the domain lookups slow these boards down — performance is measured after the
+migration), no-GC 37 SAME (was 32 before E1), 0 DIFF, only the two old failures besides.

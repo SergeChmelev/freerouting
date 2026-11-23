@@ -116,11 +116,17 @@ class Arena {
 
  public:
   /** Called for every chunk the arena takes (added) or gives back (removed). */
-  using ChunkHook = void (*)(const char* begin, const char* end, bool added);
-  void setChunkHook(ChunkHook hook) { chunkHook_ = hook; }
+  using ChunkHook = void (*)(std::uintptr_t tag, const char* begin, const char* end, bool added);
+  /** Installs `hook` (with `tag`) and reports the chunks the arena already has. */
+  void setChunkHook(ChunkHook hook, std::uintptr_t tag) {
+    chunkHook_ = hook;
+    chunkTag_ = tag;
+    for (auto& r : ranges_) hook(tag, r.first, r.second, true);
+  }
 
  private:
   ChunkHook chunkHook_ = nullptr;
+  std::uintptr_t chunkTag_ = 0;
 };
 
 /** The arena kSearch allocations go to on this thread (nullptr: GC heap). */
@@ -194,7 +200,9 @@ class GeomRegion {
   bool contains(const void* p) const { return arena_.contains(p); }
   /** Objects in `arena` belong to this region's domain too (their lazy caches and the geometry
    * they store are allocated here): e.g. the search arena of an autoroute engine. */
-  void setCompanion(const Arena* arena) { companion_ = arena; }
+  void setCompanion(Arena* arena);
+  /** Unique id of this region (never 0). */
+  std::uint32_t id() const { return id_; }
   bool owns(const void* p) const { return contains(p) || (companion_ != nullptr && companion_->contains(p)); }
   bool inHeadChunk(const void* p) const { return arena_.inHeadChunk(p); }
   bool active() const { return active_; }
@@ -215,6 +223,8 @@ class GeomRegion {
   friend class GeomRegionScope;
   Arena arena_;
   const Arena* companion_ = nullptr;
+  std::uint32_t id_ = next_id();
+  static std::uint32_t next_id();
   GeomRegion* outer_ = nullptr;    // enclosing active region while active
   GeomRegion* restore_ = nullptr;  // current region to restore when deactivated
   bool active_ = false;
@@ -305,6 +315,11 @@ bool in_geom_region(const void* p);
 /** True if `p` lies in a region of this thread that has not been released yet, active or not
  * (copy-at-store: an inactive search region is still released later). */
 bool in_live_geom_region(const void* p);
+/** Id of the live region whose arena or companion arena holds `p` (0: none, i.e. heap or
+ * another arena). */
+std::uint32_t geom_domain_of(const void* p);
+/** The active region with this id, or nullptr. */
+GeomRegion* active_geom_region(std::uint32_t id);
 
 inline void* geom_alloc(std::size_t n) {
   GeomRegion* r = current_geom_region();

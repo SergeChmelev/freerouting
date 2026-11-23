@@ -21,10 +21,16 @@ IntOctagon* octagon(IntOctagon* s, const jrt::GeomRegion& from);
 /** The array and every point in it (an outside array is updated in place). */
 jrt::Array<IntPoint*>* intPoints(jrt::Array<IntPoint*>* a, const jrt::GeomRegion& from);
 
-// Copy-at-store (holders outside every region, e.g. board items): returns x itself when no part
-// of it lies in a live region of this thread, else a deep copy on the heap.
-Point* keep(Point* x);
-Vector* keep(Vector* x);
-Polyline* keep(Polyline* x);
+// Copy-at-store: `owner` (e.g. a board item) is about to store x. Returns x itself when no part of
+// it lies in a live region other than the owner's own domain (the region whose arena or
+// companion arena holds the owner), else a deep copy in the owner's domain (its region while
+// active, else the heap).
+Point* keep(Point* x, const void* owner);
+Vector* keep(Vector* x, const void* owner);
+Polyline* keep(Polyline* x, const void* owner);
+/** IntOctagon, IntBox, Simplex (any other type with a foreign part aborts). */
+TileShape* keep(TileShape* x, const void* owner);
+/** The array and each shape in it. */
+jrt::Array<TileShape*>* keep(jrt::Array<TileShape*>* x, const void* owner);
 
 }  // namespace fr::geomcopy
