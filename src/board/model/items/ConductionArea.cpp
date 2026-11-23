@@ -64,6 +64,7 @@ Area* ConductionArea::getFillOutline() {
     return area;
   }
   if (this->smoothedArea == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
     this->smoothedArea = PlaneOutlineSmoothing::smooth(area, this->cornerFillets, this->cornerSmoothing);
   }
   return this->smoothedArea;
@@ -126,6 +127,7 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
   if (cachedBoardFillArea != nullptr && !boardChanged) {
     return;
   }
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
 
   PlanarArea* fillArea = PlanarArea::fromArea(this->getArea());
   if (fillArea == nullptr) {
@@ -461,6 +463,7 @@ void ConductionArea::adoptFractureMemo(FastPlaneConnectivityGrid_FractureMemo* d
     return;
   }
   BasicBoard* copyBoard = this->board;
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
   this->fractureMemo =
       detached->attach(getArea(), [copyBoard](int32_t id) { return copyBoard->getItem(id); });
 }
@@ -484,6 +487,7 @@ FastPlaneConnectivityGrid_PlaneFractureResult* ConductionArea::getFractureResult
       return this->cachedFractureResult;
     }
   }
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
   FastPlaneConnectivityGrid_FractureMemo* memo = this->fractureMemo;
   if (memo == nullptr) {
     memo = new (jrt::kOp) FastPlaneConnectivityGrid_FractureMemo();

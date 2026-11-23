@@ -138,6 +138,8 @@ class BasicBoard : public virtual jrt::Object {
  private:
   /** The rectangle, where the graphics may be not up-to-date. [transient] = IntBox.EMPTY in ctor */
   IntBox* updateBox = nullptr;
+  /** PORT NOTE (stage E): box itself, or a copy when it lies in an operation region. */
+  IntBox* keepBox(IntBox* box);
 
   /** The biggest half width of all traces on the board. */
   int32_t maxTraceHalfWidth = 1000;

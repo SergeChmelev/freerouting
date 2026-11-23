@@ -468,6 +468,16 @@ collections on the main board (`TraceShover::springOver*`, `insertForcedTracePol
 `StepSlider`), board copies outside the candidate arena (`copyMapped`, `copyAsDeserialized`),
 item caches and query results.
 
+### E6 — main-board operations in local regions; DSN scanners owned
+
+* Geometry-only local regions around `RoutingBoard::optChangedArea` (pull-tight), `fanout` and
+  the optimizer's winner replay (kept board). New escapes found by the smoke test: the board's
+  change journal and update boxes (`noteChange`, `journalChange`, `joinGraphicsUpdateBox`: board
+  domain + `keepBox`), `ConductionArea` caches (smoothed outline, detailed fill area, fracture
+  memo/result: item domain).
+* `SpecctraDsnStreamReader` owns its input buffer; the three DSN reads dispose their scanner.
+* bm02 no-GC leak 0.50 → 0.39 GB; smoke clean.
+
 ## TODO (stage C/E)
 
 * Items: deferred disposal of removed items and their geometry (callers keep using an item after

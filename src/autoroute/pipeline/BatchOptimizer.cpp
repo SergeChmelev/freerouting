@@ -1259,9 +1259,14 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
   CandidateArena candidateArena;
   std::optional<jrt::BoardArenaScope> boardArenaScope;
   std::optional<jrt::GeomRegionScope> regionScope;
+  // A kept board (the winner replay) gets a geometry-only region: its items copy out what they
+  // store (geomcopy::keep), the rest of the replay's geometry is dropped.
+  std::optional<jrt::LocalGeomRegion> replayRegion;
   if (useCandidateArena) {
     boardArenaScope.emplace(&candidateArena.arena);
     regionScope.emplace(&candidateArena.region);
+  } else {
+    replayRegion.emplace();
   }
   RoutingBoard* workerBoard = workerBoardState->acquire(baselineBoard);
   if (useCandidateArena) {

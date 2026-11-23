@@ -1,5 +1,6 @@
 // Port of app.freerouting.board.facade.BasicBoard
 #include "board/facade/BasicBoard.h"
+#include "geometry/planar/GeomCopy.h"
 
 #include "autoroute/maze/AutorouteControl.h"
 #include "board/actions/ItemSelectionFilter.h"
@@ -176,11 +177,17 @@ void BasicBoard::noteChange(Item* item) {
   noteChange(box, item->firstLayer(), item->lastLayer());
 }
 
+IntBox* BasicBoard::keepBox(IntBox* box) {
+  return static_cast<IntBox*>(geomcopy::keep(static_cast<TileShape*>(box), this));
+}
+
 void BasicBoard::noteChange(IntBox* box, int32_t firstLayer, int32_t lastLayer) {
   if (!journalEnabled) {
     return;
   }
-  pendingBox = pendingBox == nullptr ? box : pendingBox->union_(box);
+  // PORT NOTE (stage E): board-owned geometry: in the board's domain, copied out of regions.
+  jrt::DomainScope domain(this);
+  pendingBox = pendingBox == nullptr ? keepBox(box) : pendingBox->union_(box);
   pendingFirstLayer = jrt::Math::min(pendingFirstLayer, firstLayer);
   pendingLastLayer = jrt::Math::max(pendingLastLayer, lastLayer);
 }
@@ -193,6 +200,7 @@ void BasicBoard::noteUnknownChange() {
 }
 
 void BasicBoard::journalChange(IntBox* box, int32_t firstLayer, int32_t lastLayer) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the journal is board-owned
   if (changeRevisions == nullptr) {
     changeRevisions = new (jrt::kBoard) jrt::Array<int32_t>(CHANGE_JOURNAL_SIZE);
     for (int32_t i = 0; i < changeRevisions->length; i++) {
@@ -204,7 +212,7 @@ void BasicBoard::journalChange(IntBox* box, int32_t firstLayer, int32_t lastLaye
   }
   int32_t slot = jrt::Math::floorMod(revision, CHANGE_JOURNAL_SIZE);
   (*changeRevisions)[slot] = revision;
-  (*changeBoxes)[slot] = box;
+  (*changeBoxes)[slot] = keepBox(box);
   (*changeFirstLayers)[slot] = firstLayer;
   (*changeLastLayers)[slot] = lastLayer;
 }
@@ -1048,6 +1056,7 @@ void BasicBoard::joinGraphicsUpdateBox(IntBox* box) {
   if (updateBox == nullptr) {
     resetGraphicsUpdateBox();
   }
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): board-owned geometry
   updateBox = updateBox->union_(box);
 }
 

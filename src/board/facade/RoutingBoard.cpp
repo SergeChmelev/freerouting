@@ -168,6 +168,9 @@ void RoutingBoard::optChangedArea(jrt::Array<int32_t>* onlyNetNoArr, IntOctagon*
                                   int32_t accuracy,
                                   jrt::Array<AutorouteControl_ExpansionCostFactor*>* traceCosts,
                                   Stoppable* stoppableThread, int32_t timeLimit) {
+  // PORT NOTE (stage E): temporary geometry of this operation lives in a local region (items
+  // copy what they store out of it, caches use their holder's domain).
+  jrt::LocalGeomRegion region;
   getOperations()->optChangedArea(onlyNetNoArr, clipShape, accuracy, traceCosts, stoppableThread,
                                   timeLimit, nullptr, 0);
 }
@@ -177,6 +180,9 @@ void RoutingBoard::optChangedArea(jrt::Array<int32_t>* onlyNetNoArr, IntOctagon*
                                   jrt::Array<AutorouteControl_ExpansionCostFactor*>* traceCosts,
                                   Stoppable* stoppableThread, int32_t timeLimit, Point* keepPoint,
                                   int32_t keepPointLayer) {
+  // PORT NOTE (stage E): temporary geometry of this operation lives in a local region (items
+  // copy what they store out of it, caches use their holder's domain).
+  jrt::LocalGeomRegion region;
   getOperations()->optChangedArea(onlyNetNoArr, clipShape, accuracy, traceCosts, stoppableThread,
                                   timeLimit, keepPoint, keepPointLayer);
 }
@@ -749,6 +755,9 @@ AutorouteAttemptResult* RoutingBoard::autoroute(Item* item, RouterSettings* rout
 AutorouteAttemptResult* RoutingBoard::fanout(Pin* pin, RouterSettings* routerSettings,
                                              int32_t ripupCosts, Stoppable* stoppableThread,
                                              TimeLimit* timeLimit) {
+  // PORT NOTE (stage E): temporary geometry of this operation lives in a local region (items
+  // copy what they store out of it, caches use their holder's domain).
+  jrt::LocalGeomRegion region;
   if (pin->firstLayer() != pin->lastLayer() || pin->netCount() != 1) {
     return new (jrt::kOp) AutorouteAttemptResult(AutorouteAttemptState::ALREADY_CONNECTED,
                                       "The pin '" + jrt::str(pin) + "' is already connected.");
