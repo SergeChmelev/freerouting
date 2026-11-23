@@ -74,6 +74,8 @@ class Arena {
 
   /** Statistics over all arenas of the process (for diagnostics / benchmarks). */
   static std::size_t peakBytes();
+  static std::size_t liveBytes();
+  static std::size_t poolBytes();  // free pooled chunk bytes of this thread
 
  private:
   struct Chunk {

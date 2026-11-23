@@ -134,8 +134,11 @@ removed the rooms from the search tree and the autoroute data (`ItemAutorouteInf
 leaves a search before `clear()`, that engine's arena is abandoned and search arenas are switched
 off for the rest of the process (stale rooms may stay in a tree and get doors later).
 
-**2. Optimizer-candidate arena** (`kBoardData`, 43 sites: item constructors and copies, undo-list
-nodes, search-tree nodes, leaves and leaf arrays). `BatchOptimizer_OptimizeCandidateTask::call`
+**2. Optimizer-candidate arena** (`kBoardData`, 41 sites: item constructors and copies, undo-list
+nodes, search-tree nodes, leaves and leaf arrays; temporary items such as the probe trace of
+`BasicBoard::checkPolylineTrace` and the substitute pieces of `ShapeTraceEntries` stay `kOp` —
+in the arena they and their cached geometry lived until the candidate ended, and bm01 grew to
+1.8 GB in a few minutes). `BatchOptimizer_OptimizeCandidateTask::call`
 makes it current (`jrt::BoardArenaScope`) for candidates whose board is not kept (`keepBoard ==
 false`; the winner replay keeps its board and stays on the GC heap): the deep copy of the
 baseline board, the items the candidate routes on it and their tree entries live in it, and it
@@ -148,6 +151,12 @@ function-local statics first touched by a candidate, the job log, the global
 the GC heap, so caches keyed by board identity (`ShoveCheckCache::owner`) can never see a reused
 address.
 
+Arena chunks are allocated with `GC_MALLOC_IGNORE_OFF_PAGE` (the arena keeps a pointer to each
+chunk start). Diagnostics: `FR_NO_SEARCH_ARENA=1` / `FR_NO_BOARD_ARENA=1` switch an arena off,
+`FR_MEM_STATS=1` prints arena / GC heap figures (per 20 optimizer candidates and at exit).
+Lesson for later arenas: an arena must only hold objects that live about as long as the arena
+itself — anything with high churn inside the operation belongs on the general heap.
+
 Escape checks: checked builds (`JRT_CHECKED=1`, the default RelWithDebInfo build) poison
 released memory; the corpus parity run passes on both builds (see the results below).
 
@@ -156,7 +165,7 @@ Sites per package after stage B (`classify_allocs.py report --top`):
 | package | board | board data | op | search | geom | total |
 |---|---:|---:|---:|---:|---:|---:|
 | autoroute | 24 | 0 | 596 | 52 | 169 | 841 |
-| board | 120 | 37 | 309 | 1 | 211 | 678 |
+| board | 120 | 35 | 311 | 1 | 211 | 678 |
 | geometry | 1 | 0 | 51 | 0 | 598 | 650 |
 | io (DSN/SES) | 154 | 0 | 285 | 0 | 34 | 473 |
 | core | 70 | 0 | 82 | 0 | 2 | 154 |
@@ -166,7 +175,7 @@ Sites per package after stage B (`classify_allocs.py report --top`):
 | datastructures | 7 | 6 | 67 | 0 | 3 | 83 |
 | interactive | 0 | 0 | 25 | 0 | 8 | 33 |
 | logger, util, bindings/lua | 12 | 0 | 7 | 0 | 0 | 19 |
-| **total** | **527** | **43** | **1572** | **53** | **1041** | **3236** |
+| **total** | **527** | **41** | **1574** | **53** | **1041** | **3236** |
 
 Parity after stage B: corpus run (`tools/parity_corpus.sh`, release build, stopped after 71 of
 180 fixtures): 60 SAME, 0 DIFF; 9 time out (900 s) in both Java and C++; 2 fail in C++ already

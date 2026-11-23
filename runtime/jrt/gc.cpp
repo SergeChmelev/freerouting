@@ -81,6 +81,8 @@ namespace jrt {
 void* alloc_uncollectable(std::size_t n) { return GC_MALLOC_UNCOLLECTABLE(n == 0 ? 1 : n); }
 void free_uncollectable(void* p) { GC_FREE(p); }
 std::size_t gc_heap_size() { return GC_get_heap_size(); }
+std::size_t gc_free_bytes() { return GC_get_free_bytes(); }
+std::size_t gc_count() { return GC_get_gc_no(); }
 
 GcThreadScope::GcThreadScope() {
   GC_stack_base sb;

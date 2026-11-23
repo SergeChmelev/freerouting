@@ -991,7 +991,7 @@ bool BasicBoard::checkTraceShape(TileShape* shape, int32_t layer, jrt::Array<int
 bool BasicBoard::checkPolylineTrace(Polyline* polyline, int32_t layer, int32_t penHalfWidth,
                                     jrt::Array<int32_t>* netNumbers,
                                     int32_t clearanceClassIndex) {
-  Trace* tmpTrace = new (jrt::kBoardData) PolylineTrace(polyline, layer, penHalfWidth, netNumbers,
+  Trace* tmpTrace = new (jrt::kOp) PolylineTrace(polyline, layer, penHalfWidth, netNumbers,
                                       clearanceClassIndex, 0, 0, FixedState::UNFIXED, this);
   jrt::Set<Pin*>* contactPins = tmpTrace->touchingPinsAtEndCorners();
   for (int32_t i = 0; i < tmpTrace->tileShapeCount(); i++) {

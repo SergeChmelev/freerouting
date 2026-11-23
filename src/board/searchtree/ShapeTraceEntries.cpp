@@ -264,7 +264,7 @@ PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece() {
     // no valid trace piece, return the next one
     return nextSubstituteTracePiece();
   }
-  return new (jrt::kBoardData) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(),
+  return new (jrt::kOp) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(),
                            currentTrace->netNumbers, currentTrace->clearanceClassIndex(), 0, 0,
                            FixedState::UNFIXED, this->board);
 }

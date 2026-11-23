@@ -69,7 +69,10 @@ void Arena::refill(std::size_t n) {
     std::memset(c, 0, kHeader + kChunkSize);
 #endif
   } else {
-    c = static_cast<Chunk*>(GC_MALLOC(kHeader + size));  // zero-filled, like Java objects
+    // Large pointer-containing block: IGNORE_OFF_PAGE (the arena always keeps a pointer to the
+    // chunk start) so that the collector does not expand the heap looking for a 1 MB range free
+    // of blacklisted pages (that grew bm01 from 0.4 to 3 GB). Zero-filled, like Java objects.
+    c = static_cast<Chunk*>(GC_MALLOC_IGNORE_OFF_PAGE(kHeader + size));
     if (c == nullptr) throw std::bad_alloc();
   }
   c->size = size;
@@ -127,5 +130,7 @@ void Arena::abandon() {
 }
 
 std::size_t Arena::peakBytes() { return g_peak.load(std::memory_order_relaxed); }
+std::size_t Arena::liveBytes() { return g_live.load(std::memory_order_relaxed); }
+std::size_t Arena::poolBytes() { return thread_pool()->bytes; }
 
 }  // namespace jrt

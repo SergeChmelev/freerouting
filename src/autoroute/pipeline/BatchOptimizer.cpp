@@ -2,6 +2,8 @@
 #include "autoroute/pipeline/BatchOptimizer.h"
 
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <optional>
 
 #include "autoroute/ItemRouteResult.h"
@@ -1231,10 +1233,21 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
       if (board != nullptr) {
         board->discardAutorouteEngineWithBoard();
       }
+      static const bool stats = std::getenv("FR_MEM_STATS") != nullptr;
+      static int64_t count = 0;
+      if (stats && board != nullptr && ++count % 20 == 1) {
+        std::fprintf(stderr,
+                     "candidate %lld: arena %.1f MB, arenas live %.1f MB, pool %.1f MB, GC heap %.1f MB, "
+                     "GC free %.1f MB, GCs %zu\n",
+                     static_cast<long long>(count), arena.bytesAllocated() / 1048576.0,
+                     jrt::Arena::liveBytes() / 1048576.0, jrt::Arena::poolBytes() / 1048576.0,
+                     jrt::gc_heap_size() / 1048576.0, jrt::gc_free_bytes() / 1048576.0, jrt::gc_count());
+      }
       arena.release();
     }
   };
-  bool useCandidateArena = !keepBoard && !workerBoardState->hasWorkerBoard();
+  static const bool boardArenaOff = std::getenv("FR_NO_BOARD_ARENA") != nullptr;  // diagnostics switch
+  bool useCandidateArena = !boardArenaOff && !keepBoard && !workerBoardState->hasWorkerBoard();
   CandidateArena candidateArena;
   std::optional<jrt::BoardArenaScope> boardArenaScope;
   if (useCandidateArena) {

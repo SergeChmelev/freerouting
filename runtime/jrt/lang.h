@@ -21,6 +21,8 @@ namespace jrt {
 void* alloc_uncollectable(std::size_t n);
 void free_uncollectable(void* p);
 std::size_t gc_heap_size();
+std::size_t gc_free_bytes();
+std::size_t gc_count();
 void gc_collect();
 
 // ---------------------------------------------------------------------------------------------

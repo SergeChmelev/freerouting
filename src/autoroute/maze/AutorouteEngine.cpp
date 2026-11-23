@@ -59,7 +59,7 @@ AutorouteEngine::AutorouteEngine(RoutingBoard* board, int32_t traceClearanceClas
 }
 
 bool& AutorouteEngine::searchArenaDisabled() {
-  static bool v = false;
+  static bool v = std::getenv("FR_NO_SEARCH_ARENA") != nullptr;  // diagnostics switch
   return v;
 }
 
