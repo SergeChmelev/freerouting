@@ -4,6 +4,9 @@
 
 #define GC_THREADS 1
 #include <gc.h>
+#include <gc/gc_mark.h>
+#include <dlfcn.h>
+#include <link.h>
 
 #include "jrt/alloc.h"
 
@@ -165,18 +168,162 @@ std::size_t g_checkScans = 0;
 std::map<std::string, std::size_t> g_checkSurvivors;
 constexpr std::size_t kCheckScanEvery = std::size_t{1} << 20;
 
+// --- "who points here": explains a survivor by the words that point into it ----------------
+// Runs right after a full collection, with the allocation lock held (no allocation here).
+
+struct Referrer {
+  const void* block;   // referring heap block (nullptr: root)
+  std::size_t size;    // its size
+  std::size_t offset;  // offset of the pointer in it
+  const char* where;   // "heap", "static", "stack"
+};
+constexpr int kMaxReferrers = 8;
+struct ReferrerSearch {
+  std::uintptr_t lo, hi;  // target range [lo, hi)
+  Referrer found[kMaxReferrers];
+  int count;
+};
+
+void add_referrer(ReferrerSearch* s, const void* block, std::size_t size, std::size_t off, const char* where) {
+  if (s->count < kMaxReferrers) s->found[s->count++] = Referrer{block, size, off, where};
+}
+
+void scan_words(ReferrerSearch* s, const void* from, std::size_t bytes, const void* block, const char* where) {
+  auto* w = static_cast<const std::uintptr_t*>(from);
+  for (std::size_t i = 0; i < bytes / sizeof(std::uintptr_t); ++i) {
+    if (w[i] >= s->lo && w[i] < s->hi) add_referrer(s, block, bytes, i * sizeof(std::uintptr_t), where);
+  }
+}
+
+void GC_CALLBACK scan_heap_object(void* obj, std::size_t bytes, void* client) {
+  auto* s = static_cast<ReferrerSearch*>(client);
+  auto a = reinterpret_cast<std::uintptr_t>(obj);
+  if (a >= s->lo && a < s->hi) return;  // the target itself
+  scan_words(s, obj, bytes, obj, "heap");
+}
+
+int scan_static_segment(dl_phdr_info* info, std::size_t, void* client) {
+  auto* s = static_cast<ReferrerSearch*>(client);
+  for (int i = 0; i < info->dlpi_phnum; ++i) {
+    const ElfW(Phdr)& ph = info->dlpi_phdr[i];
+    if (ph.p_type == PT_LOAD && (ph.p_flags & PF_W) != 0) {
+      scan_words(s, reinterpret_cast<const void*>(info->dlpi_addr + ph.p_vaddr), ph.p_memsz, nullptr, "static");
+    }
+  }
+  return 0;
+}
+
+void* GC_CALLBACK find_referrers_locked(void* client) {
+  auto* s = static_cast<ReferrerSearch*>(client);
+  GC_enumerate_reachable_objects_inner(scan_heap_object, s);
+  dl_iterate_phdr(scan_static_segment, s);
+  GC_stack_base sb;
+  if (GC_get_stack_base(&sb) == GC_SUCCESS) {
+    volatile std::uintptr_t here = 0;
+    auto lo = reinterpret_cast<std::uintptr_t>(&here) & ~std::uintptr_t{7};
+    auto hi = reinterpret_cast<std::uintptr_t>(sb.mem_base);
+    if (hi > lo) scan_words(s, reinterpret_cast<const void*>(lo), hi - lo, nullptr, "stack");
+  }
+  return nullptr;
+}
+
+// Name of the dynamic type of a heap block (its first word as a vtable), or nullptr.
+const char* block_type_name(const void* block) {
+  if (block == nullptr) return nullptr;
+  Dl_info info;
+  void* vptr = *static_cast<void* const*>(block);
+  if (dladdr(vptr, &info) != 0 && info.dli_sname != nullptr && std::strncmp(info.dli_sname, "_ZTV", 4) == 0) {
+    return info.dli_sname + 4;
+  }
+  return nullptr;
+}
+
+std::string describe_referrer(const Referrer& r) {
+  char buf[256];
+  if (r.block == nullptr) {
+    std::snprintf(buf, sizeof buf, "%s", r.where);
+    return buf;
+  }
+  const char* t = block_type_name(r.block);
+  if (t != nullptr) {
+    std::snprintf(buf, sizeof buf, "heap block %p (%zu B, %s) at +%zu", r.block, r.size, t, r.offset);
+    return buf;
+  }
+  // Symbols of the executable are not exported: print the first word as module offset, so
+  // that `nm -C <binary>` can name a vtable (tools/mem/dispose_referrers.sh).
+  Dl_info info;
+  void* first = *static_cast<void* const*>(r.block);
+  if (dladdr(first, &info) != 0 && info.dli_fbase != nullptr) {
+    std::snprintf(buf, sizeof buf, "heap block %p (%zu B, word0=%s+%#lx) at +%zu", r.block, r.size,
+                  info.dli_fname, static_cast<unsigned long>(reinterpret_cast<std::uintptr_t>(first) -
+                                                             reinterpret_cast<std::uintptr_t>(info.dli_fbase)),
+                  r.offset);
+  } else {
+    std::snprintf(buf, sizeof buf, "heap block %p (%zu B, no vtable) at +%zu", r.block, r.size, r.offset);
+  }
+  return buf;
+}
+
+// Prints up to three levels of referrers of `target` (a block without a vtable, e.g. a
+// std::vector buffer, is explained by its own referrers). Returns true if some heap block or
+// static data refers to it, false if only thread stacks / registers do.
+bool explain_survivor(void* target, const char* type, bool print, int depth = 0) {
+  ReferrerSearch s{};
+  s.lo = reinterpret_cast<std::uintptr_t>(target);
+  s.hi = s.lo + GC_size(target);
+  GC_call_with_alloc_lock(find_referrers_locked, &s);
+  bool rooted = false;
+  for (int i = 0; i < s.count; ++i) {
+    if (std::strcmp(s.found[i].where, "stack") != 0) rooted = true;
+  }
+  if (!rooted && depth == 0) return false;
+  if (print && depth == 0) std::fprintf(stderr, "dispose check: survivor %p (%s), referred by:\n", target, type);
+  if (print && s.count == 0) {
+    std::fprintf(stderr, "%*s(nothing found: registers or another thread's stack)\n", 2 * depth + 4, "");
+  }
+  for (int i = 0; i < s.count; ++i) {
+    if (print) std::fprintf(stderr, "%*s%s\n", 2 * depth + 4, "", describe_referrer(s.found[i]).c_str());
+    Dl_info info;
+    if (print && s.found[i].block != nullptr && depth < 2 &&
+        dladdr(*static_cast<void* const*>(s.found[i].block), &info) == 0) {  // no vtable
+      explain_survivor(const_cast<void*>(s.found[i].block), nullptr, true, depth + 1);
+    }
+  }
+  return true;
+}
+
+int g_searched = 0;
+int g_printed = 0;
+constexpr int kMaxSearched = 200;  // referrer searches walk the whole heap
+constexpr int kMaxPrinted = 20;
+std::size_t g_checkStackOnly = 0;  // survivors referred to only by a thread stack
+
 // Full collection, then every watched block disposed before the previous scan (so it has lived
 // through at least one full collection since) that is still reachable counts as a survivor and
 // is no longer watched. `all` also counts the blocks disposed since the previous scan (exit).
+// A survivor that only a thread stack refers to (a stale slot in a live frame: the conservative
+// collector cannot tell) is counted apart; one that heap or static data refers to is a dangling
+// reference and is printed with its referrers.
 void dispose_check_scan(bool all) {
   GC_gcollect();
   for (CheckBlock* b = g_checkBlocks; b != nullptr; b = b->next) {
     for (std::size_t i = 0; i < b->used; ++i) {
       CheckEntry& e = b->entries[i];
       if (e.link != nullptr && (all || e.scan < g_checkScans)) {
-        ++g_checkSurvivors[e.type];
+        void* target = reinterpret_cast<void*>(~reinterpret_cast<std::uintptr_t>(e.link));
         GC_unregister_disappearing_link(&e.link);
         e.link = nullptr;
+        bool rooted = true;
+        if (g_searched < kMaxSearched) {
+          ++g_searched;
+          rooted = explain_survivor(target, e.type, g_printed < kMaxPrinted);
+          if (rooted) ++g_printed;
+        }
+        if (rooted) {
+          ++g_checkSurvivors[e.type];
+        } else {
+          ++g_checkStackOnly;
+        }
       }
     }
   }
@@ -196,8 +343,10 @@ void dispose_check_report() {
   dispose_check_scan(true);
   std::size_t survivors = 0;
   for (auto& [type, n] : g_checkSurvivors) survivors += n;
-  std::fprintf(stderr, "dispose check: %zu disposed, %zu reachable after a full collection\n", g_checkTotal,
-               survivors);
+  std::fprintf(stderr,
+               "dispose check: %zu disposed, %zu reachable after a full collection "
+               "(+ %zu referred only by a thread stack: conservative noise)\n",
+               g_checkTotal, survivors, g_checkStackOnly);
   for (auto& [type, n] : g_checkSurvivors) std::fprintf(stderr, "  %8zu  %s\n", n, type.c_str());
 }
 
@@ -212,7 +361,9 @@ void dispose_check_register(void* mem, const char* type) {
     g_checkBlocks = b;
   }
   CheckEntry& e = g_checkBlocks->entries[g_checkBlocks->used++];
-  e.link = mem;
+  // Hidden (complemented) so that the referrer search does not find the link itself; the
+  // collector only clears the slot, it does not read it.
+  e.link = reinterpret_cast<void*>(~reinterpret_cast<std::uintptr_t>(mem));
   e.type = type;
   e.scan = g_checkScans;
   GC_general_register_disappearing_link(&e.link, mem);

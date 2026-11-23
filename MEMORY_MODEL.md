@@ -295,8 +295,17 @@ objects/bytes.
   found). bm02: 1.13M objects / 86 MB disposed, 0 survivors, SES identical, time unchanged
   (3.3 s, within noise). `parity_sample.sh <out> 120 60`: 58 SAME on the release build with
   `FR_DISPOSE_CHECK=1` and on the checked build, only the two old failures; 286M disposals, 9
-  survivors in 7 boards (1–3 each, no crash or diff; presumably stale stack slots, not yet
-  confirmed).
+  survivors in 7 boards (1–3 each, no crash or diff). The referrer search (below) showed that
+  every one was referred to only by the main thread's stack, never by heap or static data, and
+  rerunning the 7 boards gave survivors in 3 of them only: stale slots in live stack frames
+  (conservative noise), no dangling reference.
+
+**Referrer search** (verification mode): for each survivor (up to 200 per run) the check walks
+every reachable heap block (`GC_enumerate_reachable_objects_inner` right after the collection),
+the writable static segments and the main thread's stack for words pointing into it. Survivors
+referred to only by a stack are counted apart as noise; the others are printed with up to three
+levels of referrers (`heap block … (size, word0=<module>+<offset>) at +<field offset>`);
+`tools/mem/dispose_referrers.sh <log>` turns `word0` (the vtable pointer) into the class name.
 
 ## Verification
 
