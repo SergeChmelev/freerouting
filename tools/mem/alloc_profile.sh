@@ -4,6 +4,8 @@
 # each site also -fno-omit-frame-pointer, e.g.
 #   cmake -S . -B ~/build/fr-prof -G Ninja -DCMAKE_BUILD_TYPE=Release \
 #     "-DCMAKE_CXX_FLAGS=-DJRT_CHECKED=0 -DJRT_ALLOC_PROFILE=1 -g -fno-omit-frame-pointer"
+# Live/leak profile instead (what is still allocated at exit in the collector-free build): build
+# with -DFR_NO_GC=ON as well and use tools/mem/live_profile.sh (same format, live blocks).
 # usage: tools/mem/alloc_profile.sh <binary> <out-prefix> <fixture.dsn> [top]
 # writes <out-prefix>.raw (offset count bytes caller) and <out-prefix>.txt (resolved).
 set -euo pipefail

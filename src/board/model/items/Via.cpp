@@ -185,11 +185,12 @@ bool Via::holeInPad(Pin* pin) {
 }
 
 bool Via::isTail() {
-  jrt::Collection<Item*>* contactList = this->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactList(this->getNormalContacts());
   if (contactList->size() <= 1) {
     return true;
   }
-  jrt::Iterator<Item*>* it = contactList->iterator();
+  jrt::ScopedIter<Item*> it(contactList.get());
+
   Item* currentContactItem = it->next();
   int32_t firstContactFirstLayer = currentContactItem->firstLayer();
   int32_t firstContactLastLayer = currentContactItem->lastLayer();

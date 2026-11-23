@@ -59,7 +59,8 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
   }
   int64_t started = jrt::System::currentTimeMillis();
   jrt::List<Pin*>* pins = new (jrt::kOp) jrt::ArrayList<Pin*>();
-  for (Pin* pin : *board->getSmdPins()) {
+  jrt::DisposeOnExit loopSource1(board->getSmdPins());
+  for (Pin* pin : *loopSource1) {
     if (pin->netCount() == 1 && !pin->hasIgnoredNets()) {
       pins->add(pin);
     }
@@ -68,7 +69,8 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
       jrt::comparingInt<Pin*>([](Pin* p) { return p->getComponentId(); }),
       jrt::comparingInt<Pin*>([](Pin* pin) { return pin->pinIndex; })));
   jrt::List<DirectPinRouting_FixedCopper*>* fixed = new (jrt::kOp) jrt::ArrayList<DirectPinRouting_FixedCopper*>();
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource2(board->getItems());
+  for (Item* item : *loopSource2) {
     if ((jrt::fast_cast<Trace>(item) != nullptr || jrt::fast_cast<Via>(item) != nullptr) &&
         !FixedState_isFix(item->getFixedState())) {
       fixed->add(new (jrt::kOp) DirectPinRouting_FixedCopper(item->getId(), item->getFixedState()));
@@ -85,7 +87,8 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
   auto finallyBlock = [&]() {
     board->clearTransientAutorouteState();
     for (DirectPinRouting_FixedCopper* copper : *fixed) {
-      for (Item* item : *board->getItems()) {
+      jrt::DisposeOnExit loopSource3(board->getItems());
+      for (Item* item : *loopSource3) {
         if (item->getId() == copper->id_) {
           item->setFixedState(copper->state_);
           break;
@@ -100,7 +103,8 @@ BatchFanout_FanoutRunSummary* DirectPinRouting::run(RoutingBoard* board, RouterS
       }
       int32_t net = pin->getNetNumber(0);
       int32_t layer = pin->firstLayer();
-      jrt::Set<Item*>* source = pin->getConnectedSet(net);
+      jrt::DisposeOnExit<jrt::Set<Item*>> sourceOwner(pin->getConnectedSet(net));
+      jrt::Set<Item*>* source = sourceOwner.get();
       jrt::Set<Item*>* destinations = pin->getUnconnectedSet(net);
       if (destinations->isEmpty() || touchesPlane(source) || !onLayer(destinations, layer)) {
         continue;

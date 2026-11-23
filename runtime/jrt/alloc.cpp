@@ -339,6 +339,24 @@ std::string describe_referrer(const Referrer& r) {
   } else {
     std::snprintf(buf, sizeof buf, "heap block %p (%zu B, no vtable) at +%zu", r.block, r.size, r.offset);
   }
+  // A large block (an arena or region chunk) holds many objects: name the object around the word
+  // by the nearest preceding word that points into the executable (its vtable, mostly).
+  if (r.size > 4096 && t == nullptr) {
+    auto* w = static_cast<void* const*>(r.block);
+    std::size_t i = r.offset / sizeof(void*);
+    for (std::size_t back = 0; back <= 64 && back <= i; ++back) {
+      Dl_info vi;
+      if (dladdr(w[i - back], &vi) != 0 && vi.dli_fbase != nullptr && vi.dli_fname != nullptr &&
+          std::strstr(vi.dli_fname, ".so") == nullptr) {
+        std::size_t len = std::strlen(buf);
+        std::snprintf(buf + len, sizeof buf - len, " [object word %s+%#lx at -%zu]", vi.dli_fname,
+                      static_cast<unsigned long>(reinterpret_cast<std::uintptr_t>(w[i - back]) -
+                                                 reinterpret_cast<std::uintptr_t>(vi.dli_fbase)),
+                      back * sizeof(void*));
+        break;
+      }
+    }
+  }
   return buf;
 }
 

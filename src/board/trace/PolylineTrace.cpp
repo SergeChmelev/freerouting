@@ -395,6 +395,7 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
     LineSegment* currentLineSegment = new (jrt::kGeom) LineSegment(this->lines, i + 1);
     jrt::Collection<ShapeTree_TreeEntry*>* overlappingTreeEntries =
         new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
+    jrt::DisposeAllOnExit<ShapeTree_TreeEntry> overlappingTreeEntriesOwner(overlappingTreeEntries);
     // look for intersecting traces with the i-th line segment
     defaultTree->overlappingTreeEntries(currentShape, getLayer(), overlappingTreeEntries);
     jrt::Iterator<ShapeTree_TreeEntry*>* it = overlappingTreeEntries->iterator();
@@ -553,8 +554,8 @@ jrt::Collection<PolylineTrace*>* PolylineTrace::split(IntOctagon* clipShape) {
             ignoreAreas = currentNet->getNetClass()->getIgnoreCyclesWithAreas();
           }
         }
-        if (!ignoreAreas && this->getStartContacts()->contains(foundItem) &&
-            this->getEndContacts()->contains(foundItem) && foundArea->joinsEndsOf(this)) {
+        if (!ignoreAreas && jrt::DisposeOnExit(this->getStartContacts())->contains(foundItem) &&
+            jrt::DisposeOnExit(this->getEndContacts())->contains(foundItem) && foundArea->joinsEndsOf(this)) {
           // this trace can be removed because of cycle with conduction area
           board->removeItem(this);
           return result;
@@ -831,10 +832,13 @@ bool PolylineTrace::checkConnectionToPin(bool atStart) {
     return true;
   }
   jrt::Collection<Item*>* contactList;
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(nullptr);
   if (atStart) {
     contactList = this->getStartContacts();
+    contactListOwner.reset(contactList);
   } else {
     contactList = this->getEndContacts();
+    contactListOwner.reset(contactList);
   }
   Pin* contactPin = nullptr;
   for (Item* currentContact : *contactList) {
@@ -893,12 +897,15 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
 
   Polyline* tracePolyline;
   jrt::Collection<Item*>* contactList;
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(nullptr);
   if (atStart) {
     tracePolyline = this->polyline();
     contactList = this->getStartContacts();
+    contactListOwner.reset(contactList);
   } else {
     tracePolyline = this->polyline()->reverse();
     contactList = this->getEndContacts();
+    contactListOwner.reset(contactList);
   }
   Pin* contactPin = nullptr;
   for (Item* currentContact : *contactList) {
@@ -1046,17 +1053,20 @@ bool PolylineTrace::correctConnectionToPin(bool atStart, AngleRestriction angleR
 bool PolylineTrace::swapConnectionToPin(bool atStart) {
   Polyline* tracePolyline;
   jrt::Collection<Item*>* contactList;
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(nullptr);
   if (atStart) {
     tracePolyline = this->polyline();
     contactList = this->getStartContacts();
+    contactListOwner.reset(contactList);
   } else {
     tracePolyline = this->polyline()->reverse();
     contactList = this->getEndContacts();
+    contactListOwner.reset(contactList);
   }
   if (contactList->size() != 1) {
     return false;
   }
-  Item* currentContact = contactList->iterator()->next();
+  Item* currentContact = jrt::ScopedIter<Item*>(contactList)->next();
   auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
   if (!(currentContact->getFixedState() == FixedState::SHOVE_FIXED && contactTrace != nullptr)) {
     return false;
@@ -1085,7 +1095,8 @@ bool PolylineTrace::swapConnectionToPin(bool atStart) {
     return false;
   }
   Pin* contactPin = nullptr;
-  jrt::Collection<Item*>* currentContacts = contactTrace->getStartContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> currentContactsOwner(contactTrace->getStartContacts());
+  jrt::Collection<Item*>* currentContacts = currentContactsOwner.get();
   for (Item* tmpContact : *currentContacts) {
     if (auto* pin = jrt::fast_cast<Pin>(tmpContact)) {
       contactPin = pin;

@@ -68,7 +68,8 @@ BallEscapeOrder* BallEscapeOrder::of(BasicBoard* board, const std::optional<std:
   }
   // One walk over the board's pins, grouped by part in the board's item order
   jrt::Map<int32_t, jrt::List<Pin*>*>* byPart = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
-  for (Pin* pin : *board->getPins()) {
+  jrt::DisposeOnExit loopSource1(board->getPins());
+  for (Pin* pin : *loopSource1) {
     int32_t part = pin->getComponentId();
     if (part <= 0) {
       continue;

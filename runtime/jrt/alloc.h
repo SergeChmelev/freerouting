@@ -467,6 +467,36 @@ inline void dispose(T* p) noexcept {
   dispose_block(mem, typeid(T).name());
 }
 
+/**
+ * Scoped owner of an operation temporary (e.g. the result collection of a search-tree query that
+ * the caller reads and drops): disposes it when the scope ends. `release()` gives up ownership
+ * (the object escapes). Same contract as dispose: nothing may keep a reference.
+ */
+template <class T>
+class DisposeOnExit {
+ public:
+  explicit DisposeOnExit(T* p) noexcept : p_(p) {}
+  ~DisposeOnExit() { dispose(p_); }
+  DisposeOnExit(const DisposeOnExit&) = delete;
+  DisposeOnExit& operator=(const DisposeOnExit&) = delete;
+  T* get() const noexcept { return p_; }
+  T& operator*() const noexcept { return *p_; }
+  T* operator->() const noexcept { return p_; }
+  T* release() noexcept {
+    T* p = p_;
+    p_ = nullptr;
+    return p;
+  }
+  /** Disposes the current object and takes `p` (Java: the variable is reassigned). */
+  void reset(T* p) noexcept {
+    if (p != p_) dispose(p_);
+    p_ = p;
+  }
+
+ private:
+  T* p_;
+};
+
 }  // namespace jrt
 
 inline void* operator new(std::size_t n, jrt::BoardLifetime) { return ::operator new(n); }

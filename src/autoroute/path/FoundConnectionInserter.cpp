@@ -358,8 +358,8 @@ void FoundConnectionInserter::removeTraceStubs(PlannedConnection_Segment* trace)
                       + ", stub_id=" + jrt::str(traceStub->getId())
                       + ", stub_first=" + jrt::str(traceStub->firstCorner())
                       + ", stub_last=" + jrt::str(traceStub->lastCorner())
-                      + ", startContacts=" + jrt::str(traceStub->getStartContacts()->size())
-                      + ", endContacts=" + jrt::str(traceStub->getEndContacts()->size()));
+                      + ", startContacts=" + jrt::str(jrt::DisposeOnExit(traceStub->getStartContacts())->size())
+                      + ", endContacts=" + jrt::str(jrt::DisposeOnExit(traceStub->getEndContacts())->size()));
       board->removeItem(traceStub);
       removedTraceStubs++;
     }
@@ -437,8 +437,9 @@ jrt::Set<Item*>* FoundConnectionInserter::resolveTerminal(
   if (!live->isEmpty()) {
     return live;
   }
-  for (SearchTreeObject* object :
-       *board->overlappingObjects(TileShape::getInstance(anchor->point()), anchor->layer())) {
+  jrt::DisposeOnExit anchorOverlaps(board->overlappingObjects(TileShape::getInstance(anchor->point()), anchor->layer()));
+  for (SearchTreeObject* object : *anchorOverlaps) {
+
     auto* item = jrt::fast_cast<Item>(object);
     if (item == nullptr || !item->containsNet(ctrl->netNumber)) {
       continue;
@@ -482,7 +483,8 @@ jrt::Set<Item*>* FoundConnectionInserter::terminalComponent(Item* start) {
   visited->add(start);
   while (!pending->isEmpty()) {
     Item* item = pending->removeFirst();
-    jrt::Set<Item*>* contacts = item->getNormalContacts();
+    jrt::DisposeOnExit<jrt::Set<Item*>> contactsOwner(item->getNormalContacts());
+    jrt::Set<Item*>* contacts = contactsOwner.get();
     if (contacts != nullptr) {
       for (Item* contact : *contacts) {
         if (contact->isOnTheBoard() && contact->containsNet(ctrl->netNumber)

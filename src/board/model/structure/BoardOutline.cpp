@@ -132,7 +132,8 @@ jrt::Set<int32_t>* BoardOutline::getEdgePinNets() {
     this->cachedItemCount = currentItemCount;
     jrt::Set<int32_t>* set = new (jrt::kOp) jrt::HashSet<int32_t>();
     if (this->board != nullptr) {
-      for (Pin* pin : *this->board->getPins()) {
+      jrt::DisposeOnExit loopSource1(this->board->getPins());
+      for (Pin* pin : *loopSource1) {
         if (this->isEdgePin(pin)) {
           for (int32_t net : *pin->netNumbers) {
             set->add(net);
@@ -150,7 +151,8 @@ double BoardOutline::minimumPinGap() {
   if (this->board == nullptr) {
     return result;
   }
-  for (Pin* pin : *this->board->getPins()) {
+  jrt::DisposeOnExit loopSource2(this->board->getPins());
+  for (Pin* pin : *loopSource2) {
     for (int32_t layer = pin->firstLayer(); layer <= pin->lastLayer(); layer++) {
       Shape* shape = pin->getShape(layer - pin->firstLayer());
       if (shape == nullptr) {
@@ -283,8 +285,9 @@ bool BoardOutline::blocksTraceAt(TileShape* traceShape, int32_t layer,
     return true;
   }
   jrt::Collection<ShapeTree_TreeEntry*>* entries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> entriesOwner(entries);
   this->board->searchTreeManager->getDefaultTree()->overlappingTreeEntriesWithClearance(
-      static_cast<ConvexShape*>(traceShape), layer, new (jrt::kOp) jrt::Array<int32_t>(0),
+      static_cast<ConvexShape*>(traceShape), layer, jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(),
       clearanceClassIndex, entries);
   bool reached = false;
   for (ShapeTree_TreeEntry* entry : *entries) {
@@ -607,7 +610,8 @@ jrt::Array<BoardOutline_EdgeWindow*>* BoardOutline::computeEdgeWindows() {
     return new (jrt::kOp) jrt::Array<BoardOutline_EdgeWindow*>(0);
   }
   std::vector<BoardOutline_EdgeWindow*> result;
-  for (Pin* pin : *this->board->getPins()) {
+  jrt::DisposeOnExit loopSource3(this->board->getPins());
+  for (Pin* pin : *loopSource3) {
     std::vector<int32_t> netVec;
     for (int32_t n : *pin->netNumbers) {
       if (n > 0) {

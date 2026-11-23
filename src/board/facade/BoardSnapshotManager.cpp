@@ -137,10 +137,12 @@ bool BoardSnapshotManager::popSnapshot() {
 int32_t BoardSnapshotManager::diffTraces(BasicBoard* compareTo) {
   int32_t result = 0;
   jrt::HashSet<int32_t>* traceIds = new (jrt::kOp) jrt::HashSet<int32_t>();
-  for (Trace* trace : *board->getTraces()) {
+  jrt::DisposeOnExit loopSource1(board->getTraces());
+  for (Trace* trace : *loopSource1) {
     traceIds->add(trace->getId());
   }
-  for (Trace* trace : *compareTo->getTraces()) {
+  jrt::DisposeOnExit loopSource2(compareTo->getTraces());
+  for (Trace* trace : *loopSource2) {
     if (!traceIds->contains(trace->getId())) {
       result++;
     } else {

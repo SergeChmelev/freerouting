@@ -123,7 +123,8 @@ int32_t NetRoutingLedger::buildItemLists() {
     (*itemsByNet)[netNumber] = new (jrt::kOp) jrt::ArrayList<Item*>();
   }
   conductionAreas->clear();
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource1(board->getItems());
+  for (Item* item : *loopSource1) {
     if (jrt::fast_cast<Connectable>(item) != nullptr) {
       addItemToLists(item);
       itemNets->put(item, item->netNumbers->clone());

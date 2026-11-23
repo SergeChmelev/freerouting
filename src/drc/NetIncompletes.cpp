@@ -66,7 +66,7 @@ NetIncompletes::NetIncompletes(int32_t netNumber, jrt::Collection<Item*>* netIte
     auto* area = jrt::fast_cast<ConductionArea>(item);
     if (area != nullptr ? area->isDeadCopper() || area->isFloatingFragment(netNumber)
                         : jrt::fast_cast<DrillItem>(item) == nullptr &&
-                              item->getNormalContacts()->isEmpty()) {
+                              jrt::DisposeOnExit(item->getNormalContacts())->isEmpty()) {
       unconnectedCount++;
       continue;
     }

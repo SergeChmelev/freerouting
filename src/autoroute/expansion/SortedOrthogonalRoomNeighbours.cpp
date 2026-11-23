@@ -36,6 +36,11 @@ SortedOrthogonalRoomNeighbours::SortedOrthogonalRoomNeighbours(ExpansionRoom* fr
   }
 }
 
+SortedOrthogonalRoomNeighbours::~SortedOrthogonalRoomNeighbours() {
+  jrt::disposeWithElements<SortedOrthogonalRoomNeighbours_SortedRoomNeighbour>(sortedNeighbours);
+  jrt::dispose(edgeInteriorTouchesObstacle);
+}
+
 CompleteExpansionRoom* SortedOrthogonalRoomNeighbours::calculate(ExpansionRoom* room,
                                                                  AutorouteEngine* autorouteEngine) {
   int32_t netNumber = autorouteEngine->getNetNumber();
@@ -44,6 +49,7 @@ CompleteExpansionRoom* SortedOrthogonalRoomNeighbours::calculate(ExpansionRoom* 
   if (roomNeighbours == nullptr) {
     return nullptr;
   }
+  jrt::DisposeOnExit roomNeighboursOwner(roomNeighbours);
 
   // Check, that each side of the room shape has at least one touching neighbour.
   // Otherwise, improve the room shape by enlarging.
@@ -122,6 +128,8 @@ SortedOrthogonalRoomNeighbours* SortedOrthogonalRoomNeighbours::calculateNeighbo
   }
   SortedOrthogonalRoomNeighbours* result = new (jrt::kOp) SortedOrthogonalRoomNeighbours(room, completedRoom);
   jrt::ArrayList<ShapeTree_TreeEntry*>* overlappingObjects = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> overlappingObjectsOwner(overlappingObjects);
+
   autorouteSearchTree->overlappingTreeEntries(roomShape, room->getLayer(), overlappingObjects);
 
   // Sort the overlapping objects deterministically to ensure parity with v1.9.

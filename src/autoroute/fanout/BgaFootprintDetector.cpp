@@ -76,7 +76,8 @@ jrt::List<BgaEscapeDescriptor*>* BgaFootprintDetector::detect(
   jrt::Map<int32_t, jrt::List<Pin*>*>* smdPinsByComp =
       new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
 
-  for (Pin* pin : *board->getSmdPins()) {
+  jrt::DisposeOnExit loopSource1(board->getSmdPins());
+  for (Pin* pin : *loopSource1) {
     int32_t compId = pin->getComponentId();
     if (compId <= 0) {
       continue;
@@ -103,7 +104,7 @@ jrt::List<BgaEscapeDescriptor*>* BgaFootprintDetector::detect(
 
     int32_t unescapedCount = 0;
     for (Pin* p : *pins) {
-      if (p->netCount() > 0 && !p->hasIgnoredNets() && p->getNormalContacts()->isEmpty()) {
+      if (p->netCount() > 0 && !p->hasIgnoredNets() && jrt::DisposeOnExit(p->getNormalContacts())->isEmpty()) {
         unescapedCount++;
       }
     }
@@ -266,8 +267,9 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
 
   // Identify inner layers containing a BGA-spanning ConductionArea (solid pour)
   jrt::Set<int32_t>* pouredLayers = new (jrt::kOp) jrt::HashSet<int32_t>();
-  if (board->getConductionAreas() != nullptr) {
-    for (ConductionArea* ca : *board->getConductionAreas()) {
+  if (jrt::DisposeOnExit(board->getConductionAreas()).get() != nullptr) {
+    jrt::DisposeOnExit loopSource2(board->getConductionAreas());
+    for (ConductionArea* ca : *loopSource2) {
       int32_t l = ca->getLayer();
       if (l != pinLayer && ca->getArea() != nullptr) {
         IntBox* caBox = ca->boundingBox();
@@ -329,8 +331,9 @@ BgaEscapeDescriptor* BgaFootprintDetector::analyzeComponent(RoutingBoard* board,
   // Pre-index ConductionAreas overlapping the BGA footprint by net number
   jrt::Map<int32_t, jrt::List<ConductionArea*>*>* conductionAreasByNet =
       new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<ConductionArea*>*>();
-  if (board->getConductionAreas() != nullptr) {
-    for (ConductionArea* ca : *board->getConductionAreas()) {
+  if (jrt::DisposeOnExit(board->getConductionAreas()).get() != nullptr) {
+    jrt::DisposeOnExit loopSource3(board->getConductionAreas());
+    for (ConductionArea* ca : *loopSource3) {
       if (ca->getArea() != nullptr) {
         IntBox* caBox = ca->boundingBox();
         if (caBox != nullptr && caBox->intersects(bgaBox)) {

@@ -13,7 +13,8 @@ namespace fr {
 
 std::optional<std::string> DanglingCopper::remove(RoutingBoard* board, const std::string& where) {
   jrt::List<Item*>* tails = new (jrt::kOp) jrt::ArrayList<Item*>();
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource1(board->getItems());
+  for (Item* item : *loopSource1) {
     if (item->isRoutable() && item->netCount() == 1 && item->isTail()) {
       tails->add(item);
     }
@@ -33,8 +34,8 @@ std::optional<std::string> DanglingCopper::remove(RoutingBoard* board, const std
     (*nets)[i] = netVec[i];
   }
   int32_t openBefore = open(board, nets);
-  int32_t viasBefore = board->getVias()->size();
-  int32_t tracesBefore = board->getTraces()->size();
+  int32_t viasBefore = jrt::DisposeOnExit(board->getVias())->size();
+  int32_t tracesBefore = jrt::DisposeOnExit(board->getTraces())->size();
   board->generateSnapshot();
   int32_t passes = 0;
   while (passes < MAX_PASSES && board->removeTraceTails(-1, Item_StopConnectionOption::NONE)) {
@@ -49,8 +50,8 @@ std::optional<std::string> DanglingCopper::remove(RoutingBoard* board, const std
   }
   board->popSnapshot();
   return "Dangling copper after " + where + ": removed " +
-         jrt::str(viasBefore - board->getVias()->size()) + " via(s) and " +
-         jrt::str(tracesBefore - board->getTraces()->size()) + " trace piece(s) behind " +
+         jrt::str(viasBefore - jrt::DisposeOnExit(board->getVias())->size()) + " via(s) and " +
+         jrt::str(tracesBefore - jrt::DisposeOnExit(board->getTraces())->size()) + " trace piece(s) behind " +
          jrt::str(tails->size()) + " tail(s) in " + jrt::str(passes) + " pass(es); " +
          jrt::str(openAfter) + " connection(s) of their nets open, as before.";
 }

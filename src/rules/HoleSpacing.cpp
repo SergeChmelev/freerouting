@@ -79,6 +79,7 @@ void HoleSpacing::visit(BasicBoard* board, FloatPoint* center, double radius, in
   IntPoint* c = center->round();
   IntBox* box = new (jrt::kGeom) IntBox(c->x - reach, c->y - reach, c->x + reach, c->y + reach);
   auto* entries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> entriesOwner(entries);
   board->searchTreeManager->getDefaultTree()->overlappingTreeEntries(box, -1, entries);
   jrt::Set<DrillItem*>* reported = nullptr;
   for (ShapeTree_TreeEntry* entry : *entries) {

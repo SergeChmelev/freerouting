@@ -68,7 +68,8 @@ void DrillItem::moveBy(Vector* vector) {
   oldCenter->translateBy(vector)->toIntegerExact();
   // remember the contact situation of this drillitem to traces on each layer
   jrt::Set<DrillItem_TraceInfo*>* contactTraceInfo = new (jrt::kOp) jrt::TreeSet<DrillItem_TraceInfo*>();
-  jrt::Collection<Item*>* contacts = this->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOwner(this->getNormalContacts());
+  jrt::Collection<Item*>* contacts = contactsOwner.get();
   for (Item* currentContact : *contacts) {
     if (auto* currentTrace = jrt::fast_cast<Trace>(currentContact)) {
       auto* currentTraceInfo =
@@ -222,7 +223,7 @@ bool DrillItem::containsCopper(Point* point, int32_t layer) {
 jrt::Set<Item*>* DrillItem::getNormalContacts() {
   Point* drillCenter = this->getCenter();
   TileShape* searchShape = TileShape::getInstance(drillCenter);
-  jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(searchShape, -1);
+  jrt::DisposeOnExit overlaps(board->overlappingObjects(searchShape, -1));
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   // A plane is a contact where it overlaps the copper of a pin, its centre lying in the plane or
   // not: look up the planes on each layer by the shape of the pin there.
@@ -233,8 +234,10 @@ jrt::Set<Item*>* DrillItem::getNormalContacts() {
     if (layerShape == nullptr) {
       continue;
     }
-    for (SearchTreeObject* currentObject : *board->overlappingObjects(layerShape, layer)) {
+    jrt::DisposeOnExit layerOverlaps(board->overlappingObjects(layerShape, layer));
+    for (SearchTreeObject* currentObject : *layerOverlaps) {
       auto* area = jrt::fast_cast<ConductionArea>(currentObject);
+
       if (area != nullptr && area->overlapsCopperOf(this)) {
         result->add(area);
       }

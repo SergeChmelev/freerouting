@@ -178,7 +178,8 @@ BatchFanout_Component_Pin::BatchFanout_Component_Pin(BatchFanout_Component* oute
   double minDistance = jrt::Double::MAX_VALUE;
   int32_t netNumber = boardPin->netCount() > 0 ? boardPin->getNetNumber(0) : 0;
   if (netNumber > 0) {
-    for (Pin* otherPin : *routingBoard->getPins()) {
+    jrt::DisposeOnExit loopSource1(routingBoard->getPins());
+    for (Pin* otherPin : *loopSource1) {
       if (otherPin != boardPin && otherPin->containsNet(netNumber)) {
         double dist = pinLocation->distance(otherPin->getCenter()->toFloat());
         if (dist < minDistance) {
@@ -258,7 +259,8 @@ BatchFanout::BatchFanout(RoutingBoard* board, RouterSettings* settings, Stoppabl
   std::string sortingOrder = settings->fanout != nullptr && settings->fanout->pinSortingOrder.has_value()
                                  ? *settings->fanout->pinSortingOrder
                                  : "outer_first";
-  jrt::Collection<Pin*>* boardSmdPinList = routingBoard->getSmdPins();
+  jrt::DisposeOnExit<jrt::Collection<Pin*>> boardSmdPinListOwner(routingBoard->getSmdPins());
+  jrt::Collection<Pin*>* boardSmdPinList = boardSmdPinListOwner.get();
   // Filter out SMD pins that belong to no net or an ignored net class, or were already
   // escaped by the BGA escape committer.
   jrt::Collection<Pin*>* boardSmdPinListWithNets = new (jrt::kOp) jrt::LinkedList<Pin*>();
@@ -302,7 +304,8 @@ bool BatchFanout::leftToPlaneRouting(RoutingBoard* board, RouterSettings* settin
   }
   int32_t netNo = pin->getNetNumber(0);
   bool powerPlane = false;
-  for (ConductionArea* area : *board->getConductionAreas()) {
+  jrt::DisposeOnExit loopSource2(board->getConductionAreas());
+  for (ConductionArea* area : *loopSource2) {
     if (area->containsNet(netNo) && !(*board->layerStructure->layers)[area->firstLayer()]->isSignal) {
       powerPlane = true;
       break;
@@ -328,7 +331,8 @@ bool BatchFanout::isFinePitch(RoutingBoard* board, Pin* pin, int32_t netNo) {
   double clearance = board->clearanceValue(pin->clearanceClassIndex(), pin->clearanceClassIndex(), layer);
   double limit = viaShape->maxWidth() + 2 * clearance;
   FloatPoint* center = pin->getCenter()->toFloat();
-  for (Pin* other : *board->getPins()) {
+  jrt::DisposeOnExit loopSource3(board->getPins());
+  for (Pin* other : *loopSource3) {
     if (other != pin && other->getComponentId() == pin->getComponentId() &&
         other->getCenter()->toFloat()->distance(center) < limit) {
       return true;
@@ -701,7 +705,7 @@ void BatchFanout::maybePublishProgress(BatchFanout_FanoutProgressListener* progr
     BatchFanout_EscapeStatistics* interimEscape = new (jrt::kOp) BatchFanout_EscapeStatistics(this->totalSmdPinCount, 0, 0.0);
     if (progressStats != nullptr) {
       progressStats->vias->totalCount = this->routingBoard->getViaCount();
-      progressStats->traces->totalCount = this->routingBoard->getTraces()->size();
+      progressStats->traces->totalCount = jrt::DisposeOnExit(this->routingBoard->getTraces())->size();
     }
     publishProgress(progressListener, passNo, ripupCosts, pinsToGo, routedCount, notRoutedCount, insertErrorCount,
                     extraViasThisPass, interimEscape, passCompleted, passStart, progressStats);

@@ -422,7 +422,8 @@ Polyline* TraceTightener45::smoothenStartCornerAtTrace(PolylineTrace* trace) {
   Direction* lineDirection = (*tracePolyline->lines)[1]->direction();
   Direction* prevLineDirection = (*tracePolyline->lines)[2]->direction();
 
-  jrt::Collection<Item*>* contactList = trace->getStartContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(trace->getStartContacts());
+  jrt::Collection<Item*>* contactList = contactListOwner.get();
   for (Item* currentContact : *contactList) {
     auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
     if (contactTrace != nullptr && !currentContact->isShoveFixed()) {
@@ -532,7 +533,8 @@ Polyline* TraceTightener45::smoothenEndCornerAtTrace(PolylineTrace* trace) {
   Direction* prevLineDirection =
       (*tracePolyline->lines)[tracePolyline->lines->length - 3]->direction()->opposite();
 
-  jrt::Collection<Item*>* contactList = trace->getEndContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(trace->getEndContacts());
+  jrt::Collection<Item*>* contactList = contactListOwner.get();
   for (Item* currentContact : *contactList) {
     auto* contactTrace = jrt::fast_cast<PolylineTrace>(currentContact);
     if (contactTrace != nullptr && !currentContact->isShoveFixed()) {

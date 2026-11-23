@@ -131,7 +131,8 @@ void MazeSearchEngine::reduceTraceShapesAtTiePins(jrt::Collection<Item*>* itemLi
   for (Item* currentItem : *itemList) {
     auto* currentTiePin = jrt::fast_cast<Pin>(currentItem);
     if (currentTiePin != nullptr && currentItem->netCount() > 1) {
-      jrt::Collection<Item*>* pinContacts = currentItem->getNormalContacts();
+      jrt::DisposeOnExit<jrt::Collection<Item*>> pinContactsOwner(currentItem->getNormalContacts());
+      jrt::Collection<Item*>* pinContacts = pinContactsOwner.get();
       for (Item* currentContact : *pinContacts) {
         if (jrt::fast_cast<PolylineTrace>(currentContact) == nullptr ||
             currentContact->containsNet(ownNetNo)) {

@@ -59,6 +59,7 @@ double RoutingBoardSearchFacade::checkTraceSegment(LineSegment* lineSegment, int
   double okLength = jrt::Integer::MAX_VALUE;
   jrt::Collection<ShapeTree_TreeEntry*>* obstacleEntries =
       defaultTree->overlappingTreeEntriesWithClearance(shapeToCheck, layer, netNumbers, clClassNo);
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> obstacleEntriesOwner(obstacleEntries);
 
   for (ShapeTree_TreeEntry* currentObstacleEntry : *obstacleEntries) {
     auto* currentObstacle = jrt::fast_cast<Item>(currentObstacleEntry->object);
@@ -113,7 +114,7 @@ bool RoutingBoardSearchFacade::checkMoveItem(Item* item, Vector* vector,
   }
   int32_t contactCount = 0;
   if (jrt::fast_cast<Connectable>(item) != nullptr) {
-    contactCount = item->getAllContacts()->size();
+    contactCount = jrt::DisposeOnExit(item->getAllContacts())->size();
   }
   if (jrt::fast_cast<Trace>(item) != nullptr && contactCount > 0) {
     return false;
@@ -126,8 +127,9 @@ bool RoutingBoardSearchFacade::checkMoveItem(Item* item, Vector* vector,
     if (!movedShape->isContainedIn(board->boundingBox)) {
       return false;
     }
-    jrt::Set<Item*>* obstacles = board->overlappingItemsWithClearance(
-        movedShape, item->shapeLayer(i), item->netNumbers, item->clearanceClassIndex());
+    jrt::DisposeOnExit<jrt::Set<Item*>> obstaclesOwner(board->overlappingItemsWithClearance(
+        movedShape, item->shapeLayer(i), item->netNumbers, item->clearanceClassIndex()));
+    jrt::Set<Item*>* obstacles = obstaclesOwner.get();
     for (Item* currentItem : *obstacles) {
       if (ignoreItems != nullptr) {
         if (!ignoreItems->contains(currentItem) && currentItem->isObstacle(item)) {
@@ -145,8 +147,9 @@ bool RoutingBoardSearchFacade::checkChangeNet(Item* item, int32_t newNetNo) {
   jrt::Array<int32_t>* netNumbers = jrt::Array<int32_t>::of({newNetNo});
   for (int32_t i = 0; i < item->tileShapeCount(); i++) {
     TileShape* currentShape = item->getTileShape(i);
-    jrt::Set<Item*>* obstacles = board->overlappingItemsWithClearance(
-        currentShape, item->shapeLayer(i), netNumbers, item->clearanceClassIndex());
+    jrt::DisposeOnExit<jrt::Set<Item*>> obstaclesOwner(board->overlappingItemsWithClearance(
+        currentShape, item->shapeLayer(i), netNumbers, item->clearanceClassIndex()));
+    jrt::Set<Item*>* obstacles = obstaclesOwner.get();
     for (Item* currentObject : *obstacles) {
       if (currentObject != item) {
         if (auto* connectable = jrt::fast_cast<Connectable>(currentObject)) {
@@ -163,7 +166,8 @@ bool RoutingBoardSearchFacade::checkChangeNet(Item* item, int32_t newNetNo) {
 Item* RoutingBoardSearchFacade::pickNearestRoutingItem(Point* location, int32_t layer,
                                                        Item* fromItem) {
   TileShape* pointShape = TileShape::getInstance(location);
-  jrt::Collection<Item*>* foundItems = board->overlappingItems(pointShape, layer);
+  jrt::DisposeOnExit<jrt::Collection<Item*>> foundItemsOwner(board->overlappingItems(pointShape, layer));
+  jrt::Collection<Item*>* foundItems = foundItemsOwner.get();
   FloatPoint* pickLocation = location->toFloat();
   double minDist = jrt::Integer::MAX_VALUE;
   Item* nearestItem = nullptr;

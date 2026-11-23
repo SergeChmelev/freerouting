@@ -701,7 +701,8 @@ jrt::Set<Item*>* Pin::getNormalContacts() {
   if (board == nullptr || getComponentId() == 0) {
     return result;
   }
-  for (Pin* other : *copperOverlappingPins([this](Pin* o) { return o->sharesNet(this); })) {
+  jrt::DisposeOnExit pins(copperOverlappingPins([this](Pin* o) { return o->sharesNet(this); }));
+  for (Pin* other : *pins) {
     result->add(other);
   }
   return result;
@@ -715,13 +716,14 @@ jrt::List<Pin*>* Pin::copperOverlappingPins(std::function<bool(Pin*)> accept) {
   IntBox* box = this->boundingBox();
   // The pin tests come before the exact overlap test of the search tree, which every item under
   // the pin, planes and traces included, would otherwise reach.
-  jrt::Set<SearchTreeObject*>* candidates =
+  jrt::DisposeOnExit candidates(
       board->searchTreeManager->getDefaultTree()->overlappingObjects(
           box, -1, [this, accept, box](SearchTreeObject* obj) {
             auto* other = jrt::fast_cast<Pin>(obj);
             return other != nullptr && other != this && accept(other) && other->sharesLayer(this) &&
                    box->intersects(other->boundingBox());
-          });
+          }));
+
   for (SearchTreeObject* obj : *candidates) {
     Pin* other = jrt::fast_cast<Pin>(obj);
     bool overlaps = false;

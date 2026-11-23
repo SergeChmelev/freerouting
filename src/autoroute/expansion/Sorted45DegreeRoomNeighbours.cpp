@@ -38,6 +38,11 @@ Sorted45DegreeRoomNeighbours::Sorted45DegreeRoomNeighbours(ExpansionRoom* fromRo
   }
 }
 
+Sorted45DegreeRoomNeighbours::~Sorted45DegreeRoomNeighbours() {
+  jrt::disposeWithElements<Sorted45DegreeRoomNeighbours_SortedRoomNeighbour>(sortedNeighbours);
+  jrt::dispose(edgeInteriorTouchesObstacle);
+}
+
 CompleteExpansionRoom* Sorted45DegreeRoomNeighbours::calculate(ExpansionRoom* room, AutorouteEngine* autorouteEngine) {
   int32_t netNumber = autorouteEngine->getNetNumber();
   Sorted45DegreeRoomNeighbours* roomNeighbours = Sorted45DegreeRoomNeighbours::calculateNeighbours(
@@ -45,6 +50,7 @@ CompleteExpansionRoom* Sorted45DegreeRoomNeighbours::calculate(ExpansionRoom* ro
   if (roomNeighbours == nullptr) {
     return nullptr;
   }
+  jrt::DisposeOnExit roomNeighboursOwner(roomNeighbours);
 
   // Check, that each side of the room shape has at least one touching neighbour.
   // Otherwise, improve the room shape by enlarging.
@@ -85,6 +91,8 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
   IntOctagon* roomOct = roomShape->boundingOctagon();
   Sorted45DegreeRoomNeighbours* result = new (jrt::kOp) Sorted45DegreeRoomNeighbours(room, completedRoom);
   jrt::ArrayList<ShapeTree_TreeEntry*>* overlappingObjects = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> overlappingObjectsOwner(overlappingObjects);
+
   autorouteSearchTree->overlappingTreeEntries(roomShape, room->getLayer(), overlappingObjects);
 
   // Sort the overlapping objects deterministically to ensure parity with v1.9.

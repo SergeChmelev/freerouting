@@ -451,7 +451,8 @@ FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::evalua
   }
 
   // 2. Query spatial index for obstacles overlapping conduction area
-  jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(queryBbox, layer);
+  jrt::DisposeOnExit<jrt::Set<SearchTreeObject*>> overlapsOwner(board->overlappingObjects(queryBbox, layer));
+  jrt::Set<SearchTreeObject*>* overlaps = overlapsOwner.get();
   bool hasForeignObstacles = false;
   auto* areaItems = new (jrt::kOp) jrt::ArrayList<Item*>();
   auto* areaShapeIndices = new (jrt::kOp) jrt::ArrayList<int32_t>();
@@ -975,7 +976,8 @@ void FastPlaneConnectivityGrid::collectForeignCopper(
     int32_t ownIndex) {
   int32_t layer = ca->getLayer();
   int32_t clearanceClass = ca->clearanceClassIndex();
-  for (SearchTreeObject* object : *board->overlappingObjects(query, layer)) {
+  jrt::DisposeOnExit loopSource1(board->overlappingObjects(query, layer));
+  for (SearchTreeObject* object : *loopSource1) {
     Item* item = jrt::fast_cast<Item>(object);
     if (item == nullptr || item == ca || !item->sharesLayer(ca)) {
       continue;

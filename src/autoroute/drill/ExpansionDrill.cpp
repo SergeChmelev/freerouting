@@ -29,12 +29,13 @@ ExpansionDrill::ExpansionDrill(TileShape* shape, Point* location, int32_t firstL
 
 bool ExpansionDrill::calculateExpansionRooms(AutorouteEngine* autorouteEngine) {
   TileShape* searchShape = TileShape::getInstance(location);
-  jrt::Collection<SearchTreeObject*>* overlaps =
-      autorouteEngine->autorouteSearchTree->overlappingObjects(searchShape, -1);
+  jrt::DisposeOnExit<jrt::Collection<SearchTreeObject*>> overlapsOwner(autorouteEngine->autorouteSearchTree->overlappingObjects(searchShape, -1));
+  jrt::Collection<SearchTreeObject*>* overlaps = overlapsOwner.get();
   for (int32_t i = this->firstLayer; i <= this->lastLayer; i++) {
     CompleteExpansionRoom* foundRoom = nullptr;
-    jrt::Iterator<SearchTreeObject*>* it = overlaps->iterator();
+    jrt::ScopedIter<SearchTreeObject*> it(overlaps);
     while (it->hasNext()) {
+
       SearchTreeObject* currentObject = it->next();
       CompleteExpansionRoom* currentRoom = jrt::fast_cast<CompleteExpansionRoom>(currentObject);
       if (currentRoom == nullptr) {

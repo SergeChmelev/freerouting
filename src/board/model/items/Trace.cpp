@@ -76,7 +76,8 @@ bool Trace::isConnectionPoint(Point* point) {
 
 jrt::List<Point*>* Trace::interiorJunctions() {
   jrt::List<Point*>* result = new (jrt::kOp) jrt::ArrayList<Point*>();
-  for (Item* contact : *getNormalContacts()) {
+  jrt::DisposeOnExit contacts(getNormalContacts());
+  for (Item* contact : *contacts) {
     Point* point = normalContactPoint(contact);
     if (point != nullptr && !point->equals(firstCorner()) && !point->equals(lastCorner()) &&
         !result->contains(point)) {
@@ -170,11 +171,13 @@ jrt::Set<Item*>* Trace::getNormalContacts() {
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   Point* startCorner = this->firstCorner();
   if (startCorner != nullptr) {
-    result->addAll(getNormalContacts(startCorner, false));
+    jrt::DisposeOnExit contacts(getNormalContacts(startCorner, false));
+    result->addAll(contacts.get());
   }
   Point* endCorner = this->lastCorner();
   if (endCorner != nullptr) {
-    result->addAll(getNormalContacts(endCorner, false));
+    jrt::DisposeOnExit contacts(getNormalContacts(endCorner, false));
+    result->addAll(contacts.get());
   }
 
   // Query same-net items in the trace bounds to capture branches meeting
@@ -188,7 +191,7 @@ jrt::Set<Item*>* Trace::getNormalContacts() {
     } else {
       contactBounds = this->boundingBox();
     }
-    jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(contactBounds, this->layer);
+    jrt::DisposeOnExit overlaps(board->overlappingObjects(contactBounds, this->layer));
     for (SearchTreeObject* obj : *overlaps) {
       auto* item = jrt::fast_cast<Item>(obj);
       if (item == nullptr || item == this || !item->sharesNet(this) || !item->sharesLayer(this)) {
@@ -218,7 +221,7 @@ jrt::Set<Item*>* Trace::getNormalContacts(Point* point, bool ignoreNet) {
     return new (jrt::kOp) jrt::TreeSet<Item*>();
   }
   TileShape* searchShape = TileShape::getInstance(point);
-  jrt::Set<SearchTreeObject*>* overlaps = board->overlappingObjects(searchShape, this->layer);
+  jrt::DisposeOnExit overlaps(board->overlappingObjects(searchShape, this->layer));
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
     auto* currentItem = jrt::fast_cast<Item>(currentObject);
@@ -250,7 +253,8 @@ bool Trace::isRoutable() { return !isUserFixed() && (this->netCount() > 0); }
 bool Trace::isTail() { return !hasContactAt(true) || !hasContactAt(false); }
 
 bool Trace::hasContactAt(bool first) {
-  for (Item* contact : *(first ? getStartContacts() : getEndContacts())) {
+  jrt::DisposeOnExit contacts(first ? getStartContacts() : getEndContacts());
+  for (Item* contact : *contacts) {
     auto* area = jrt::fast_cast<ConductionArea>(contact);
     if (area == nullptr || area->touchesEndOf(this, first)) {
       return true;
@@ -260,7 +264,8 @@ bool Trace::hasContactAt(bool first) {
 }
 
 bool Trace::hasInteriorContacts() {
-  for (Item* contact : *getNormalContacts()) {
+  jrt::DisposeOnExit contacts(getNormalContacts());
+  for (Item* contact : *contacts) {
     if (auto* trace = jrt::fast_cast<Trace>(contact)) {
       if (isInteriorPoint(trace->firstCorner()) || isInteriorPoint(trace->lastCorner())) {
         return true;
@@ -284,8 +289,9 @@ bool Trace::isDrillable(int32_t netNumber) {
 }
 
 bool Trace::isOverlap() {
-  jrt::Set<Item*>* startContacts = this->getStartContacts();
-  for (Item* contact : *this->getEndContacts()) {
+  jrt::DisposeOnExit startContacts(this->getStartContacts());
+  jrt::DisposeOnExit endContacts(this->getEndContacts());
+  for (Item* contact : *endContacts) {
     // a fractured plane under both ends joins them only if they touch a common island
     auto* area = jrt::fast_cast<ConductionArea>(contact);
     if (startContacts->contains(contact) && !(area != nullptr && !area->joinsEndsOf(this))) {
@@ -353,13 +359,16 @@ bool Trace::isCycle() {
     }
     return true;
   }
-  jrt::Collection<Item*>* startContacts = this->getStartContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> startContactsOwner(this->getStartContacts());
+  jrt::Collection<Item*>* startContacts = startContactsOwner.get();
   // a cycle exists if through expanding the start contact we reach
   // this trace again via an end contact
   // make sure, that all direct neighbours are
   // expanded from here, to block coming back to
   // this trace via a start contact.
-  jrt::Set<Item*>* visitedItems = new (jrt::kOp) jrt::TreeSet<Item*>(startContacts);
+  jrt::DisposeOnExit<jrt::Set<Item*>> visitedOwner(new (jrt::kOp) jrt::TreeSet<Item*>(startContacts));
+  jrt::Set<Item*>* visitedItems = visitedOwner.get();
+
   bool ignoreAreas = false;
   if (this->netNumbers->length > 0) {
     Net* currentNet = this->board->rules->nets->get((*this->netNumbers)[0]);
@@ -389,11 +398,11 @@ jrt::Array<Point*>* Trace::getRatsnestCorners() {
   int32_t stubCount = 0;
   bool stubAtStart = false;
   bool stubAtEnd = false;
-  if (getStartContacts()->isEmpty()) {
+  if (jrt::DisposeOnExit(getStartContacts())->isEmpty()) {
     ++stubCount;
     stubAtStart = true;
   }
-  if (getEndContacts()->isEmpty()) {
+  if (jrt::DisposeOnExit(getEndContacts())->isEmpty()) {
     ++stubCount;
     stubAtEnd = true;
   }
@@ -431,8 +440,9 @@ jrt::Set<Pin*>* Trace::touchingPinsAtEndCorners() {
     IntOctagon* currentOct = currentEndPoint->surroundingOctagon();
     currentOct = currentOct->enlarge(
         getCompensatedHalfWidth(this->board->searchTreeManager->getDefaultTree()));
-    jrt::Set<Item*>* currentOverlaps = this->board->overlappingItemsWithClearance(
-        currentOct, this->layer, new (jrt::kOp) jrt::Array<int32_t>(0), this->clearanceClassIndex());
+    jrt::DisposeOnExit currentOverlaps(this->board->overlappingItemsWithClearance(
+        currentOct, this->layer, jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(), this->clearanceClassIndex()));
+
     for (Item* currentItem : *currentOverlaps) {
       auto* pin = jrt::fast_cast<Pin>(currentItem);
       if (pin != nullptr && currentItem->sharesNet(this)) {

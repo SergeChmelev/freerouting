@@ -603,7 +603,8 @@ bool FoundConnectionLocator::unshovableCopperOverlapsPad(BasicBoard* board, Pin*
                                                          int32_t netNumber) {
   ShapeSearchTree* defaultTree = board->searchTreeManager->getDefaultTree();
   jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
-  defaultTree->overlappingTreeEntries(copper, layer, new (jrt::kOp) jrt::Array<int32_t>(0), treeEntries);
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> treeEntriesOwner(treeEntries);
+  defaultTree->overlappingTreeEntries(copper, layer, jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(), treeEntries);
   for (ShapeTree_TreeEntry* entry : *treeEntries) {
     auto* item = jrt::fast_cast<Item>(entry->object);
     if (item == nullptr || item == pin || !item->isTraceObstacle(netNumber, entry->shapeIndexInObject)) {
@@ -629,7 +630,9 @@ bool FoundConnectionLocator::endBlockedByUnshovableCopper(BasicBoard* board, Til
   }
   ShapeSearchTree* defaultTree = board->searchTreeManager->getDefaultTree();
   jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
-  auto* ignoreNetNos = new (jrt::kOp) jrt::Array<int32_t>(0);
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> treeEntriesOwner(treeEntries);
+  jrt::DisposeOnExit ignoreNetNosOwner(new (jrt::kOp) jrt::Array<int32_t>(0));
+  auto* ignoreNetNos = ignoreNetNosOwner.get();
   if (defaultTree->isClearanceCompensationUsed()) {
     defaultTree->overlappingTreeEntries(shape, layer, ignoreNetNos, treeEntries);
   } else {

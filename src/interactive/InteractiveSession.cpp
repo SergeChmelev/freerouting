@@ -95,7 +95,8 @@ bool InteractiveSession::changeLayer(int32_t newLayer) {
         fromLayer = newLayer;
         toLayer = oldLayer - 1;
       }
-      for (Item* currentItem : *newVia->getNormalContacts()) {
+      jrt::DisposeOnExit loopSource1(newVia->getNormalContacts());
+      for (Item* currentItem : *loopSource1) {
         if (auto* currentArea = jrt::fast_cast<ConductionArea>(currentItem)) {
           if (currentArea->getLayer() >= fromLayer && currentArea->getLayer() <= toLayer) {
             connectedToPlane = true;
@@ -159,7 +160,8 @@ Item* InteractiveSession::startOk(IntPoint* location) {
 jrt::Array<int32_t>* InteractiveSession::getRouteNetNumbersAtTiePin(Pin* pin, int32_t layer) {
   auto* netNumberList = new (jrt::kOp) jrt::TreeSet<int32_t>();
   for (int32_t i = 0; i < pin->netCount(); i++) netNumberList->add(pin->getNetNumber(i));
-  for (Item* currentContact : *pin->getNormalContacts()) {
+  jrt::DisposeOnExit loopSource2(pin->getNormalContacts());
+  for (Item* currentContact : *loopSource2) {
     if (currentContact->firstLayer() <= layer && currentContact->lastLayer() >= layer) {
       for (int32_t i = 0; i < currentContact->netCount(); i++) netNumberList->remove(currentContact->getNetNumber(i));
     }

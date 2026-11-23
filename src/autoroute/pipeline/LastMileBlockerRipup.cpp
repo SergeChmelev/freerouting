@@ -30,7 +30,8 @@ int32_t LastMileBlockerRipup::ripBlockers(RoutingBoard* board, RipupMemory* memo
       continue;
     }
     IntBox* corridor = LastMileBlockerRipup::corridor(airline->fromCorner, airline->toCorner);
-    jrt::Set<SearchTreeObject*>* overlapping = board->overlappingObjects(corridor, -1);
+    jrt::DisposeOnExit<jrt::Set<SearchTreeObject*>> overlappingOwner(board->overlappingObjects(corridor, -1));
+    jrt::Set<SearchTreeObject*>* overlapping = overlappingOwner.get();
     for (SearchTreeObject* object : *overlapping) {
       auto* item = jrt::fast_cast<Item>(object);
       if (item == nullptr) {

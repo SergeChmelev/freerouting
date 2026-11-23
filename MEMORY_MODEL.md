@@ -502,3 +502,71 @@ function-local kOp statics are created with `onHeap`. bm02 no-GC leak 1.24 → 0
 Verification is now `tools/smoke.sh [tag]` (~1–2 minutes): bm02 plus the fixtures that Java
 routes within 12 s (40 boards) on the checked and the no-GC build; it prints only verdict
 counts and unexpected results (Issue006 / Issue179 and no-GC out-of-memory are expected).
+
+### E2b — owners for per-operation collections (query results; parallel branch, merged)
+
+Collections (not geometry) that a query creates and its caller reads and drops are now freed at
+the end of the caller's scope; iteration order and semantics are unchanged.
+
+* Tools: `jrt::DisposeOnExit` (`alloc.h`; scoped owner, `reset()` where Java reassigns the
+  variable, usable inline: `jrt::DisposeOnExit(x->getNormalContacts())->isEmpty()`),
+  `jrt::DisposeAllOnExit<E>` / `jrt::disposeWithElements` (`collections.h`) for a list that also
+  owns its elements. `TreeSet` owns (and disposes) its heap comparator.
+* Owned now: the sets of `ShapeSearchTree::overlappingObjects` / `overlappingObjectsWithPointIn`
+  / `overlappingItemsWithClearance` at every caller that only iterates them; tree-entry lists of
+  `overlappingTreeEntries*` together with their `ShapeTree_TreeEntry` objects (callers that do
+  not keep an entry; not `SortedRoomNeighbours`, which keeps some in `ownNetObjects`), the
+  `EntrySortedByClearance` list and the query-copper holder arrays inside the clearance query,
+  the temporary empty `ignoreNetNos` arrays of query calls; results of
+  `get{Normal,Start,End,All}Contacts`, `getConnectedSet` / `getConnectionItems` (where only
+  read or copied by `addAll`/`removeAll`), `getItems` / `getPins` / `getSmdPins` / `getVias` /
+  `getTraces` / `getConductionAreas`; `Sorted45Degree-` / `SortedOrthogonalRoomNeighbours` (the
+  neighbour objects, their set and flag array, owned by `calculate()`); the stale contact sets
+  of `BasicBoard::cachedNormalContacts` when the item list changes (the walks that read them do
+  not change the list). A few heap iterators became `ScopedIter`.
+* Left alone: results that are stored or passed on (`autorouteConnection` start sets,
+  `NetIncompletes`, `removeItems(...)` arguments), file I/O and parser code (runs once),
+  everything in `AutorouteEngine` and the room completion of `ShapeSearchTree45Degree`
+  (region work of E1), `HashMap` nodes (entries can be handed out, so neither `clear()` nor the
+  destructor frees them).
+* Open: on 4 large sample boards `FR_DISPOSE_CHECK` reports `RegularTileShape` survivors
+  (Issue015 24777, Issue022 1253, Issue027 62–86k, Issue102 ~11.3k; stable between runs and
+  under other Boehm heap settings), none on bm02 and the other 50 boards. Every explained one is
+  a `MinAreaTree` bounding union that a word inside a 1 MB arena chunk refers to, at the place
+  of a `ShapeTree_InnerNode` / `ShapeTree_Leaf` next to search-arena objects (stale tree nodes;
+  pooled chunks are reachable through the uncollectable pool and are only cleared in checked
+  builds, so their stale tails are scanned). E2 disposes no geometry and no tree node; the base
+  (72a3e70) gives 0 on these boards, also with a check every 2^17 disposals. Bisection on
+  Issue102: E2 without `src/autoroute` 12581, without `src/board` (and the other non-autoroute
+  files) 1, with only the search-tree files 1, without them 1 — no single part, only the
+  volume of disposals (55M vs 33–35M per run). Likely a false positive of the check (a stale
+  chunk word pointing to an address that the collector reused for a union that was later
+  disposed); not proven. Routing is unaffected: a disposed shape has a poisoned vtable in this
+  mode and any use would crash, and all of these boards are SAME in the check run, the checked
+  build and the no-GC build. Note also that only the first 200 survivors of a run get the
+  referrer search; the rest are counted as rooted without it.
+
+* Diagnostics: the branch's own leak profiler (`JRT_LEAK_PROFILE`) was dropped in the merge in
+  favour of the equivalent live-memory profiler on main (`JRT_ALLOC_PROFILE` with `FR_NO_GC`,
+  `tools/mem/live_profile.sh`, see "Live-memory profile"). Its measurement:
+  On bm02: ~1.65 GB still live, ~850 MB of it `kGeom` geometry, then `Array` storage of geometry,
+  the room lists of `completeShape`, undo-list map copies of board copies.
+* The referrer report of `FR_DISPOSE_CHECK` now names the object around a referring word
+  inside a large block (arena / region chunk) by the nearest preceding word into the executable
+  (`[object word exe+offset at -N]`; `nm -C` gives the vtable).
+* Known noise: a survivor referred to from a 2048-byte block of a `std::regex` NFA
+  (`_Sp_counted_ptr_inplace<_NFA>` control block) is a stale stack word copied into the padding
+  of a regex state: the static patterns of `ExitStubs` are compiled lazily in the middle of
+  routing (seen once each on Issue102, Issue107, Issue214).
+
+bm02 (no-GC build): leaked 2087.8 MB → 1671.1 MB (−417 MB, −20%); disposed objects 1.16M →
+6.16M. SES identical in the release, checked and no-GC builds; `FR_DISPOSE_CHECK=1`: 6.16M
+disposed, 0 survivors.
+
+`parity_sample.sh <out> 120 60` (FR_JOBS=4): release with `FR_DISPOSE_CHECK=1` 54 SAME + the two
+old failures + 4 over the 900 s limit in check mode (Issue110-RelayModule, Issue178, Issue214,
+Issue269; machine shared with another sample run); checked build 57 SAME + the two old failures
++ Issue178 over 900 s; no-GC build (3.5 GB limit) 35 SAME, 0 DIFF, 23 boards leak-limited
+(RC 134), the two old failures. Issue178 alone (release): SAME in 482 s. No DIFF anywhere.
+
+

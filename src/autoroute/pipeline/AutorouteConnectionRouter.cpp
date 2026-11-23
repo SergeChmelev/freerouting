@@ -47,7 +47,7 @@ void AutorouteConnectionRouter::addSharablePads(Item* item, int32_t netNo, jrt::
   IntBox* box = pin->boundingBox();
   jrt::Set<Item*>* inPlane = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (Item* plane : *(new (jrt::kOp) jrt::ArrayList<Item*>(destinations))) {
-    inPlane->addAll(plane->getConnectedSet(netNo));
+    inPlane->addAll(jrt::DisposeOnExit(plane->getConnectedSet(netNo)).get());
   }
   for (Item* other : *inPlane) {
     Pin* otherPin = jrt::fast_cast<Pin>(other);

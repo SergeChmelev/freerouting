@@ -38,7 +38,8 @@ DrillPage::DrillPage(IntBox* shape, RoutingBoard* board) {
 }
 
 Point* DrillPage::calcPinCenterInDrill(TileShape* drillShape, int32_t layer, RoutingBoard* board) {
-  jrt::Collection<Item*>* overlappingItems = board->overlappingItems(drillShape, layer);
+  jrt::DisposeOnExit<jrt::Collection<Item*>> overlappingItemsOwner(board->overlappingItems(drillShape, layer));
+  jrt::Collection<Item*>* overlappingItems = overlappingItemsOwner.get();
   Point* result = nullptr;
   for (Item* currentItem : *overlappingItems) {
     if (auto* currentPin = jrt::fast_cast<Pin>(currentItem)) {
@@ -94,8 +95,10 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
     this->drills = new (jrt::kSearch) jrt::LinkedList<ExpansionDrill*>();
     ShapeSearchTree* searchTree = autorouteEngine->autorouteSearchTree;
     jrt::Collection<ShapeTree_TreeEntry*>* overlaps = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
+    jrt::DisposeAllOnExit<ShapeTree_TreeEntry> overlapsOwner(overlaps);
     searchTree->overlappingTreeEntries(this->shape, -1, overlaps);
-    jrt::Collection<TileShape*>* cutoutShapes = new (jrt::kOp) jrt::LinkedList<TileShape*>();
+    jrt::DisposeOnExit<jrt::Collection<TileShape*>> cutoutShapesOwner(new (jrt::kOp) jrt::LinkedList<TileShape*>());
+    jrt::Collection<TileShape*>* cutoutShapes = cutoutShapesOwner.get();
     // drills on top of existing vias are used in the ripup algorithm
     TileShape* prevObstacleShape = IntBox::EMPTY();
     Net* net = this->board->rules->nets->get(this->netNumber);

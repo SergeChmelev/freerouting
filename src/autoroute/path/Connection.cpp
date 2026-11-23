@@ -16,7 +16,8 @@ Connection* Connection::get(Item* item) {
   if (precalculatedConnection != nullptr) {
     return precalculatedConnection;
   }
-  jrt::Set<Item*>* contacts = item->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Set<Item*>> contactsOwner(item->getNormalContacts());
+  jrt::Set<Item*>* contacts = contactsOwner.get();
   jrt::Set<Item*>* connectionItems = new (jrt::kOp) jrt::TreeSet<Item*>();
   connectionItems->add(item);
 
@@ -72,7 +73,8 @@ Connection* Connection::get(Item* item) {
         break;
       }
       connectionItems->add(currentItem);
-      jrt::Collection<Item*>* currentItemContacts = currentItem->getNormalContacts();
+      jrt::DisposeOnExit<jrt::Collection<Item*>> currentItemContactsOwner(currentItem->getNormalContacts());
+      jrt::Collection<Item*>* currentItemContacts = currentItemContactsOwner.get();
       // filter the contacts at the previous contact point,
       // because we were already there.
       // If then there is not exactly 1 new contact left, there is
