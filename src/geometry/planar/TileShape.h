@@ -3,7 +3,11 @@
 #include "fwd.h"
 #include "geometry/planar/ConvexShape.h"
 #include "geometry/planar/PolylineShape.h"
+#include "geometry/planar/IntPoint.h"
+#include "geometry/planar/Line.h"
 #include "jrt/jrt.h"
+
+#include <optional>
 
 namespace fr {
 
@@ -62,6 +66,14 @@ class TileShape : public PolylineShape, public virtual ConvexShape {
    * edge lines are sorted in counterclock sense around the shape starting with the line with the
    * smallest direction. The left side of an edge line is inside the shape. */
   Line* borderLine(int32_t no) override = 0;
+
+  /** PORT NOTE: if the no-th border line is the line through two integer points, stores them as
+   * (ax, ay, bx, by) in c[0..3] (the points borderLine(no) is created from) and returns true. */
+  virtual bool borderLineCoordinates(int32_t no, int32_t* c) {
+    (void)no;
+    (void)c;
+    return false;
+  }
 
   /** Returns the edge number if line is a border line of this shape; otherwise returns -1. */
   virtual int32_t borderLineIndex(Line* line) = 0;
@@ -225,6 +237,37 @@ class TileShape : public PolylineShape, public virtual ConvexShape {
   virtual jrt::Array<TileShape*>* cutoutFrom(IntBox* shape) = 0;
   virtual jrt::Array<TileShape*>* cutoutFrom(IntOctagon* shape) = 0;
   virtual jrt::Array<TileShape*>* cutoutFrom(Simplex* shape) = 0;
+};
+
+/**
+ * PORT NOTE (MEMORY_MODEL.md stage D): border line `no` of `shape` for temporary use inside one
+ * expression or loop body. For shapes with integer border lines (TileShape.borderLineCoordinates)
+ * the line and its points are local values instead of heap objects. Must not be retained beyond
+ * the lifetime of this object.
+ */
+class TempBorderLine {
+ public:
+  TempBorderLine(TileShape* shape, int32_t no) {
+    int32_t c[4];
+    if (shape->borderLineCoordinates(no, c)) {
+      a_.emplace(c[0], c[1]);
+      b_.emplace(c[2], c[3]);
+      local_.emplace(static_cast<Point*>(&*a_), static_cast<Point*>(&*b_));
+      line_ = &*local_;
+    } else {
+      line_ = shape->borderLine(no);
+    }
+  }
+  TempBorderLine(const TempBorderLine&) = delete;
+  TempBorderLine& operator=(const TempBorderLine&) = delete;
+  Line* get() const { return line_; }
+  Line* operator->() const { return line_; }
+
+ private:
+  std::optional<IntPoint> a_;
+  std::optional<IntPoint> b_;
+  std::optional<Line> local_;
+  Line* line_;
 };
 
 }  // namespace fr

@@ -261,7 +261,12 @@ bool IntBox::intersects(IntBox* other) {
   return this->ll->y <= other->ur->y;
 }
 
-bool IntBox::intersects(IntOctagon* other) { return other->intersects(toIntOctagon()); }
+bool IntBox::intersects(IntOctagon* other) {
+  // PORT NOTE: the octagon of this box as a local value (IntOctagon.intersects does not retain it).
+  IntOctagon octagon(ll->x, ll->y, ur->x, ur->y, ll->x - ur->y, ur->x - ll->y, ll->x + ll->y,
+                     ur->x + ur->y);
+  return other->intersects(&octagon);
+}
 
 bool IntBox::intersects(Simplex* other) { return other->intersects(toSimplex()); }
 
@@ -313,19 +318,35 @@ IntBox* IntBox::turn90Degree(int32_t factor, IntPoint* pole) {
   return new (jrt::kGeom) IntBox(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
 }
 
-Line* IntBox::borderLine(int32_t no) {
+namespace {
+bool setBorderLine(int32_t* c, int32_t ax, int32_t ay, int32_t bx, int32_t by) {
+  c[0] = ax;
+  c[1] = ay;
+  c[2] = bx;
+  c[3] = by;
+  return true;
+}
+}  // namespace
+
+bool IntBox::borderLineCoordinates(int32_t no, int32_t* c) {
   switch (no) {
     case 0:
-      return new (jrt::kGeom) Line(0, ll->y, 1, ll->y);  // lower boundary line
+      return setBorderLine(c, 0, ll->y, 1, ll->y);  // lower boundary line
     case 1:
-      return new (jrt::kGeom) Line(ur->x, 0, ur->x, 1);  // right boundary line
+      return setBorderLine(c, ur->x, 0, ur->x, 1);  // right boundary line
     case 2:
-      return new (jrt::kGeom) Line(0, ur->y, -1, ur->y);  // upper boundary line
+      return setBorderLine(c, 0, ur->y, -1, ur->y);  // upper boundary line
     case 3:
-      return new (jrt::kGeom) Line(ll->x, 0, ll->x, -1);  // left boundary line
+      return setBorderLine(c, ll->x, 0, ll->x, -1);  // left boundary line
     default:
       throw jrt::IllegalArgumentException("IntBox.borderLine: no out of range");
   }
+}
+
+Line* IntBox::borderLine(int32_t no) {
+  int32_t c[4];
+  borderLineCoordinates(no, c);
+  return Line::ofInts(c[0], c[1], c[2], c[3]);
 }
 
 int32_t IntBox::borderLineIndex(Line* line) {

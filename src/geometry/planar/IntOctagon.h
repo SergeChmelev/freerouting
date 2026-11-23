@@ -72,6 +72,8 @@ class IntOctagon final : public RegularTileShape {
   IntOctagon* boundingTile() override { return this; }
   int32_t dimension() override;
   IntPoint* corner(int32_t no) override;
+  /** corner(no).toFloat() without the temporary IntPoint. */
+  FloatPoint* cornerApprox(int32_t no) override;
 
   /** Returns a stable identifier for this octagon. */
   int32_t getId() override;
@@ -87,6 +89,20 @@ class IntOctagon final : public RegularTileShape {
   /** area() of union_(other), without creating the union (PORT NOTE: allocation-free helper
    * for MinAreaTree::positionLocate). */
   double unionArea(IntOctagon* other);
+  /** Same as (new IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx)).normalize(), with one
+   * allocation at most. */
+  static IntOctagon* normalized(int32_t lx, int32_t ly, int32_t rx, int32_t uy, int32_t ulx,
+                                int32_t lrx, int32_t llx, int32_t urx);
+  static bool normalizeCoordinates(int32_t& lx, int32_t& ly, int32_t& rx, int32_t& uy,
+                                   int32_t& ulx, int32_t& lrx, int32_t& llx, int32_t& urx);
+  /** True if union_(other) has the same coordinates as other (other contains this). */
+  bool unionEquals(IntOctagon* other) {
+    return leftX >= other->leftX && bottomY >= other->bottomY && rightX <= other->rightX &&
+           topY <= other->topY && upperLeftDiagonalX >= other->upperLeftDiagonalX &&
+           lowerRightDiagonalX <= other->lowerRightDiagonalX &&
+           lowerLeftDiagonalX >= other->lowerLeftDiagonalX &&
+           upperRightDiagonalX <= other->upperRightDiagonalX;
+  }
 
   /** area() of the octagon with these fields. */
   static double areaOf(int32_t leftX, int32_t bottomY, int32_t rightX, int32_t topY,
@@ -94,6 +110,7 @@ class IntOctagon final : public RegularTileShape {
                        int32_t lowerLeftDiagonalX, int32_t upperRightDiagonalX);
   int32_t borderLineCount() override;
   Line* borderLine(int32_t no) override;
+  bool borderLineCoordinates(int32_t no, int32_t* c) override;
   IntOctagon* translateBy(Vector* relCoor) override;
   double maxWidth() override;
   double minWidth() override;

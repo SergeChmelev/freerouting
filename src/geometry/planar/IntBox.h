@@ -112,6 +112,7 @@ class IntBox final : public RegularTileShape {
   IntBox* translateBy(Vector* relCoor) override;
   IntBox* turn90Degree(int32_t factor, IntPoint* pole) override;
   Line* borderLine(int32_t no) override;
+  bool borderLineCoordinates(int32_t no, int32_t* c) override;
   int32_t borderLineIndex(Line* line) override;
 
   /** Returns the box offseted by dist. If dist > 0, the offset is to the outside, else to the

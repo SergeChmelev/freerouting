@@ -363,16 +363,23 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
 void ShapeSearchTree::overlappingObjects(ConvexShape* shape, int32_t layer,
                                          jrt::Array<int32_t>* ignoreNetNos,
                                          jrt::Set<SearchTreeObject*>* obstacles) {
-  jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
   // A naturally ordered set sorts the objects itself: the entries need not come in leaf order.
   // Java: `obstacles instanceof SortedSet && comparator() == null`.
   auto* sortedObstacles = dynamic_cast<jrt::TreeSet<SearchTreeObject*>*>(obstacles);
   bool inLeafOrder = !(sortedObstacles != nullptr && sortedObstacles->hasNaturalOrdering());
-  overlappingTreeEntriesUnlocked(shape, layer, ignoreNetNos, treeEntries,
-                                 static_cast<Item*>(nullptr), inLeafOrder);
+  // PORT NOTE: the kept leaves are added directly instead of through a temporary list of tree
+  // entries (same objects, same order).
+  if (shape == nullptr) {
+    return;
+  }
+  jrt::ArrayList<ShapeTree_Leaf*>* leaves = QUERY_LEAF_BUFFER();
+  leaves->clear();
+  ClearListOnExit guard{leaves};
+  int32_t keptCount = overlappingLeavesUnlocked(shape, layer, ignoreNetNos,
+                                                static_cast<Item*>(nullptr), inLeafOrder, leaves);
   if (obstacles != nullptr) {
-    for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {
-      obstacles->add(jrt::fast_cast<SearchTreeObject>(currentEntry->object));
+    for (int32_t i = 0; i < keptCount; i++) {
+      obstacles->add(jrt::fast_cast<SearchTreeObject>(leaves->get(i)->object));
     }
   }
 }
@@ -536,16 +543,31 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
     FRLogger::warn("ShapeSearchTree.overlaps: obstacleEntries is null");
     return;
   }
+  jrt::ArrayList<ShapeTree_Leaf*>* tmpList = QUERY_LEAF_BUFFER();
+  tmpList->clear();
+  {
+    ClearListOnExit guard{tmpList};
+    int32_t keptCount =
+        overlappingLeavesUnlocked(shape, layer, ignoreNetNos, obstaclesOf, inLeafOrder, tmpList);
+    for (int32_t i = 0; i < keptCount; i++) {
+      ShapeTree_Leaf* currentLeaf = tmpList->get(i);
+      treeEntries->add(new (jrt::kOp) ShapeTree_TreeEntry(
+          jrt::fast_cast<SearchTreeObject>(currentLeaf->object), currentLeaf->shapeIndexInObject));
+    }
+  }
+}
+
+int32_t ShapeSearchTree::overlappingLeavesUnlocked(ConvexShape* shape, int32_t layer,
+                                                   jrt::Array<int32_t>* ignoreNetNos,
+                                                   Item* obstaclesOf, bool inLeafOrder,
+                                                   jrt::ArrayList<ShapeTree_Leaf*>* tmpList) {
   RegularTileShape* bounds = shape->boundingShape(boundingDirections);
   if (bounds == nullptr) {
     FRLogger::warn("ShapeSearchTree.overlaps: shape not bounded");
-    return;
+    return 0;
   }
-  jrt::ArrayList<ShapeTree_Leaf*>* tmpList = QUERY_LEAF_BUFFER();
-  tmpList->clear();
   bool is45Degree = jrt::fast_cast<IntOctagon>(shape) != nullptr;
   {
-    ClearListOnExit guard{tmpList};
     // Filter in traversal order, then sort only the kept leaves: the same order as sorting all
     // candidates first, for a fraction of the comparisons.
     this->collectOverlapsUnlocked(bounds, tmpList);
@@ -588,11 +610,7 @@ void ShapeSearchTree::overlappingTreeEntriesUnlocked(
     if (inLeafOrder) {
       sortLeafPrefix(tmpList, keptCount);
     }
-    for (int32_t i = 0; i < keptCount; i++) {
-      ShapeTree_Leaf* currentLeaf = tmpList->get(i);
-      treeEntries->add(new (jrt::kOp) ShapeTree_TreeEntry(
-          jrt::fast_cast<SearchTreeObject>(currentLeaf->object), currentLeaf->shapeIndexInObject));
-    }
+    return keptCount;
   }
 }
 

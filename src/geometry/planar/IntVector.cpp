@@ -113,7 +113,9 @@ Vector* IntVector::changeLengthApprox(double length) {
   return newPoint->round()->differenceBy(Point::ZERO());
 }
 
-Direction* IntVector::toNormalizedDirection() {
+Direction* IntVector::toNormalizedDirection() { return normalizedDirection(x, y); }
+
+Direction* IntVector::normalizedDirection(int32_t x, int32_t y) {
   int32_t dx = x;
   int32_t dy = y;
   int32_t gcd = BigIntAux::binaryGcd(jrt::Math::abs(dx), jrt::Math::abs(dy));

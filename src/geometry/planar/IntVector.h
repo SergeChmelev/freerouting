@@ -68,6 +68,8 @@ class IntVector : public Vector {
   Vector* changeLengthApprox(double length) override;
 
   Direction* toNormalizedDirection() override;
+  /** toNormalizedDirection() of the vector (x, y), without creating the vector. */
+  static Direction* normalizedDirection(int32_t x, int32_t y);
 };
 
 }  // namespace fr

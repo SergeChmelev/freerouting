@@ -28,6 +28,10 @@ class Line : public virtual jrt::Object {
   /** Creates a directed Line from a point and a direction. */
   Line(Point* a, Direction* dir);
 
+  /** Same as new Line(ax, ay, bx, by), but the line and its two IntPoints are one allocation
+   * (PORT NOTE, MEMORY_MODEL.md stage D: the line owns its defining points). */
+  static Line* ofInts(int32_t ax, int32_t ay, int32_t bx, int32_t by);
+
   /** Finds a bounded, nonparallel cap at an exact point without rounding it. */
   virtual Line* capAt(Point* point);
 
@@ -99,6 +103,10 @@ class Line : public virtual jrt::Object {
   /** Returns an approximation of the intersection of the 2 lines by a FloatPoint. If the lines
    * are parallel the result coordinates will be Integer.MAX_VALUE. */
   virtual FloatPoint* intersectionApprox(Line* other);
+  /** intersectionApprox() without creating the FloatPoint. */
+  void intersectionApprox(Line* other, double& isX, double& isY);
+  /** sideOf(FloatPoint, tolerance) for the point (x, y). */
+  Side* sideOfApprox(double x, double y, double tolerance);
 
   /** Returns the perpendicular projection of point onto this line. */
   virtual Point* perpendicularProjection(Point* point);

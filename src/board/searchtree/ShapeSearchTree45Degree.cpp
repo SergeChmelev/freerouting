@@ -461,8 +461,7 @@ IntOctagon* ShapeSearchTree45Degree::calcOutsideRestrainedShape(IntOctagon* obst
           " obstacleLineNo out of range");
   }
 
-  IntOctagon* result = new (jrt::kGeom) IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
-  return result->normalize();
+  return IntOctagon::normalized(lx, ly, rx, uy, ulx, lrx, llx, urx);
 }
 
 IntOctagon* ShapeSearchTree45Degree::calcInsideRestrainedShape(IntOctagon* obstacleShape,
@@ -508,8 +507,7 @@ IntOctagon* ShapeSearchTree45Degree::calcInsideRestrainedShape(IntOctagon* obsta
           " obstacleLineNo out of range");
   }
 
-  IntOctagon* result = new (jrt::kGeom) IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
-  return result->normalize();
+  return IntOctagon::normalized(lx, ly, rx, uy, ulx, lrx, llx, urx);
 }
 
 jrt::Array<TileShape*>* ShapeSearchTree45Degree::calculateTreeShapes(DrillItem* drillItem) {

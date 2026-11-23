@@ -160,8 +160,15 @@ ShapeTree_Leaf* MinAreaTree::positionLocate(ShapeTree_TreeNode* currentNode,
 
   while (jrt::fast_cast<ShapeTree_Leaf>(node) == nullptr) {
     auto* currentInnerNode = static_cast<ShapeTree_InnerNode*>(node);
-    currentInnerNode->boundingShape =
-        leafToInsert->boundingShape->union_(currentInnerNode->boundingShape);
+    // PORT NOTE: an octagon bounding shape that already contains the leaf's is kept instead of
+    // being replaced by an equal union (bounding shapes are immutable and compared by value).
+    auto* innerOctagon = jrt::fast_cast<IntOctagon>(currentInnerNode->boundingShape);
+    auto* insertOctagon =
+        innerOctagon != nullptr ? jrt::fast_cast<IntOctagon>(leafToInsert->boundingShape) : nullptr;
+    if (insertOctagon == nullptr || !insertOctagon->unionEquals(innerOctagon)) {
+      currentInnerNode->boundingShape =
+          leafToInsert->boundingShape->union_(currentInnerNode->boundingShape);
+    }
 
     // Choose the child, so that the area increase of that child after taking the union
     // with the shape of leafToInsert is minimal.

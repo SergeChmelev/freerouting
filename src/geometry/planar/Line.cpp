@@ -3,6 +3,7 @@
 #include "datastructures/Signum.h"
 #include "geometry/planar/Direction.h"
 #include "geometry/planar/FloatPoint.h"
+#include "geometry/planar/IntDirection.h"
 #include "geometry/planar/IntPoint.h"
 #include "geometry/planar/IntVector.h"
 #include "geometry/planar/Limits.h"
@@ -32,6 +33,17 @@ Line::Line(int32_t ax, int32_t ay, int32_t bx, int32_t by) {
   this->a = new (jrt::kGeom) IntPoint(ax, ay);
   this->b = new (jrt::kGeom) IntPoint(bx, by);
   this->dir = nullptr;
+}
+
+Line* Line::ofInts(int32_t ax, int32_t ay, int32_t bx, int32_t by) {
+  // One block: [Line][IntPoint a][IntPoint b]. The collector recognises interior pointers, so a
+  // reference to one of the points alone keeps the block alive.
+  static_assert(sizeof(Line) % alignof(IntPoint) == 0);
+  constexpr std::size_t kLine = sizeof(Line);
+  char* mem = static_cast<char*>(::operator new(kLine + 2 * sizeof(IntPoint), jrt::kGeom));
+  IntPoint* pa = new (mem + kLine) IntPoint(ax, ay);
+  IntPoint* pb = new (mem + kLine + sizeof(IntPoint)) IntPoint(bx, by);
+  return new (mem) Line(static_cast<Point*>(pa), static_cast<Point*>(pb));
 }
 
 Line::Line(Point* a, Direction* dir) {
@@ -179,6 +191,12 @@ jrt::BigInteger Line::floorDivide(const jrt::BigInteger& pNumerator,
 }
 
 Line* Line::getInstance(Point* a, Direction* dir) {
+  // PORT NOTE: allocation-free fast path for the direction vector (IntVector.addTo(IntPoint)).
+  if (auto* ai = jrt::fast_cast<IntPoint>(a)) {
+    if (auto* d = jrt::fast_cast<IntDirection>(dir)) {
+      return new (jrt::kGeom) Line(a, new (jrt::kGeom) IntPoint(ai->x + d->x, ai->y + d->y));
+    }
+  }
   Point* b = a->translateBy(dir->getVector());
   return new (jrt::kGeom) Line(a, b);
 }
@@ -224,6 +242,13 @@ bool Line::fastEquals(Line* other) {
 
 Direction* Line::direction() {
   if (dir == nullptr) {
+    // PORT NOTE: fast path without the temporary difference vector (same arithmetic).
+    auto* ia = jrt::fast_cast<IntPoint>(a);
+    auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(b) : nullptr;
+    if (ib != nullptr) {
+      dir = IntVector::normalizedDirection(ib->x - ia->x, ib->y - ia->y);
+      return dir;
+    }
     Vector* d = b->differenceBy(a);
     dir = Direction::getInstance(d);
   }
@@ -236,10 +261,14 @@ Side* Line::sideOf(Point* point) {
 }
 
 Side* Line::sideOf(FloatPoint* point, double tolerance) {
+  return sideOfApprox(point->x, point->y, tolerance);
+}
+
+Side* Line::sideOfApprox(double px, double py, double tolerance) {
   IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
   IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
-  double det = (thisB->y - thisA->y) * (point->x - thisA->x) -
-               (thisB->x - thisA->x) * (point->y - thisA->y);
+  double det = (thisB->y - thisA->y) * (px - thisA->x) -
+               (thisB->x - thisA->x) * (py - thisA->y);
   Side* result;
   if (det - tolerance > 0) {
     result = Side::ON_THE_LEFT();
@@ -254,8 +283,10 @@ Side* Line::sideOf(FloatPoint* point, double tolerance) {
 Side* Line::sideOf(FloatPoint* point) { return sideOf(point, 0); }
 
 Side* Line::sideOfIntersection(Line* p1, Line* p2) {
-  FloatPoint* intersectionApprox = p1->intersectionApprox(p2);
-  Side* result = this->sideOf(intersectionApprox, 1.0);
+  double isX;
+  double isY;
+  p1->intersectionApprox(p2, isX, isY);
+  Side* result = this->sideOfApprox(isX, isY, 1.0);
   if (result == Side::COLLINEAR()) {
     Point* intersection = p1->intersection(p2);
     result = this->sideOf(intersection);
@@ -385,6 +416,13 @@ Point* Line::intersection(Line* other) {
 }
 
 FloatPoint* Line::intersectionApprox(Line* other) {
+  double isX;
+  double isY;
+  intersectionApprox(other, isX, isY);
+  return new (jrt::kGeom) FloatPoint(isX, isY);
+}
+
+void Line::intersectionApprox(Line* other, double& isX, double& isY) {
   IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
   IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
   IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
@@ -397,8 +435,6 @@ FloatPoint* Line::intersectionApprox(Line* other) {
   double det2 =
       static_cast<double>(otherA->x) * otherB->y - static_cast<double>(otherA->y) * otherB->x;
   double det = d2x * d1y - d2y * d1x;
-  double isX;
-  double isY;
   if (det == 0) {
     isX = jrt::Integer::MAX_VALUE;
     isY = jrt::Integer::MAX_VALUE;
@@ -406,23 +442,32 @@ FloatPoint* Line::intersectionApprox(Line* other) {
     isX = (d2x * det1 - d1x * det2) / det;
     isY = (d2y * det1 - d1y * det2) / det;
   }
-  return new (jrt::kGeom) FloatPoint(isX, isY);
 }
 
 Point* Line::perpendicularProjection(Point* point) { return point->perpendicularProjection(this); }
 
 Line* Line::translate(double dist) {
   IntPoint* ai = jrt::fast_cast<IntPoint>(a);
-  IntVector* v = jrt::fast_cast<IntVector>(direction()->getVector());
-  double vxvx = static_cast<double>(v->x) * v->x;
-  double vyvy = static_cast<double>(v->y) * v->y;
+  // PORT NOTE: the direction coordinates directly instead of a temporary getVector().
+  int32_t vx;
+  int32_t vy;
+  if (auto* d = jrt::fast_cast<IntDirection>(direction())) {
+    vx = d->x;
+    vy = d->y;
+  } else {
+    IntVector* v = jrt::fast_cast<IntVector>(direction()->getVector());
+    vx = v->x;
+    vy = v->y;
+  }
+  double vxvx = static_cast<double>(vx) * vx;
+  double vyvy = static_cast<double>(vy) * vy;
   double length = jrt::Math::sqrt(vxvx + vyvy);
   IntPoint* newA;
   if (vxvx <= vyvy) {
-    int32_t relX = jrt::l2i(jrt::Math::round((dist * length) / v->y));
+    int32_t relX = jrt::l2i(jrt::Math::round((dist * length) / vy));
     newA = new (jrt::kGeom) IntPoint(ai->x - relX, ai->y);
   } else {
-    int32_t relY = jrt::l2i(jrt::Math::round((dist * length) / v->x));
+    int32_t relY = jrt::l2i(jrt::Math::round((dist * length) / vx));
     newA = new (jrt::kGeom) IntPoint(ai->x, ai->y + relY);
   }
   return Line::getInstance(newA, direction());

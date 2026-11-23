@@ -224,10 +224,28 @@ class Iterator : public virtual Object {
 };
 
 struct IterEnd {};
+// Inline storage for the iterator object of a range-for over an abstract Collection: concrete
+// collections construct their (unchanged) Java style iterator in this buffer instead of on the
+// heap (Collection::iteratorIn). Same traversal semantics, no allocation.
+inline constexpr std::size_t kIterBufSize = 64;
+struct alignas(16) IterBuf {
+  unsigned char bytes[kIterBufSize];
+};
+
 template <class T>
 class IterAdapter {
  public:
   explicit IterAdapter(Iterator<T>* it) : it_(it) { advance(); }
+  template <class C>
+  IterAdapter(C* c, int) : it_(c->iteratorIn(&buf_)) {
+    owned_ = it_ == reinterpret_cast<Iterator<T>*>(&buf_) ? it_ : nullptr;
+    advance();
+  }
+  ~IterAdapter() {
+    if (owned_ != nullptr) owned_->~Iterator<T>();
+  }
+  IterAdapter(const IterAdapter&) = delete;
+  IterAdapter& operator=(const IterAdapter&) = delete;
   T operator*() const { return *cur_; }
   IterAdapter& operator++() {
     advance();
@@ -246,7 +264,40 @@ class IterAdapter {
     }
   }
   Iterator<T>* it_;
+  Iterator<T>* owned_ = nullptr;  // iterator constructed in buf_ (destroyed with the adapter)
   std::optional<T> cur_;
+  IterBuf buf_;
+};
+
+// Constructs `It` (a collection's iterator class) in `buf` when it fits, else on the heap.
+template <class It, class T, class C>
+inline Iterator<T>* make_iter_in(IterBuf* buf, C* c) {
+  if constexpr (sizeof(It) <= kIterBufSize && alignof(It) <= alignof(IterBuf)) {
+    return new (static_cast<void*>(buf)) It(c);
+  } else {
+    return new It(c);
+  }
+}
+
+template <class T>
+class Collection;
+
+// RAII Java style iterator over a collection, constructed in local storage when the collection
+// supports it (Collection::iteratorIn): `for (ScopedIter<T> it(c); it->hasNext();) ...`.
+template <class T>
+class ScopedIter {
+ public:
+  explicit ScopedIter(Collection<T>* c) : it_(c->iteratorIn(&buf_)) {}
+  ~ScopedIter() {
+    if (it_ == reinterpret_cast<Iterator<T>*>(&buf_)) it_->~Iterator<T>();
+  }
+  ScopedIter(const ScopedIter&) = delete;
+  ScopedIter& operator=(const ScopedIter&) = delete;
+  Iterator<T>* operator->() const { return it_; }
+
+ private:
+  Iterator<T>* it_;
+  IterBuf buf_;
 };
 
 template <class T>
@@ -263,13 +314,13 @@ class Collection : public virtual Object {
   bool isEmpty() { return size() == 0; }
   virtual bool add(T v) = 0;
   virtual bool contains(const T& v) {
-    for (auto it = iterator(); it->hasNext();)
+    for (ScopedIter<T> it(this); it->hasNext();)
       if (equalsOf<T>(it->next(), v)) return true;
     return false;
   }
   // Java remove(Object)
   virtual bool remove(const T& v) {
-    for (auto it = iterator(); it->hasNext();) {
+    for (ScopedIter<T> it(this); it->hasNext();) {
       if (equalsOf<T>(it->next(), v)) {
         it->remove();
         return true;
@@ -279,6 +330,9 @@ class Collection : public virtual Object {
   }
   virtual void clear() = 0;
   virtual Iterator<T>* iterator() = 0;
+  // iterator() constructed in caller storage when possible (the result is either `buf` or a
+  // heap iterator). Used by the generic range-for; the caller destroys an in-buffer iterator.
+  virtual Iterator<T>* iteratorIn(IterBuf* buf) { (void)buf; return iterator(); }
 
   bool addAll(Collection<T>* c) {
     if (static_cast<Collection<T>*>(this) == c) {
@@ -288,7 +342,7 @@ class Collection : public virtual Object {
       return changed;
     }
     bool changed = false;
-    for (auto it = c->iterator(); it->hasNext();) changed |= add(it->next());
+    for (ScopedIter<T> it(c); it->hasNext();) changed |= add(it->next());
     return changed;
   }
   template <class Range>
@@ -298,13 +352,13 @@ class Collection : public virtual Object {
     return changed;
   }
   bool containsAll(Collection<T>* c) {
-    for (auto it = c->iterator(); it->hasNext();)
+    for (ScopedIter<T> it(c); it->hasNext();)
       if (!contains(it->next())) return false;
     return true;
   }
   bool removeAll(Collection<T>* c) {
     bool changed = false;
-    for (auto it = iterator(); it->hasNext();) {
+    for (ScopedIter<T> it(this); it->hasNext();) {
       if (c->contains(it->next())) {
         it->remove();
         changed = true;
@@ -314,7 +368,7 @@ class Collection : public virtual Object {
   }
   bool retainAll(Collection<T>* c) {
     bool changed = false;
-    for (auto it = iterator(); it->hasNext();) {
+    for (ScopedIter<T> it(this); it->hasNext();) {
       if (!c->contains(it->next())) {
         it->remove();
         changed = true;
@@ -325,7 +379,7 @@ class Collection : public virtual Object {
   template <class P>
   bool removeIf(P pred) {
     bool changed = false;
-    for (auto it = iterator(); it->hasNext();) {
+    for (ScopedIter<T> it(this); it->hasNext();) {
       if (pred(it->next())) {
         it->remove();
         changed = true;
@@ -335,24 +389,24 @@ class Collection : public virtual Object {
   }
   template <class F>
   void forEach(F f) {
-    for (auto it = iterator(); it->hasNext();) f(it->next());
+    for (ScopedIter<T> it(this); it->hasNext();) f(it->next());
   }
   std::vector<T> toVector() {
     std::vector<T> v;
     v.reserve(size());
-    for (auto it = iterator(); it->hasNext();) v.push_back(it->next());
+    for (ScopedIter<T> it(this); it->hasNext();) v.push_back(it->next());
     return v;
   }
   Array<T>* toArray() { return new Array<T>(toVector()); }
 
   // Generic (virtual) range-for support. Concrete classes provide faster begin()/end().
-  IterAdapter<T> begin() { return IterAdapter<T>(iterator()); }
+  IterAdapter<T> begin() { return IterAdapter<T>(this, 0); }
   IterEnd end() { return {}; }
 
   std::string toString() override {
     std::string s = "[";
     bool first = true;
-    for (auto it = iterator(); it->hasNext();) {
+    for (ScopedIter<T> it(this); it->hasNext();) {
       if (!first) s += ", ";
       first = false;
       T x = it->next();
@@ -409,7 +463,7 @@ class List : public virtual Collection<T> {
   }
   int32_t hashCode() override {
     int32_t h = 1;
-    for (auto it = this->iterator(); it->hasNext();) h = hashCombine(h, hashOf<T>(it->next()));
+    for (ScopedIter<T> it(this); it->hasNext();) h = hashCombine(h, hashOf<T>(it->next()));
     return h;
   }
 };
@@ -425,7 +479,7 @@ class Set : public virtual Collection<T> {
   }
   int32_t hashCode() override {
     int32_t h = 0;
-    for (auto it = this->iterator(); it->hasNext();) h += hashOf<T>(it->next());
+    for (ScopedIter<T> it(this); it->hasNext();) h += hashOf<T>(it->next());
     return h;
   }
 };
@@ -639,6 +693,7 @@ class ArrayList : public virtual List<T> {
     int32_t last_ = -1;
   };
   Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
 
   // Fast native iteration. Do not structurally modify the list inside such a loop
   // (Java would throw ConcurrentModificationException).
@@ -677,7 +732,7 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
   LinkedList() = default;
   explicit LinkedList(Collection<T>* c) {
     if (c)
-      for (auto it = c->iterator(); it->hasNext();) l_.push_back(it->next());
+      for (ScopedIter<T> it(c); it->hasNext();) l_.push_back(it->next());
   }
   LinkedList(std::initializer_list<T> init) : l_(init) {}
 
@@ -786,6 +841,7 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
     bool last_valid_ = false;
   };
   Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
   Iterator<T>* descendingIterator() { return new DescIt(this); }
   auto begin() { return l_.begin(); }
   auto end() { return l_.end(); }
@@ -817,7 +873,7 @@ class ArrayDeque : public virtual Deque<T> {
   ArrayDeque() = default;
   explicit ArrayDeque(int32_t) {}
   explicit ArrayDeque(Collection<T>* c) {
-    for (auto it = c->iterator(); it->hasNext();) d_.push_back(it->next());
+    for (ScopedIter<T> it(c); it->hasNext();) d_.push_back(it->next());
   }
   int32_t size() override { return static_cast<int32_t>(d_.size()); }
   bool add(T x) override {
@@ -869,6 +925,7 @@ class ArrayDeque : public virtual Deque<T> {
     int64_t last_ = -1;
   };
   Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
   auto begin() { return d_.begin(); }
   auto end() { return d_.end(); }
 
@@ -938,6 +995,7 @@ class PriorityQueue : public virtual Queue<T> {
     std::size_t i_ = 0;
   };
   Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
   auto begin() { return q_.begin(); }
   auto end() { return q_.end(); }
 
@@ -1427,6 +1485,7 @@ class HashSet : public virtual Set<T> {
     MapEntry<T, Present>* last_ = nullptr;
   };
   Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
 
   class KeyIter {
    public:
@@ -1602,6 +1661,7 @@ class TreeSet : public virtual Set<T> {
     bool valid_ = false;
   };
   Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
   Iterator<T>* descendingIterator() { return new DescIt(this); }
   auto begin() { return s_.begin(); }
   auto end() { return s_.end(); }
@@ -1779,7 +1839,7 @@ struct Collections {
   template <class T>
   static T max(Collection<T>* c, Comparator<T> cmp = nullptr) {
     if (!cmp) cmp = naturalOrder<T>();
-    auto it = c->iterator();
+    ScopedIter<T> it(c);
     T best = it->next();
     while (it->hasNext()) {
       T x = it->next();
@@ -1790,7 +1850,7 @@ struct Collections {
   template <class T>
   static T min(Collection<T>* c, Comparator<T> cmp = nullptr) {
     if (!cmp) cmp = naturalOrder<T>();
-    auto it = c->iterator();
+    ScopedIter<T> it(c);
     T best = it->next();
     while (it->hasNext()) {
       T x = it->next();
@@ -1825,7 +1885,7 @@ struct Collections {
   template <class T>
   static int32_t frequency(Collection<T>* c, const T& x) {
     int32_t n = 0;
-    for (auto it = c->iterator(); it->hasNext();)
+    for (ScopedIter<T> it(c); it->hasNext();)
       if (equalsOf<T>(it->next(), x)) ++n;
     return n;
   }

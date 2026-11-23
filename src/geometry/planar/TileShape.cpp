@@ -88,7 +88,7 @@ bool TileShape::isOutside(Point* point) {
     return true;
   }
   for (int32_t i = 0; i < lineCount; i++) {
-    if (borderLine(i)->sideOf(point) == Side::ON_THE_LEFT()) {
+    if (TempBorderLine(this, i)->sideOf(point) == Side::ON_THE_LEFT()) {
       return true;
     }
   }
@@ -309,11 +309,11 @@ jrt::Array<FloatPoint*>* TileShape::nearestBorderPointsApprox(FloatPoint* fromPo
   int32_t currentInd = lineCount - 1;
 
   for (int32_t nextInd = 0; nextInd < lineCount; nextInd++) {
-    FloatPoint* projection = fromPoint->projectionApprox(borderLine(currentInd));
+    FloatPoint* projection = fromPoint->projectionApprox(TempBorderLine(this, currentInd).get());
     if ((!cornerIsBounded(currentInd) ||
-         borderLine(prevInd)->sideOf(projection) == Side::ON_THE_RIGHT()) &&
+         TempBorderLine(this, prevInd)->sideOf(projection) == Side::ON_THE_RIGHT()) &&
         (!cornerIsBounded(nextInd) ||
-         borderLine(nextInd)->sideOf(projection) == Side::ON_THE_RIGHT())) {
+         TempBorderLine(this, nextInd)->sideOf(projection) == Side::ON_THE_RIGHT())) {
       double currentDistance = projection->distanceSquare(fromPoint);
       for (int32_t j = 0; j < resultCount; j++) {
         if (currentDistance < (*minDists)[j]) {
@@ -504,8 +504,17 @@ double TileShape::distanceToTheLeft(Line* line) {
 Side* TileShape::sideOf(Line* line) {
   bool onTheLeft = false;
   bool onTheRight = false;
+  // PORT NOTE: octagon corners as a local value instead of a heap IntPoint per corner
+  // (Line.sideOf(Point) does not retain the point).
+  auto* octagon = jrt::fast_cast<IntOctagon>(this);
   for (int32_t i = 0; i < this->borderLineCount(); i++) {
-    Side* currentSide = line->sideOf(this->corner(i));
+    Side* currentSide;
+    if (octagon != nullptr) {
+      IntPoint corner(octagon->cornerX(i), octagon->cornerY(i));
+      currentSide = line->sideOf(static_cast<Point*>(&corner));
+    } else {
+      currentSide = line->sideOf(this->corner(i));
+    }
     if (currentSide == Side::ON_THE_LEFT()) {
       onTheRight = true;
     } else if (currentSide == Side::ON_THE_RIGHT()) {

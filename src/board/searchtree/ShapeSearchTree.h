@@ -196,6 +196,14 @@ class ShapeSearchTree : public MinAreaTree {
                                       jrt::Collection<ShapeTree_TreeEntry*>* treeEntries,
                                       Item* obstaclesOf, bool inLeafOrder);
 
+  /**
+   * The filtering of overlappingTreeEntriesUnlocked without creating tree entries: leaves the
+   * kept leaves in the prefix [0, result) of `leaves` (QUERY_LEAF_BUFFER, cleared by the caller).
+   */
+  int32_t overlappingLeavesUnlocked(ConvexShape* shape, int32_t layer,
+                                    jrt::Array<int32_t>* ignoreNetNos, Item* obstaclesOf,
+                                    bool inLeafOrder, jrt::ArrayList<ShapeTree_Leaf*>* leaves);
+
  public:
   /**
    * Appends entries overlapping the query, including clearance, without clearing the destination.

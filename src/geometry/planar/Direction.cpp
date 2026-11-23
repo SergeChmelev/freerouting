@@ -90,9 +90,26 @@ bool Direction::equals(jrt::Object* other) {
   return thisVector->projection(otherVector) == Signum::POSITIVE();
 }
 
-Side* Direction::sideOf(Direction* other) { return this->getVector()->sideOf(other->getVector()); }
+Side* Direction::sideOf(Direction* other) {
+  // PORT NOTE: allocation-free fast path for two IntDirections; same arithmetic as the generic
+  // path (IntVector.sideOf(Vector) -> other.sideOf(this) -> negate).
+  auto* t = jrt::fast_cast<IntDirection>(this);
+  auto* o = t != nullptr ? jrt::fast_cast<IntDirection>(other) : nullptr;
+  if (o != nullptr) {
+    double determinant = static_cast<double>(t->x) * o->y - static_cast<double>(t->y) * o->x;
+    return Side::of(determinant)->negate();
+  }
+  return this->getVector()->sideOf(other->getVector());
+}
 
 Signum* Direction::projection(Direction* other) {
+  // PORT NOTE: allocation-free fast path (IntVector.projection(IntVector) arithmetic).
+  auto* t = jrt::fast_cast<IntDirection>(this);
+  auto* o = t != nullptr ? jrt::fast_cast<IntDirection>(other) : nullptr;
+  if (o != nullptr) {
+    double tmp = static_cast<double>(o->x) * t->x + static_cast<double>(o->y) * t->y;
+    return Signum::of(tmp);
+  }
   return this->getVector()->projection(other->getVector());
 }
 

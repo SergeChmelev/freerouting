@@ -99,6 +99,10 @@ int32_t IntOctagon::getId() {
   return 31 * result + lowerRightDiagonalX;
 }
 
+FloatPoint* IntOctagon::cornerApprox(int32_t no) {
+  return new (jrt::kGeom) FloatPoint(cornerX(no), cornerY(no));
+}
+
 int32_t IntOctagon::cornerY(int32_t no) {
   switch (no) {
     case 0:
@@ -186,31 +190,47 @@ double IntOctagon::areaOf(int32_t leftX, int32_t bottomY, int32_t rightX, int32_
 
 int32_t IntOctagon::borderLineCount() { return 8; }
 
-Line* IntOctagon::borderLine(int32_t no) {
+namespace {
+bool setBorderLine(int32_t* c, int32_t ax, int32_t ay, int32_t bx, int32_t by) {
+  c[0] = ax;
+  c[1] = ay;
+  c[2] = bx;
+  c[3] = by;
+  return true;
+}
+}  // namespace
+
+bool IntOctagon::borderLineCoordinates(int32_t no, int32_t* c) {
   switch (no) {
     case 0:
-      return new (jrt::kGeom) Line(0, bottomY, 1, bottomY);  // lower boundary line
+      return setBorderLine(c, 0, bottomY, 1, bottomY);  // lower boundary line
     case 1:
-      return new (jrt::kGeom) Line(lowerRightDiagonalX, 0, lowerRightDiagonalX + 1,
+      return setBorderLine(c, lowerRightDiagonalX, 0, lowerRightDiagonalX + 1,
                       1);  // lower right boundary line
     case 2:
-      return new (jrt::kGeom) Line(rightX, 0, rightX, 1);  // right boundary line
+      return setBorderLine(c, rightX, 0, rightX, 1);  // right boundary line
     case 3:
-      return new (jrt::kGeom) Line(upperRightDiagonalX, 0, upperRightDiagonalX - 1,
+      return setBorderLine(c, upperRightDiagonalX, 0, upperRightDiagonalX - 1,
                       1);  // upper right boundary line
     case 4:
-      return new (jrt::kGeom) Line(0, topY, -1, topY);  // upper boundary line
+      return setBorderLine(c, 0, topY, -1, topY);  // upper boundary line
     case 5:
-      return new (jrt::kGeom) Line(upperLeftDiagonalX, 0, upperLeftDiagonalX - 1,
+      return setBorderLine(c, upperLeftDiagonalX, 0, upperLeftDiagonalX - 1,
                       -1);  // upper left boundary line
     case 6:
-      return new (jrt::kGeom) Line(leftX, 0, leftX, -1);  // left boundary line
+      return setBorderLine(c, leftX, 0, leftX, -1);  // left boundary line
     case 7:
-      return new (jrt::kGeom) Line(lowerLeftDiagonalX, 0, lowerLeftDiagonalX + 1,
+      return setBorderLine(c, lowerLeftDiagonalX, 0, lowerLeftDiagonalX + 1,
                       -1);  // lower left boundary line
     default:
       throw jrt::IllegalArgumentException("IntOctagon.borderLine: no out of range");
   }
+}
+
+Line* IntOctagon::borderLine(int32_t no) {
+  int32_t c[4];
+  borderLineCoordinates(no, c);
+  return Line::ofInts(c[0], c[1], c[2], c[3]);
 }
 
 IntOctagon* IntOctagon::translateBy(Vector* relCoor) {
@@ -290,33 +310,27 @@ TileShape* IntOctagon::intersection(TileShape* other) { return other->intersecti
 Simplex* IntOctagon::intersection(Simplex* other) { return other->intersection(this); }
 
 IntOctagon* IntOctagon::intersection(IntOctagon* other) {
-  IntOctagon* result = new (jrt::kGeom) IntOctagon(
+  return normalized(
       jrt::Math::max(leftX, other->leftX), jrt::Math::max(bottomY, other->bottomY),
       jrt::Math::min(rightX, other->rightX), jrt::Math::min(topY, other->topY),
       jrt::Math::max(upperLeftDiagonalX, other->upperLeftDiagonalX),
       jrt::Math::min(lowerRightDiagonalX, other->lowerRightDiagonalX),
       jrt::Math::max(lowerLeftDiagonalX, other->lowerLeftDiagonalX),
       jrt::Math::min(upperRightDiagonalX, other->upperRightDiagonalX));
-  return result->normalize();
 }
 
 IntOctagon* IntOctagon::intersection(IntBox* other) {
   return intersection(other->toIntOctagon());
 }
 
-IntOctagon* IntOctagon::normalize() {
-  if (leftX > rightX || bottomY > topY || lowerLeftDiagonalX > upperRightDiagonalX ||
-      upperLeftDiagonalX > lowerRightDiagonalX) {
-    return EMPTY();
+// PORT NOTE: the coordinate computation of normalize(), shared with normalized(). Takes the
+// coordinates in place; returns false if the octagon is empty.
+bool IntOctagon::normalizeCoordinates(int32_t& newLx, int32_t& newLy, int32_t& newRx,
+                                      int32_t& newUy, int32_t& newUlx, int32_t& newLrx,
+                                      int32_t& newLlx, int32_t& newUrx) {
+  if (newLx > newRx || newLy > newUy || newLlx > newUrx || newUlx > newLrx) {
+    return false;
   }
-  int32_t newLx = leftX;
-  int32_t newRx = rightX;
-  int32_t newLy = bottomY;
-  int32_t newUy = topY;
-  int32_t newLlx = lowerLeftDiagonalX;
-  int32_t newUlx = upperLeftDiagonalX;
-  int32_t newLrx = lowerRightDiagonalX;
-  int32_t newUrx = upperRightDiagonalX;
 
   if (newLx < newLlx - newUy) {
     // the point newLx, newUy is the lower left border line of
@@ -441,6 +455,21 @@ IntOctagon* IntOctagon::normalize() {
     newLx = diagLeftX;
   }
   if (newLx > newRx || newLy > newUy || newLlx > newUrx || newUlx > newLrx) {
+    return false;
+  }
+  return true;
+}
+
+IntOctagon* IntOctagon::normalize() {
+  int32_t newLx = leftX;
+  int32_t newRx = rightX;
+  int32_t newLy = bottomY;
+  int32_t newUy = topY;
+  int32_t newLlx = lowerLeftDiagonalX;
+  int32_t newUlx = upperLeftDiagonalX;
+  int32_t newLrx = lowerRightDiagonalX;
+  int32_t newUrx = upperRightDiagonalX;
+  if (!normalizeCoordinates(newLx, newLy, newRx, newUy, newUlx, newLrx, newLlx, newUrx)) {
     return EMPTY();
   }
   if (leftX == newLx && rightX == newRx && bottomY == newLy && topY == newUy &&
@@ -451,13 +480,29 @@ IntOctagon* IntOctagon::normalize() {
   return new (jrt::kGeom) IntOctagon(newLx, newLy, newRx, newUy, newUlx, newLrx, newLlx, newUrx);
 }
 
+IntOctagon* IntOctagon::normalized(int32_t lx, int32_t ly, int32_t rx, int32_t uy, int32_t ulx,
+                                   int32_t lrx, int32_t llx, int32_t urx) {
+  // Same result as (new IntOctagon(...)).normalize(): EMPTY() or a new octagon.
+  if (!normalizeCoordinates(lx, ly, rx, uy, ulx, lrx, llx, urx)) {
+    return EMPTY();
+  }
+  return new (jrt::kGeom) IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx);
+}
+
 bool IntOctagon::isNormalized() {
-  IntOctagon* on = this->normalize();
-  return leftX == on->leftX && bottomY == on->bottomY && rightX == on->rightX &&
-         topY == on->topY && lowerLeftDiagonalX == on->lowerLeftDiagonalX &&
-         lowerRightDiagonalX == on->lowerRightDiagonalX &&
-         upperLeftDiagonalX == on->upperLeftDiagonalX &&
-         upperRightDiagonalX == on->upperRightDiagonalX;
+  // PORT NOTE: compares with the normalized coordinates without creating the octagon.
+  int32_t lx = leftX, ly = bottomY, rx = rightX, uy = topY;
+  int32_t ulx = upperLeftDiagonalX, lrx = lowerRightDiagonalX, llx = lowerLeftDiagonalX,
+          urx = upperRightDiagonalX;
+  if (!normalizeCoordinates(lx, ly, rx, uy, ulx, lrx, llx, urx)) {
+    IntOctagon* on = EMPTY();
+    lx = on->leftX, ly = on->bottomY, rx = on->rightX, uy = on->topY;
+    ulx = on->upperLeftDiagonalX, lrx = on->lowerRightDiagonalX, llx = on->lowerLeftDiagonalX;
+    urx = on->upperRightDiagonalX;
+  }
+  return leftX == lx && bottomY == ly && rightX == rx && topY == uy &&
+         lowerLeftDiagonalX == llx && lowerRightDiagonalX == lrx && upperLeftDiagonalX == ulx &&
+         upperRightDiagonalX == urx;
 }
 
 Simplex* IntOctagon::toSimplex() {
