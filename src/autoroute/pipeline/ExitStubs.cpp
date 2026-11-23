@@ -188,7 +188,8 @@ namespace {
 /** board.getItems().stream().map(Item::getId).collect(Collectors.toSet()) */
 jrt::Set<int32_t>* itemIdSet(BasicBoard* board) {
   jrt::Set<int32_t>* result = new (jrt::kOp) jrt::HashSet<int32_t>();
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource1(board->getItems());
+  for (Item* item : *loopSource1) {
     result->add(item->getId());
   }
   return result;
@@ -228,7 +229,8 @@ std::optional<std::string> ExitStubs::apply(RouterSettings* settings, RoutingBoa
     board->insertTrace(new (jrt::kGeom) Polyline(stub->corners(centre)), layer, stub->halfWidth_, jrt::Array<int32_t>::of({net}),
                        traceClass, PLACED_STATE);
     jrt::List<Item*>* traces = new (jrt::kOp) jrt::ArrayList<Item*>();
-    for (Item* i : *board->getItems()) {
+    jrt::DisposeOnExit loopSource2(board->getItems());
+    for (Item* i : *loopSource2) {
       if (jrt::fast_cast<Trace>(i) != nullptr && !beforeStub->contains(i->getId())) {
         traces->add(i);
       }
@@ -271,7 +273,8 @@ std::optional<std::string> ExitStubs::apply(RouterSettings* settings, RoutingBoa
   }
 
   std::vector<int32_t> newIdVec;
-  for (Item* i : *board->getItems()) {
+  jrt::DisposeOnExit loopSource3(board->getItems());
+  for (Item* i : *loopSource3) {
     if (jrt::fast_cast<Trace>(i) != nullptr && i->getFixedState() == PLACED_STATE && !before->contains(i->getId())) {
       newIdVec.push_back(i->getId());
     }
@@ -353,7 +356,8 @@ int32_t ExitStubs::endProbeLength(BasicBoard* board, IntPoint* end, int32_t laye
   int32_t search = widest + reach;
   IntBox* area = new (jrt::kGeom) IntBox(end->x - search, end->y - search, end->x + search, end->y + search);
   FloatPoint* at = end->toFloat();
-  for (SearchTreeObject* entry : *board->overlappingObjects(area, layer)) {
+  jrt::DisposeOnExit loopSource1(board->overlappingObjects(area, layer));
+  for (SearchTreeObject* entry : *loopSource1) {
     auto* item = jrt::fast_cast<Item>(entry);
     if (item == nullptr || !item->isTraceObstacle(net)) {
       continue;
@@ -375,7 +379,8 @@ int32_t ExitStubs::endProbeLength(BasicBoard* board, IntPoint* end, int32_t laye
 
 jrt::List<ExitStubs_Stub*>* ExitStubs::plan(BasicBoard* board, RouterSettings* settings) {
   jrt::Map<int32_t, int32_t>* pinsOfNet = new (jrt::kOp) jrt::HashMap<int32_t, int32_t>();
-  for (Pin* pin : *board->getPins()) {
+  jrt::DisposeOnExit loopSource4(board->getPins());
+  for (Pin* pin : *loopSource4) {
     for (int32_t i = 0; i < pin->netCount(); i++) {
       int32_t n = pin->getNetNumber(i);
       pinsOfNet->put(n, pinsOfNet->getOrDefault(n, 0) + 1);
@@ -1173,7 +1178,8 @@ double ExitStubs::slack(BasicBoard* board, IntPoint* from, IntPoint* to, int32_t
   double least = jrt::Double::POSITIVE_INFINITY;
   FloatPoint* a = from->toFloat();
   FloatPoint* b = to->toFloat();
-  for (SearchTreeObject* entry : *board->overlappingObjects(area, layer)) {
+  jrt::DisposeOnExit loopSource2(board->overlappingObjects(area, layer));
+  for (SearchTreeObject* entry : *loopSource2) {
     auto* item = jrt::fast_cast<Item>(entry);
     if (item == nullptr || !item->isTraceObstacle(net)) {
       continue;
@@ -1479,7 +1485,8 @@ IntPoint* ExitStubs::nearestOnLine(jrt::Array<Point*>* line, IntPoint* at) {
 
 jrt::List<Point*>* ExitStubs::joints(Trace* trace) {
   jrt::List<Point*>* points = new (jrt::kOp) jrt::ArrayList<Point*>();
-  for (Item* contact : *trace->getNormalContacts()) {
+  jrt::DisposeOnExit loopSource3(trace->getNormalContacts());
+  for (Item* contact : *loopSource3) {
     jrt::List<Point*>* ends = new (jrt::kOp) jrt::ArrayList<Point*>();
     if (auto* other = jrt::fast_cast<Trace>(contact)) {
       ends->add(other->firstCorner());

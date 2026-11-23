@@ -324,12 +324,15 @@ bool ShapeTraceEntries::storeTrace(PolylineTrace* trace) {
     }
     Point* endCorner = trace->firstCorner();
     jrt::Collection<Item*>* contactList;
+    jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(nullptr);
     for (int32_t i = 0; i < 2; i++) {
       if (offsetShape->contains(endCorner)) {
         if (i == 0) {
           contactList = trace->getStartContacts();
+          contactListOwner.reset(contactList);
         } else {
           contactList = trace->getEndContacts();
+          contactListOwner.reset(contactList);
         }
         int32_t contactCount = 0;
         bool storeEndCorner = true;

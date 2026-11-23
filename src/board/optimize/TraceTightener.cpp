@@ -104,7 +104,8 @@ void TraceTightener::optChangedArea(
       changedRegion = changedRegion->enlarge(changedAreaOffset);
       // search in the ShapeSearchTree for all overlapping traces
       // with clipShape on layer i
-      jrt::Collection<SearchTreeObject*>* items = board->overlappingObjects(changedRegion, i);
+      jrt::DisposeOnExit<jrt::Collection<SearchTreeObject*>> itemsOwner(board->overlappingObjects(changedRegion, i));
+      jrt::Collection<SearchTreeObject*>* items = itemsOwner.get();
       for (SearchTreeObject* currentObject : *items) {
         if (this->isStopRequested()) {
           return;

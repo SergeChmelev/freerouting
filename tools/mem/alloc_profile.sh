@@ -4,6 +4,9 @@
 # each site also -fno-omit-frame-pointer, e.g.
 #   cmake -S . -B ~/build/fr-prof -G Ninja -DCMAKE_BUILD_TYPE=Release \
 #     "-DCMAKE_CXX_FLAGS=-DJRT_CHECKED=0 -DJRT_ALLOC_PROFILE=1 -g -fno-omit-frame-pointer"
+# Leak profile instead (what is still live at exit = leaked in the collector-free build): build
+# with -DFR_NO_GC=ON and -DJRT_LEAK_PROFILE=1 (runtime/jrt/nogc.cpp) in place of
+# -DJRT_ALLOC_PROFILE=1; the output has the same format, counts are live blocks.
 # usage: tools/mem/alloc_profile.sh <binary> <out-prefix> <fixture.dsn> [top]
 # writes <out-prefix>.raw (offset count bytes caller) and <out-prefix>.txt (resolved).
 set -euo pipefail

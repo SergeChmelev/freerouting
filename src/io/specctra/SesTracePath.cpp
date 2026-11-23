@@ -128,7 +128,8 @@ void SesTracePath::write(const std::string& layer, const jrt::BigFraction& width
 fr::FloatPoint* SesTracePath::snappedEndpoint(fr::PolylineTrace* wire, bool startSide) {
   fr::Point* corner = startSide ? wire->firstCorner() : wire->lastCorner();
   fr::FloatPoint* cornerFloat = corner->toFloat();
-  jrt::Set<fr::Item*>* contacts = startSide ? wire->getStartContacts() : wire->getEndContacts();
+  jrt::DisposeOnExit<jrt::Set<fr::Item*>> contactsOwner(startSide ? wire->getStartContacts() : wire->getEndContacts());
+  jrt::Set<fr::Item*>* contacts = contactsOwner.get();
   int32_t layer = wire->getLayer();
   for (fr::Item* contact : *contacts) {
     auto* drill = jrt::fast_cast<fr::DrillItem>(contact);

@@ -53,6 +53,12 @@ class SortedOrthogonalRoomNeighbours final : public virtual jrt::Object {
   jrt::Array<bool>* edgeInteriorTouchesObstacle;
 
   SortedOrthogonalRoomNeighbours(ExpansionRoom* fromRoom, CompleteExpansionRoom* completedRoom);
+  /** Owns its sorted neighbours and their set (an operation temporary of calculate()). */
+ public:
+  ~SortedOrthogonalRoomNeighbours() override;
+
+ private:
+
 
  public:
   /** Calculates the neighbours of room and completes it. */

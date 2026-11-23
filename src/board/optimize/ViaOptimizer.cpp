@@ -40,7 +40,8 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
     FRLogger::debug("OptViaAlgo.opt_via_location: probably endless loop");
     return false;
   }
-  jrt::Collection<Item*>* contacts = via->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOwner(via->getNormalContacts());
+  jrt::Collection<Item*>* contacts = contactsOwner.get();
   bool isPlaneOrFanoutVia = contacts->size() == 1;
   PolylineTrace* firstTrace = nullptr;
   PolylineTrace* secondTrace = nullptr;
@@ -48,8 +49,9 @@ bool ViaOptimizer::optViaLocation(RoutingBoard* board, Via* via,
     if (contacts->size() != 2) {
       return false;
     }
-    jrt::Iterator<Item*>* it = contacts->iterator();
+    jrt::ScopedIter<Item*> it(contacts);
     Item* currentItem = it->next();
+
     if (currentItem->isShoveFixed() || jrt::fast_cast<PolylineTrace>(currentItem) == nullptr) {
       auto* area = jrt::fast_cast<ConductionArea>(currentItem);
       if (area != nullptr && !area->isFractured()) {
@@ -160,7 +162,8 @@ bool ViaOptimizer::optPlaneOrFanoutVia(RoutingBoard* board, Via* via,
     FRLogger::debug("OptViaAlgo.opt_plane_or_fanout_via: probably endless loop");
     return false;
   }
-  jrt::Collection<Item*>* contactList = via->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(via->getNormalContacts());
+  jrt::Collection<Item*>* contactList = contactListOwner.get();
   if (contactList->isEmpty()) {
     return false;
   }

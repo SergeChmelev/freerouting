@@ -53,6 +53,12 @@ class Sorted45DegreeRoomNeighbours final : public virtual jrt::Object {
   jrt::Array<bool>* edgeInteriorTouchesObstacle;
 
   Sorted45DegreeRoomNeighbours(ExpansionRoom* fromRoom, CompleteExpansionRoom* completedRoom);
+  /** Owns its sorted neighbours and their set (an operation temporary of calculate()). */
+ public:
+  ~Sorted45DegreeRoomNeighbours() override;
+
+ private:
+
 
  public:
   /** Calculates the neighbours of room and completes it. */

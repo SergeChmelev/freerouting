@@ -46,7 +46,8 @@ namespace fr {
 
 AutoroutePassRunner_FailedConnectionPair* AutoroutePassRunner_FailedConnectionPair::of(
     Item* item, int32_t netNo) {
-  jrt::Set<Item*>* connected = item->getConnectedSet(netNo);
+  jrt::DisposeOnExit<jrt::Set<Item*>> connectedOwner(item->getConnectedSet(netNo));
+  jrt::Set<Item*>* connected = connectedOwner.get();
   jrt::Set<Item*>* unconnected = item->getUnconnectedSet(netNo);
   if (connected->isEmpty() || unconnected->isEmpty()) {
     return nullptr;
@@ -643,7 +644,8 @@ int32_t AutoroutePassRunner::ripInCorridors(int32_t netNo, int32_t failedNetNo) 
       continue;
     }
     IntBox* corridor = LastMileBlockerRipup::corridor(airline->fromCorner, airline->toCorner);
-    for (SearchTreeObject* object : *router->board->overlappingObjects(corridor, -1)) {
+    jrt::DisposeOnExit loopSource1(router->board->overlappingObjects(corridor, -1));
+    for (SearchTreeObject* object : *loopSource1) {
       if (auto* item = jrt::fast_cast<Item>(object)) {
         if (item->containsNet(netNo) && LastMileBlockerRipup::isRemovableBlocker(item, failedNetNo)) {
           inTheWay->add(item);
@@ -850,7 +852,8 @@ jrt::Set<int32_t>* AutoroutePassRunner::ruleBlockedNets(RoutingBoard* board) {
     return nullptr;
   }
   jrt::Set<int32_t>* nets = new (jrt::kOp) jrt::HashSet<int32_t>();
-  for (Pin* pin : *board->getPins()) {
+  jrt::DisposeOnExit loopSource1(board->getPins());
+  for (Pin* pin : *loopSource1) {
     if (pin->netCount() == 1 && board->ruleBlockedPins->contains(pin->getId())) {
       nets->add(pin->getNetNumber(0));
     }

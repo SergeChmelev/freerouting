@@ -113,7 +113,8 @@ jrt::Collection<Item*>* BoardItemRepository::getItems() {
 
 jrt::Collection<ConductionArea*>* BoardItemRepository::getConductionAreas() {
   jrt::Collection<ConductionArea*>* result = new (jrt::kOp) jrt::LinkedList<ConductionArea*>();
-  for (Item* currentItem : *getItems()) {
+  jrt::DisposeOnExit loopSource1(getItems());
+  for (Item* currentItem : *loopSource1) {
     if (auto* area = jrt::fast_cast<ConductionArea>(currentItem)) {
       result->add(area);
     }
@@ -123,7 +124,8 @@ jrt::Collection<ConductionArea*>* BoardItemRepository::getConductionAreas() {
 
 jrt::Collection<Pin*>* BoardItemRepository::getPins() {
   jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
-  for (Item* currentItem : *getItems()) {
+  jrt::DisposeOnExit loopSource2(getItems());
+  for (Item* currentItem : *loopSource2) {
     if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
       result->add(pin);
     }
@@ -133,7 +135,8 @@ jrt::Collection<Pin*>* BoardItemRepository::getPins() {
 
 jrt::Collection<Pin*>* BoardItemRepository::getSmdPins() {
   jrt::Collection<Pin*>* result = new (jrt::kOp) jrt::LinkedList<Pin*>();
-  for (Item* currentItem : *getItems()) {
+  jrt::DisposeOnExit loopSource3(getItems());
+  for (Item* currentItem : *loopSource3) {
     if (auto* pin = jrt::fast_cast<Pin>(currentItem)) {
       if (pin->firstLayer() == pin->lastLayer()) {
         result->add(pin);
@@ -145,7 +148,8 @@ jrt::Collection<Pin*>* BoardItemRepository::getSmdPins() {
 
 jrt::Collection<Via*>* BoardItemRepository::getVias() {
   jrt::Collection<Via*>* result = new (jrt::kOp) jrt::LinkedList<Via*>();
-  for (Item* currentItem : *getItems()) {
+  jrt::DisposeOnExit loopSource4(getItems());
+  for (Item* currentItem : *loopSource4) {
     if (auto* via = jrt::fast_cast<Via>(currentItem)) {
       result->add(via);
     }
@@ -155,7 +159,8 @@ jrt::Collection<Via*>* BoardItemRepository::getVias() {
 
 jrt::Collection<Trace*>* BoardItemRepository::getTraces() {
   jrt::Collection<Trace*>* result = new (jrt::kOp) jrt::LinkedList<Trace*>();
-  for (Item* currentItem : *getItems()) {
+  jrt::DisposeOnExit loopSource5(getItems());
+  for (Item* currentItem : *loopSource5) {
     if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
       result->add(trace);
     }
@@ -165,7 +170,8 @@ jrt::Collection<Trace*>* BoardItemRepository::getTraces() {
 
 double BoardItemRepository::cumulativeTraceLength() {
   double result = 0;
-  for (Item* currentItem : *getItems()) {
+  jrt::DisposeOnExit loopSource6(getItems());
+  for (Item* currentItem : *loopSource6) {
     if (auto* trace = jrt::fast_cast<Trace>(currentItem)) {
       result += trace->getLength();
     }

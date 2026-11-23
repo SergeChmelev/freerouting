@@ -40,7 +40,8 @@ bool DrillItemMover::check(DrillItem* drillItem, Vector* vector, int32_t maxRecu
   }
 
   // Check, that drillitem is only connected to traces.
-  jrt::Collection<Item*>* contactList = drillItem->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(drillItem->getNormalContacts());
+  jrt::Collection<Item*>* contactList = contactListOwner.get();
   for (Item* currentContact : *contactList) {
     if (!(jrt::fast_cast<Trace>(currentContact) != nullptr ||
           jrt::fast_cast<ConductionArea>(currentContact) != nullptr)) {
@@ -194,8 +195,9 @@ bool DrillItemMover::shoveVias(TileShape* obstacleShape, ShapeEntrySide* fromSid
   ShapeSearchTree* searchTree = board->searchTreeManager->getDefaultTree();
   ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(obstacleShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
-  jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      obstacleShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex, exactShape);
+  jrt::DisposeOnExit<jrt::Collection<Item*>> obstaclesOwner(searchTree->overlappingItemsWithClearance(
+      obstacleShape, layer, jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(), clearanceClassIndex, exactShape));
+  jrt::Collection<Item*>* obstacles = obstaclesOwner.get();
 
   if (!shapeEntries->storeItems(obstacles, false, copperSharingAllowed)) {
     return true;

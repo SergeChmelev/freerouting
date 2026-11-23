@@ -43,7 +43,8 @@ jrt::Collection<ClearanceViolation*>* DesignRulesChecker::getAllClearanceViolati
   auto* seenViolations = new (jrt::kOp) jrt::HashSet<std::string>();
 
   // Iterate through all items on the board
-  jrt::Collection<Item*>* items = board->getItems();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> itemsOwner(board->getItems());
+  jrt::Collection<Item*>* items = itemsOwner.get();
   for (Item* item : *items) {
     if (item != nullptr) {
       // Get clearance violations for this item
@@ -76,7 +77,8 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
 
   // Group items by net
   auto* itemsByNet = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource1(board->getItems());
+  for (Item* item : *loopSource1) {
     if (jrt::fast_cast<Connectable>(item) != nullptr && item->netCount() > 0) {
       int32_t netNumber = item->getNetNumber(0);
       itemsByNet
@@ -105,7 +107,8 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
       }
 
       // Get the connected set for this item
-      jrt::Collection<Item*>* connectedSet = item->getConnectedSet(netNumber);
+      jrt::DisposeOnExit<jrt::Collection<Item*>> connectedSetOwner(item->getConnectedSet(netNumber));
+      jrt::Collection<Item*>* connectedSet = connectedSetOwner.get();
       jrt::Set<Item*>* setItems = new (jrt::kOp) jrt::HashSet<Item*>(connectedSet);
 
       // Only add items that are actually in this net
@@ -135,10 +138,13 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
   }
 
   // Check for dangling traces - traces with unconnected ends
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource2(board->getItems());
+  for (Item* item : *loopSource2) {
     if (auto* trace = jrt::fast_cast<Trace>(item)) {
-      jrt::Collection<Item*>* startContacts = trace->getStartContacts();
-      jrt::Collection<Item*>* endContacts = trace->getEndContacts();
+      jrt::DisposeOnExit<jrt::Collection<Item*>> startContactsOwner(trace->getStartContacts());
+      jrt::Collection<Item*>* startContacts = startContactsOwner.get();
+      jrt::DisposeOnExit<jrt::Collection<Item*>> endContactsOwner(trace->getEndContacts());
+      jrt::Collection<Item*>* endContacts = endContactsOwner.get();
 
       // A trace is dangling if either its start or end has no contacts
       if (startContacts->isEmpty() || endContacts->isEmpty()) {
@@ -158,7 +164,8 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
   }
 
   // Check for dangling vias - vias not connected or connected on only one layer
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource3(board->getItems());
+  for (Item* item : *loopSource3) {
     if (auto* via = jrt::fast_cast<Via>(item)) {
       // Use the isTail() method which checks if via has contacts on at most 1 layer
       if (via->isTail()) {
@@ -172,7 +179,8 @@ jrt::Collection<UnconnectedItems*>* DesignRulesChecker::getAllUnconnectedItems()
 
 jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolations() {
   auto* violations = new (jrt::kOp) jrt::ArrayList<ZoneIslandViolation*>();
-  jrt::Collection<ConductionArea*>* conductionAreas = board->getConductionAreas();
+  jrt::DisposeOnExit<jrt::Collection<ConductionArea*>> conductionAreasOwner(board->getConductionAreas());
+  jrt::Collection<ConductionArea*>* conductionAreas = conductionAreasOwner.get();
   if (conductionAreas == nullptr || conductionAreas->isEmpty()) {
     return violations;
   }
@@ -196,7 +204,8 @@ jrt::Collection<ZoneIslandViolation*>* DesignRulesChecker::getZoneIslandViolatio
 
     // Find all connectable items belonging to this net on this layer
     auto* sameNetItemsOnLayer = new (jrt::kOp) jrt::ArrayList<Item*>();
-    for (Item* item : *board->getItems()) {
+    jrt::DisposeOnExit loopSource4(board->getItems());
+    for (Item* item : *loopSource4) {
       if (item != static_cast<Item*>(ca) && jrt::fast_cast<Connectable>(item) != nullptr &&
           item->sharesNet(ca) && item->sharesLayer(ca)) {
         sameNetItemsOnLayer->add(item);

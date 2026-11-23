@@ -32,7 +32,8 @@ int32_t DsnFile::convertPlatedSlotKeepouts(fr::BasicBoard* routingBoard) {
     return 0;
   }
   jrt::List<fr::ObstacleArea*>* slotKeepouts = new (jrt::kOp) jrt::ArrayList<fr::ObstacleArea*>();
-  for (fr::Item* item : *routingBoard->getItems()) {
+  jrt::DisposeOnExit loopSource1(routingBoard->getItems());
+  for (fr::Item* item : *loopSource1) {
     if (typeid(*item) == typeid(fr::ObstacleArea) && item->getComponentId() <= 0 &&
         isInsideThroughHolePad(static_cast<fr::ObstacleArea*>(item), routingBoard)) {
       slotKeepouts->add(static_cast<fr::ObstacleArea*>(item));
@@ -58,7 +59,8 @@ int32_t DsnFile::removePinEnclosingKeepouts(fr::BasicBoard* routingBoard) {
     return 0;
   }
   jrt::List<fr::ObstacleArea*>* pinBlockingKeepouts = new (jrt::kOp) jrt::ArrayList<fr::ObstacleArea*>();
-  for (fr::Item* item : *routingBoard->getItems()) {
+  jrt::DisposeOnExit loopSource2(routingBoard->getItems());
+  for (fr::Item* item : *loopSource2) {
     if (typeid(*item) == typeid(fr::ObstacleArea) && item->getComponentId() <= 0 &&
         (!static_cast<fr::ObstacleArea*>(item)->name.has_value() ||
          static_cast<fr::ObstacleArea*>(item)->name->empty()) &&
@@ -82,7 +84,8 @@ bool DsnFile::enclosesRoutableSmdPinCenter(fr::ObstacleArea* keepout,
                                            fr::BasicBoard* routingBoard) {
   int32_t layer = keepout->getLayer();
   fr::IntBox* keepoutBox = keepout->boundingBox();
-  for (fr::Pin* pin : *routingBoard->getPins()) {
+  jrt::DisposeOnExit loopSource3(routingBoard->getPins());
+  for (fr::Pin* pin : *loopSource3) {
     if (pin->firstLayer() != layer || pin->lastLayer() != layer || pin->netCount() == 0 ||
         pin->hasIgnoredNets()) {
       continue;
@@ -107,7 +110,8 @@ bool DsnFile::isInsideThroughHolePad(fr::ObstacleArea* keepout, fr::BasicBoard* 
   if (corners == nullptr || corners->length == 0) {
     return false;
   }
-  for (fr::Pin* pin : *routingBoard->getPins()) {
+  jrt::DisposeOnExit loopSource4(routingBoard->getPins());
+  for (fr::Pin* pin : *loopSource4) {
     if (pin->firstLayer() == pin->lastLayer() || !pin->isOnLayer(layer)) {
       continue;
     }

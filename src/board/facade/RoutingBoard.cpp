@@ -133,8 +133,8 @@ void RoutingBoard::additionalUpdateAfterChange(Item* item) {
     TileShape* currentShape = item->getTreeShape(this->autorouteEngine->autorouteSearchTree, i);
     this->autorouteEngine->invalidateDrillPages(currentShape);
     int32_t currentLayer = item->shapeLayer(i);
-    jrt::Collection<SearchTreeObject*>* overlaps =
-        this->autorouteEngine->autorouteSearchTree->overlappingObjects(currentShape, currentLayer);
+    jrt::DisposeOnExit<jrt::Collection<SearchTreeObject*>> overlapsOwner(this->autorouteEngine->autorouteSearchTree->overlappingObjects(currentShape, currentLayer));
+    jrt::Collection<SearchTreeObject*>* overlaps = overlapsOwner.get();
     for (SearchTreeObject* currentObject : *overlaps) {
       if (auto* room = jrt::fast_cast<CompleteFreeSpaceExpansionRoom>(currentObject)) {
         this->autorouteEngine->removeCompleteExpansionRoom(room);
@@ -209,7 +209,8 @@ bool RoutingBoard::moveDrillItem(DrillItem* drillItem, Vector* vector, int32_t m
                                  int32_t pullTightAccuracy, int32_t pullTightTimeLimit) {
   clearShoveFailingObstacle();
   // unfix the connected shove fixed traces.
-  jrt::Collection<Item*>* contactList = drillItem->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(drillItem->getNormalContacts());
+  jrt::Collection<Item*>* contactList = contactListOwner.get();
   for (Item* currentContact : *contactList) {
     if (currentContact->getFixedState() == FixedState::SHOVE_FIXED) {
       currentContact->setFixedState(FixedState::UNFIXED);
@@ -932,16 +933,18 @@ jrt::Set<Item*>* RoutingBoard::planeEscapeObstacles(Pin* pin, int32_t netNo,
   open->addAll(destinations);
   for (Item* destination : *destinations) {
     if (auto* sharedPin = jrt::fast_cast<Pin>(destination)) {
-      open->addAll(sharedPin->getConnectedSet(netNo, true));
+      open->addAll(jrt::DisposeOnExit(sharedPin->getConnectedSet(netNo, true)).get());
     }
   }
-  for (Pin* other : *getPins()) {
+  jrt::DisposeOnExit loopSource1(getPins());
+  for (Pin* other : *loopSource1) {
     if (other->getComponentId() == pin->getComponentId() && other->containsNet(netNo)) {
-      open->addAll(other->getConnectedSet(netNo, true));
+      open->addAll(jrt::DisposeOnExit(other->getConnectedSet(netNo, true)).get());
     }
   }
   jrt::Set<Item*>* obstacles = new (jrt::kOp) jrt::HashSet<Item*>();
-  for (Item* other : *getItems()) {
+  jrt::DisposeOnExit loopSource2(getItems());
+  for (Item* other : *loopSource2) {
     if (other->containsNet(netNo) && jrt::fast_cast<ConductionArea>(other) == nullptr &&
         !open->contains(other)) {
       obstacles->add(other);
@@ -1056,7 +1059,8 @@ bool RoutingBoard::containsTraceTails(jrt::Collection<Item*>* items,
 bool RoutingBoard::removeTraceTails(int32_t netNumber,
                                     Item_StopConnectionOption stopConnectionOption) {
   jrt::TreeSet<Item*>* stubSet = new (jrt::kOp) jrt::TreeSet<Item*>();
-  jrt::Collection<Item*>* boardItems = this->getItems();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> boardItemsOwner(this->getItems());
+  jrt::Collection<Item*>* boardItems = boardItemsOwner.get();
   for (Item* currentItem : *boardItems) {
     if (!currentItem->isRoutable()) {
       continue;
@@ -1089,9 +1093,9 @@ bool RoutingBoard::removeTraceTails(int32_t netNumber,
   }
   jrt::TreeSet<Item*>* stubConnections = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (Item* currentItem : *stubSet) {
-    int32_t itemContactCount = currentItem->getNormalContacts()->size();
+    int32_t itemContactCount = jrt::DisposeOnExit(currentItem->getNormalContacts())->size();
     if (itemContactCount == 1) {
-      stubConnections->addAll(currentItem->getConnectionItems(stopConnectionOption));
+      stubConnections->addAll(jrt::DisposeOnExit(currentItem->getConnectionItems(stopConnectionOption)).get());
     } else {
       // the connected items are no stubs for example if a via is only connected on 1 layer,
       // but to several traces.
@@ -1177,7 +1181,8 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
         continue;
       }
       if (jrt::fast_cast<Via>(currentObject) != nullptr) {
-        jrt::Collection<Item*>* contacts = currentItem->getNormalContacts();
+        jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOwner(currentItem->getNormalContacts());
+        jrt::Collection<Item*>* contacts = contactsOwner.get();
         // Java iterates the array captured at loop start (removeFromNet replaces the field).
         jrt::Array<int32_t>* netNumbersAtStart = currentItem->netNumbers;
         for (int32_t currentNetNumber : *netNumbersAtStart) {
@@ -1194,7 +1199,8 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
         }
 
       } else if (auto* currentTrace = jrt::fast_cast<Trace>(currentObject)) {
-        jrt::Collection<Item*>* contacts = currentTrace->getStartContacts();
+        jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOwner(currentTrace->getStartContacts());
+        jrt::Collection<Item*>* contacts = contactsOwner.get();
         for (int32_t i = 0; i < 2; i++) {
           jrt::Array<int32_t>* netNumbersAtStart = currentItem->netNumbers;
           for (int32_t currentNetNumber : *netNumbersAtStart) {
@@ -1223,7 +1229,8 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
           if (somethingChanged) {
             break;
           }
-          contacts = currentTrace->getEndContacts();
+          contactsOwner.reset(currentTrace->getEndContacts());
+          contacts = contactsOwner.get();
         }
         if (somethingChanged) {
           break;
@@ -1241,7 +1248,8 @@ bool RoutingBoard::reduceNetsOfRouteItems() {
 int32_t RoutingBoard::connectNetlessPadsToTheirFootprintsNet(jrt::Array<int32_t>* tiePadsOut) {
   int32_t assigned = 0;
   int32_t tiePads = 0;
-  for (Pin* pin : *new (jrt::kOp) jrt::ArrayList<Pin*>(getPins())) {
+  jrt::DisposeOnExit loopSource3(new (jrt::kOp) jrt::ArrayList<Pin*>(getPins()));
+  for (Pin* pin : *loopSource3) {
     if (pin->netCount() != 0) {
       continue;
     }
@@ -1289,7 +1297,8 @@ int32_t RoutingBoard::connectNetlessPads(bool kicadBoard, bool fixKicadFootprint
     return 0;
   }
   jrt::List<Pin*>* netless = new (jrt::kOp) jrt::ArrayList<Pin*>();
-  for (Pin* p : *getPins()) {
+  jrt::DisposeOnExit loopSource4(getPins());
+  for (Pin* p : *loopSource4) {
     if (p->netCount() == 0) {
       netless->add(p);
     }
@@ -1374,7 +1383,8 @@ int32_t RoutingBoard::clusterNetTies() {
   // 1. Group pins by component ID (excluding board pins with componentId <= 0)
   jrt::Map<int32_t, jrt::List<Pin*>*>* pinsByComponent =
       new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Pin*>*>();
-  for (Pin* pin : *getPins()) {
+  jrt::DisposeOnExit loopSource5(getPins());
+  for (Pin* pin : *loopSource5) {
     if (pin->getComponentId() > 0) {
       pinsByComponent
           ->computeIfAbsent(pin->getComponentId(),

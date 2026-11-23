@@ -123,6 +123,12 @@ BasicBoard* BasicBoard::deserialize(BasicBoard* snapshot) {
 jrt::Set<Item*>* BasicBoard::cachedNormalContacts(Item* item) {
   int64_t version = itemList->getContentVersion();
   if (normalContactCache == nullptr || normalContactCacheVersion != version) {
+    // The cache owns its contact sets: the stale ones go with it (the item walks that read them
+    // do not change the item list, so none is being read now).
+    if (normalContactCache != nullptr) {
+      normalContactCache->forEach([](Item*, jrt::Set<Item*>* contacts) { jrt::dispose(contacts); });
+      jrt::dispose(normalContactCache);
+    }
     normalContactCache = new (jrt::kBoard) jrt::IdentityHashMap<Item*, jrt::Set<Item*>*>();
     normalContactCacheVersion = version;
   }
@@ -540,7 +546,8 @@ BoardOutline* BasicBoard::insertOutline(jrt::Array<PolylineShape*>* outlineShape
 void BasicBoard::expandBoundingBoxToIncludeAllItems() {
   IntBox* bounds = this->boundingBox;
   bool changed = false;
-  for (Item* item : *getItems()) {
+  jrt::DisposeOnExit loopSource1(getItems());
+  for (Item* item : *loopSource1) {
     IntBox* itemBox = item->boundingBox();
     if (itemBox != nullptr && !itemBox->isEmpty() && !bounds->contains(itemBox)) {
       bounds = bounds->union_(itemBox);
@@ -886,7 +893,8 @@ jrt::Set<Item*>* BasicBoard::overlappingItems(Area* area, int32_t layer) {
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   jrt::Array<TileShape*>* tileShapes = area->splitToConvex();
   for (int32_t i = 0; i < tileShapes->length; i++) {
-    jrt::Set<SearchTreeObject*>* currentOverlaps = overlappingObjects((*tileShapes)[i], layer);
+    jrt::DisposeOnExit<jrt::Set<SearchTreeObject*>> currentOverlapsOwner(overlappingObjects((*tileShapes)[i], layer));
+    jrt::Set<SearchTreeObject*>* currentOverlaps = currentOverlapsOwner.get();
     for (SearchTreeObject* currentOverlap : *currentOverlaps) {
       if (auto* item = jrt::fast_cast<Item>(currentOverlap)) {
         result->add(item);
@@ -935,7 +943,9 @@ bool BasicBoard::checkTraceShape(TileShape* shape, int32_t layer, jrt::Array<int
   }
   ShapeSearchTree* defaultTree = this->searchTreeManager->getDefaultTree();
   jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
-  jrt::Array<int32_t>* ignoreNetNos = new (jrt::kOp) jrt::Array<int32_t>(0);
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> treeEntriesOwner(treeEntries);
+  jrt::DisposeOnExit<jrt::Array<int32_t>> ignoreNetNosOwner(new (jrt::kOp) jrt::Array<int32_t>(0));
+  jrt::Array<int32_t>* ignoreNetNos = ignoreNetNosOwner.get();
   defaultTree->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                                    treeEntries);
   for (ShapeTree_TreeEntry* currentTreeEntry : *treeEntries) {
@@ -1012,7 +1022,8 @@ int32_t BasicBoard::getLayerCount() { return layerStructure->layers->length; }
 jrt::Set<Item*>* BasicBoard::pickItems(Point* location, int32_t layer,
                                        ItemSelectionFilter* filter) {
   TileShape* pointShape = TileShape::getInstance(location);
-  jrt::Collection<SearchTreeObject*>* overlaps = overlappingObjects(pointShape, layer);
+  jrt::DisposeOnExit<jrt::Collection<SearchTreeObject*>> overlapsOwner(overlappingObjects(pointShape, layer));
+  jrt::Collection<SearchTreeObject*>* overlaps = overlapsOwner.get();
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
     if (auto* item = jrt::fast_cast<Item>(currentObject)) {
@@ -1173,20 +1184,23 @@ bool BasicBoard::popSnapshot() { return getSnapshotManager()->popSnapshot(); }
 
 Trace* BasicBoard::getTraceTail(Point* location, int32_t layer, jrt::Array<int32_t>* netNumbers) {
   TileShape* pointShape = TileShape::getInstance(location);
-  jrt::Collection<SearchTreeObject*>* foundItems = overlappingObjects(pointShape, layer);
+  jrt::DisposeOnExit<jrt::Collection<SearchTreeObject*>> foundItemsOwner(overlappingObjects(pointShape, layer));
+  jrt::Collection<SearchTreeObject*>* foundItems = foundItemsOwner.get();
   for (SearchTreeObject* currentObject : *foundItems) {
     if (auto* currentTrace = jrt::fast_cast<Trace>(currentObject)) {
       if (!currentTrace->netsEqual(netNumbers) || currentTrace->hasInteriorContacts()) {
         continue;
       }
       if (currentTrace->firstCorner()->equals(location)) {
-        jrt::Collection<Item*>* contacts = currentTrace->getStartContacts();
+        jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOwner(currentTrace->getStartContacts());
+        jrt::Collection<Item*>* contacts = contactsOwner.get();
         if (contacts->isEmpty()) {
           return currentTrace;
         }
       }
       if (currentTrace->lastCorner()->equals(location)) {
-        jrt::Collection<Item*>* contacts = currentTrace->getEndContacts();
+        jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOwner(currentTrace->getEndContacts());
+        jrt::Collection<Item*>* contacts = contactsOwner.get();
         if (contacts->isEmpty()) {
           return currentTrace;
         }
@@ -1243,7 +1257,8 @@ void BasicBoard::keepJunctionVias(jrt::Set<Item*>* connectionItems) {
 }
 
 bool BasicBoard::touchesItemOutside(Via* via, jrt::Set<Item*>* items) {
-  for (Item* contact : *via->getNormalContacts()) {
+  jrt::DisposeOnExit loopSource1(via->getNormalContacts());
+  for (Item* contact : *loopSource1) {
     if (!items->contains(contact)) {
       return true;
     }
@@ -1286,7 +1301,8 @@ void BasicBoard::afterDeserialize() {
   itemRepository = nullptr;
   connectivityQueries = nullptr;
   snapshotManager = nullptr;
-  for (Item* currentItem : *this->getItems()) {
+  jrt::DisposeOnExit loopSource2(this->getItems());
+  for (Item* currentItem : *loopSource2) {
     currentItem->board = this;
     searchTreeManager->insert(currentItem);
   }
@@ -1433,7 +1449,8 @@ void BasicBoard::areThereItemsOnInactiveLayer(AutorouteControl* ctrl) {
 
 int32_t BasicBoard::getNon45DegreeTraceCount() {
   int32_t count = 0;
-  for (Item* currentObject : *getItems()) {
+  jrt::DisposeOnExit loopSource3(getItems());
+  for (Item* currentObject : *loopSource3) {
     if (auto* currentTrace = jrt::fast_cast<PolylineTrace>(currentObject)) {
       if (!currentTrace->polyline()->isMultipleOf45Degree()) {
         ++count;

@@ -167,7 +167,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
     if (pin == nullptr || committedPins->contains(pin)) {
       continue;
     }
-    if (!pin->getNormalContacts()->isEmpty()) {
+    if (!jrt::DisposeOnExit(pin->getNormalContacts())->isEmpty()) {
       committedPins->add(pin);
       continue;  // Pin already escaped or connected
     }
@@ -245,7 +245,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
       Polyline* polyline = new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({pinCenter, globalExit}));
       board->insertTrace(polyline, pinLayer, traceHalfWidthPin, netNumbers, traceClClass,
                          FixedState::USER_FIXED);
-      if (pin->getNormalContacts()->isEmpty()) {
+      if (jrt::DisposeOnExit(pin->getNormalContacts())->isEmpty()) {
         drcRejections++;
         continue;
       }
@@ -323,7 +323,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
           new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({pinCenter, globalJog, globalExit}));
       board->insertTrace(polyline, pinLayer, traceHalfWidthPin, netNumbers, traceClClass,
                          FixedState::USER_FIXED);
-      if (pin->getNormalContacts()->isEmpty()) {
+      if (jrt::DisposeOnExit(pin->getNormalContacts())->isEmpty()) {
         drcRejections++;
         continue;
       }
@@ -483,7 +483,7 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
       Polyline* dogbone = new (jrt::kGeom) Polyline(jrt::Array<Point*>::of({pinCenter, globalViaCenter}));
       board->insertTrace(dogbone, pinLayer, traceHalfWidthPin, netNumbers, traceClClass,
                          FixedState::USER_FIXED);
-      if (pin->getNormalContacts()->isEmpty()) {
+      if (jrt::DisposeOnExit(pin->getNormalContacts())->isEmpty()) {
         if (insertedVia != nullptr) {
           board->removeItem(insertedVia);
         }
@@ -493,12 +493,12 @@ BgaEscapeCommitter_CommitResult* BgaEscapeCommitter::commit(
       // Commit breakout trace on targetLayer and verify insertion
       bool breakoutInserted = false;
       if (!isPlaneDrop && globalCorridor != nullptr && globalBreakoutExit != nullptr) {
-        int32_t tracesBeforeBreakout = board->getTraces()->size();
+        int32_t tracesBeforeBreakout = jrt::DisposeOnExit(board->getTraces())->size();
         Polyline* breakout = new (jrt::kGeom) Polyline(
             jrt::Array<Point*>::of({globalViaCenter, globalCorridor, globalBreakoutExit}));
         board->insertTrace(breakout, targetLayer, traceHalfWidthTarget, netNumbers, traceClClass,
                            FixedState::USER_FIXED);
-        if (board->getTraces()->size() <= tracesBeforeBreakout) {
+        if (jrt::DisposeOnExit(board->getTraces())->size() <= tracesBeforeBreakout) {
           // Roll back dogbone traces contacting this pin and the newly inserted via
           // Java: List.copyOf(pin.getNormalContacts())
           jrt::List<Item*>* contacts = new (jrt::kOp) jrt::ArrayList<Item*>(pin->getNormalContacts());
@@ -597,7 +597,8 @@ bool BgaEscapeCommitter::checkViaClearance(RoutingBoard* board, Padstack* viaPad
       }
       // Strict no via-in-pad: physical overlap with any Pin (starting ball pad,
       // same-net decoupling cap, or foreign pin) on layer l is strictly rejected
-      for (Item* it : *board->overlappingItems(viaTile, l)) {
+      jrt::DisposeOnExit loopSource1(board->overlappingItems(viaTile, l));
+      for (Item* it : *loopSource1) {
         if (jrt::fast_cast<Pin>(it) != nullptr) {
           return false;
         }

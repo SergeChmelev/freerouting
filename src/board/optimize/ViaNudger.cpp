@@ -77,7 +77,8 @@ jrt::Array<jrt::Array<int32_t>*>* ViaNudger::DIRECTIONS() {
 ViaNudger::ViaNudger(RoutingBoard* board, int32_t pullTightAccuracy, Stoppable* stoppable)
     : board(board), pullTightAccuracy(pullTightAccuracy), stoppable(stoppable) {
   jrt::List<ViaNudger_ZoneRegion*>* zoneRegions = new (jrt::kOp) jrt::ArrayList<ViaNudger_ZoneRegion*>();
-  for (ConductionArea* zone : *board->getConductionAreas()) {
+  jrt::DisposeOnExit loopSource1(board->getConductionAreas());
+  for (ConductionArea* zone : *loopSource1) {
     Area* area = zone->getArea();
     if (area == nullptr || area->isEmpty()) {
       continue;
@@ -104,7 +105,8 @@ ViaNudger_Result* ViaNudger::run() {
                                 incompleteAtStart, violationsAllowed, violationsAllowed);
   }
   jrt::List<int32_t>* viaIds = new (jrt::kOp) jrt::ArrayList<int32_t>();
-  for (Via* via : *board->getVias()) {
+  jrt::DisposeOnExit loopSource2(board->getVias());
+  for (Via* via : *loopSource2) {
     viaIds->add(via->getId());
   }
   jrt::Collections::sort(viaIds);
@@ -241,7 +243,8 @@ bool ViaNudger::isNear(FloatPoint* point, jrt::List<FloatPoint*>* others, int32_
 }
 
 Via* ViaNudger::viaById(int32_t id) {
-  for (Via* via : *board->getVias()) {
+  jrt::DisposeOnExit loopSource3(board->getVias());
+  for (Via* via : *loopSource3) {
     if (via->getId() == id) {
       return via;
     }
@@ -250,7 +253,8 @@ Via* ViaNudger::viaById(int32_t id) {
 }
 
 bool ViaNudger::touchesConductionArea(Via* via) {
-  for (Item* contact : *via->getNormalContacts()) {
+  jrt::DisposeOnExit loopSource1(via->getNormalContacts());
+  for (Item* contact : *loopSource1) {
     if (jrt::fast_cast<ConductionArea>(contact) != nullptr) {
       return true;
     }
@@ -259,7 +263,8 @@ bool ViaNudger::touchesConductionArea(Via* via) {
 }
 
 bool ViaNudger::hasShoveFixedContact(Via* via) {
-  for (Item* contact : *via->getNormalContacts()) {
+  jrt::DisposeOnExit loopSource2(via->getNormalContacts());
+  for (Item* contact : *loopSource2) {
     if (contact->isShoveFixed()) {
       return true;
     }
@@ -310,7 +315,8 @@ jrt::Map<int32_t, int32_t>* ViaNudger::traceSignatures() {
   if (zones->isEmpty()) {
     return result;
   }
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource4(board->getItems());
+  for (Item* item : *loopSource4) {
     if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       result->put(trace->getId(), signature(trace));
     }
@@ -332,7 +338,8 @@ bool ViaNudger::changedTraceEntersZone(jrt::Map<int32_t, int32_t>* tracesBefore)
   if (zones->isEmpty()) {
     return false;
   }
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource5(board->getItems());
+  for (Item* item : *loopSource5) {
     auto* trace = jrt::fast_cast<PolylineTrace>(item);
     if (trace == nullptr) {
       continue;
@@ -356,7 +363,8 @@ bool ViaNudger::changedTraceEntersZone(jrt::Map<int32_t, int32_t>* tracesBefore)
 
 int32_t ViaNudger::halfPitch(Via* via) {
   int32_t result = 0;
-  for (Item* contact : *via->getNormalContacts()) {
+  jrt::DisposeOnExit loopSource3(via->getNormalContacts());
+  for (Item* contact : *loopSource3) {
     auto* trace = jrt::fast_cast<Trace>(contact);
     if (trace == nullptr) {
       continue;
@@ -376,7 +384,8 @@ ViaNudger_Cost* ViaNudger::cost() {
   double length = 0;
   int32_t bends = 0;
   int32_t vias = 0;
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource6(board->getItems());
+  for (Item* item : *loopSource6) {
     if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       length += trace->getLength();
       bends += jrt::Math::max(0, trace->cornerCount() - 2);

@@ -1587,6 +1587,13 @@ class TreeSet : public virtual Set<T> {
       : cmp_(new Comparator<T>(c ? c : naturalOrder<T>())), s_(CmpLess<T>{cmp_, !c}), natural_(!c) {}
   explicit TreeSet(Collection<T>* c) : TreeSet() { this->addAll(c); }
   TreeSet(Comparator<T> c, Collection<T>* src) : TreeSet(c) { this->addAll(src); }
+  // The set owns its comparator (a disposed set frees it).
+  TreeSet(const TreeSet&) = delete;
+  TreeSet& operator=(const TreeSet&) = delete;
+  ~TreeSet() override {
+    s_.clear();
+    jrt::dispose(cmp_);
+  }
 
   int32_t size() override { return static_cast<int32_t>(s_.size()); }
   bool add(T x) override { return s_.insert(std::move(x)).second; }
@@ -1847,6 +1854,32 @@ template <class K, class V>
 using NavigableMap = TreeMap<K, V>;
 template <class K, class V>
 using ConcurrentSkipListMap = TreeMap<K, V>;
+
+// ---------------------------------------------------------------------------------------------
+// Owners of operation temporaries (MEMORY_MODEL.md, "E2"): see jrt::DisposeOnExit in alloc.h.
+// ---------------------------------------------------------------------------------------------
+
+/** Disposes every element of `c` (objects nothing but `c` refers to), then `c` itself. */
+template <class E>
+inline void disposeWithElements(Collection<E*>* c) noexcept {
+  if (c == nullptr) return;
+  for (ScopedIter<E*> it(c); it->hasNext();) dispose(it->next());
+  dispose(c);
+}
+
+/** Scoped owner of a temporary collection and of its elements (e.g. the tree entries of a
+ * search-tree query): disposes both when the scope ends. */
+template <class E>
+class DisposeAllOnExit {
+ public:
+  explicit DisposeAllOnExit(Collection<E*>* c) noexcept : c_(c) {}
+  ~DisposeAllOnExit() { disposeWithElements(c_); }
+  DisposeAllOnExit(const DisposeAllOnExit&) = delete;
+  DisposeAllOnExit& operator=(const DisposeAllOnExit&) = delete;
+
+ private:
+  Collection<E*>* c_;
+};
 
 // ---------------------------------------------------------------------------------------------
 // java.util.Collections / Arrays helpers

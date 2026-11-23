@@ -102,7 +102,8 @@ MoveComponent::MoveComponent(Item* item, Vector* translateVector, int32_t maxRec
 }
 
 bool MoveComponent::hasConnectingTraces(DrillItem* drillItem) {
-  jrt::Collection<Item*>* contacts = drillItem->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOwner(drillItem->getNormalContacts());
+  jrt::Collection<Item*>* contacts = contactsOwner.get();
   for (Item* currentContact : *contacts) {
     if (jrt::fast_cast<Trace>(currentContact) != nullptr) return true;
   }

@@ -161,7 +161,8 @@ BatchAutorouter::BatchAutorouter(StoppableThread* thread, RoutingBoard* board, R
   this->startNecked = settings->autorouter == nullptr || !settings->autorouter->startNecked.has_value() ||
                       *settings->autorouter->startNecked;
   if (this->startNecked && board != nullptr) {
-    for (Trace* trace : *board->getTraces()) {
+    jrt::DisposeOnExit loopSource1(board->getTraces());
+    for (Trace* trace : *loopSource1) {
       if (trace->netCount() == 1 && board->rules->nets->get(trace->getNetNumber(0)) != nullptr &&
           trace->getHalfWidth() < board->rules->getTraceHalfWidth(trace->getNetNumber(0), trace->getLayer())) {
         neckedRouteNets->add(trace->getNetNumber(0));
@@ -318,7 +319,8 @@ jrt::List<Item*>* BatchAutorouter::getAutorouteItems(RoutingBoard* board) {
             if (netsLeftUnrouted->contains(currentNetNumber)) {
               continue;
             }
-            jrt::Set<Item*>* connectedSet = currentItem->getConnectedSet(currentNetNumber);
+            jrt::DisposeOnExit<jrt::Set<Item*>> connectedSetOwner(currentItem->getConnectedSet(currentNetNumber));
+            jrt::Set<Item*>* connectedSet = connectedSetOwner.get();
             for (Item* currentConnectedItem : *connectedSet) {
               if (currentConnectedItem->netCount() <= 1) {
                 handledItems->add(currentConnectedItem);
@@ -375,7 +377,8 @@ bool BatchAutorouter::coversAllPlanesOfNet(jrt::Set<Item*>* connectedSet,
         jrt::List<ConductionArea*>* all = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
         jrt::List<ConductionArea*>* withPins = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
         jrt::List<Pin*>* fracturedIslandPins = new (jrt::kOp) jrt::ArrayList<Pin*>();
-        for (ConductionArea* ca : *board->getConductionAreas()) {
+        jrt::DisposeOnExit loopSource2(board->getConductionAreas());
+        for (ConductionArea* ca : *loopSource2) {
           if (ca->containsNet(n)) {
             if (!ca->isFractured()) {
               all->add(ca);

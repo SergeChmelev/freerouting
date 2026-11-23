@@ -190,7 +190,8 @@ std::optional<std::string> BatchOptimizer::evaluatePreFlightGuards(BoardStatisti
 }
 
 bool BatchOptimizer::areAllViasMandatoryLayerTransitions(RoutingBoard* routingBoard) {
-  jrt::Collection<Via*>* vias = routingBoard->getVias();
+  jrt::DisposeOnExit<jrt::Collection<Via*>> viasOwner(routingBoard->getVias());
+  jrt::Collection<Via*>* vias = viasOwner.get();
   if (vias->isEmpty()) {
     return false;
   }
@@ -204,7 +205,8 @@ bool BatchOptimizer::areAllViasMandatoryLayerTransitions(RoutingBoard* routingBo
       return false;
     }
     int32_t netNo = via->getNetNumber(0);
-    jrt::Set<Item*>* connected = via->getConnectedSet(netNo, true);
+    jrt::DisposeOnExit<jrt::Set<Item*>> connectedOwner(via->getConnectedSet(netNo, true));
+    jrt::Set<Item*>* connected = connectedOwner.get();
     jrt::List<Pin*>* smdPins = new (jrt::kOp) jrt::ArrayList<Pin*>();
     bool onlySmdPinsAndTraces = true;
     for (Item* item : *connected) {
@@ -1013,18 +1015,19 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
   rippedItems->add(item);
 
   if (auto* currentTrace = jrt::fast_cast<Trace>(item)) {
-    jrt::Set<Item*>* currentContactList = currentTrace->getStartContacts();
+    jrt::DisposeOnExit<jrt::Set<Item*>> currentContactList(currentTrace->getStartContacts());
     for (int32_t i = 0; i < 2; i++) {
-      if (containsOnlyUnfixedTraces(currentContactList)) {
-        rippedItems->addAll(currentContactList);
+      if (containsOnlyUnfixedTraces(currentContactList.get())) {
+        rippedItems->addAll(currentContactList.get());
       }
-      currentContactList = currentTrace->getEndContacts();
+      currentContactList.reset(currentTrace->getEndContacts());
     }
+
   }
 
   jrt::Set<Item*>* rippedConnections = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (Item* currentItem : *rippedItems) {
-    rippedConnections->addAll(currentItem->getConnectionItems(Item_StopConnectionOption::NONE));
+    rippedConnections->addAll(jrt::DisposeOnExit(currentItem->getConnectionItems(Item_StopConnectionOption::NONE)).get());
   }
 
   for (Item* currentItem : *rippedConnections) {
@@ -1392,7 +1395,8 @@ Item* BatchOptimizer_ReadSortedRouteItems::next() {
                       || (compareCorner->y == currentMinCoor->y
                           && currentTraceLayer < currentMinLayer)))) {
             bool isConnectedToVia = false;
-            jrt::Set<Item*>* traceContacts = currentTrace->getNormalContacts();
+            jrt::DisposeOnExit<jrt::Set<Item*>> traceContactsOwner(currentTrace->getNormalContacts());
+            jrt::Set<Item*>* traceContacts = traceContactsOwner.get();
             for (Item* currentContact : *traceContacts) {
               if (jrt::fast_cast<Via>(currentContact) != nullptr && !currentContact->isUserFixed()) {
                 isConnectedToVia = true;

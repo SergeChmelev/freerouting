@@ -270,8 +270,9 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
     // Erik Gavriluk (freerouting.net): test only items that are obstacles to this item
     jrt::Collection<ShapeTree_TreeEntry*>* currentOverlappingItems =
         drcTree->overlappingTreeEntriesWithClearance(currentTileShape, shapeLayer(i),
-                                                     new (jrt::kOp) jrt::Array<int32_t>(0),
+                                                     jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(),
                                                      this->clearanceClassIndex_, this, exactThis);
+    jrt::DisposeAllOnExit<ShapeTree_TreeEntry> currentOverlappingItemsOwner(currentOverlappingItems);
     for (ShapeTree_TreeEntry* currentEntry : *currentOverlappingItems) {
       auto* currentItem = jrt::fast_cast<Item>(currentEntry->object);
       if (currentItem == nullptr ||
@@ -348,7 +349,8 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
         if (pin->getNetTieClusterId() > 0) {
           Point* p1 = trace->firstCorner();
           Point* p2 = trace->lastCorner();
-          for (Item* contact : *trace->getNormalContacts(p1, true)) {
+          jrt::DisposeOnExit loopSource1(trace->getNormalContacts(p1, true));
+          for (Item* contact : *loopSource1) {
             auto* cp = jrt::fast_cast<Pin>(contact);
             if (cp != nullptr && cp->getNetTieClusterId() == pin->getNetTieClusterId()) {
               isObstacle = false;
@@ -356,7 +358,8 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
             }
           }
           if (isObstacle) {
-            for (Item* contact : *trace->getNormalContacts(p2, true)) {
+            jrt::DisposeOnExit loopSource2(trace->getNormalContacts(p2, true));
+            for (Item* contact : *loopSource2) {
               auto* cp = jrt::fast_cast<Pin>(contact);
               if (cp != nullptr && cp->getNetTieClusterId() == pin->getNetTieClusterId()) {
                 isObstacle = false;
@@ -689,12 +692,13 @@ jrt::Set<Item*>* Item::getUnconnectedSet(int32_t netNumber) {
       result->addAll(board->getConnectableItems(currentNetNumber));
     }
   }
-  result->removeAll(this->getConnectedSet(netNumber));
+  result->removeAll(jrt::DisposeOnExit(this->getConnectedSet(netNumber)).get());
   return result;
 }
 
 jrt::Set<Item*>* Item::getConnectionItems(Item_StopConnectionOption stopOption) {
-  jrt::Set<Item*>* contacts = this->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Set<Item*>> contactsOwner(this->getNormalContacts());
+  jrt::Set<Item*>* contacts = contactsOwner.get();
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (auto* trace = jrt::fast_cast<Trace>(this)) {
     if (trace->hasInteriorContacts()) {
@@ -755,7 +759,8 @@ jrt::Set<Item*>* Item::getConnectionItems(Item_StopConnectionOption stopOption) 
         }
       }
       result->add(currentItem);
-      jrt::Collection<Item*>* currentObContacts = currentItem->getNormalContacts();
+      jrt::DisposeOnExit<jrt::Collection<Item*>> currentObContactsOwner(currentItem->getNormalContacts());
+      jrt::Collection<Item*>* currentObContacts = currentObContactsOwner.get();
       // filter the contacts at the previous contact point,
       // because we were already there.
       // If then there is not exactly 1 new contact left, there is
@@ -1139,11 +1144,12 @@ bool Item::netsEqual(jrt::Array<int32_t>* netNumbers) {
 }
 
 bool Item::isFanoutVia(jrt::Set<Item*>* ignoreItems) {
-  jrt::Collection<Item*>* contactList = this->getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(this->getNormalContacts());
+  jrt::Collection<Item*>* contactList = contactListOwner.get();
   for (Item* currentContact : *contactList) {
     if (jrt::fast_cast<Pin>(currentContact) != nullptr &&
         currentContact->firstLayer() == currentContact->lastLayer() &&
-        currentContact->getNormalContacts()->size() <= 1) {
+        jrt::DisposeOnExit(currentContact->getNormalContacts())->size() <= 1) {
       return true;
     }
     if (auto* currentTrace = jrt::fast_cast<Trace>(currentContact)) {
@@ -1153,11 +1159,12 @@ bool Item::isFanoutVia(jrt::Set<Item*>* ignoreItems) {
       if (currentTrace->getLength() >= PROTECT_FANOUT_LENGTH * currentTrace->getHalfWidth()) {
         continue;
       }
-      jrt::Collection<Item*>* traceContactList = currentTrace->getNormalContacts();
+      jrt::DisposeOnExit<jrt::Collection<Item*>> traceContactListOwner(currentTrace->getNormalContacts());
+      jrt::Collection<Item*>* traceContactList = traceContactListOwner.get();
       for (Item* tmpContact : *traceContactList) {
         if (jrt::fast_cast<Pin>(tmpContact) != nullptr &&
             tmpContact->firstLayer() == tmpContact->lastLayer() &&
-            tmpContact->getNormalContacts()->size() <= 1) {
+            jrt::DisposeOnExit(tmpContact->getNormalContacts())->size() <= 1) {
           return true;
         }
         auto* contactTrace = jrt::fast_cast<PolylineTrace>(tmpContact);

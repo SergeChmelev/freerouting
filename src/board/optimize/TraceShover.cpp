@@ -69,8 +69,9 @@ double TraceShover::check(RoutingBoard* board, LineSegment* lineSegment, bool sh
   ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(lineSegment, traceShape, shoveToTheLeft);
   ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(traceShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
-  jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      traceShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex);
+  jrt::DisposeOnExit<jrt::Collection<Item*>> obstaclesOwner(searchTree->overlappingItemsWithClearance(
+      traceShape, layer, jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(), clearanceClassIndex));
+  jrt::Collection<Item*>* obstacles = obstaclesOwner.get();
   bool obstaclesShovable = shapeEntries->storeItems(obstacles, false, true);
   if (!obstaclesShovable || shapeEntries->traceTailsInShape()) {
     return 0;
@@ -318,9 +319,10 @@ bool TraceShover::checkUncached(TileShape* traceShape, ShapeEntrySide* fromSide,
   ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(traceShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   ShapeSearchTree* searchTree = this->board->searchTreeManager->getDefaultTree();
-  jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      traceShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex);
-  obstacles->removeAll(getIgnoreItemsAtTiePins(traceShape, layer, netNumbers));
+  jrt::DisposeOnExit<jrt::Collection<Item*>> obstaclesOwner(searchTree->overlappingItemsWithClearance(
+      traceShape, layer, jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(), clearanceClassIndex));
+  jrt::Collection<Item*>* obstacles = obstaclesOwner.get();
+  obstacles->removeAll(jrt::DisposeOnExit(getIgnoreItemsAtTiePins(traceShape, layer, netNumbers)).get());
   bool obstaclesShovable = shapeEntries->storeItems(obstacles, false, true);
   if (!obstaclesShovable) {
     this->board->setShoveFailingObstacle(shapeEntries->getFoundObstacle());
@@ -448,11 +450,13 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
   ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(traceShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   ShapeSearchTree* searchTree = this->board->searchTreeManager->getDefaultTree();
-  jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-      traceShape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), clearanceClassIndex);
-  obstacles->removeAll(getIgnoreItemsAtTiePins(traceShape, layer, netNumbers));
+  jrt::DisposeOnExit<jrt::Collection<Item*>> obstaclesOwner(searchTree->overlappingItemsWithClearance(
+      traceShape, layer, jrt::DisposeOnExit(new (jrt::kOp) jrt::Array<int32_t>(0)).get(), clearanceClassIndex));
+  jrt::Collection<Item*>* obstacles = obstaclesOwner.get();
+  obstacles->removeAll(jrt::DisposeOnExit(getIgnoreItemsAtTiePins(traceShape, layer, netNumbers)).get());
   bool obstaclesShovable = shapeEntries->storeItems(obstacles, false, true);
   if (!shapeEntries->shoveViaList->isEmpty()) {
+
     obstaclesShovable = false;
     this->board->setShoveFailingObstacle(shapeEntries->shoveViaList->iterator()->next());
     return false;
@@ -549,12 +553,13 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
 
 jrt::Collection<Item*>* TraceShover::getIgnoreItemsAtTiePins(TileShape* traceShape, int32_t layer,
                                                              jrt::Array<int32_t>* netNumbers) {
-  jrt::Collection<SearchTreeObject*>* overlaps = this->board->overlappingObjects(traceShape, layer);
+  jrt::DisposeOnExit<jrt::Collection<SearchTreeObject*>> overlapsOwner(this->board->overlappingObjects(traceShape, layer));
+  jrt::Collection<SearchTreeObject*>* overlaps = overlapsOwner.get();
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
     if (auto* currentPin = jrt::fast_cast<Pin>(currentObject)) {
       if (currentPin->sharesNetNo(netNumbers)) {
-        result->addAll(currentPin->getAllContacts(layer));
+        result->addAll(jrt::DisposeOnExit(currentPin->getAllContacts(layer)).get());
       }
     }
   }
@@ -576,8 +581,9 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
   }
   for (int32_t i = 0; i < polyline->lines->length - 2; i++) {
     TileShape* currentShape = polyline->offsetShape(halfWidth, i);
-    jrt::Collection<Item*>* obstacles = searchTree->overlappingItemsWithClearance(
-        currentShape, layer, checkNetNoArr, clearanceClassIndex);
+    jrt::DisposeOnExit<jrt::Collection<Item*>> obstaclesOwner(searchTree->overlappingItemsWithClearance(
+        currentShape, layer, checkNetNoArr, clearanceClassIndex));
+    jrt::Collection<Item*>* obstacles = obstaclesOwner.get();
     for (Item* currentItem : *obstacles) {
       bool isObstacle;
       if (currentItem->sharesNetNo(netNumbers)) {
@@ -595,7 +601,8 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
         if (currentItem->isShoveFixed()) {
           isObstacle = true;
           // check for a shove fixed trace exit stub, which has to be ignored at a tie pin.
-          jrt::Collection<Item*>* currentContacts = currentItem->getNormalContacts();
+          jrt::DisposeOnExit<jrt::Collection<Item*>> currentContactsOwner(currentItem->getNormalContacts());
+          jrt::Collection<Item*>* currentContacts = currentContactsOwner.get();
           for (Item* currentContact : *currentContacts) {
             if (currentContact->sharesNetNo(netNumbers)) {
               isObstacle = false;
@@ -648,7 +655,8 @@ Polyline* TraceShover::springOver(Polyline* polyline, int32_t halfWidth, int32_t
   bool trySpringOver = true;
   if (!overConnectedPins) {
     // Check if the obstacle has a trace contact on layer
-    jrt::Collection<Item*>* contactsOnLayer = foundObstacle->getAllContacts(layer);
+    jrt::DisposeOnExit<jrt::Collection<Item*>> contactsOnLayerOwner(foundObstacle->getAllContacts(layer));
+    jrt::Collection<Item*>* contactsOnLayer = contactsOnLayerOwner.get();
     for (Item* currentContact : *contactsOnLayer) {
       if (jrt::fast_cast<Trace>(currentContact) != nullptr) {
         trySpringOver = false;

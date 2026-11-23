@@ -30,17 +30,14 @@
 namespace fr {
 
 double MazeRipupResolver::calcFanoutViaRipupCostFactor(Trace* trace) {
-  jrt::Collection<Item*>* currentEndContacts;
   for (int32_t i = 0; i < 2; i++) {
-    if (i == 0) {
-      currentEndContacts = trace->getStartContacts();
-    } else {
-      currentEndContacts = trace->getEndContacts();
-    }
+    jrt::DisposeOnExit<jrt::Collection<Item*>> currentEndContacts(i == 0 ? trace->getStartContacts()
+                                                                         : trace->getEndContacts());
     if (currentEndContacts->size() != 1) {
       continue;
     }
-    Item* currentTraceContact = currentEndContacts->iterator()->next();
+    Item* currentTraceContact = jrt::ScopedIter<Item*>(currentEndContacts.get())->next();
+
     bool protectFanoutVia = false;
     if (jrt::fast_cast<Pin>(currentTraceContact) != nullptr &&
         currentTraceContact->firstLayer() == currentTraceContact->lastLayer()) {
@@ -105,7 +102,8 @@ int32_t MazeRipupResolver::checkRipup(MazeListElement* listElement, Item* obstac
     }
   } else if (jrt::fast_cast<Via>(obstacleItem) != nullptr) {
     bool lookIfFanoutVia = preserveFanoutProtection;
-    jrt::Collection<Item*>* contactList = obstacleItem->getNormalContacts();
+    jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(obstacleItem->getNormalContacts());
+    jrt::Collection<Item*>* contactList = contactListOwner.get();
     int32_t contactCount = 0;
     for (Item* currentContact : *contactList) {
       auto* obstacleTrace = jrt::fast_cast<Trace>(currentContact);
@@ -242,7 +240,8 @@ bool MazeRipupResolver::enterThroughSmallDoor(MazeListElement* listElement, Item
   TileShape* checkShape = checkPolyline->offsetShape(checkRadius, 0);
   jrt::Array<int32_t>* ignoreNetNos = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*ignoreNetNos)[0] = search->ctrl->netNumber;
-  jrt::Set<SearchTreeObject*>* overlappingObjects = new (jrt::kOp) jrt::TreeSet<SearchTreeObject*>();
+  jrt::DisposeOnExit<jrt::Set<SearchTreeObject*>> overlappingObjectsOwner(new (jrt::kOp) jrt::TreeSet<SearchTreeObject*>());
+  jrt::Set<SearchTreeObject*>* overlappingObjects = overlappingObjectsOwner.get();
   search->autorouteEngine->autorouteSearchTree->overlappingObjects(checkShape, currentLayer,
                                                                    ignoreNetNos, overlappingObjects);
 
@@ -254,7 +253,7 @@ bool MazeRipupResolver::enterThroughSmallDoor(MazeListElement* listElement, Item
     if (!currentItem->sharesNet(ignoreItem)) {
       return false;
     }
-    if (!currentItem->getNormalContacts()->contains(ignoreItem)) {
+    if (!jrt::DisposeOnExit(currentItem->getNormalContacts())->contains(ignoreItem)) {
       return false;
     }
   }

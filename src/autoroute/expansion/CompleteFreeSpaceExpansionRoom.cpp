@@ -79,6 +79,7 @@ void CompleteFreeSpaceExpansionRoom::emitDiagnostic(AutorouteDiagnostic_Sink* si
 bool CompleteFreeSpaceExpansionRoom::validate(AutorouteEngine* autorouteEngine) {
   bool result = true;
   jrt::Collection<ShapeTree_TreeEntry*>* overlappingObjects = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> overlappingObjectsOwner(overlappingObjects);
   jrt::Array<int32_t>* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*netNumbers)[0] = autorouteEngine->getNetNumber();
   autorouteEngine->autorouteSearchTree->overlappingTreeEntries(this->getShape(), this->getLayer(), netNumbers,

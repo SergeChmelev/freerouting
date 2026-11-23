@@ -93,7 +93,7 @@ bool AutorouteBatchLoop::run() {
 
   job->logDebug("Checking fanout pre-pass. settings.fanout.enabled=" +
                 jrt::str(router->settings->isFanoutEnabled()) +
-                ", smdPins=" + jrt::str(router->board->getSmdPins()->size()));
+                ", smdPins=" + jrt::str(jrt::DisposeOnExit(router->board->getSmdPins())->size()));
   // PORT NOTE: Instant -> epoch millis (0 == Java null, only read when fanoutBeforeStats != null).
   int64_t fanoutStageStart = 0;
   float fanoutStageCpuStart = -1.0f;
@@ -105,7 +105,7 @@ bool AutorouteBatchLoop::run() {
   }
   // Run SMD fanout pre-pass when the board has SMD pins and fanout is enabled
   if (router->settings->isFanoutEnabled()) {
-    if (router->board->getSmdPins()->isEmpty()) {
+    if (jrt::DisposeOnExit(router->board->getSmdPins())->isEmpty()) {
       job->logInfo("Fanout stage is enabled but skipped because the board has no SMD pins.");
     } else {
       const float fanoutCpuSecondsStart = AutorouteRuntimeMetrics::currentThreadCpuSeconds();
@@ -120,7 +120,8 @@ bool AutorouteBatchLoop::run() {
       int32_t netConnectedSmdPins = 0;
       int32_t alreadyConnectedAtStart = 0;
       int32_t ignoredSmdPins = 0;
-      for (Pin* pin : *router->board->getSmdPins()) {
+      jrt::DisposeOnExit loopSource1(router->board->getSmdPins());
+      for (Pin* pin : *loopSource1) {
         if (pin->netCount() > 0) {
           if (pin->hasIgnoredNets()) {
             ignoredSmdPins++;
@@ -133,9 +134,9 @@ bool AutorouteBatchLoop::run() {
         }
       }
       int32_t pinsToFanout = netConnectedSmdPins - alreadyConnectedAtStart;
-      int32_t netlessPins = router->board->getSmdPins()->size() - netConnectedSmdPins - ignoredSmdPins;
+      int32_t netlessPins = jrt::DisposeOnExit(router->board->getSmdPins())->size() - netConnectedSmdPins - ignoredSmdPins;
       job->logInfo("Fanout stage started on board '" + router->board->getHash() + "' with " +
-                   jrt::str(pinsToFanout) + " of " + jrt::str(router->board->getSmdPins()->size()) +
+                   jrt::str(pinsToFanout) + " of " + jrt::str(jrt::DisposeOnExit(router->board->getSmdPins())->size()) +
                    " SMD pins needing fanout (" + jrt::str(alreadyConnectedAtStart) +
                    " already connected, " + jrt::str(netlessPins) + " netless, " +
                    jrt::str(ignoredSmdPins) + " ignored).");

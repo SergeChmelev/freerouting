@@ -420,7 +420,8 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(
 jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(ConvexShape* shape,
                                                                  int32_t layer) {
   jrt::Set<SearchTreeObject*>* result = new (jrt::kOp) jrt::TreeSet<SearchTreeObject*>();
-  this->overlappingObjects(shape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), result);
+  jrt::DisposeOnExit noNets(new (jrt::kOp) jrt::Array<int32_t>(0));
+  this->overlappingObjects(shape, layer, noNets.get(), result);
   return result;
 }
 
@@ -444,8 +445,11 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjectsWithPointIn(
   if (areaBounds == nullptr) {
     return result;
   }
-  auto* pointLeaves = new (jrt::kOp) jrt::ArrayList<ShapeTree_Leaf*>();
+  jrt::DisposeOnExit pointLeavesOwner(new (jrt::kOp) jrt::ArrayList<ShapeTree_Leaf*>());
+  auto* pointLeaves = pointLeavesOwner.get();
+
   leaves->clear();
+
   this->collectOverlapsUnlocked(areaBounds, leaves);
   for (ShapeTree_Leaf* currentLeaf : *leaves) {
     SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
@@ -511,7 +515,9 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjectsWithPointIn(
 
 void ShapeSearchTree::overlappingTreeEntries(ConvexShape* shape, int32_t layer,
                                              jrt::Collection<ShapeTree_TreeEntry*>* treeEntries) {
-  overlappingTreeEntries(shape, layer, new (jrt::kOp) jrt::Array<int32_t>(0), treeEntries);
+  jrt::DisposeOnExit noNets(new (jrt::kOp) jrt::Array<int32_t>(0));
+  overlappingTreeEntries(shape, layer, noNets.get(), treeEntries);
+
 }
 
 void ShapeSearchTree::overlappingTreeEntries(ConvexShape* shape, int32_t layer,
@@ -699,6 +705,7 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
   // Entries never compare equal (see EntrySortedByClearance), so sorting a list gives the
   // order a TreeSet would, without its rebalancing on every insertion.
   auto* sortedItems = new (jrt::kOp) jrt::ArrayList<ShapeSearchTree_EntrySortedByClearance*>();
+  jrt::DisposeAllOnExit<ShapeSearchTree_EntrySortedByClearance> sortedItemsOwner(sortedItems);
   {
     ClearListOnExit guard{tmpList};
     // Filter in traversal order, then sort only the kept leaves: the same order as sorting all
@@ -749,6 +756,9 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
   bool exactCopper = board != nullptr && board->rules != nullptr && board->rules->isExactCopper();
   auto* queryCopperHolder = jrt::Array<ExactCopper*>::of({exactQuery});
   auto* queryCopperKnownHolder = jrt::Array<bool>::of({exactQuery != nullptr});
+  // The holders are operation temporaries (not the query copper they hold).
+  jrt::DisposeOnExit queryCopperHolderOwner(queryCopperHolder);
+  jrt::DisposeOnExit queryCopperKnownHolderOwner(queryCopperKnownHolder);
   int32_t currentHalfClearance = 0;
   ConvexShape* currentOffsetShape = shape;
   IntOctagon* currentOffsetOctagon = boundingOctagonOf(currentOffsetShape);
@@ -905,6 +915,7 @@ void ShapeSearchTree::overlappingObjectsWithClearance(ConvexShape* shape, int32_
                                                       int32_t clearanceClassIndex,
                                                       jrt::Set<SearchTreeObject*>* obstacles) {
   jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> treeEntriesOwner(treeEntries);
   this->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                             treeEntries);
   for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {
@@ -926,6 +937,7 @@ void ShapeSearchTree::overlappingObjectsWithClearance(ConvexShape* shape, int32_
                                                       jrt::Collection<Item*>* obstacles,
                                                       Shape* exactShape) {
   jrt::Collection<ShapeTree_TreeEntry*>* treeEntries = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> treeEntriesOwner(treeEntries);
   this->overlappingTreeEntriesWithClearance(shape, layer, ignoreNetNos, clearanceClassIndex,
                                             treeEntries, exactShape);
   for (ShapeTree_TreeEntry* currentEntry : *treeEntries) {

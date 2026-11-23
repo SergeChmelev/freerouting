@@ -65,7 +65,8 @@ bool DesignBlocks::isBlockedSet(jrt::Collection<Item*>* connectedSet) {
 }
 
 bool DesignBlocks::connectionsBlocked(BasicBoard* board, Item* item, int32_t netNumber) {
-  jrt::Set<Item*>* ownSet = item->getConnectedSet(netNumber);
+  jrt::DisposeOnExit<jrt::Set<Item*>> ownSetOwner(item->getConnectedSet(netNumber));
+  jrt::Set<Item*>* ownSet = ownSetOwner.get();
   if (isBlockedSet(ownSet)) {
     return true;
   }
@@ -75,7 +76,8 @@ bool DesignBlocks::connectionsBlocked(BasicBoard* board, Item* item, int32_t net
     if (seen->contains(netItem)) {
       continue;
     }
-    jrt::Set<Item*>* otherSet = netItem->getConnectedSet(netNumber);
+    jrt::DisposeOnExit<jrt::Set<Item*>> otherSetOwner(netItem->getConnectedSet(netNumber));
+    jrt::Set<Item*>* otherSet = otherSetOwner.get();
     seen->addAll(otherSet);
     if (!isBlockedSet(otherSet)) {
       return false;

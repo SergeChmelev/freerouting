@@ -141,7 +141,8 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
     jrt::List<PlanarArea*>* foreignClearances = new (jrt::kOp) jrt::ArrayList<PlanarArea*>();
     jrt::List<PlanarArea*>* sameNetClearances = new (jrt::kOp) jrt::ArrayList<PlanarArea*>();
 
-    jrt::Set<SearchTreeObject*>* overlaps = this->board->overlappingObjects(inflatedBbox, layerIndex);
+    jrt::DisposeOnExit<jrt::Set<SearchTreeObject*>> overlapsOwner(this->board->overlappingObjects(inflatedBbox, layerIndex));
+    jrt::Set<SearchTreeObject*>* overlaps = overlapsOwner.get();
     for (SearchTreeObject* ob : *overlaps) {
       auto* currentItem = jrt::fast_cast<Item>(ob);
       if (currentItem == nullptr || currentItem == this) {
@@ -250,7 +251,7 @@ bool ConductionArea::isDeadCopper() {
   if (board == nullptr) {
     return false;
   }
-  return getNormalContacts()->isEmpty();
+  return jrt::DisposeOnExit(getNormalContacts())->isEmpty();
 }
 
 jrt::Set<Item*>* ConductionArea::getNormalContacts() {
@@ -258,15 +259,17 @@ jrt::Set<Item*>* ConductionArea::getNormalContacts() {
   // A plane spans most of its layer, often in thousands of tiles: rather than one tree query per
   // tile, look up the tiles that contain the ends of the traces and the centres of the vias, and
   // that overlap the pins of the net.
-  jrt::Set<SearchTreeObject*>* overlaps = defaultTree->overlappingObjectsWithPointIn(
+  jrt::DisposeOnExit overlaps(defaultTree->overlappingObjectsWithPointIn(
       this, getLayer(), [this](SearchTreeObject* object) { return this->contactPoints(object); },
-      [this](SearchTreeObject* object) { return this->isPinCandidate(object); });
+      [this](SearchTreeObject* object) { return this->isPinCandidate(object); }));
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
-  if (overlaps == nullptr) {
+  if (overlaps.get() == nullptr) {
     // Not in the tree: query tile by tile.
     for (int32_t i = 0; i < tileShapeCount(); i++) {
       TileShape* tile = getTileShape(i);
-      for (SearchTreeObject* currentObject : *board->overlappingObjects(tile, getLayer())) {
+      jrt::DisposeOnExit tileOverlaps(board->overlappingObjects(tile, getLayer()));
+      for (SearchTreeObject* currentObject : *tileOverlaps) {
+
         if (isContactInTile(currentObject, tile)) {
           result->add(jrt::fast_cast<Item>(currentObject));
         }
@@ -336,6 +339,7 @@ bool ConductionArea::overlapsCopperOf(DrillItem* drillItem) {
     return false;
   }
   jrt::Collection<ShapeTree_TreeEntry*>* entries = new (jrt::kOp) jrt::ArrayList<ShapeTree_TreeEntry*>();
+  jrt::DisposeAllOnExit<ShapeTree_TreeEntry> entriesOwner(entries);
   defaultTree->overlappingTreeEntries(drillShape, getLayer(), entries);
   for (ShapeTree_TreeEntry* entry : *entries) {
     if (static_cast<jrt::Object*>(entry->object) == static_cast<jrt::Object*>(this) &&
@@ -420,7 +424,8 @@ bool ConductionArea::hasUnreachedPinIsland(jrt::Collection<Item*>* connectedSet)
 }
 
 bool ConductionArea::reachesPinOfNet(int32_t netNo) {
-  for (Item* item : *getConnectedSet(netNo)) {
+  jrt::DisposeOnExit connected(getConnectedSet(netNo));
+  for (Item* item : *connected) {
     if (jrt::fast_cast<Pin>(item) != nullptr) {
       return true;
     }
@@ -654,7 +659,8 @@ bool ConductionArea::isCycleRecu(jrt::Set<Item*>* visitedItems, Item* searchItem
     }
   }
 
-  jrt::Collection<Item*>* contactList = getNormalContacts();
+  jrt::DisposeOnExit<jrt::Collection<Item*>> contactListOwner(getNormalContacts());
+  jrt::Collection<Item*>* contactList = contactListOwner.get();
   if (contactList == nullptr) {
     return false;
   }

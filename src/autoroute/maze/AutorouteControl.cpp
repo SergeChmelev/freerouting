@@ -277,7 +277,8 @@ void AutorouteControl::applySignalLayerViaSurcharge(RoutingBoard* board, int32_t
   }
   jrt::Array<bool>* planeLayer = new (jrt::kOp) jrt::Array<bool>(layerCount);
   bool anyPlane = false;
-  for (ConductionArea* area : *board->getConductionAreas()) {
+  jrt::DisposeOnExit loopSource1(board->getConductionAreas());
+  for (ConductionArea* area : *loopSource1) {
     int32_t layer = area->getLayer();
     if (layer >= 0 && layer < layerCount && !(*board->layerStructure->layers)[layer]->isSignal &&
         area->containsNet(netNumber)) {

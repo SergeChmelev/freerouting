@@ -290,10 +290,11 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->nets->classCount = board->rules->netClasses->count();
 
   // Traces
-  this->traces->totalCount = board->getTraces()->size();
+  this->traces->totalCount = jrt::DisposeOnExit(board->getTraces())->size();
   {
     CompensatedDoubleSum lengthSum;
-    for (Trace* trace : *board->getTraces()) {
+    jrt::DisposeOnExit loopSource1(board->getTraces());
+    for (Trace* trace : *loopSource1) {
       lengthSum.add(trace->getLength());
     }
     this->traces->totalLength = static_cast<float>(lengthSum.result());
@@ -330,7 +331,8 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->traces->totalHorizontalLength = 0.0f;
   this->traces->totalVerticalLength = 0.0f;
   this->traces->totalAngledLength = 0.0f;
-  for (Trace* trace : *board->getTraces()) {
+  jrt::DisposeOnExit loopSource2(board->getTraces());
+  for (Trace* trace : *loopSource2) {
     // Calculate segments for this trace
     if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
       Polyline* polyline = polylineTrace->polyline();
@@ -395,7 +397,8 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->bends->ninetyDegreeCount = 0;
   this->bends->fortyFiveDegreeCount = 0;
   this->bends->otherAngleCount = 0;
-  for (Trace* trace : *board->getTraces()) {
+  jrt::DisposeOnExit loopSource3(board->getTraces());
+  for (Trace* trace : *loopSource3) {
     if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
       // Polyline traces can have bends between consecutive line segments
       Polyline* polyline = polylineTrace->polyline();
@@ -444,7 +447,8 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   this->vias->throughHoleCount = 0;
   this->vias->blindCount = 0;
   this->vias->buriedCount = 0;
-  for (Via* via : *board->getVias()) {
+  jrt::DisposeOnExit loopSource4(board->getVias());
+  for (Via* via : *loopSource4) {
     if ((via->firstLayer() == 0) && (via->lastLayer() == this->layers->totalCount.value() - 1)) {
       (*this->vias->throughHoleCount)++;
     } else if ((via->firstLayer() == 0) ||
@@ -549,7 +553,8 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   }
 
   // Calculate fanout statistics
-  jrt::Collection<Pin*>* smdPins = board->getSmdPins();
+  jrt::DisposeOnExit<jrt::Collection<Pin*>> smdPinsOwner(board->getSmdPins());
+  jrt::Collection<Pin*>* smdPins = smdPinsOwner.get();
   int32_t total = 0;
   int32_t escaped = 0;
   int32_t alreadyConnected = 0;

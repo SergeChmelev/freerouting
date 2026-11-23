@@ -311,7 +311,8 @@ bool ForcedViaInserter::holeInSmdPad(RoutingBoard* board, Padstack* viaPadstack,
   }
   Circle* hole = new (jrt::kOp) Circle(center, jrt::d2i(jrt::Math::ceil(drillRadius)));
   for (int32_t layer = viaPadstack->fromLayer(); layer <= viaPadstack->toLayer(); layer++) {
-    for (SearchTreeObject* found : *board->overlappingObjects(hole, layer)) {
+    jrt::DisposeOnExit loopSource1(board->overlappingObjects(hole, layer));
+    for (SearchTreeObject* found : *loopSource1) {
       auto* pin = jrt::fast_cast<Pin>(found);
       if (pin != nullptr && pin->drillAllowed() && !pin->viaMayAttach() &&
           pin->sharesNetNo(netNumbers)) {
@@ -453,8 +454,9 @@ bool ForcedViaInserter::crowdsOwnPad(RoutingBoard* board, Padstack* viaPadstack,
     if (reach <= 0) {
       continue;
     }
-    for (SearchTreeObject* found :
-         *board->overlappingObjects(new (jrt::kOp) Circle(center, radius + reach), layer)) {
+    jrt::DisposeOnExit nearby(board->overlappingObjects(new (jrt::kOp) Circle(center, radius + reach), layer));
+    for (SearchTreeObject* found : *nearby) {
+
       auto* pin = jrt::fast_cast<Pin>(found);
       if (pin != nullptr && pin->containsNet(netNumber) && !pin->viaMayAttach()) {
         Shape* pad = pin->getShapeOnLayer(layer);

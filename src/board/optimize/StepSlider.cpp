@@ -63,7 +63,8 @@ StepSlider_Result* StepSlider::run() {
     ++passes;
     int32_t acceptedInThisPass = 0;
     jrt::List<int32_t>* traceIds = new (jrt::kOp) jrt::ArrayList<int32_t>();
-    for (Trace* trace : *board->getTraces()) {
+    jrt::DisposeOnExit loopSource1(board->getTraces());
+    for (Trace* trace : *loopSource1) {
       if (jrt::fast_cast<PolylineTrace>(trace) != nullptr) {
         traceIds->add(trace->getId());
       }
@@ -277,7 +278,8 @@ bool StepSlider::isStopRequested() {
 }
 
 PolylineTrace* StepSlider::traceById(int32_t id) {
-  for (Trace* trace : *board->getTraces()) {
+  jrt::DisposeOnExit loopSource2(board->getTraces());
+  for (Trace* trace : *loopSource2) {
     if (trace->getId() == id) {
       if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
         return polylineTrace;
@@ -321,7 +323,8 @@ jrt::Map<int32_t, int32_t>* StepSlider::traceSignatures() {
   if (zones->isEmpty()) {
     return result;
   }
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource3(board->getItems());
+  for (Item* item : *loopSource3) {
     if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       result->put(trace->getId(), signature(trace));
     }
@@ -343,7 +346,8 @@ bool StepSlider::changedTraceEntersZone(jrt::Map<int32_t, int32_t>* tracesBefore
   if (zones->isEmpty()) {
     return false;
   }
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource4(board->getItems());
+  for (Item* item : *loopSource4) {
     auto* trace = jrt::fast_cast<PolylineTrace>(item);
     if (trace == nullptr) {
       continue;
@@ -370,7 +374,8 @@ StepSlider_Cost* StepSlider::cost() {
   double length = 0;
   int32_t bends = 0;
   int32_t vias = 0;
-  for (Item* item : *board->getItems()) {
+  jrt::DisposeOnExit loopSource5(board->getItems());
+  for (Item* item : *loopSource5) {
     if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       length += trace->getLength();
       bends += jrt::Math::max(0, trace->cornerCount() - 2);
