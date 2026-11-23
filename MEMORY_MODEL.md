@@ -486,6 +486,13 @@ local region. bm02 no-GC leak 317 → 246 MB; smoke clean. Letting this region a
 broke 11 of 40 smoke boards (main-board structures keep per-operation objects), so main-board
 regions stay geometry-only until those stores are known.
 
+### Status 2026-11-24 (main 82d9aaa)
+
+No-GC build, full sample (`parity_sample.sh 120 60`, 3.5 GB limit): **50 SAME, 0 DIFF**, 8 boards
+still run out of memory (Issue022, Issue110-Pajalnaja_stancija / -Паяльная станция / -RelayModule,
+Issue178, Issue187, Issue214, Issue269), plus the two old failures (was 37 SAME / 21 out of
+memory after E2). bm02: 184 MB still allocated at exit (was 2.85 GB with E1's start).
+
 ## TODO (stage C/E)
 
 * kOp in main-board regions: enabling it for the step slider broke 11/40 smoke boards. The
