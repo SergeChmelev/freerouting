@@ -49,6 +49,7 @@ AutorouteEngine::AutorouteEngine(RoutingBoard* board, int32_t traceClearanceClas
       drillPageArray(nullptr),
       board(board) {
   this->searchRegion.setCompanion(&this->searchArena);
+  this->searchRegion.setTakesOps(true);  // stage E3: search temporaries die with the engine
   this->netNumber = -1;
   int32_t maxDrillPageWidth = jrt::d2i(5 * board->rules->getDefaultViaDiameter());
   maxDrillPageWidth = jrt::Math::max(maxDrillPageWidth, 10000);
