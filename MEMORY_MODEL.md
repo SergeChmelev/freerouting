@@ -1,6 +1,6 @@
 # Memory model: from Boehm GC to explicit ownership
 
-Status: stages **A and B done** (2026-11-23), C–E open; plan agreed 2026-11-23. Baseline: tag `gc-port-baseline` (backup in WSL
+Status: stages **A and B done**, **D in progress** (D1–D3, 2026-11-23), C and E open; plan agreed 2026-11-23. Baseline: tag `gc-port-baseline` (backup in WSL
 `~/_backup_before_kill_gc`). The GC port is the reference implementation: every step below must
 keep the routing output byte-identical to Java (and to `gc-port-baseline`).
 
@@ -204,6 +204,67 @@ profiling (O(1) item-list iteration, allocation-free integer geometry fast paths
 comparators without `std::function`, see commit 113b4cd/f299e09). Profiles after these fixes:
 GC (allocation + marking) is 40–50% of the time (bm01: `GC_mark_from` alone 17%), so stages C–E
 remain the main lever; bm01 C++ is still ~2.4x slower than Java with one thread.
+
+## Stage D — geometry and temporaries (in progress)
+
+Measured first, then cut: the allocation-site profiler (`-DJRT_ALLOC_PROFILE=1`,
+`tools/mem/alloc_profile.sh <binary> <out> <dsn>`, `FR_ALLOC_PROFILE_FP=N` attributes each site
+to the caller N levels up; needs `-fno-omit-frame-pointer`) showed 114M `operator new` calls
+(4.6 GB) on bm02, 60% of them immutable geometry that dies right after it is created. Steps so
+far (all keep the routing output identical):
+
+* **D1 (439c5c8)** — iterators of a range-for over an abstract `jrt::Collection` are built in a
+  stack buffer (`Collection::iteratorIn`, `ScopedIter`: same Java iterator class, no heap);
+  allocation-free integer paths in `Line` (`direction`, `translate`, `getInstance`,
+  `sideOfIntersection`), `Direction::sideOf/projection`, `FloatPoint::projectionApprox`,
+  `IntOctagon::cornerApprox`; `IntOctagon::normalized()` (one octagon instead of two);
+  `Line::ofInts` (a line and its two points in one block — the collector honours interior
+  pointers); `TempBorderLine` (border lines of octagons/boxes as stack values);
+  `MinAreaTree` keeps an inner bounding octagon that already contains the inserted leaf;
+  `ShapeSearchTree::overlappingObjects` without the temporary tree-entry list.
+* **D2 (5b2ae4e)** — `jrt::BigInteger` stores values that fit in int64 inline (no `Rep`, no GMP
+  limbs); every result is normalised; GMP only beyond int64 and for pow / sqrt / modInverse.
+  `tests/bigint_fuzz.cpp` (ctest) checks every operation against plain GMP around the int64
+  boundaries.
+* **D3 (627f930)** — `Line::directionInts`, `FloatPoint::projectionApproxInts`,
+  `restrainShapeInto` (no list per recursive call), union of room shapes accumulated as
+  coordinates, local difference vectors in `Line::intersection`, `IntBox::ofInts`.
+
+Escape rule for these paths: a stack value (`IntPoint`, `IntOctagon`, `Line` in
+`TempBorderLine`, `IntVector`) is only passed to functions that read it; anything stored
+(results, cached shapes, list entries) is still heap-allocated.
+
+| bm02 | `operator new` calls | bytes |
+|---|---:|---:|
+| after stage B | 114.2M | 4.65 GB |
+| D1 | 68.6M | 2.98 GB |
+| D2 | 64.9M (+ GMP limbs no longer allocated) | 2.93 GB |
+| D3 | 56.8M | 2.77 GB |
+
+Parity after each step: bm02 SES identical; `tools/parity_sample.sh` 53 SAME (release and
+checked build), only the two pre-existing failures (Issue006, Issue179).
+
+Timing (release, WSL; old/new run interleaved or concurrently, so equally loaded):
+
+| | bm02 wall | bm01 wall | bm01 peak RSS |
+|---|---:|---:|---:|
+| stage B + perf fixes (b9bd456) | 3.85 s | 1597 s | 393 MB |
+| D1 + D2 (5b2ae4e) | 3.18 s (−17%) | 1397 s (−12.6%) | 504 MB |
+| D3 (627f930) | ≈ D2 (within noise) | — | — |
+
+All SES byte-identical. bm01 peak RSS grew although live data did not: with fewer, larger
+allocations Boehm runs 35–57% fewer collections (at optimizer candidate 321: 3861 → 2525 (D2)
+→ 1664 (D3)) and sizes the heap larger (400–430 MB vs 332 MB; heap minus free space is about the
+same). That is collector policy, not retention; it disappears with stage E, or can be traded
+back with `GC_free_space_divisor` / a heap limit if it matters before that.
+
+Remaining heavy streams (bm02, D3): border lines that escape into simplices
+(`IntOctagon::toSimplex`), `Simplex::getInstance/removeRedundantLines` arrays, octagon results
+of `intersection` / `union_` / `offset`, result sets of `overlappingObjects` (`TreeSet` nodes,
+`getNormalContacts`), op-lifetime collections. bm02 has only ~18 collections (the heap starts at
+256 MB), so its GC cost is allocation (`GC_malloc_kind`, free-list building); bm01 runs ~9100
+collections on a ~340 MB heap, so there marking dominates — fewer allocated bytes or a larger
+`GC_free_space_divisor` (tuning, not yet measured on bm01) reduce the number of collections.
 
 ## Verification
 
