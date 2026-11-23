@@ -216,6 +216,8 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
 
 BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
                                  bool includeClearanceViolations, bool includeConnections) {
+  // PORT NOTE (stage E): the geometry computed here is temporary (only numbers are kept).
+  jrt::LocalGeomRegion region;
   if (board != nullptr && includeClearanceViolations) {
     board->awaitPostLoad();
   }

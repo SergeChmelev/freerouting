@@ -70,6 +70,8 @@ std::string boxToString(IntBox* box) {
 }  // namespace
 
 std::string BoardSnapshotManager::basicProfileDump() {
+  // PORT NOTE (stage E): the geometry computed here is temporary (only numbers are kept).
+  jrt::LocalGeomRegion region;
   std::string result;
   auto itScope = board->itemList->readScope();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
