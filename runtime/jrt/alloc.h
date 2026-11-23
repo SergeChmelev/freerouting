@@ -25,6 +25,17 @@
 #include <typeinfo>
 #include <vector>
 
+// AddressSanitizer builds (FR_SANITIZE): arena memory that is not handed out is poisoned, so a
+// read of a released region / arena object is reported like a heap use-after-free.
+#if defined(__SANITIZE_ADDRESS__)
+#include <sanitizer/asan_interface.h>
+#define JRT_ASAN_POISON(p, n) ASAN_POISON_MEMORY_REGION((p), (n))
+#define JRT_ASAN_UNPOISON(p, n) ASAN_UNPOISON_MEMORY_REGION((p), (n))
+#else
+#define JRT_ASAN_POISON(p, n) ((void)(p), (void)(n))
+#define JRT_ASAN_UNPOISON(p, n) ((void)(p), (void)(n))
+#endif
+
 namespace jrt {
 
 struct BoardLifetime {};
@@ -63,6 +74,7 @@ class Arena {
     if (static_cast<std::size_t>(end_ - cur_) < n) refill(n);
     void* p = cur_;
     cur_ += n;
+    JRT_ASAN_UNPOISON(p, n);
     return p;
   }
 

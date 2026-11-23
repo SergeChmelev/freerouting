@@ -23,6 +23,16 @@ option(FR_NO_GC "Build without the garbage collector (manual memory management o
 if(FR_NO_GC)
   add_compile_definitions(JRT_NO_GC=1)
 endif()
+# AddressSanitizer + LeakSanitizer (tools/mem/asan_run.sh). Only without the collector: Boehm
+# and ASan both replace the allocator. Arena memory is poisoned while not handed out.
+option(FR_SANITIZE "Build with AddressSanitizer/LeakSanitizer (requires FR_NO_GC)" OFF)
+if(FR_SANITIZE)
+  if(NOT FR_NO_GC)
+    message(FATAL_ERROR "FR_SANITIZE requires FR_NO_GC=ON")
+  endif()
+  add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
+  add_link_options(-fsanitize=address)
+endif()
 find_library(GMP_SHARED_LIB gmp REQUIRED)
 # Shared GC/GMP: always used by the Lua module (Ubuntu's libgc.a uses local-exec TLS, which a
 # shared object cannot contain).

@@ -416,3 +416,22 @@ bm02 (no-GC build): leaked 2.08 → 1.25 GB; SES identical in release, checked a
 Sample (120 s, 60 boards): checked 56 SAME + 2 over the 900 s limit (Issue110-RelayModule,
 Issue178; the domain lookups slow these boards down — performance is measured after the
 migration), no-GC 37 SAME (was 32 before E1), 0 DIFF, only the two old failures besides.
+
+### AddressSanitizer / LeakSanitizer (no-GC build)
+
+`cmake -DFR_NO_GC=ON -DFR_SANITIZE=ON` (RelWithDebInfo, `~/build/fr-asan`); `FR_SANITIZE` without
+`FR_NO_GC` is rejected (Boehm and ASan both replace the allocator). Arena memory that is not
+handed out is poisoned (`JRT_ASAN_POISON/UNPOISON` in `jrt::Arena`: fresh and pooled chunks,
+`allocate` unpoisons, `release` poisons), so reading a released region or arena object is
+reported like a heap use-after-free. `tools/mem/asan_run.sh <bin> <out> <dsn>` runs a board and
+`tools/mem/lsan_summary.py` groups the leak report by the first non-allocator frame (and its
+caller); direct leaks = unreachable objects, indirect = reachable only from leaked ones.
+
+First runs (2026-11-23, after E2): bm02, Issue143, Issue313 — **no memory errors**, SES identical.
+LeakSanitizer only counts what is unreachable at exit: bm02 25 MB (direct 5.7 MB), while the
+no-GC build's live counter is 1.25 GB — most of what is not yet freed is still reachable at exit
+(board, undo history, caches, kept board copies), which LSan does not report; a live-bytes
+profiler by allocation site is the tool for that part. Direct leaks it found: element storage of
+`jrt::Array`s that live in the search / board arenas (arena objects are never destroyed) — now
+taken from the same arena — and `std::vector` buffers of `jrt` collections inside arena objects
+(door lists of rooms: `FreeSpaceExpansionRoom::addDoor`), still open.

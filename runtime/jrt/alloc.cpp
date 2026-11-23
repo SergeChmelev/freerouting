@@ -119,6 +119,7 @@ void Arena::refill(std::size_t n) {
     c = static_cast<Chunk*>(pool->head);
     pool->head = *static_cast<void**>(pool->head);
     pool->bytes -= kChunkSize;
+    JRT_ASAN_UNPOISON(c, kHeader + kChunkSize);  // pooled chunks are poisoned
 #if JRT_CHECKED
     std::memset(c, 0, kHeader + kChunkSize);
 #endif
@@ -136,6 +137,7 @@ void Arena::refill(std::size_t n) {
   if (chunkHook_ != nullptr) chunkHook_(chunkTag_, data(c), data(c) + size, true);
   cur_ = data(c);
   end_ = cur_ + size;
+  JRT_ASAN_POISON(cur_, size);  // unpoisoned piece by piece in allocate()
   std::size_t live = g_live.fetch_add(size, std::memory_order_relaxed) + size;
   std::size_t peak = g_peak.load(std::memory_order_relaxed);
   while (live > peak && !g_peak.compare_exchange_weak(peak, live, std::memory_order_relaxed)) {
@@ -166,12 +168,14 @@ void Arena::release() {
     std::size_t used = first ? static_cast<std::size_t>(cur_ - data(c)) : size;
     first = false;
     g_live.fetch_sub(size, std::memory_order_relaxed);
+    JRT_ASAN_UNPOISON(data(c), size);  // the unused tails are still poisoned
     if (size == kChunkSize && pool->bytes + kChunkSize <= kPoolLimit) {
 #if JRT_CHECKED
       std::memset(data(c), kPoison, used);
 #else
       std::memset(data(c), 0, used);
 #endif
+      JRT_ASAN_POISON(data(c), size);
       *reinterpret_cast<void**>(c) = pool->head;
       pool->head = c;
       pool->bytes += kChunkSize;

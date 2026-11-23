@@ -214,11 +214,16 @@ class Array : public virtual Object {
   T* allocData(int32_t n) {
     if (n <= 0) return nullptr;
     if constexpr (std::is_trivially_default_constructible_v<T> && std::is_trivially_destructible_v<T>) {
+      // `this` was allocated just before, so it is in the head chunk of its arena. Arena memory
+      // is zero-filled: value-initialised trivial elements. Arena objects are never destroyed,
+      // so heap storage of an array in an arena would leak.
+      std::size_t bytes = sizeof(T) * static_cast<std::size_t>(n);
       GeomRegion* r = current_geom_region();
-      if (r != nullptr && r->inHeadChunk(this)) {  // `this` was allocated just before
-        // arena memory is zero-filled: value-initialised trivial elements
-        return static_cast<T*>(r->allocate(sizeof(T) * static_cast<std::size_t>(n)));
-      }
+      if (r != nullptr && r->inHeadChunk(this)) return static_cast<T*>(r->allocate(bytes));
+      Arena* a = current_search_arena();
+      if (a != nullptr && a->inHeadChunk(this)) return static_cast<T*>(a->allocate(bytes));
+      a = current_board_arena();
+      if (a != nullptr && a->inHeadChunk(this)) return static_cast<T*>(a->allocate(bytes));
     }
     return new T[n]();
   }
