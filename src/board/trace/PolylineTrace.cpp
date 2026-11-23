@@ -61,7 +61,7 @@ Item* PolylineTrace::copy(int32_t id) {
   for (int32_t i = 0; i < currentNetNumbers->length; i++) {
     (*currentNetNumbers)[i] = getNetNumber(i);
   }
-  return new (jrt::kBoard) PolylineTrace(lines, getLayer(), getHalfWidth(), currentNetNumbers,
+  return new (jrt::kBoardData) PolylineTrace(lines, getLayer(), getHalfWidth(), currentNetNumbers,
                            clearanceClassIndex(), id, getComponentId(), getFixedState(), board);
 }
 

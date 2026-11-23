@@ -15,7 +15,7 @@ namespace fr {
 
 CompleteFreeSpaceExpansionRoom::CompleteFreeSpaceExpansionRoom(TileShape* shape, int32_t layer, int32_t id)
     : FreeSpaceExpansionRoom(shape, layer) {
-  targetDoors = new (jrt::kOp) jrt::LinkedList<TargetItemExpansionDoor*>();
+  targetDoors = new (jrt::kSearch) jrt::LinkedList<TargetItemExpansionDoor*>();
   this->id = id;
 }
 
@@ -59,7 +59,7 @@ void CompleteFreeSpaceExpansionRoom::calculateTargetDoors(ShapeTree_TreeEntry* o
       if (currentConnectionShape != nullptr && this->getShape()->intersects(currentConnectionShape)) {
         Item* currentItem = jrt::fast_cast<Item>(currentObject);
         TargetItemExpansionDoor* newTargetDoor =
-            new (jrt::kOp) TargetItemExpansionDoor(currentItem, ownNetObject->shapeIndexInObject, this, autorouteSearchTree);
+            new (jrt::kSearch) TargetItemExpansionDoor(currentItem, ownNetObject->shapeIndexInObject, this, autorouteSearchTree);
         this->addTargetDoor(newTargetDoor);
       }
     }
@@ -104,7 +104,7 @@ bool CompleteFreeSpaceExpansionRoom::validate(AutorouteEngine* autorouteEngine) 
 
 void CompleteFreeSpaceExpansionRoom::clearDoors() {
   FreeSpaceExpansionRoom::clearDoors();
-  this->targetDoors = new (jrt::kOp) jrt::LinkedList<TargetItemExpansionDoor*>();
+  this->targetDoors = new (jrt::kSearch) jrt::LinkedList<TargetItemExpansionDoor*>();
 }
 
 void CompleteFreeSpaceExpansionRoom::resetDoors() {

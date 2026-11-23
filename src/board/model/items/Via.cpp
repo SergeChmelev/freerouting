@@ -44,7 +44,7 @@ Via::Via(Padstack* padstack, Point* center, jrt::Array<int32_t>* netNumbers,
 }
 
 Item* Via::copy(int32_t id) {
-  Via* copy = new (jrt::kBoard) Via(padstack, getCenter(), netNumbers, clearanceClassIndex(), id,
+  Via* copy = new (jrt::kBoardData) Via(padstack, getCenter(), netNumbers, clearanceClassIndex(), id,
                       getComponentId(), getFixedState(), attachAllowed, board);
   copy->isEscapeVia = this->isEscapeVia;
   copy->escapeViaSmdLayer = this->escapeViaSmdLayer;
@@ -219,7 +219,7 @@ ExpansionDrill* Via::getAutorouteDrillInfo(ShapeSearchTree* autorouteTree) {
   if (this->autorouteDrillInfo == nullptr) {
     ItemAutorouteInfo* viaAutorouteInfo = this->getAutorouteInfo();
     TileShape* currentDrillShape = TileShape::getInstance(this->getCenter());
-    this->autorouteDrillInfo = new (jrt::kBoard) ExpansionDrill(currentDrillShape, this->getCenter(),
+    this->autorouteDrillInfo = new (jrt::kSearch) ExpansionDrill(currentDrillShape, this->getCenter(),
                                                   this->firstLayer(), this->lastLayer());
     int32_t viaLayerCount = this->lastLayer() - this->firstLayer() + 1;
     for (int32_t i = 0; i < viaLayerCount; i++) {

@@ -40,7 +40,7 @@ void FoundConnectionLocator::initialize(MazeSearchEngine_Result* mazeSearchResul
                                         jrt::Map<Item*, int32_t>* ripupCosts) {
   jrt::Collection<FoundConnectionLocator_BacktrackElement*>* backtrackList =
       backtrack(mazeSearchResult, rippedItemList, ripupCosts, ctrl->netNumber);
-  this->backtrackArray = new (jrt::kOp) jrt::Array<FoundConnectionLocator_BacktrackElement*>(backtrackList->size());
+  this->backtrackArray = new (jrt::kSearch) jrt::Array<FoundConnectionLocator_BacktrackElement*>(backtrackList->size());
   jrt::Iterator<FoundConnectionLocator_BacktrackElement*>* it = backtrackList->iterator();
   for (int32_t i = 0; i < backtrackArray->length; i++) {
     (*this->backtrackArray)[i] = it->next();
@@ -237,7 +237,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
     return nullptr;
   }
   jrt::Collection<FoundConnectionLocator_BacktrackElement*>* result =
-      new (jrt::kOp) jrt::LinkedList<FoundConnectionLocator_BacktrackElement*>();
+      new (jrt::kSearch) jrt::LinkedList<FoundConnectionLocator_BacktrackElement*>();
   CompleteExpansionRoom* currentNextRoom = nullptr;
   ExpandableObject* currentBacktrackDoor = mazeSearchResult->destinationDoor;
   MazeSearchElement* currentMazeSearchElement =
@@ -265,7 +265,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
       }
     }
   }
-  auto* currentBacktrackElement = new (jrt::kOp) FoundConnectionLocator_BacktrackElement(
+  auto* currentBacktrackElement = new (jrt::kSearch) FoundConnectionLocator_BacktrackElement(
       currentBacktrackDoor, mazeSearchResult->sectionNoOfDoor, currentNextRoom);
   int32_t step = 0;
   for (;;) {
@@ -285,7 +285,7 @@ jrt::Collection<FoundConnectionLocator_BacktrackElement*>* FoundConnectionLocato
       currentNextRoom = currentBacktrackDoor->otherRoom(currentNextRoom);
     }
     currentMazeSearchElement = currentBacktrackDoor->getMazeSearchElement(currentSectionNo);
-    currentBacktrackElement = new (jrt::kOp) FoundConnectionLocator_BacktrackElement(
+    currentBacktrackElement = new (jrt::kSearch) FoundConnectionLocator_BacktrackElement(
         currentBacktrackDoor, currentSectionNo, currentNextRoom);
     if (debugBacktrack) {
       std::string doorType = jrt::className(currentBacktrackDoor);

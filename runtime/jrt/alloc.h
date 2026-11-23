@@ -7,11 +7,14 @@
 //   new (jrt::kOp) jrt::ArrayList<>  per-operation temporary: dead when the call / action ends
 //   new (jrt::kGeom) IntPoint(x, y)  immutable geometry (stage D: value types / ref-counting)
 //   new (jrt::kSearch) ExpansionDoor connection-search arena (see jrt::Arena below)
+//   new (jrt::kBoardData) Via(...)    structural board data (items, undo nodes, search-tree nodes):
+//                                    the current board arena (optimizer worker board) or GC heap
 //
 // While the Boehm collector is in place kBoard / kOp / kGeom all forward to the global operator
 // new (GC heap), so the tags change nothing at run time; they document ownership for stage C and
 // let tools/mem/classify_allocs.py count the sites. kSearch allocates from the arena that is
-// current on this thread (jrt::ArenaScope), or from the GC heap when no arena is current.
+// current on this thread (jrt::ArenaScope), kBoardData from the current board arena
+// (jrt::BoardArenaScope); both fall back to the GC heap when no arena is current.
 #pragma once
 
 #include <cstddef>
@@ -24,11 +27,13 @@ struct BoardLifetime {};
 struct OpLifetime {};
 struct GeomLifetime {};
 struct SearchLifetime {};
+struct BoardDataLifetime {};
 
 inline constexpr BoardLifetime kBoard{};
 inline constexpr OpLifetime kOp{};
 inline constexpr GeomLifetime kGeom{};
 inline constexpr SearchLifetime kSearch{};
+inline constexpr BoardDataLifetime kBoardData{};
 
 /**
  * Bump-pointer arena for per-operation object graphs (MEMORY_MODEL.md section 3).
@@ -104,15 +109,38 @@ inline void* search_alloc(std::size_t n) {
   return a != nullptr ? a->allocate(n) : ::operator new(n);
 }
 
+/** The arena kBoardData allocations go to on this thread (nullptr: GC heap). Set while an
+ * optimizer candidate works on its private worker board. */
+Arena*& current_board_arena();
+
+/** Makes `arena` the current board arena for the lifetime of the scope (nullptr allowed). */
+class BoardArenaScope {
+ public:
+  explicit BoardArenaScope(Arena* arena) : prev_(current_board_arena()) { current_board_arena() = arena; }
+  ~BoardArenaScope() { current_board_arena() = prev_; }
+  BoardArenaScope(const BoardArenaScope&) = delete;
+  BoardArenaScope& operator=(const BoardArenaScope&) = delete;
+
+ private:
+  Arena* prev_;
+};
+
+inline void* board_data_alloc(std::size_t n) {
+  Arena* a = current_board_arena();
+  return a != nullptr ? a->allocate(n) : ::operator new(n);
+}
+
 }  // namespace jrt
 
 inline void* operator new(std::size_t n, jrt::BoardLifetime) { return ::operator new(n); }
 inline void* operator new(std::size_t n, jrt::OpLifetime) { return ::operator new(n); }
 inline void* operator new(std::size_t n, jrt::GeomLifetime) { return ::operator new(n); }
 inline void* operator new(std::size_t n, jrt::SearchLifetime) { return jrt::search_alloc(n); }
+inline void* operator new(std::size_t n, jrt::BoardDataLifetime) { return jrt::board_data_alloc(n); }
 // Called only if a constructor throws. GC memory is reclaimed by the collector, arena memory by
 // the arena, so nothing to do here.
 inline void operator delete(void*, jrt::BoardLifetime) noexcept {}
 inline void operator delete(void*, jrt::OpLifetime) noexcept {}
 inline void operator delete(void*, jrt::GeomLifetime) noexcept {}
 inline void operator delete(void*, jrt::SearchLifetime) noexcept {}
+inline void operator delete(void*, jrt::BoardDataLifetime) noexcept {}

@@ -146,7 +146,7 @@ void ShapeSearchTree::changeEntriesUnlocked(PolylineTrace* obj, Polyline* newPol
                          newPolyline->lines->length - 1 - keepAtEndCount);
   int32_t oldShapeCount = obj->treeShapeCount(this);
   int32_t newShapeCount = changedShapes->length + keepAtStartCount + keepAtEndCount;
-  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
+  auto* newLeafArr = new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
   auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(newShapeCount);
   jrt::Array<ShapeTree_Leaf*>* oldEntries = obj->getSearchTreeEntries(this);
   for (int32_t i = 0; i < keepAtStartCount; i++) {
@@ -209,7 +209,7 @@ void ShapeSearchTree::mergeEntriesInFrontUnlocked(PolylineTrace* fromTrace,
       fromEntryNo, toEntryNo);
   int32_t newShapeCount =
       fromTraceEntries->length + linkShapes->length + toTraceEntries->length - 2;
-  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
+  auto* newLeafArr = new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
   int32_t oldToShapeCount = toTraceEntries->length;
   auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(newShapeCount);
   // transfer the tree entries except the last or first from fromTrace to
@@ -281,7 +281,7 @@ void ShapeSearchTree::mergeEntriesAtEndUnlocked(PolylineTrace* fromTrace, Polyli
       fromEntryNo, toEntryNo);
   int32_t newShapeCount =
       fromTraceEntries->length + linkShapes->length + toTraceEntries->length - 2;
-  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
+  auto* newLeafArr = new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(newShapeCount);
   auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(newShapeCount);
   // transfer the tree entries except the last from the old shapes
   // of toTrace to the new shapes of toTrace
@@ -329,7 +329,7 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
                                                       PolylineTrace* startPiece,
                                                       PolylineTrace* endPiece) {
   auto* startPieceLeafArr =
-      new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(startPiece->polyline()->lines->length - 2);
+      new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(startPiece->polyline()->lines->length - 2);
   jrt::Array<ShapeTree_Leaf*>* fromTraceEntries = fromTrace->getSearchTreeEntries(this);
   // transfer the entries at the start of fromTrace to startPiece.
   for (int32_t i = 0; i < startPieceLeafArr->length - 1; i++) {
@@ -343,7 +343,7 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
 
   // create the last tree entry of the start piece.
 
-  auto* endPieceLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(endPiece->polyline()->lines->length - 2);
+  auto* endPieceLeafArr = new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(endPiece->polyline()->lines->length - 2);
 
   // create the first tree entry of the end piece.
   (*endPieceLeafArr)[0] = insert(static_cast<ShapeTree_Storable*>(endPiece), 0);
@@ -943,10 +943,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
     TileShape* ignoreShape) {
   if (room->getContainedShape() == nullptr) {
     FRLogger::warn("ShapeSearchTree.completeShape: shapeToBeContained != null expected");
-    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   if (this->root == nullptr) {
-    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   TileShape* startShape = board->getBoundingBox();
   if (room->getShape() != nullptr) {
@@ -954,10 +954,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
   }
   RegularTileShape* boundingShape = startShape->boundingShape(this->boundingDirections);
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   if (startShape->dimension() == 2) {
     IncompleteFreeSpaceExpansionRoom* newRoom =
-        new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(startShape, room->getLayer(), room->getContainedShape());
+        new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(startShape, room->getLayer(), room->getContainedShape());
     result->add(newRoom);
   }
 
@@ -997,7 +997,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
         currentObject->shapeLayer(shapeIndex) == roomLayer && currentObject != ignoreObject) {
       TileShape* currentObjectShape = currentObject->getTreeShape(this, shapeIndex);
       jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newResult =
-          new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+          new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
       RegularTileShape* newBoundingShape = IntOctagon::EMPTY();
 
       for (IncompleteFreeSpaceExpansionRoom* currentIncompleteRoom : *result) {
@@ -1048,7 +1048,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
 jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainShape(
     IncompleteFreeSpaceExpansionRoom* incompleteRoom, TileShape* obstacleShape) {
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   // Search the edge line of obstacleShape, so that shapeToBeContained
   // are on the right side of this line, and that the line segment
   // intersects with the interior of shape.
@@ -1098,7 +1098,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
       resultPiece = roomShape->intersection(resultPiece);
     }
     if (resultPiece->dimension() >= 2) {
-      result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, shapeToBeContained));
+      result->add(new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, shapeToBeContained));
     }
   } else {
     // There is no cut line, so that all shapeToBeContained is
@@ -1138,7 +1138,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
       resultPiece = roomShape->intersection(cutHalfPlane);
     }
     if (resultPiece->dimension() >= 2) {
-      result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, newShapeToBeContained));
+      result->add(new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, newShapeToBeContained));
     }
     TileShape* oppositeHalfPlane = TileShape::getInstance(cutLine->opposite());
     TileShape* restPiece;
@@ -1150,7 +1150,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
     if (restPiece->dimension() >= 2) {
       TileShape* restShapeToBeContained = shapeToBeContained->intersection(oppositeHalfPlane);
       IncompleteFreeSpaceExpansionRoom* restIncompleteRoom =
-          new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(restPiece, layer, restShapeToBeContained);
+          new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(restPiece, layer, restShapeToBeContained);
       result->addAll(restrainShape(restIncompleteRoom, obstacleShape));
     }
   }
@@ -1200,7 +1200,7 @@ void ShapeSearchTree::changeItemShape(Item* item, int32_t shapeIndex, TileShape*
 void ShapeSearchTree::changeItemShapeUnlocked(Item* item, int32_t shapeIndex,
                                               TileShape* newShape) {
   jrt::Array<ShapeTree_Leaf*>* oldEntries = item->getSearchTreeEntries(this);
-  auto* newLeafArr = new (jrt::kBoard) jrt::Array<ShapeTree_Leaf*>(oldEntries->length);
+  auto* newLeafArr = new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(oldEntries->length);
   auto* newPrecalculatedTreeShapes = new (jrt::kGeom) jrt::Array<TileShape*>(oldEntries->length);
   removeLeaf((*oldEntries)[shapeIndex]);
   for (int32_t i = 0; i < newPrecalculatedTreeShapes->length; i++) {
@@ -1423,11 +1423,11 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::divideLarge
       0.5 * jrt::Math::max(boardBoundingBox->height(), boardBoundingBox->width());
   jrt::Array<TileShape*>* sectionArr = currentRoom->getShape()->divideIntoSections(maxSectionWidth);
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   for (TileShape* currentSection : *sectionArr) {
     TileShape* currentShapeToBeContained =
         currentSection->intersection(currentRoom->getContainedShape());
-    IncompleteFreeSpaceExpansionRoom* currentSectionRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* currentSectionRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
         currentSection, currentRoom->getLayer(), currentShapeToBeContained);
     result->add(currentSectionRoom);
   }

@@ -46,6 +46,11 @@ std::atomic<std::size_t> g_peak{0};
 
 }  // namespace
 
+Arena*& current_board_arena() {
+  thread_local Arena* current = nullptr;
+  return current;
+}
+
 Arena*& current_search_arena() {
   thread_local Arena* current = nullptr;
   return current;

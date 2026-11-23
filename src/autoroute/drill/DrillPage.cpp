@@ -31,9 +31,9 @@ namespace fr {
 DrillPage::DrillPage(IntBox* shape, RoutingBoard* board) {
   this->shape = shape;
   this->board = board;
-  mazeSearchElements = new (jrt::kOp) jrt::Array<MazeSearchElement*>(board->getLayerCount());
+  mazeSearchElements = new (jrt::kSearch) jrt::Array<MazeSearchElement*>(board->getLayerCount());
   for (int32_t i = 0; i < mazeSearchElements->length; i++) {
-    (*mazeSearchElements)[i] = new (jrt::kOp) MazeSearchElement();
+    (*mazeSearchElements)[i] = new (jrt::kSearch) MazeSearchElement();
   }
 }
 
@@ -73,7 +73,7 @@ void DrillPage::addPlanePinCandidates(AutorouteEngine* autorouteEngine, TileShap
     if (!drillShape->contains(location)) {
       continue;
     }
-    ExpansionDrill* drill = new (jrt::kOp) ExpansionDrill(drillShape, location, 0, this->board->getLayerCount() - 1);
+    ExpansionDrill* drill = new (jrt::kSearch) ExpansionDrill(drillShape, location, 0, this->board->getLayerCount() - 1);
     if (drill->calculateExpansionRooms(autorouteEngine)) {
       this->drills->add(drill);
     }
@@ -91,7 +91,7 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
     this->netNumber = autorouteEngine->getNetNumber();
     this->attachSmdCached = attachSmd;
     this->centreOfGravityCandidateCached = centreOfGravityCandidate;
-    this->drills = new (jrt::kOp) jrt::LinkedList<ExpansionDrill*>();
+    this->drills = new (jrt::kSearch) jrt::LinkedList<ExpansionDrill*>();
     ShapeSearchTree* searchTree = autorouteEngine->autorouteSearchTree;
     jrt::Collection<ShapeTree_TreeEntry*>* overlaps = new (jrt::kOp) jrt::LinkedList<ShapeTree_TreeEntry*>();
     searchTree->overlappingTreeEntries(this->shape, -1, overlaps);
@@ -161,7 +161,7 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
         currentDrillLocation = currentDrillShape->centreOfGravity()->round();
       }
       ExpansionDrill* newDrill =
-          new (jrt::kOp) ExpansionDrill(currentDrillShape, currentDrillLocation, drillFirstLayer, drillLastLayer);
+          new (jrt::kSearch) ExpansionDrill(currentDrillShape, currentDrillLocation, drillFirstLayer, drillLastLayer);
       if (newDrill->calculateExpansionRooms(autorouteEngine)) {
         this->drills->add(newDrill);
       }
@@ -170,7 +170,7 @@ jrt::Collection<ExpansionDrill*>* DrillPage::getDrills(AutorouteEngine* autorout
         Point* centreOfGravity = currentDrillShape->centreOfGravity()->round();
         if (!centreOfGravity->equals(pinCenter)) {
           ExpansionDrill* cogDrill =
-              new (jrt::kOp) ExpansionDrill(currentDrillShape, centreOfGravity, drillFirstLayer, drillLastLayer);
+              new (jrt::kSearch) ExpansionDrill(currentDrillShape, centreOfGravity, drillFirstLayer, drillLastLayer);
           if (cogDrill->calculateExpansionRooms(autorouteEngine)) {
             this->drills->add(cogDrill);
           }

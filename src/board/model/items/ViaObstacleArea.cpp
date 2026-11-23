@@ -29,7 +29,7 @@ ViaObstacleArea::ViaObstacleArea(Area* area, int32_t layer, Vector* translation,
 Item* ViaObstacleArea::copy(int32_t id) {
   auto* copiedNetNos = new (jrt::kOp) jrt::Array<int32_t>(netNumbers->length);
   jrt::arraycopy(netNumbers, 0, copiedNetNos, 0, netNumbers->length);
-  return new (jrt::kBoard) ViaObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
+  return new (jrt::kBoardData) ViaObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
                              getRotationInDegree(), getSideChanged(), copiedNetNos,
                              clearanceClassIndex(), id, getComponentId(), this->name,
                              getFixedState(), board);

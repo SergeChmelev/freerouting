@@ -2,6 +2,7 @@
 #include "autoroute/pipeline/BatchOptimizer.h"
 
 #include <cmath>
+#include <optional>
 
 #include "autoroute/ItemRouteResult.h"
 #include "autoroute/ItemSelectionStrategy.h"
@@ -1216,7 +1217,33 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
 
   // PORT NOTE: Java workerBoardStates.get() (ThreadLocal) -> the optimizer's single instance.
   BatchOptimizer_WorkerBoardState* workerBoardState = workerBoardStates;
+
+  // Optimizer-candidate arena (MEMORY_MODEL.md): a candidate whose board is not kept works on a
+  // private deep copy of the baseline board, dropped in finish(false) (Java leaves it to the GC).
+  // The structural data of that copy (kBoardData: items, undo nodes, search-tree nodes) lives in
+  // this arena, the connection searches on it in their engines' arenas; both are freed when the
+  // candidate ends. Only kBoardData goes here, so shared objects (library, geometry caches,
+  // statics) and the returned result never receive arena memory.
+  struct CandidateArena {
+    jrt::Arena arena;
+    RoutingBoard* board = nullptr;  // the worker board living in the arena
+    ~CandidateArena() {
+      if (board != nullptr) {
+        board->discardAutorouteEngineWithBoard();
+      }
+      arena.release();
+    }
+  };
+  bool useCandidateArena = !keepBoard && !workerBoardState->hasWorkerBoard();
+  CandidateArena candidateArena;
+  std::optional<jrt::BoardArenaScope> boardArenaScope;
+  if (useCandidateArena) {
+    boardArenaScope.emplace(&candidateArena.arena);
+  }
   RoutingBoard* workerBoard = workerBoardState->acquire(baselineBoard);
+  if (useCandidateArena) {
+    candidateArena.board = workerBoard;
+  }
   bool snapshotFinished = false;
   try {
     Item* item = workerBoard->getItem(itemId);

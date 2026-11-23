@@ -130,7 +130,7 @@ void MinAreaTree::insertUnlocked(ShapeTree_Leaf* leaf) {
   // Construct a new node - whenever a leaf is added so is a new node
   RegularTileShape* newBounds = leaf->boundingShape->union_(leafToReplace->boundingShape);
   ShapeTree_InnerNode* currentParent = leafToReplace->parent;
-  auto* newNode = new (jrt::kBoard) ShapeTree_InnerNode(newBounds, currentParent);
+  auto* newNode = new (jrt::kBoardData) ShapeTree_InnerNode(newBounds, currentParent);
 
   if (leafToReplace->parent != nullptr) {
     // Replace the pointer from the parent to the leaf with our new node

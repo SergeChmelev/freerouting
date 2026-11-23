@@ -208,6 +208,10 @@ class RoutingBoard : public BasicBoard {
   /** Clears the auto-route database in case it was retained. */
   virtual void finishAutoroute();
 
+  /** Frees the connection-search arena of the current engine without clearing this board.
+   * Only for a board that is dropped as a whole (optimizer worker board). */
+  virtual void discardAutorouteEngineWithBoard();
+
   /**
    * Drops maze/search scratch that snapshot undo does not restore. Optimizer worker-board reuse
    * must call this after each candidate.

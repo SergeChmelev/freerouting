@@ -151,9 +151,9 @@ void ExpansionDoor::allocateSections(int32_t sectionCount) {
   if (sectionArr != nullptr && sectionArr->length == sectionCount) {
     return;  // already allocated
   }
-  sectionArr = new (jrt::kOp) jrt::Array<MazeSearchElement*>(sectionCount);
+  sectionArr = new (jrt::kSearch) jrt::Array<MazeSearchElement*>(sectionCount);
   for (int32_t i = 0; i < sectionArr->length; i++) {
-    (*sectionArr)[i] = new (jrt::kOp) MazeSearchElement();
+    (*sectionArr)[i] = new (jrt::kSearch) MazeSearchElement();
   }
 }
 

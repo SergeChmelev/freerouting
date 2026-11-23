@@ -23,7 +23,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC_DIRS = ["src", "bindings/lua"]
-TAGS = {"kBoard": "board", "kOp": "op", "kGeom": "geom", "kSearch": "search"}
+TAGS = {"kBoard": "board", "kOp": "op", "kGeom": "geom", "kSearch": "search", "kBoardData": "boarddata"}
 
 # ---------------------------------------------------------------- class tables
 classmap = {}  # simple C++ name -> header (relative to src/)
@@ -367,7 +367,7 @@ def main():
             print(u)
         sys.exit(1 if untagged else 0)
     if mode == "report":
-        cols = ["board", "op", "search", "geom"]
+        cols = ["board", "boarddata", "op", "search", "geom"]
         print("| package | " + " | ".join(cols) + " | total |")
         print("|---|" + "---:|" * (len(cols) + 1))
         tot = {c: 0 for c in cols}

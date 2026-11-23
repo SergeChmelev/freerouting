@@ -1,6 +1,6 @@
 # Memory model: from Boehm GC to explicit ownership
 
-Status: **plan** (agreed 2026-11-23). Baseline: tag `gc-port-baseline` (backup in WSL
+Status: stages **A and B done** (2026-11-23), C–E open; plan agreed 2026-11-23. Baseline: tag `gc-port-baseline` (backup in WSL
 `~/_backup_before_kill_gc`). The GC port is the reference implementation: every step below must
 keep the routing output byte-identical to Java (and to `gc-port-baseline`).
 
@@ -38,8 +38,8 @@ non-owning links (poisoned memory + ASan).
 
 | Arena | Contents | Reset when |
 |---|---|---|
-| connection search | expansion rooms, doors, drill pages, `MazeListElement`, backtrack elements | end of `AutorouteEngine::autorouteConnection` (Java: `AutorouteEngine.clear()`) |
-| optimizer candidate | the worker board copy and all its temporaries | candidate finished (Java drops the worker board in `finish()`) |
+| connection search | expansion rooms, doors, drill pages, `MazeListElement`, backtrack elements | engine discarded (after `AutorouteEngine.clear()`; see stage B) |
+| optimizer candidate | structural data of the worker board copy (items, undo nodes, tree nodes; see stage B) | candidate finished (Java drops the worker board in `finish()`) |
 | shove / pull-tight call | temporary polylines, shapes, obstacle lists (`TraceShover`, `TraceTightener`, `DrillItemMover`) | end of the call |
 | DRC / statistics | everything | end of the computation |
 
@@ -103,6 +103,76 @@ table. Sites per package (end of stage A):
 | interactive | 0 | 25 | 8 | 33 |
 | logger, util, bindings/lua | 12 | 7 | 0 | 19 |
 | **total** | **570** | **1625** | **1040** | **3235** |
+
+## Stage B — arenas (done)
+
+`jrt::Arena` (`runtime/jrt/alloc.h/.cpp`): bump allocator over 1 MB chunks taken from the GC
+heap (scanned, so arena objects keep their GC members alive and GC objects may point in);
+`release()` wipes the used bytes (poison `0xA5` in checked builds, zero in release builds) and
+returns the chunks to a per-thread pool anchored in uncollectable memory; `abandon()` forgets the
+chunks and leaves them to the collector. Arena memory is zero-filled on allocation like
+`GC_MALLOC`/Java objects. Destructors of arena objects never run (as for collected objects).
+
+**1. Connection-search arena** (`kSearch`, 107 sites): expansion rooms (incomplete, complete,
+obstacle), doors, target doors, door sections (`MazeSearchElement`), drills and drill pages,
+`MazeListElement`, backtrack elements, the `MazeSearchEngine` and its helpers, and the
+collections owned by those objects. Each `AutorouteEngine` that does not maintain its database
+(the default; `freerouting.benchmark.retain_autoroute_database` keeps the GC path) owns an arena.
+It is current (`jrt::ArenaScope`) while the engine builds its drill pages and during
+`autorouteConnection` up to `clear()`. Contrary to the original plan, the arena can **not** be
+reset at the end of `autorouteConnection`: the drill pages keep cached drills (with their rooms)
+for later searches of the same net on the same engine (`RoutingBoard::autoroute` routes a pin to
+its closest target and then to the whole set on one engine). So the arena is released when the
+engine is discarded — `RoutingBoard::initAutoroute` replacing it, `finishAutoroute`, or its
+whole board being dropped (`discardAutorouteEngineWithBoard`). At that point `clear()` has
+removed the rooms from the search tree and the autoroute data (`ItemAutorouteInfo`,
+`Via::autorouteDrillInfo`) from all items, so the board holds no arena pointer. If an exception
+leaves a search before `clear()`, that engine's arena is abandoned and search arenas are switched
+off for the rest of the process (stale rooms may stay in a tree and get doors later).
+
+**2. Optimizer-candidate arena** (`kBoardData`, 43 sites: item constructors and copies, undo-list
+nodes, search-tree nodes, leaves and leaf arrays). `BatchOptimizer_OptimizeCandidateTask::call`
+makes it current (`jrt::BoardArenaScope`) for candidates whose board is not kept (`keepBoard ==
+false`; the winner replay keeps its board and stays on the GC heap): the deep copy of the
+baseline board, the items the candidate routes on it and their tree entries live in it, and it
+is released together with the worker board's search arena when the candidate ends (also on
+exceptions). Only structural board data goes there, on purpose: the worker copy **shares**
+geometry, the library and the layer structure with the baseline board, and immutable geometry
+fills lazy caches, so redirecting `kGeom`/`kOp`/`kBoard` would let shared objects (and
+function-local statics first touched by a candidate, the job log, the global
+`ShoveCheckCache`) point into a released arena. The `RoutingBoard` object itself also stays on
+the GC heap, so caches keyed by board identity (`ShoveCheckCache::owner`) can never see a reused
+address.
+
+Escape checks: checked builds (`JRT_CHECKED=1`, the default RelWithDebInfo build) poison
+released memory; the corpus parity run passes on both builds (see the results below).
+
+Sites per package after stage B (`classify_allocs.py report --top`):
+
+| package | board | board data | op | search | geom | total |
+|---|---:|---:|---:|---:|---:|---:|
+| autoroute | 24 | 0 | 578 | 70 | 169 | 841 |
+| board | 120 | 37 | 273 | 37 | 211 | 678 |
+| geometry | 1 | 0 | 51 | 0 | 597 | 649 |
+| io (DSN/SES) | 154 | 0 | 285 | 0 | 34 | 473 |
+| core | 70 | 0 | 82 | 0 | 2 | 154 |
+| rules | 79 | 0 | 36 | 0 | 3 | 118 |
+| drc | 1 | 0 | 85 | 0 | 13 | 99 |
+| settings | 59 | 0 | 29 | 0 | 0 | 88 |
+| datastructures | 7 | 6 | 67 | 0 | 3 | 83 |
+| interactive | 0 | 0 | 25 | 0 | 8 | 33 |
+| logger, util, bindings/lua | 12 | 0 | 7 | 0 | 0 | 19 |
+| **total** | **527** | **43** | **1518** | **107** | **1040** | **3235** |
+
+Parity after stage B: corpus run (`tools/parity_corpus.sh`, release build, stopped after 71 of
+180 fixtures): 60 SAME, 0 DIFF; 9 time out (900 s) in both Java and C++; 2 fail in C++ already
+at `gc-port-baseline` (Issue006: DSN header with a non-ANSI character is rejected; Issue179:
+segfault after `TriangleGraph.position_locate`). Checked build (poisoned arenas),
+`tools/parity_sample.sh` on 40 fixtures: 38 SAME, 0 DIFF, the same 2 old failures.
+Successful Java results are kept as a reference in WSL `~/frtest/java-reference/upstream-fixtures`
+(63 boards); `tools/parity_sample.sh <outdir> [max_java_s] [count]` compares the C++ build against
+it without running Java (`FR_SKIP_JAVA=1` with a copy of it as `<outdir>/java` does the same for
+`parity_corpus.sh`).
 
 ## Verification
 

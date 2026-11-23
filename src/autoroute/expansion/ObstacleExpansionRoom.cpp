@@ -18,7 +18,7 @@ ObstacleExpansionRoom::ObstacleExpansionRoom(Item* item, int32_t indexInItem, Sh
   this->item = item;
   this->indexInItem = indexInItem;
   this->shape = item->getTreeShape(shapeTree, indexInItem);
-  this->doors = new (jrt::kOp) jrt::ArrayList<ExpansionDoor*>();
+  this->doors = new (jrt::kSearch) jrt::ArrayList<ExpansionDoor*>();
 }
 
 int32_t ObstacleExpansionRoom::getLayer() { return this->item->shapeLayer(this->indexInItem); }
@@ -60,7 +60,7 @@ bool ObstacleExpansionRoom::createOverlapDoor(ObstacleExpansionRoom* other) {
   if (this->item != other->item && meetOnPin(this->item, other->item)) {
     return false;
   }
-  ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(this, other, 2);
+  ExpansionDoor* newDoor = new (jrt::kSearch) ExpansionDoor(this, other, 2);
   this->addDoor(newDoor);
   other->addDoor(newDoor);
   return true;
@@ -84,7 +84,7 @@ bool ObstacleExpansionRoom::meetOnPin(Item* first, Item* second) {
   return false;
 }
 
-void ObstacleExpansionRoom::clearDoors() { this->doors = new (jrt::kOp) jrt::ArrayList<ExpansionDoor*>(); }
+void ObstacleExpansionRoom::clearDoors() { this->doors = new (jrt::kSearch) jrt::ArrayList<ExpansionDoor*>(); }
 
 void ObstacleExpansionRoom::resetDoors() {
   for (ExpandableObject* currentDoor : *this->doors) {
@@ -93,7 +93,7 @@ void ObstacleExpansionRoom::resetDoors() {
 }
 
 jrt::Collection<TargetItemExpansionDoor*>* ObstacleExpansionRoom::getTargetDoors() {
-  return new (jrt::kOp) jrt::ArrayList<TargetItemExpansionDoor*>();
+  return new (jrt::kSearch) jrt::ArrayList<TargetItemExpansionDoor*>();
 }
 
 SearchTreeObject* ObstacleExpansionRoom::getObject() { return this->item; }

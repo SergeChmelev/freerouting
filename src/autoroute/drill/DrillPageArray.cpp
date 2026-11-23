@@ -34,7 +34,7 @@ DrillPageArray::DrillPageArray(RoutingBoard* board, int32_t maxPageWidth) {
       } else {
         urY = llY + pageHeight;
       }
-      (*(*pages)[j])[i] = new (jrt::kOp) DrillPage(new (jrt::kGeom) IntBox(llX, llY, urX, urY), board);
+      (*(*pages)[j])[i] = new (jrt::kSearch) DrillPage(new (jrt::kGeom) IntBox(llX, llY, urX, urY), board);
     }
   }
 }
@@ -47,7 +47,7 @@ void DrillPageArray::invalidate(TileShape* shape) {
 }
 
 jrt::Collection<DrillPage*>* DrillPageArray::overlappingPages(TileShape* shape) {
-  jrt::Collection<DrillPage*>* result = new (jrt::kOp) jrt::LinkedList<DrillPage*>();
+  jrt::Collection<DrillPage*>* result = new (jrt::kSearch) jrt::LinkedList<DrillPage*>();
 
   IntBox* shapeBox = shape->boundingBox()->intersection(this->bounds);
 

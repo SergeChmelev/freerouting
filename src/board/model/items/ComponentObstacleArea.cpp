@@ -23,7 +23,7 @@ ComponentObstacleArea::ComponentObstacleArea(Area* area, int32_t layer, Vector* 
 Item* ComponentObstacleArea::copy(int32_t id) {
   // PORT NOTE (deep copy): like Java, the copy drops netNumbers (always empty unless assignNetNo
   // was called on this keepout).
-  return new (jrt::kBoard) ComponentObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
+  return new (jrt::kBoardData) ComponentObstacleArea(getRelativeArea(), getLayer(), getTranslation(),
                                    getRotationInDegree(), getSideChanged(), clearanceClassIndex(),
                                    id, getComponentId(), this->name, getFixedState(), board);
 }

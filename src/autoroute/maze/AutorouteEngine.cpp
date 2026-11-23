@@ -1,4 +1,4 @@
-#include "autoroute/maze/AutorouteEngine.h"
+﻿#include "autoroute/maze/AutorouteEngine.h"
 
 #include "autoroute/AutorouteAttemptResult.h"
 #include "autoroute/AutorouteAttemptState.h"
@@ -34,6 +34,11 @@
 #include "logger/FRLogger.h"
 #include "rules/BoardRules.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <exception>
+#include <optional>
+
 namespace fr {
 
 AutorouteEngine::AutorouteEngine(RoutingBoard* board, int32_t traceClearanceClassIndex,
@@ -45,8 +50,30 @@ AutorouteEngine::AutorouteEngine(RoutingBoard* board, int32_t traceClearanceClas
   this->netNumber = -1;
   int32_t maxDrillPageWidth = jrt::d2i(5 * board->rules->getDefaultViaDiameter());
   maxDrillPageWidth = jrt::Math::max(maxDrillPageWidth, 10000);
-  this->drillPageArray = new (jrt::kOp) DrillPageArray(this->board, maxDrillPageWidth);
+  {
+    // The drill pages cache drills (and their rooms) for the lifetime of the engine.
+    jrt::ArenaScope arenaScope(usesSearchArena() ? &searchArena : nullptr);
+    this->drillPageArray = new (jrt::kSearch) DrillPageArray(this->board, maxDrillPageWidth);
+  }
   this->stoppableThread = nullptr;
+}
+
+bool& AutorouteEngine::searchArenaDisabled() {
+  static bool v = false;
+  return v;
+}
+
+bool AutorouteEngine::usesSearchArena() {
+  return !this->maintainDatabase && !this->searchArenaReleased && !searchArenaDisabled();
+}
+
+void AutorouteEngine::releaseSearchArena() {
+  if (this->searchArenaEscaped) {
+    this->searchArena.abandon();
+  } else {
+    this->searchArena.release();
+  }
+  this->searchArenaReleased = true;
 }
 
 void AutorouteEngine::initConnection(int32_t netNumber, Stoppable* stoppableThread,
@@ -56,7 +83,7 @@ void AutorouteEngine::initConnection(int32_t netNumber, Stoppable* stoppableThre
       if (this->completeExpansionRooms != nullptr) {
         // invalidate the net dependent complete free space expansion rooms.
         jrt::Collection<CompleteFreeSpaceExpansionRoom*>* roomsToRemove =
-            new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+            new (jrt::kSearch) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
         for (CompleteFreeSpaceExpansionRoom* currentRoom : *completeExpansionRooms) {
           if (currentRoom->isNetDependent()) {
             roomsToRemove->add(currentRoom);
@@ -85,6 +112,32 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
                                                              AutorouteControl* ctrl,
                                                              jrt::TreeSet<Item*>* rippedItemList,
                                                              jrt::Map<Item*, int32_t>* ripupCosts) {
+  // Connection-search arena (MEMORY_MODEL.md): rooms, doors, drills, maze list and backtrack
+  // elements of this search are allocated in the engine's arena until clear() below. The arena
+  // is released when the engine is discarded (RoutingBoard::initAutoroute / finishAutoroute):
+  // the drill pages may hand cached drills and rooms to a later search of this engine.
+  struct EscapeGuard {
+    AutorouteEngine* engine;
+    int uncaught = std::uncaught_exceptions();
+    bool armed = true;
+    ~EscapeGuard() {
+      if (armed && std::uncaught_exceptions() > uncaught) {
+        // An exception left the search before clear(): rooms may stay in the search tree and in
+        // item autoroute data, so this arena is never reused and no later engine uses one.
+        engine->searchArenaEscaped = true;
+        searchArenaDisabled() = true;
+      }
+    }
+  };
+#if JRT_CHECKED
+  if (this->searchArenaReleased) {
+    std::fputs("AutorouteEngine.autoroute_connection: engine used after its arena was released\n", stderr);
+    std::abort();
+  }
+#endif
+  EscapeGuard escapeGuard{this};
+  std::optional<jrt::ArenaScope> arenaScope;
+  arenaScope.emplace(usesSearchArena() ? &searchArena : nullptr);
   MazeSearchEngine* mazeSearchAlgo;
   try {
     mazeSearchAlgo = MazeSearchEngine::getInstance(startSet, destSet, this, ctrl);
@@ -141,6 +194,8 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   // Always clean up expansion rooms from the search tree, regardless of search outcome.
   // This mirrors v1.9's behavior: clear() is called before any early returns so that
   // stale CompleteFreeSpaceExpansionRoom objects don't pollute subsequent routing attempts.
+  arenaScope.reset();
+  escapeGuard.armed = false;
   if (!this->maintainDatabase) {
     this->clear();
   } else {
@@ -280,9 +335,9 @@ void AutorouteEngine::emitDiagnostics(AutorouteDiagnostic_Sink* sink, double int
 IncompleteFreeSpaceExpansionRoom* AutorouteEngine::addIncompleteExpansionRoom(
     TileShape* shape, int32_t layer, TileShape* containedShape) {
   IncompleteFreeSpaceExpansionRoom* newRoom =
-      new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(shape, layer, containedShape);
+      new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(shape, layer, containedShape);
   if (this->incompleteExpansionRooms == nullptr) {
-    this->incompleteExpansionRooms = new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+    this->incompleteExpansionRooms = new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   }
   this->incompleteExpansionRooms->add(newRoom);
   return newRoom;
@@ -328,7 +383,7 @@ void AutorouteEngine::removeCompleteExpansionRoom(CompleteFreeSpaceExpansionRoom
       Simplex* newIncompleteRoomShape = Simplex::getInstance(lines);
       IncompleteFreeSpaceExpansionRoom* newIncompleteRoom =
           addIncompleteExpansionRoom(newIncompleteRoomShape, roomLayer, intersection);
-      ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(currentNeighbour, newIncompleteRoom, 1);
+      ExpansionDoor* newDoor = new (jrt::kSearch) ExpansionDoor(currentNeighbour, newIncompleteRoom, 1);
       currentNeighbour->addDoor(newDoor);
       newIncompleteRoom->addDoor(newDoor);
     }
@@ -348,7 +403,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
     IncompleteFreeSpaceExpansionRoom* room) {
   try {
     jrt::Collection<CompleteFreeSpaceExpansionRoom*>* result =
-        new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+        new (jrt::kSearch) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
     TileShape* fromDoorShape = nullptr;
     SearchTreeObject* ignoreObject = nullptr;
     jrt::Collection<ExpansionDoor*>* roomDoors = room->getDoors();
@@ -430,7 +485,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
     return result;
   } catch (const jrt::Exception& e) {
     FRLogger::error("AutorouteEngine.complete_expansion_room: ", &e);
-    return new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kSearch) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
   }
 }
 
@@ -442,7 +497,7 @@ CompleteFreeSpaceExpansionRoom* AutorouteEngine::addCompleteRoom(
     return nullptr;
   }
   if (completeExpansionRooms == nullptr) {
-    completeExpansionRooms = new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+    completeExpansionRooms = new (jrt::kSearch) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
   }
   completeExpansionRooms->add(completedRoom);
   this->autorouteSearchTree->insert(static_cast<ShapeTree_Storable*>(completedRoom));

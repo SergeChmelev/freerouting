@@ -58,7 +58,10 @@ Compiler flags include `-fwrapv` (Java int overflow semantics).
 The process uses the **Boehm garbage collector for all `new` allocations** (see
 `runtime/jrt/gc.cpp`). So Java reference semantics map 1:1:
 
-* Java object reference `Foo` → raw pointer `Foo*`. `new Foo(...)` → `new Foo(...)`.
+* Java object reference `Foo` → raw pointer `Foo*`. `new Foo(...)` → `new (jrt::kOp) Foo(...)`
+  with the lifetime tag of the new object (`kBoard`, `kOp`, `kGeom`, `kSearch`, `kBoardData`;
+  see `runtime/jrt/alloc.h` and MEMORY_MODEL.md). `tools/mem/classify_allocs.py check` must
+  report no untagged `new`.
   `null` → `nullptr`. **Never `delete`**, never use `std::shared_ptr` / `unique_ptr` for ported
   objects, no destructors with side effects (they never run for collected objects).
 * Java arrays → `jrt::Array<T>*` (`new jrt::Array<int32_t>(n)` is zero-initialised like Java;

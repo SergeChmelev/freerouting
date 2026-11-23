@@ -10,6 +10,7 @@
 //   -q / -v / -vv      log level warn / debug / trace (default info)
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -141,5 +142,9 @@ int main(int argc, char** argv) {
   std::printf("%s: %d unrouted, %d clearance violations, %.1f s%s -> %s (%zu bytes)\n", baseName(input).c_str(),
               result->unroutedConnections(), violations, seconds, result->isCancelled() ? " (cancelled)" : "",
               output.c_str(), ses.size());
+  if (std::getenv("FR_MEM_STATS") != nullptr) {
+    std::fprintf(stderr, "memory: arena peak %.1f MB, GC heap %.1f MB\n", jrt::Arena::peakBytes() / 1048576.0,
+                 jrt::gc_heap_size() / 1048576.0);
+  }
   return result->isSuccess() ? 0 : 1;
 }

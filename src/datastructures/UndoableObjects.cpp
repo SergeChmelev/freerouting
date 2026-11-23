@@ -63,7 +63,7 @@ UndoableObjects* UndoableObjects::copyMapped(
     if (existing != nullptr) {
       return existing;
     }
-    auto* copy = new (jrt::kBoard) UONode(mapObject(original->object), original->level);
+    auto* copy = new (jrt::kBoardData) UONode(mapObject(original->object), original->level);
     nodeCopies->put(original, copy);
     pending.push_back(original);
     return copy;
@@ -115,7 +115,7 @@ void UndoableObjects::insert(UndoableObjects_Storable* object) {
   disableRedo();
   ++version;
   ++contentVersion;
-  auto* currentUndoableObject = new (jrt::kBoard) UONode(object, stackLevel);
+  auto* currentUndoableObject = new (jrt::kBoardData) UONode(object, stackLevel);
   objects->put(object, currentUndoableObject);
 }
 
@@ -328,7 +328,7 @@ void UndoableObjects::saveForUndo(UndoableObjects_Storable* object) {
   }
   if (currentNode->level < this->stackLevel) {
     auto* oldNode =
-        new (jrt::kBoard) UONode(jrt::fast_cast<UndoableObjects_Storable>(object->clone()), currentNode->level);
+        new (jrt::kBoardData) UONode(jrt::fast_cast<UndoableObjects_Storable>(object->clone()), currentNode->level);
     oldNode->undoObject = currentNode->undoObject;
     oldNode->redoObject = currentNode;
     currentNode->undoObject = oldNode;

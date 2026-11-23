@@ -441,7 +441,7 @@ jrt::Array<TileShape*>* BoardOutline::getKeepoutLines() {
 Item* BoardOutline::copy(int32_t id) {
   // Java copy() passes only the shapes. The board deep copy restores edgePinNetsCrossOutline and
   // the keepout-outside state itself (BasicBoard::copyItemListFrom).
-  return new (jrt::kBoard) BoardOutline(this->shapes, this->clearanceClassIndex(), id, this->board);
+  return new (jrt::kBoardData) BoardOutline(this->shapes, this->clearanceClassIndex(), id, this->board);
 }
 
 void BoardOutline::printInfo(ItemInfoPrinter* printer, const std::string& locale) {

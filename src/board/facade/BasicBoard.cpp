@@ -265,7 +265,7 @@ PolylineTrace* BasicBoard::insertTraceWithoutCleaning(Polyline* polyline, int32_
   if (polyline->cornerCount() < 2) {
     return nullptr;
   }
-  PolylineTrace* newTrace = new (jrt::kBoard) PolylineTrace(polyline, layer, halfWidth, netNumbers,
+  PolylineTrace* newTrace = new (jrt::kBoardData) PolylineTrace(polyline, layer, halfWidth, netNumbers,
                                               clearanceClass, 0, 0, fixedState, this);
   if (newTrace->firstCorner()->equals(newTrace->lastCorner())) {
     if (static_cast<int32_t>(fixedState) < static_cast<int32_t>(FixedState::USER_FIXED)) {
@@ -326,7 +326,7 @@ void BasicBoard::insertTrace(jrt::Array<Point*>* points, int32_t layer, int32_t 
 Via* BasicBoard::insertVia(Padstack* padstack, Point* center, jrt::Array<int32_t>* netNumbers,
                            int32_t clearanceClassIndex, FixedState fixedState,
                            bool attachAllowed) {
-  Via* newVia = new (jrt::kBoard) Via(padstack, center, netNumbers, clearanceClassIndex, 0, 0, fixedState,
+  Via* newVia = new (jrt::kBoardData) Via(padstack, center, netNumbers, clearanceClassIndex, 0, 0, fixedState,
                         attachAllowed, this);
   insertItem(newVia);
   int32_t fromLayer = padstack->fromLayer();
@@ -342,7 +342,7 @@ Via* BasicBoard::insertVia(Padstack* padstack, Point* center, jrt::Array<int32_t
 Via* BasicBoard::insertEscapeVia(Padstack* padstack, Point* center,
                                  jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex,
                                  FixedState fixedState, int32_t smdLayer) {
-  Via* newVia = new (jrt::kBoard) Via(padstack, center, netNumbers, clearanceClassIndex, 0, 0, fixedState, true,
+  Via* newVia = new (jrt::kBoardData) Via(padstack, center, netNumbers, clearanceClassIndex, 0, 0, fixedState, true,
                         this);
   newVia->isEscapeVia = true;
   newVia->escapeViaSmdLayer = smdLayer;
@@ -360,7 +360,7 @@ Via* BasicBoard::insertEscapeVia(Padstack* padstack, Point* center,
 Pin* BasicBoard::insertPin(int32_t componentId, int32_t pinIndex, jrt::Array<int32_t>* netNumbers,
                            int32_t clearanceClassIndex, FixedState fixedState) {
   Pin* newPin =
-      new (jrt::kBoard) Pin(componentId, pinIndex, netNumbers, clearanceClassIndex, 0, fixedState, this);
+      new (jrt::kBoardData) Pin(componentId, pinIndex, netNumbers, clearanceClassIndex, 0, fixedState, this);
   insertItem(newPin);
   return newPin;
 }
@@ -371,7 +371,7 @@ ObstacleArea* BasicBoard::insertObstacle(Area* area, int32_t layer, int32_t clea
     FRLogger::warn("BasicBoard.insert_obstacle: area is null");
     return nullptr;
   }
-  ObstacleArea* obs = new (jrt::kBoard) ObstacleArea(area, layer, Vector::ZERO(), 0, false, clearanceClassIndex,
+  ObstacleArea* obs = new (jrt::kBoardData) ObstacleArea(area, layer, Vector::ZERO(), 0, false, clearanceClassIndex,
                                        0, 0, std::nullopt, fixedState, this);
   insertItem(obs);
   return obs;
@@ -386,7 +386,7 @@ ObstacleArea* BasicBoard::insertObstacle(Area* area, int32_t layer,
     FRLogger::warn("BasicBoard.insert_obstacle: area is null");
     return nullptr;
   }
-  ObstacleArea* obs = new (jrt::kBoard) ObstacleArea(area, layer, Vector::ZERO(), 0, false, netNumbers,
+  ObstacleArea* obs = new (jrt::kBoardData) ObstacleArea(area, layer, Vector::ZERO(), 0, false, netNumbers,
                                        clearanceClassIndex, 0, componentId, name, fixedState, this);
   insertItem(obs);
   return obs;
@@ -401,7 +401,7 @@ ObstacleArea* BasicBoard::insertObstacle(Area* area, int32_t layer, Vector* tran
     FRLogger::warn("BasicBoard.insert_obstacle: area is null");
     return nullptr;
   }
-  ObstacleArea* obs = new (jrt::kBoard) ObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+  ObstacleArea* obs = new (jrt::kBoardData) ObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
                                        clearanceClassIndex, 0, componentId, name, fixedState, this);
   insertItem(obs);
   return obs;
@@ -414,7 +414,7 @@ ViaObstacleArea* BasicBoard::insertViaObstacle(Area* area, int32_t layer,
     FRLogger::warn("BasicBoard.insert_via_obstacle: area is null");
     return nullptr;
   }
-  ViaObstacleArea* obs = new (jrt::kBoard) ViaObstacleArea(area, layer, Vector::ZERO(), 0, false,
+  ViaObstacleArea* obs = new (jrt::kBoardData) ViaObstacleArea(area, layer, Vector::ZERO(), 0, false,
                                              clearanceClassIndex, 0, 0, std::nullopt, fixedState,
                                              this);
   insertItem(obs);
@@ -431,7 +431,7 @@ ViaObstacleArea* BasicBoard::insertViaObstacle(Area* area, int32_t layer, Vector
     return nullptr;
   }
   ViaObstacleArea* obs =
-      new (jrt::kBoard) ViaObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+      new (jrt::kBoardData) ViaObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
                           clearanceClassIndex, 0, componentId, name, fixedState, this);
   insertItem(obs);
   return obs;
@@ -444,7 +444,7 @@ WireObstacleArea* BasicBoard::insertWireObstacle(Area* area, int32_t layer,
     FRLogger::warn("BasicBoard.insert_wire_obstacle: area is null");
     return nullptr;
   }
-  WireObstacleArea* obs = new (jrt::kBoard) WireObstacleArea(area, layer, Vector::ZERO(), 0, false,
+  WireObstacleArea* obs = new (jrt::kBoardData) WireObstacleArea(area, layer, Vector::ZERO(), 0, false,
                                                clearanceClassIndex, 0, 0, std::nullopt,
                                                fixedState, this);
   insertItem(obs);
@@ -461,7 +461,7 @@ WireObstacleArea* BasicBoard::insertWireObstacle(Area* area, int32_t layer, Vect
     return nullptr;
   }
   WireObstacleArea* obs =
-      new (jrt::kBoard) WireObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+      new (jrt::kBoardData) WireObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
                            clearanceClassIndex, 0, componentId, name, fixedState, this);
   insertItem(obs);
   return obs;
@@ -474,7 +474,7 @@ ComponentObstacleArea* BasicBoard::insertComponentObstacle(Area* area, int32_t l
     FRLogger::warn("BasicBoard.insert_component_obstacle: area is null");
     return nullptr;
   }
-  ComponentObstacleArea* obs = new (jrt::kBoard) ComponentObstacleArea(area, layer, Vector::ZERO(), 0, false,
+  ComponentObstacleArea* obs = new (jrt::kBoardData) ComponentObstacleArea(area, layer, Vector::ZERO(), 0, false,
                                                          clearanceClassIndex, 0, 0, std::nullopt,
                                                          fixedState, this);
   insertItem(obs);
@@ -490,7 +490,7 @@ ComponentObstacleArea* BasicBoard::insertComponentObstacle(
     return nullptr;
   }
   ComponentObstacleArea* obs =
-      new (jrt::kBoard) ComponentObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
+      new (jrt::kBoardData) ComponentObstacleArea(area, layer, translation, rotationInDegree, sideChanged,
                                 clearanceClassIndex, 0, componentId, name, fixedState, this);
   insertItem(obs);
   return obs;
@@ -509,7 +509,7 @@ ComponentOutline* BasicBoard::insertComponentOutline(Area* area, bool isFront, V
     return nullptr;
   }
   ComponentOutline* outline =
-      new (jrt::kBoard) ComponentOutline(area, isFront, translation, rotationInDegree, 0, componentId,
+      new (jrt::kBoardData) ComponentOutline(area, isFront, translation, rotationInDegree, 0, componentId,
                            isCourtyard, isFabrication, isClosed, fixedState, this);
   insertItem(outline);
   return outline;
@@ -524,7 +524,7 @@ ConductionArea* BasicBoard::insertConductionArea(Area* area, int32_t layer,
     return nullptr;
   }
   ConductionArea* c =
-      new (jrt::kBoard) ConductionArea(area, layer, Vector::ZERO(), 0, false, netNumbers, clearanceClassIndex, 0,
+      new (jrt::kBoardData) ConductionArea(area, layer, Vector::ZERO(), 0, false, netNumbers, clearanceClassIndex, 0,
                          0, std::nullopt, isObstacle, fixedState, this);
   insertItem(c);
   return c;
@@ -532,7 +532,7 @@ ConductionArea* BasicBoard::insertConductionArea(Area* area, int32_t layer,
 
 BoardOutline* BasicBoard::insertOutline(jrt::Array<PolylineShape*>* outlineShapes,
                                         int32_t clearanceClassIndex) {
-  BoardOutline* result = new (jrt::kBoard) BoardOutline(outlineShapes, clearanceClassIndex, 0, this);
+  BoardOutline* result = new (jrt::kBoardData) BoardOutline(outlineShapes, clearanceClassIndex, 0, this);
   insertItem(result);
   return result;
 }
@@ -991,7 +991,7 @@ bool BasicBoard::checkTraceShape(TileShape* shape, int32_t layer, jrt::Array<int
 bool BasicBoard::checkPolylineTrace(Polyline* polyline, int32_t layer, int32_t penHalfWidth,
                                     jrt::Array<int32_t>* netNumbers,
                                     int32_t clearanceClassIndex) {
-  Trace* tmpTrace = new (jrt::kBoard) PolylineTrace(polyline, layer, penHalfWidth, netNumbers,
+  Trace* tmpTrace = new (jrt::kBoardData) PolylineTrace(polyline, layer, penHalfWidth, netNumbers,
                                       clearanceClassIndex, 0, 0, FixedState::UNFIXED, this);
   jrt::Set<Pin*>* contactPins = tmpTrace->touchingPinsAtEndCorners();
   for (int32_t i = 0; i < tmpTrace->tileShapeCount(); i++) {
@@ -1079,7 +1079,7 @@ Connectable* BasicBoard::makeConductive(ObstacleArea* area, int32_t netNumber) {
   bool sideChanged = area->getSideChanged();
   jrt::Array<int32_t>* netNumbers = new (jrt::kOp) jrt::Array<int32_t>(1);
   (*netNumbers)[0] = netNumber;
-  newItem = new (jrt::kBoard) ConductionArea(currentArea, layer, translation, rotation, sideChanged, netNumbers,
+  newItem = new (jrt::kBoardData) ConductionArea(currentArea, layer, translation, rotation, sideChanged, netNumbers,
                                area->clearanceClassIndex(), 0, area->getComponentId(), area->name,
                                true, fixedState, this);
   removeItem(area);

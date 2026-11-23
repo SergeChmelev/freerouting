@@ -668,6 +668,10 @@ AutorouteEngine* RoutingBoard::initAutoroute(int32_t netNumber, int32_t traceCle
   if (this->autorouteEngine == nullptr || !retainAutorouteDatabase ||
       this->autorouteEngine->autorouteSearchTree->compensatedClearanceClassNo !=
           traceClearanceClassIndex) {
+    if (this->autorouteEngine != nullptr) {
+      // PORT NOTE: the replaced engine is dropped (Java leaves it to the GC): free its arena.
+      this->autorouteEngine->releaseSearchArena();
+    }
     this->autorouteEngine =
         new (jrt::kBoard) AutorouteEngine(this, traceClearanceClassIndex, retainAutorouteDatabase);
   }
@@ -678,6 +682,16 @@ AutorouteEngine* RoutingBoard::initAutoroute(int32_t netNumber, int32_t traceCle
 void RoutingBoard::finishAutoroute() {
   if (this->autorouteEngine != nullptr) {
     this->autorouteEngine->clear();
+    this->autorouteEngine->releaseSearchArena();
+  }
+  this->autorouteEngine = nullptr;
+}
+
+void RoutingBoard::discardAutorouteEngineWithBoard() {
+  // Called when this whole board is dropped: the engine's arena objects are referenced only by
+  // this board (its search tree, item autoroute data), so no clear() is needed.
+  if (this->autorouteEngine != nullptr) {
+    this->autorouteEngine->releaseSearchArena();
   }
   this->autorouteEngine = nullptr;
 }

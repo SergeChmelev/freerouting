@@ -98,7 +98,7 @@ Item* Pin::copy(int32_t id) {
   for (int32_t i = 0; i < currentNetNumbers->length; i++) {
     (*currentNetNumbers)[i] = getNetNumber(i);
   }
-  Pin* copiedPin = new (jrt::kBoard) Pin(getComponentId(), this->pinIndex, currentNetNumbers,
+  Pin* copiedPin = new (jrt::kBoardData) Pin(getComponentId(), this->pinIndex, currentNetNumbers,
                            clearanceClassIndex(), id, getFixedState(), board);
   copiedPin->netTieClusterId = this->netTieClusterId;
   copiedPin->planeConnection = this->planeConnection;

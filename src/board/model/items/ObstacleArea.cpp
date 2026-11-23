@@ -55,7 +55,7 @@ ObstacleArea::ObstacleArea(Area* area, int32_t layer, Vector* translation, doubl
 Item* ObstacleArea::copy(int32_t id) {
   auto* copiedNetNos = new (jrt::kOp) jrt::Array<int32_t>(netNumbers->length);
   jrt::arraycopy(netNumbers, 0, copiedNetNos, 0, netNumbers->length);
-  return new (jrt::kBoard) ObstacleArea(relativeArea, layer, translation, rotationInDegree, sideChanged,
+  return new (jrt::kBoardData) ObstacleArea(relativeArea, layer, translation, rotationInDegree, sideChanged,
                           copiedNetNos, clearanceClassIndex(), id, getComponentId(), name,
                           getFixedState(), board);
 }

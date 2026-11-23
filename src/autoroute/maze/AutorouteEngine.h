@@ -43,6 +43,18 @@ class AutorouteEngine : public virtual jrt::Object {
   /** The count of expansion rooms created so far. */
   int32_t expansionRoomInstanceCount = 0;
 
+  /** Connection-search arena (MEMORY_MODEL.md): holds the kSearch objects of this engine while
+   * it does not maintain its database. Released by releaseSearchArena(). */
+  jrt::Arena searchArena;
+  bool searchArenaReleased = false;
+  bool searchArenaEscaped = false;
+
+  /** Set for the rest of the process once an exception escaped a search (see
+   * autorouteConnection): from then on all search objects go to the GC heap. */
+  static bool& searchArenaDisabled();
+
+  bool usesSearchArena();
+
  public:
   /** Creates a new instance of AutorouteEngine. If maintainDatabase, the autorouter database is
    * maintained after a connection is completed for performance reasons. */
@@ -78,6 +90,11 @@ class AutorouteEngine : public virtual jrt::Object {
 
   /** Clears all temporary data. */
   virtual void clear();
+
+  /** Drops all objects of the connection-search arena. Only when the engine is discarded:
+   * after clear() (nothing of the arena is referenced by the board any more) or together with
+   * its whole board. The engine must not be used afterwards. */
+  virtual void releaseSearchArena();
 
   /** Emits optional diagnostics of the autoroute database. */
   virtual void emitDiagnostics(AutorouteDiagnostic_Sink* sink, double intensity);

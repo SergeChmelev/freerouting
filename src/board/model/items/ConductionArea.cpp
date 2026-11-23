@@ -230,7 +230,7 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
 
 Item* ConductionArea::copy(int32_t id) {
   ConductionArea* result =
-      new (jrt::kBoard) ConductionArea(getRelativeArea(), getLayer(), getTranslation(), getRotationInDegree(),
+      new (jrt::kBoardData) ConductionArea(getRelativeArea(), getLayer(), getTranslation(), getRotationInDegree(),
                          getSideChanged(), netNumbers, clearanceClassIndex(), id, getComponentId(),
                          this->name, isObstacle_, getFixedState(), board);
   result->fillClearance = this->fillClearance;

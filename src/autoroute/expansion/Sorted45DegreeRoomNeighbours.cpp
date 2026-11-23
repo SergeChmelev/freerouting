@@ -75,7 +75,7 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
   TileShape* roomShape = room->getShape();
   CompleteExpansionRoom* completedRoom;
   if (jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(room) != nullptr) {
-    completedRoom = new (jrt::kOp) CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
+    completedRoom = new (jrt::kSearch) CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
   } else if (auto* obstacleRoom = jrt::fast_cast<ObstacleExpansionRoom>(room)) {
     completedRoom = obstacleRoom;
   } else {
@@ -145,7 +145,7 @@ Sorted45DegreeRoomNeighbours* Sorted45DegreeRoomNeighbours::calculateNeighbours(
       }
       if (neighbourRoom != nullptr) {
         if (SortedRoomNeighbours::insertDoorOk(completedRoom, neighbourRoom, intersection)) {
-          ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(completedRoom, neighbourRoom);
+          ExpansionDoor* newDoor = new (jrt::kSearch) ExpansionDoor(completedRoom, neighbourRoom);
           neighbourRoom->addDoor(newDoor);
           completedRoom->addDoor(newDoor);
         }
@@ -362,7 +362,7 @@ bool Sorted45DegreeRoomNeighbours::tryRemoveEdgeLine(int32_t netNumber, ShapeSea
         }
       }
     }
-    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
         enlargedOct, currentIncompleteRoom->getLayer(), currentIncompleteRoom->getContainedShape());
     jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRooms =
         autorouteSearchTree->completeShape(enlargedRoom, netNumber, ignoreObject, ignoreShape);
@@ -409,7 +409,7 @@ void Sorted45DegreeRoomNeighbours::insertIncompleteRoom(AutorouteEngine* autorou
       if (doorDimension > 0) {
         FreeSpaceExpansionRoom* newRoom = autorouteEngine->addIncompleteExpansionRoom(
             newIncompleteRoomShape, this->fromRoom->getLayer(), newContainedShape);
-        ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(this->completedRoom, newRoom, doorDimension);
+        ExpansionDoor* newDoor = new (jrt::kSearch) ExpansionDoor(this->completedRoom, newRoom, doorDimension);
         this->completedRoom->addDoor(newDoor);
         newRoom->addDoor(newDoor);
       }

@@ -94,14 +94,14 @@ void ShapeTraceEntries::fastCutoutTrace(PolylineTrace* trace, Polyline* startPie
   board->additionalUpdateAfterChange(trace);
   board->itemList->saveForUndo(trace);
   PolylineTrace* startTrace =
-      new (jrt::kBoard) PolylineTrace(startPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
+      new (jrt::kBoardData) PolylineTrace(startPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
                         trace->clearanceClassIndex(), 0, 0, FixedState::UNFIXED, board);
   startTrace->board = board;
   board->itemList->insert(startTrace);
   startTrace->setOnTheBoard(true);
 
   PolylineTrace* endTrace =
-      new (jrt::kBoard) PolylineTrace(endPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
+      new (jrt::kBoardData) PolylineTrace(endPiece, trace->getLayer(), trace->getHalfWidth(), trace->netNumbers,
                         trace->clearanceClassIndex(), 0, 0, FixedState::UNFIXED, board);
   endTrace->board = board;
   board->itemList->insert(endTrace);
@@ -264,7 +264,7 @@ PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece() {
     // no valid trace piece, return the next one
     return nextSubstituteTracePiece();
   }
-  return new (jrt::kBoard) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(),
+  return new (jrt::kBoardData) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(),
                            currentTrace->netNumbers, currentTrace->clearanceClassIndex(), 0, 0,
                            FixedState::UNFIXED, this->board);
 }

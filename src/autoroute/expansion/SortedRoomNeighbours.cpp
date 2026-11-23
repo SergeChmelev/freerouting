@@ -114,7 +114,7 @@ void SortedRoomNeighbours::calculateIncompleteRoomsWithEmptyNeighbours(ObstacleE
       TileShape* newContainedShape = roomShape->intersection(newRoomShape);
       FreeSpaceExpansionRoom* newRoom =
           autorouteEngine->addIncompleteExpansionRoom(newRoomShape, room->getLayer(), newContainedShape);
-      ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(room, newRoom, 1);
+      ExpansionDoor* newDoor = new (jrt::kSearch) ExpansionDoor(room, newRoom, 1);
       room->addDoor(newDoor);
       newRoom->addDoor(newDoor);
     }
@@ -134,7 +134,7 @@ void SortedRoomNeighbours::calculateTargetDoors(CompleteFreeSpaceExpansionRoom* 
             autorouteEngine->autorouteSearchTree, currentEntry->shapeIndexInObject);
         if (currentConnectionShape != nullptr && room->getShape()->intersects(currentConnectionShape)) {
           Item* currentItem = jrt::fast_cast<Item>(currentObject);
-          TargetItemExpansionDoor* newTargetDoor = new (jrt::kOp) TargetItemExpansionDoor(
+          TargetItemExpansionDoor* newTargetDoor = new (jrt::kSearch) TargetItemExpansionDoor(
               currentItem, currentEntry->shapeIndexInObject, room, autorouteEngine->autorouteSearchTree);
           room->addTargetDoor(newTargetDoor);
         }
@@ -149,7 +149,7 @@ SortedRoomNeighbours* SortedRoomNeighbours::calculateNeighbours(ExpansionRoom* r
   TileShape* roomShape = room->getShape();
   CompleteExpansionRoom* completedRoom;
   if (jrt::fast_cast<IncompleteFreeSpaceExpansionRoom>(room) != nullptr) {
-    completedRoom = new (jrt::kOp) CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
+    completedRoom = new (jrt::kSearch) CompleteFreeSpaceExpansionRoom(roomShape, room->getLayer(), roomIdNo);
   } else if (auto* obstacleRoom = jrt::fast_cast<ObstacleExpansionRoom>(room)) {
     completedRoom = obstacleRoom;
   } else {
@@ -229,7 +229,7 @@ SortedRoomNeighbours* SortedRoomNeighbours::calculateNeighbours(ExpansionRoom* r
       }
       if (neighbourRoom != nullptr) {
         if (SortedRoomNeighbours::insertDoorOk(completedRoom, neighbourRoom, intersection)) {
-          ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(completedRoom, neighbourRoom, 1);
+          ExpansionDoor* newDoor = new (jrt::kSearch) ExpansionDoor(completedRoom, neighbourRoom, 1);
           neighbourRoom->addDoor(newDoor);
           completedRoom->addDoor(newDoor);
         }
@@ -376,7 +376,7 @@ bool SortedRoomNeighbours::tryRemoveEdge(int32_t netNumber, ShapeSearchTree* aut
                     jrt::str(removeEdgeNo) + ", room_bounds=" +
                     jrt::str(currentIncompleteRoom->getShape()->boundingBox()));
     Simplex* enlargedShape = roomSimplex->removeBorderLine(removeEdgeNo);
-    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
         enlargedShape, currentIncompleteRoom->getLayer(), currentIncompleteRoom->getContainedShape());
     jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRooms =
         autorouteSearchTree->completeShape(enlargedRoom, netNumber, nullptr, nullptr);
@@ -534,7 +534,7 @@ void SortedRoomNeighbours::calculateNewIncompleteRooms(AutorouteEngine* autorout
           if (!newContainedShape->isEmpty()) {
             FreeSpaceExpansionRoom* newRoom =
                 autorouteEngine->addIncompleteExpansionRoom(newRoomShape, this->fromRoom->getLayer(), newContainedShape);
-            ExpansionDoor* newDoor = new (jrt::kOp) ExpansionDoor(this->completedRoom, newRoom, 1);
+            ExpansionDoor* newDoor = new (jrt::kSearch) ExpansionDoor(this->completedRoom, newRoom, 1);
             this->completedRoom->addDoor(newDoor);
             newRoom->addDoor(newDoor);
           }

@@ -72,6 +72,8 @@ class BatchOptimizer_WorkerBoardState : public virtual jrt::Object {
   BatchOptimizer_WorkerBoardState() = default;
   virtual RoutingBoard* acquire(RoutingBoard* baselineBoard);
   virtual void finish(bool transferOwnership);
+  /** True while a worker board copy exists (between acquire and finish). */
+  bool hasWorkerBoard() { return workerBoard != nullptr; }
 };
 
 /**

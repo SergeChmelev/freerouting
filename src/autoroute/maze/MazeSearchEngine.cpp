@@ -101,13 +101,13 @@ class MazeExpansionList : public jrt::TreeSet<MazeListElement*> {
 
 MazeSearchEngine::MazeSearchEngine(AutorouteEngine* autorouteEngine, AutorouteControl* ctrl)
     : autorouteEngine(autorouteEngine), ctrl(ctrl) {
-  this->fanoutDiagnostics = new (jrt::kOp) MazeFanoutDiagnostics(ctrl);
+  this->fanoutDiagnostics = new (jrt::kSearch) MazeFanoutDiagnostics(ctrl);
   randomGenerator->setSeed(ctrl->ripupCosts);  // Keep v1.9 deterministic randomization across passes.
   this->searchTree = autorouteEngine->autorouteSearchTree;
-  this->expansionEngine = new (jrt::kOp) MazeExpansionEngine(this);
-  this->ripupResolver = new (jrt::kOp) MazeRipupResolver(this);
-  mazeExpansionList = new (jrt::kOp) MazeExpansionList(ctrl, autorouteEngine);
-  destinationDistance = new (jrt::kOp) DestinationDistance(ctrl->traceCosts, ctrl->layerActive,
+  this->expansionEngine = new (jrt::kSearch) MazeExpansionEngine(this);
+  this->ripupResolver = new (jrt::kSearch) MazeRipupResolver(this);
+  mazeExpansionList = new (jrt::kSearch) MazeExpansionList(ctrl, autorouteEngine);
+  destinationDistance = new (jrt::kSearch) DestinationDistance(ctrl->traceCosts, ctrl->layerActive,
                                                 ctrl->minNormalViaCost, ctrl->minCheapViaCost);
 }
 
@@ -115,7 +115,7 @@ MazeSearchEngine* MazeSearchEngine::getInstance(jrt::Set<Item*>* startItems,
                                                 jrt::Set<Item*>* destinationItems,
                                                 AutorouteEngine* autorouteDatabase,
                                                 AutorouteControl* ctrl) {
-  MazeSearchEngine* newInstance = new (jrt::kOp) MazeSearchEngine(autorouteDatabase, ctrl);
+  MazeSearchEngine* newInstance = new (jrt::kSearch) MazeSearchEngine(autorouteDatabase, ctrl);
   MazeSearchEngine* result;
   if (newInstance->init(startItems, destinationItems)) {
     result = newInstance;
@@ -247,7 +247,7 @@ MazeSearchEngine_Result* MazeSearchEngine::findConnection() {
   if (this->destinationDoor == nullptr) {
     return nullptr;
   }
-  return new (jrt::kOp) MazeSearchEngine_Result(this->destinationDoor, this->sectionNoOfDestinationDoor);
+  return new (jrt::kSearch) MazeSearchEngine_Result(this->destinationDoor, this->sectionNoOfDestinationDoor);
 }
 
 bool MazeSearchEngine::occupyNextElement() {
@@ -537,7 +537,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
             if (ripupCosts > 0) {
               // delay the occupation by ripup to allow shoving the room by another door
               // sections.
-              MazeListElement* newElement = new (jrt::kOp) MazeListElement(
+              MazeListElement* newElement = new (jrt::kSearch) MazeListElement(
                   listElement->door, listElement->sectionNoOfDoor, listElement->backtrackDoor,
                   listElement->sectionNoOfBacktrackDoor, listElement->expansionValue + ripupCosts,
                   listElement->sortingValue + ripupCosts, listElement->nextRoom,
@@ -556,7 +556,7 @@ bool MazeSearchEngine::expandToRoomDoors(MazeListElement* listElement) {
   }
 
   jrt::List<ExpansionDoor*>* roomDoorsSnapshot =
-      new (jrt::kOp) jrt::LinkedList<ExpansionDoor*>(listElement->nextRoom->getDoors());
+      new (jrt::kSearch) jrt::LinkedList<ExpansionDoor*>(listElement->nextRoom->getDoors());
   if (FRLogger::isTraceEnabled()) {
     FRLogger::trace("ROOM_DOOR context from_section=" + jrt::str(listElement->sectionNoOfDoor) +
                     ", backtrack_section=" + jrt::str(listElement->sectionNoOfBacktrackDoor) +
@@ -836,7 +836,7 @@ bool MazeSearchEngine::expandToDoorSection(ExpandableObject* door, int32_t secti
                     (fromElement->alreadyChecked && fromElement->roomRipped);
 
   MazeListElement* newElement =
-      new (jrt::kOp) MazeListElement(door, sectionIndex, fromElement->door, fromElement->sectionNoOfDoor,
+      new (jrt::kSearch) MazeListElement(door, sectionIndex, fromElement->door, fromElement->sectionNoOfDoor,
                           expansionValue, sortingValue, nextRoom, shapeEntry, roomRipped,
                           adjustment, false);
   // Store the direct ripup cost on this element (non-zero only when this specific door
@@ -932,7 +932,7 @@ bool MazeSearchEngine::init(jrt::Set<Item*>* startItems, jrt::Set<Item*>* destin
   }
   // process the start items
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* startRooms =
-      new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   for (Item* currentItem : *startItems) {
     if (this->autorouteEngine->isStopRequested()) {
       return false;
@@ -952,7 +952,7 @@ bool MazeSearchEngine::init(jrt::Set<Item*>* startItems, jrt::Set<Item*>* destin
 
   // complete the start rooms
   jrt::Collection<CompleteFreeSpaceExpansionRoom*>* completedStartRooms =
-      new (jrt::kOp) jrt::LinkedList<CompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kSearch) jrt::LinkedList<CompleteFreeSpaceExpansionRoom*>();
 
   if (this->autorouteEngine->maintainDatabase) {
     // add the completed start rooms carried over from the last autoroute to the
@@ -996,7 +996,7 @@ bool MazeSearchEngine::init(jrt::Set<Item*>* startItems, jrt::Set<Item*>* destin
       double sortingValue =
           this->destinationDistance->calculate(currentCenter, currentRoom->getLayer());
       MazeListElement* newListElement =
-          new (jrt::kOp) MazeListElement(currentDoor, 0, nullptr, 0, 0, sortingValue, currentRoom, shapeEntry,
+          new (jrt::kSearch) MazeListElement(currentDoor, 0, nullptr, 0, 0, sortingValue, currentRoom, shapeEntry,
                               false, MazeSearchElement_Adjustment::NONE, false);
       mazeExpansionList->add(newListElement);
       startOk = true;

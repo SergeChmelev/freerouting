@@ -24,7 +24,7 @@ void ShapeTree::insert(ShapeTree_Storable* obj) {
   if (shapeCount <= 0) {
     return;
   }
-  auto* leafArr = new (jrt::kOp) jrt::Array<ShapeTree_Leaf*>(shapeCount);
+  auto* leafArr = new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(shapeCount);
   for (int32_t i = 0; i < shapeCount; i++) {
     (*leafArr)[i] = insert(obj, i);
   }
@@ -43,7 +43,7 @@ ShapeTree_Leaf* ShapeTree::insert(ShapeTree_Storable* object, int32_t index) {
     return nullptr;
   }
   // Construct a new KdLeaf and set it up
-  auto* newLeaf = new (jrt::kBoard) ShapeTree_Leaf(object, index, nullptr, boundingShape);
+  auto* newLeaf = new (jrt::kBoardData) ShapeTree_Leaf(object, index, nullptr, boundingShape);
   this->insert(newLeaf);
   return newLeaf;
 }
