@@ -182,7 +182,7 @@ BatchAutorouter* RoutingFallbackRunner::explore(RoutingJob* job, BatchAutorouter
     if (copy->clearanceBaseline == nullptr) {
       copy->clearanceBaseline = bestAttempt->board_->clearanceBaseline;
     }
-    BasicBoard::discard(input);  // stage E: the snapshot was only needed for the copy
+    BasicBoard::discard(input, "fallback");  // stage E: the snapshot was only needed for the copy
     if ("neighbourhood" == planned->kind()) {
       int32_t ripped = RetryNeighbourhood::ripNearOpenPins(copy, planned->tryNumber());
       job->logInfo("Exploration '" + planned->name() + "' ripped " + jrt::str(ripped) + " item(s) within " +

@@ -70,7 +70,7 @@ void BoardHistory::discardEntry(BoardHistory_BoardHistoryEntry* entry) {
   if (entry == nullptr) {
     return;
   }
-  BasicBoard::discard(entry->board);
+  BasicBoard::discard(entry->board, "history");
   jrt::dispose(entry);
 }
 

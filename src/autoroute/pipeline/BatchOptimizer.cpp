@@ -307,7 +307,7 @@ void BatchOptimizer::runBatchLoop() {
     return;
   }
 
-  BasicBoard::discard(this->bestBoard);  // (none: a new run)
+  BasicBoard::discard(this->bestBoard, "optimizer");  // (none: a new run)
   this->bestBoard = this->board->deepCopy();
   this->bestScore = initialOptimizerScore;
   this->bestIncompleteCount = initialIncomplete;
@@ -410,7 +410,7 @@ void BatchOptimizer::runBatchLoop() {
       this->bestClearanceViolationCount = passStats->clearanceViolations->totalCount.value();
       RoutingBoard* oldBest = this->bestBoard;
       this->bestBoard = this->board->deepCopy();
-      BasicBoard::discard(oldBest);  // the incumbent snapshot is private to the optimizer
+      BasicBoard::discard(oldBest, "optimizer");  // the incumbent snapshot is private to the optimizer
     } else {
       job->logInfo(
           jrt::format(
@@ -518,7 +518,7 @@ void BatchOptimizer::runBatchLoop() {
             finalViolations));
     restoreIncumbentBoard();
   }
-  BasicBoard::discard(this->bestBoard);
+  BasicBoard::discard(this->bestBoard, "optimizer");
   this->bestBoard = nullptr;
 
   nudgeVias();
@@ -679,7 +679,7 @@ void BatchOptimizer::dropBoard(RoutingBoard* old) {
       || (this->job != nullptr && old == this->job->board)) {
     return;
   }
-  BasicBoard::discard(old);
+  BasicBoard::discard(old, "optimizer");
 }
 
 std::optional<std::string> BatchOptimizer::optimizerCandidateRejectionReason(
@@ -1147,7 +1147,7 @@ BatchOptimizer_CandidateResult* BatchOptimizer::replayWinner(
         "Optimizer: replaying the winning candidate (item "
         + jrt::str(winner->result->itemId())
         + ") did not give the same result; the pass keeps the current board.");
-    BasicBoard::discard(replay->board);  // a kept board nobody takes
+    BasicBoard::discard(replay->board, "replay");  // a kept board nobody takes
     return nullptr;
   }
   return replay;
@@ -1261,7 +1261,10 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
       // Stage E: the worker board is dropped as a whole: its arena data goes with the arena,
       // its heap parts (board object, trees, item list map, search-tree info, engine) here,
       // before the arena is released (the teardown still reads arena nodes).
-      BasicBoard::discard(board);
+      if (board != nullptr && !BasicBoard::discardEnabled("candidate")) {
+        board->discardAutorouteEngineWithBoard();  // diagnostics: the pre-E7 teardown
+      }
+      BasicBoard::discard(board, "candidate");
       static const bool stats = std::getenv("FR_MEM_STATS") != nullptr;
       static int64_t count = 0;
       if (stats && board != nullptr && ++count % 20 == 1) {
@@ -1298,7 +1301,7 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
   // call ends, before its replay region is released.
   struct DropUnreturnedBoard {
     RoutingBoard* board = nullptr;
-    ~DropUnreturnedBoard() { BasicBoard::discard(board); }
+    ~DropUnreturnedBoard() { BasicBoard::discard(board, "replay"); }
   } dropUnreturned;
   if (!useCandidateArena) {
     dropUnreturned.board = workerBoard;

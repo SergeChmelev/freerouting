@@ -621,7 +621,9 @@ class BasicBoard : public virtual jrt::Object {
    * (rules, communication, item geometry caches). Nothing may use the board or its items
    * afterwards; never call it for the job's input board (owned by the caller).
    */
-  static void discard(BasicBoard* board);
+  static void discard(BasicBoard* board, const char* site = "other");
+  /** False when FR_NO_BOARD_DISCARD switches the drop site `site` off (diagnostics). */
+  static bool discardEnabled(const char* site);
   /** Diagnostics (FR_MEM_STATS): board copies made / freed by discard() so far. */
   static int64_t copiesMade();
   static int64_t copiesDiscarded();

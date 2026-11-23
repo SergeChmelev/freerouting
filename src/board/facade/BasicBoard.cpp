@@ -1,5 +1,8 @@
 // Port of app.freerouting.board.facade.BasicBoard
 #include "board/facade/BasicBoard.h"
+
+#include <cstdlib>
+#include <string>
 #include "geometry/planar/GeomCopy.h"
 
 #include "autoroute/maze/AutorouteControl.h"
@@ -1401,8 +1404,18 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
 int64_t BasicBoard::copiesMade() { return gCopiesMade; }
 int64_t BasicBoard::copiesDiscarded() { return gCopiesDiscarded; }
 
-void BasicBoard::discard(BasicBoard* board) {
-  if (board == nullptr) {
+bool BasicBoard::discardEnabled(const char* site) {
+  // Diagnostics: FR_NO_BOARD_DISCARD=all, or a list of drop sites (optimizer, candidate, replay,
+  // history, autoroute, fallback, other) keeps those boards (they leak as before stage E7).
+  static const std::string off = [] {
+    const char* e = std::getenv("FR_NO_BOARD_DISCARD");
+    return std::string(e != nullptr ? e : "");
+  }();
+  return off.empty() || (off != "all" && off.find(site) == std::string::npos);
+}
+
+void BasicBoard::discard(BasicBoard* board, const char* site) {
+  if (board == nullptr || !discardEnabled(site)) {
     return;
   }
   ++gCopiesDiscarded;
