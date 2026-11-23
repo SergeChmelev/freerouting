@@ -36,6 +36,9 @@ class ShoveCheckCache_Key final : public virtual jrt::Object {
 
   bool equals(jrt::Object* obj) override;
 
+  /** PORT NOTE (stage E): a copy on the heap (the global cache outlives operation regions). */
+  ShoveCheckCache_Key* heapCopy();
+
   int32_t hashCode() override { return hash; }
 };
 

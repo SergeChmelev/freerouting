@@ -218,8 +218,9 @@ class Array : public virtual Object {
       // is zero-filled: value-initialised trivial elements. Arena objects are never destroyed,
       // so heap storage of an array in an arena would leak.
       std::size_t bytes = sizeof(T) * static_cast<std::size_t>(n);
-      GeomRegion* r = current_geom_region();
-      if (r != nullptr && r->inHeadChunk(this)) return static_cast<T*>(r->allocate(bytes));
+      for (GeomRegion* r = current_geom_region(); r != nullptr; r = r->outer()) {
+        if (r->inHeadChunk(this)) return static_cast<T*>(r->allocate(bytes));
+      }
       Arena* a = current_search_arena();
       if (a != nullptr && a->inHeadChunk(this)) return static_cast<T*>(a->allocate(bytes));
       a = current_board_arena();

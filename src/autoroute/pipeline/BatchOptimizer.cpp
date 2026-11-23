@@ -1232,7 +1232,10 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
     jrt::Arena arena;
     jrt::GeomRegion region;
     RoutingBoard* board = nullptr;  // the worker board living in the arena
-    CandidateArena() { region.setCompanion(&arena); }
+    CandidateArena() {
+      region.setCompanion(&arena);
+      region.setTakesOps(true);  // stage E3: the candidate's temporaries die with it too
+    }
     ~CandidateArena() {
       if (board != nullptr) {
         board->discardAutorouteEngineWithBoard();
@@ -1317,6 +1320,8 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
     bool improved = result->improved() && keepBoard;
     workerBoardState->finish(improved);
     snapshotFinished = true;
+    jrt::HeapScope heap;  // the result outlives the candidate region
+    result = new (jrt::kOp) ItemRouteResult(*result);
     if (improved) {
       return new (jrt::kOp) BatchOptimizer_CandidateResult(result, workerBoard, position, cpuUsed, allocUsed);
     }

@@ -435,3 +435,37 @@ profiler by allocation site is the tool for that part. Direct leaks it found: el
 `jrt::Array`s that live in the search / board arenas (arena objects are never destroyed) — now
 taken from the same arena — and `std::vector` buffers of `jrt` collections inside arena objects
 (door lists of rooms: `FreeSpaceExpansionRoom::addDoor`), still open.
+
+## TODO (stage C/E)
+
+* **Live-memory profiler by allocation site** (no-GC build): LeakSanitizer reports only what is
+  unreachable at exit (bm02: 25 MB of 1.25 GB not freed), so the reachable remainder (undo
+  history, kept board copies, caches) needs its own tool. Plan: with `JRT_ALLOC_PROFILE` in
+  `nogc.cpp`, put the site slot in a 16-byte block header, subtract on free, dump live bytes by
+  site at exit (`block_size`/`is_heap_block` must then account for the header). heaptrack /
+  valgrind are not installed in WSL (needs sudo).
+* `std::vector` / `std::list` buffers of `jrt` collections inside arena objects (e.g. door lists
+  of rooms, `FreeSpaceExpansionRoom::addDoor`) leak when the arena is dropped: allocator-aware
+  collections (allocate from the arena that holds the collection).
+* Items: deferred disposal of removed items and their geometry (callers keep using an item after
+  `removeItem`; caches refer to items).
+* Performance after the migration: domain lookups (`DomainScope`, `keep`, chunk map) slowed long
+  boards down (Issue110-RelayModule 583 s, Issue178 > 900 s under load); compare with
+  `gc-port-baseline` once the migration is done.
+* Long-lived objects (rules, library, settings, DSN parse structures) and board teardown.
+* Remove the collector: drop `GcThreadScope`, `new_root`, the Boehm backend; LeakSanitizer clean.
+
+### E3 — operation regions take kOp too
+
+A region can take per-operation temporaries (`kOp`), not only geometry (`setTakesOps`); `kOp`
+goes to the nearest region from the current kGeom target outwards that takes it, so the
+connection searches and insertions inside a candidate put their temporaries into the
+candidate's region; `HeapScope` and `DomainScope` with a heap owner send kOp to the heap.
+`jrt::Array` storage follows an array in any enclosing region. Enabled for optimizer candidates
+(everything they allocate dies with them; the `ItemRouteResult` is copied to the heap).
+Escapes fixed: the global `ShoveCheckCache` stores heap copies of key and entry; the two
+function-local kOp statics are created with `onHeap`. bm02 no-GC leak 1.24 → 0.84 GB.
+
+Verification is now `tools/smoke.sh [tag]` (~1–2 minutes): bm02 plus the fixtures that Java
+routes within 12 s (40 boards) on the checked and the no-GC build; it prints only verdict
+counts and unexpected results (Issue006 / Issue179 and no-GC out-of-memory are expected).

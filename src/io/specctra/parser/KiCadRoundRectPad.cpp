@@ -10,11 +10,7 @@ namespace fr::dsn {
 std::regex* KiCadRoundRectPad::NAME() {
   // PORT NOTE: the unescaped ']' outside a character class of the Java pattern is written '\]'
   // (same meaning; std::regex ECMAScript is stricter).
-  static std::regex* v = new (jrt::kOp) std::regex(
-      "RoundRect\\[[^\\]]*\\](?:\\[[^\\]]*\\])?Pad_"
-      "(\\d+(?:\\.\\d*)?)x(\\d+(?:\\.\\d*)?)_(\\d+(?:\\.\\d*)?)_um_"
-      "(\\d+(?:\\.\\d*)?)_([0-9A-Fa-f]+)",
-      std::regex::ECMAScript);
+  static std::regex* v = jrt::onHeap([] { return new (jrt::kOp) std::regex( "RoundRect\\[[^\\]]*\\](?:\\[[^\\]]*\\])?Pad_" "(\\d+(?:\\.\\d*)?)x(\\d+(?:\\.\\d*)?)_(\\d+(?:\\.\\d*)?)_um_" "(\\d+(?:\\.\\d*)?)_([0-9A-Fa-f]+)", std::regex::ECMAScript); });
   return v;
 }
 

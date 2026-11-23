@@ -38,7 +38,14 @@ void ShoveCheckCache::put(RoutingBoard* board, int64_t contentStamp, ShoveCheckC
     board->getShoveCacheObstacles()->clear();
     return;
   }
-  entries->put(key, entry);
+  // PORT NOTE (stage E): the cache is global; key and entry may live in an operation region.
+  entries->put(key->heapCopy(), new (jrt::kBoard) ShoveCheckCache_Entry(*entry));
+}
+
+ShoveCheckCache_Key* ShoveCheckCache_Key::heapCopy() {
+  auto* copy = new (jrt::kBoard) ShoveCheckCache_Key(*this);
+  copy->coords = this->coords->clone();  // plain new: heap
+  return copy;
 }
 
 int32_t ShoveCheckCache::obstacleIndex(RoutingBoard* board, Item* obstacle) {

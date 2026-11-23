@@ -219,6 +219,11 @@ class GeomRegion {
   bool inHeadChunk(const void* p) const { return arena_.inHeadChunk(p); }
   bool active() const { return active_; }
   bool local() const { return local_; }
+  /** Operation regions also take kOp (per-operation temporaries), not only kGeom: everything
+   * the operation allocates dies with it except what is copied out. Inner regions that do not
+   * take kOp pass it to the nearest enclosing one that does. */
+  void setTakesOps(bool v) { takesOps_ = v; }
+  bool takesOps() const { return takesOps_; }
   GeomRegion* outer() const { return outer_; }
   /** The kGeom domain that was current when the region was activated (nullptr: the heap): where
    * results are copied out to. */
@@ -240,6 +245,7 @@ class GeomRegion {
   GeomRegion* outer_ = nullptr;    // enclosing active region while active
   GeomRegion* restore_ = nullptr;  // current region to restore when deactivated
   bool active_ = false;
+  bool takesOps_ = false;
 
  protected:
   bool local_ = false;  // a LocalGeomRegion
@@ -333,6 +339,15 @@ std::uint32_t geom_domain_of(const void* p);
 /** The active region with this id, or nullptr. */
 GeomRegion* active_geom_region(std::uint32_t id);
 
+/** kOp: the nearest region (from the current kGeom target outwards) that takes kOp, else the
+ * heap. HeapScope / DomainScope(heap owner) therefore send kOp to the heap as well. */
+inline void* op_alloc(std::size_t n) {
+  for (GeomRegion* r = current_geom_region(); r != nullptr; r = r->outer()) {
+    if (r->takesOps()) return r->allocate(n);
+  }
+  return ::operator new(n);
+}
+
 inline void* geom_alloc(std::size_t n) {
   GeomRegion* r = current_geom_region();
   return r != nullptr ? r->allocate(n) : ::operator new(n);
@@ -379,7 +394,7 @@ inline void dispose(T* p) noexcept {
 }  // namespace jrt
 
 inline void* operator new(std::size_t n, jrt::BoardLifetime) { return ::operator new(n); }
-inline void* operator new(std::size_t n, jrt::OpLifetime) { return ::operator new(n); }
+inline void* operator new(std::size_t n, jrt::OpLifetime) { return jrt::op_alloc(n); }
 inline void* operator new(std::size_t n, jrt::GeomLifetime) { return jrt::geom_alloc(n); }
 inline void* operator new(std::size_t n, jrt::SearchLifetime) { return jrt::search_alloc(n); }
 inline void* operator new(std::size_t n, jrt::BoardDataLifetime) { return jrt::board_data_alloc(n); }

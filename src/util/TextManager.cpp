@@ -103,7 +103,7 @@ std::string TextManager::convertInstantToString(int64_t instant, const std::stri
 std::string TextManager::generateRandomAlphanumericString(int32_t length) {
   std::string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   // PORT NOTE: ThreadLocalRandom -> a process-wide jrt::Random.
-  static jrt::Random* random = new (jrt::kOp) jrt::Random();
+  static jrt::Random* random = jrt::onHeap([] { return new (jrt::kOp) jrt::Random(); });
   std::string randomString;
   for (int32_t i = 0; i < length; i++) {
     int32_t index = jrt::d2i(static_cast<double>(characters.length()) * random->nextDouble());
