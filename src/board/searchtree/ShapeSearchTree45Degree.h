@@ -66,6 +66,12 @@ class ShapeSearchTree45Degree : public ShapeSearchTree {
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* restrainShape(
       IncompleteFreeSpaceExpansionRoom* incompleteRoom, IntOctagon* obstacleShape);
 
+  /** PORT NOTE: restrainShape appending its rooms to `result` (same rooms, same order) instead
+   * of returning a new collection per (recursive) call. */
+  void restrainShapeInto(IncompleteFreeSpaceExpansionRoom* incompleteRoom,
+                         IntOctagon* obstacleShape,
+                         jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>* result);
+
  public:
   /**
    * Intersects roomShape with the half plane defined by the outside of the borderline with index

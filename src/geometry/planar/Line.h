@@ -62,6 +62,9 @@ class Line : public virtual jrt::Object {
 
   /** Gets the direction of this directed line. */
   virtual Direction* direction();
+  /** PORT NOTE: the coordinates of direction() if it is an IntDirection, without creating (or
+   * caching) the direction object when it is not cached yet. False: use direction(). */
+  bool directionInts(int32_t& x, int32_t& y);
 
   /** Returns Side.ON_THE_LEFT, if this Line is on the left of point, Side.ON_THE_RIGHT, if this
    * Line is on the right of point, Side.COLLINEAR, if this Line contains point. */

@@ -255,6 +255,23 @@ Direction* Line::direction() {
   return dir;
 }
 
+bool Line::directionInts(int32_t& x, int32_t& y) {
+  if (dir != nullptr) {
+    auto* d = jrt::fast_cast<IntDirection>(dir);
+    if (d == nullptr) return false;
+    x = d->x;
+    y = d->y;
+    return true;
+  }
+  auto* ia = jrt::fast_cast<IntPoint>(a);
+  auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(b) : nullptr;
+  if (ib == nullptr) return false;
+  x = ib->x - ia->x;
+  y = ib->y - ia->y;
+  IntVector::normalizeDirectionCoordinates(x, y);
+  return true;
+}
+
 Side* Line::sideOf(Point* point) {
   Side* result = point->sideOf(this);
   return result->negate();
@@ -329,8 +346,30 @@ bool Line::overlaps(Line* other) {
 Line* Line::opposite() { return new (jrt::kGeom) Line(b, a); }
 
 Point* Line::intersection(Line* other) {
-  IntVector* delta1 = jrt::fast_cast<IntVector>(b->differenceBy(a));
-  IntVector* delta2 = jrt::fast_cast<IntVector>(other->b->differenceBy(other->a));
+  // PORT NOTE: the difference vectors of integer lines are local values (b - a, as
+  // IntPoint.differenceBy); they are only read below.
+  std::optional<IntVector> localDelta1;
+  std::optional<IntVector> localDelta2;
+  IntVector* delta1;
+  IntVector* delta2;
+  {
+    auto* ia = jrt::fast_cast<IntPoint>(a);
+    auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(b) : nullptr;
+    if (ib != nullptr) {
+      localDelta1.emplace(ib->x - ia->x, ib->y - ia->y);
+      delta1 = &*localDelta1;
+    } else {
+      delta1 = jrt::fast_cast<IntVector>(b->differenceBy(a));
+    }
+    auto* oa = jrt::fast_cast<IntPoint>(other->a);
+    auto* ob = oa != nullptr ? jrt::fast_cast<IntPoint>(other->b) : nullptr;
+    if (ob != nullptr) {
+      localDelta2.emplace(ob->x - oa->x, ob->y - oa->y);
+      delta2 = &*localDelta2;
+    } else {
+      delta2 = jrt::fast_cast<IntVector>(other->b->differenceBy(other->a));
+    }
+  }
   if (delta1->x == 0) {  // this line is vertical
     if (delta2->y == 0) {  // other line is horizontal
       return new (jrt::kGeom) IntPoint(jrt::fast_cast<IntPoint>(this->a)->x,
@@ -451,10 +490,8 @@ Line* Line::translate(double dist) {
   // PORT NOTE: the direction coordinates directly instead of a temporary getVector().
   int32_t vx;
   int32_t vy;
-  if (auto* d = jrt::fast_cast<IntDirection>(direction())) {
-    vx = d->x;
-    vy = d->y;
-  } else {
+  bool intDirection = directionInts(vx, vy);
+  if (!intDirection) {
     IntVector* v = jrt::fast_cast<IntVector>(direction()->getVector());
     vx = v->x;
     vy = v->y;
@@ -462,15 +499,23 @@ Line* Line::translate(double dist) {
   double vxvx = static_cast<double>(vx) * vx;
   double vyvy = static_cast<double>(vy) * vy;
   double length = jrt::Math::sqrt(vxvx + vyvy);
-  IntPoint* newA;
+  int32_t newAx;
+  int32_t newAy;
   if (vxvx <= vyvy) {
     int32_t relX = jrt::l2i(jrt::Math::round((dist * length) / vy));
-    newA = new (jrt::kGeom) IntPoint(ai->x - relX, ai->y);
+    newAx = ai->x - relX;
+    newAy = ai->y;
   } else {
     int32_t relY = jrt::l2i(jrt::Math::round((dist * length) / vx));
-    newA = new (jrt::kGeom) IntPoint(ai->x, ai->y + relY);
+    newAx = ai->x;
+    newAy = ai->y + relY;
   }
-  return Line::getInstance(newA, direction());
+  if (intDirection) {
+    // getInstance(newA, direction()) for an IntDirection: the line through newA and
+    // newA + (vx, vy), in one allocation.
+    return Line::ofInts(newAx, newAy, newAx + vx, newAy + vy);
+  }
+  return Line::getInstance(new (jrt::kGeom) IntPoint(newAx, newAy), direction());
 }
 
 Line* Line::translateBy(Vector* vector) {

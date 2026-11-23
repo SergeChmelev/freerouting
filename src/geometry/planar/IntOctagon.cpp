@@ -45,7 +45,7 @@ bool IntOctagon::isBounded() { return true; }
 
 bool IntOctagon::cornerIsBounded(int32_t no) { return true; }
 
-IntBox* IntOctagon::boundingBox() { return new (jrt::kGeom) IntBox(leftX, bottomY, rightX, topY); }
+IntBox* IntOctagon::boundingBox() { return IntBox::ofInts(leftX, bottomY, rightX, topY); }
 
 int32_t IntOctagon::dimension() {
   if (this == EMPTY() || this->isEmpty()) {

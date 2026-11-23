@@ -116,14 +116,16 @@ Vector* IntVector::changeLengthApprox(double length) {
 Direction* IntVector::toNormalizedDirection() { return normalizedDirection(x, y); }
 
 Direction* IntVector::normalizedDirection(int32_t x, int32_t y) {
-  int32_t dx = x;
-  int32_t dy = y;
+  normalizeDirectionCoordinates(x, y);
+  return new (jrt::kGeom) IntDirection(x, y);
+}
+
+void IntVector::normalizeDirectionCoordinates(int32_t& dx, int32_t& dy) {
   int32_t gcd = BigIntAux::binaryGcd(jrt::Math::abs(dx), jrt::Math::abs(dy));
   if (gcd > 1) {
     dx /= gcd;
     dy /= gcd;
   }
-  return new (jrt::kGeom) IntDirection(dx, dy);
 }
 
 }  // namespace fr

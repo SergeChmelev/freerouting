@@ -787,9 +787,20 @@ Simplex* Simplex::removeRedundantLines() {
       nextLine = (*lines)[nextInd];
 
       bool removeLine = false;
-      IntDirection* prevDir = jrt::fast_cast<IntDirection>(prevLine->direction());
-      IntDirection* nextDir = jrt::fast_cast<IntDirection>(nextLine->direction());
-      double det = prevDir->determinant(nextDir);
+      // PORT NOTE: direction coordinates without creating direction objects (same values as
+      // IntDirection.determinant on prevLine.direction() / nextLine.direction()).
+      int32_t prevDx, prevDy, nextDx, nextDy;
+      if (!prevLine->directionInts(prevDx, prevDy)) {
+        auto* d = jrt::fast_cast<IntDirection>(prevLine->direction());
+        prevDx = d->x;
+        prevDy = d->y;
+      }
+      if (!nextLine->directionInts(nextDx, nextDy)) {
+        auto* d = jrt::fast_cast<IntDirection>(nextLine->direction());
+        nextDx = d->x;
+        nextDy = d->y;
+      }
+      double det = static_cast<double>(prevDx) * nextDy - static_cast<double>(prevDy) * nextDx;
       if (det != 0) {  // prevLine and nextLine are not parallel
         if ((*intersectionSides)[ind] == nullptr) {
           // intersectionSides [ind] not precalculated
@@ -803,8 +814,13 @@ Simplex* Simplex::removeRedundantLines() {
         } else {  // direction of nextLine is smaller than direction of prevLine
 
           if ((*intersectionSides)[ind] == Side::ON_THE_LEFT()) {
-            IntDirection* currentDirection = jrt::fast_cast<IntDirection>(currentLine->direction());
-            if (prevDir->determinant(currentDirection) > 0) {
+            int32_t curDx, curDy;
+            if (!currentLine->directionInts(curDx, curDy)) {
+              auto* d = jrt::fast_cast<IntDirection>(currentLine->direction());
+              curDx = d->x;
+              curDy = d->y;
+            }
+            if (static_cast<double>(prevDx) * curDy - static_cast<double>(prevDy) * curDx > 0) {
               // direction of currentLine is bigger than direction of prevLine
               // the halfplane defined by currentLine does not intersect
               // with the simplex defined by prevLine and nex_line,

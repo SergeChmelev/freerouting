@@ -8,7 +8,7 @@
 # writes <out-prefix>.raw (offset count bytes caller) and <out-prefix>.txt (resolved).
 set -euo pipefail
 bin="$1"; out="$2"; dsn="$3"; top="${4:-60}"
-FR_ALLOC_PROFILE="$out.raw" FR_ALLOC_PROFILE_FP=1 "$bin" -q -de "$dsn" -do "$out.ses" > "$out.log" 2>&1
+FR_ALLOC_PROFILE="$out.raw" FR_ALLOC_PROFILE_FP="${FR_ALLOC_PROFILE_FP:-1}" "$bin" -q -de "$dsn" -do "$out.ses" > "$out.log" 2>&1
 total=$(awk '{c+=$2; b+=$3} END {printf "%d allocations, %.1f MB", c, b/1048576}' "$out.raw")
 head -n 20000 "$out.raw" > "$out.top"
 { cut -d' ' -f1 "$out.top"; cut -d' ' -f4 "$out.top"; } | sort -u | grep -v '^0x0$' | addr2line -f -C -i -e "$bin" -a > "$out.sym"

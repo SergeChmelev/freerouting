@@ -82,11 +82,13 @@ SiteSlot* site_table() {
 // Return address of the function that called the allocating function (needs frame pointers:
 // build with -fno-omit-frame-pointer; 0 otherwise / when unknown).
 __attribute__((noinline)) std::uintptr_t caller_of_site() {
-  static const bool enabled = std::getenv("FR_ALLOC_PROFILE_FP") != nullptr;
+  // FR_ALLOC_PROFILE_FP=N: record the caller N levels above the allocating function (1: its caller)
+  static const int levels = std::getenv("FR_ALLOC_PROFILE_FP") != nullptr ? std::atoi(std::getenv("FR_ALLOC_PROFILE_FP")) : 0;
+  static const bool enabled = levels > 0;
   if (!enabled) return 0;
   // frames: caller_of_site <- record_site <- operator new <- site function <- its caller
   void** fp = static_cast<void**>(__builtin_frame_address(0));
-  for (int i = 0; i < 3 && fp != nullptr; ++i) fp = static_cast<void**>(fp[0]);
+  for (int i = 0; i < 2 + levels && fp != nullptr; ++i) fp = static_cast<void**>(fp[0]);
   return fp != nullptr ? reinterpret_cast<std::uintptr_t>(fp[1]) : 0;
 }
 __attribute__((noinline)) void record_site(void* ra, std::size_t n) {

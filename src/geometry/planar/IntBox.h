@@ -34,6 +34,10 @@ class IntBox final : public RegularTileShape {
   /** Creates an IntBox from the coordinates of its lower-left and upper-right corners. */
   IntBox(int32_t lowerLeftX, int32_t lowerLeftY, int32_t upperRightX, int32_t upperRightY);
 
+  /** Same as new IntBox(llx, lly, urx, ury), but the box and its two corner points are one
+   * allocation (PORT NOTE, MEMORY_MODEL.md stage D). */
+  static IntBox* ofInts(int32_t llx, int32_t lly, int32_t urx, int32_t ury);
+
   std::string toString() override;
 
   bool isIntOctagon() override { return true; }

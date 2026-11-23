@@ -23,6 +23,10 @@ class FloatPoint : public virtual jrt::Object {
   /** Creates an instance of class FloatPoint from two doubles. */
   FloatPoint(double x, double y) : x(x), y(y) {}
 
+  /** PORT NOTE: coordinates of projectionApprox(line) for a line through integer points, without
+   * creating the point; false (nothing stored) for other lines. */
+  bool projectionApproxInts(Line* line, double& px, double& py);
+
   /** Creates a FloatPoint from an IntPoint. */
   explicit FloatPoint(IntPoint* pt);
 

@@ -309,12 +309,26 @@ jrt::Array<FloatPoint*>* TileShape::nearestBorderPointsApprox(FloatPoint* fromPo
   int32_t currentInd = lineCount - 1;
 
   for (int32_t nextInd = 0; nextInd < lineCount; nextInd++) {
-    FloatPoint* projection = fromPoint->projectionApprox(TempBorderLine(this, currentInd).get());
+    // PORT NOTE: the projection is computed as coordinates and only becomes a FloatPoint when it
+    // is stored as one of the nearest points (Line.sideOf(FloatPoint) == sideOfApprox(x, y, 0)).
+    double px;
+    double py;
+    FloatPoint* projection = nullptr;
+    {
+      TempBorderLine currentLine(this, currentInd);
+      if (!fromPoint->projectionApproxInts(currentLine.get(), px, py)) {
+        projection = fromPoint->projectionApprox(currentLine.get());
+        px = projection->x;
+        py = projection->y;
+      }
+    }
     if ((!cornerIsBounded(currentInd) ||
-         TempBorderLine(this, prevInd)->sideOf(projection) == Side::ON_THE_RIGHT()) &&
+         TempBorderLine(this, prevInd)->sideOfApprox(px, py, 0) == Side::ON_THE_RIGHT()) &&
         (!cornerIsBounded(nextInd) ||
-         TempBorderLine(this, nextInd)->sideOf(projection) == Side::ON_THE_RIGHT())) {
-      double currentDistance = projection->distanceSquare(fromPoint);
+         TempBorderLine(this, nextInd)->sideOfApprox(px, py, 0) == Side::ON_THE_RIGHT())) {
+      double ddx = fromPoint->x - px;
+      double ddy = fromPoint->y - py;
+      double currentDistance = ddx * ddx + ddy * ddy;
       for (int32_t j = 0; j < resultCount; j++) {
         if (currentDistance < (*minDists)[j]) {
           for (int32_t k = j + 1; k < resultCount; k++) {
@@ -322,7 +336,7 @@ jrt::Array<FloatPoint*>* TileShape::nearestBorderPointsApprox(FloatPoint* fromPo
             (*nearestPoints)[k] = (*nearestPoints)[k - 1];
           }
           (*minDists)[j] = currentDistance;
-          (*nearestPoints)[j] = projection;
+          (*nearestPoints)[j] = projection != nullptr ? projection : new (jrt::kGeom) FloatPoint(px, py);
           break;
         }
       }

@@ -210,28 +210,39 @@ FloatPoint* FloatPoint::subtract(FloatPoint* other) {
   return new (jrt::kGeom) FloatPoint(this->x - other->x, this->y - other->y);
 }
 
-FloatPoint* FloatPoint::projectionApprox(Line* line) {
-  // PORT NOTE: allocation-free fast path for integer lines: FloatLine.perpendicularProjection
-  // on (a.toFloat(), b.toFloat()) with the same arithmetic.
+bool FloatPoint::projectionApproxInts(Line* line, double& px, double& py) {
+  // FloatLine.perpendicularProjection on (a.toFloat(), b.toFloat()) with the same arithmetic.
   auto* ia = jrt::fast_cast<IntPoint>(line->a);
   auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(line->b) : nullptr;
-  if (ib != nullptr) {
-    double ax = ia->x;
-    double ay = ia->y;
-    double bx = ib->x;
-    double by = ib->y;
-    double dx = bx - ax;
-    double dy = by - ay;
-    if (dx == 0 && dy == 0) {
-      return new (jrt::kGeom) FloatPoint(ax, ay);
-    }
-    double dxdx = dx * dx;
-    double dydy = dy * dy;
-    double dxdy = dx * dy;
-    double denominator = dxdx + dydy;
-    double det = ax * by - bx * ay;
-    double px = (this->x * dxdx + this->y * dxdy + det * dy) / denominator;
-    double py = (this->x * dxdy + this->y * dydy - det * dx) / denominator;
+  if (ib == nullptr) {
+    return false;
+  }
+  double ax = ia->x;
+  double ay = ia->y;
+  double bx = ib->x;
+  double by = ib->y;
+  double dx = bx - ax;
+  double dy = by - ay;
+  if (dx == 0 && dy == 0) {
+    px = ax;
+    py = ay;
+    return true;
+  }
+  double dxdx = dx * dx;
+  double dydy = dy * dy;
+  double dxdy = dx * dy;
+  double denominator = dxdx + dydy;
+  double det = ax * by - bx * ay;
+  px = (this->x * dxdx + this->y * dxdy + det * dy) / denominator;
+  py = (this->x * dxdy + this->y * dydy - det * dx) / denominator;
+  return true;
+}
+
+FloatPoint* FloatPoint::projectionApprox(Line* line) {
+  // PORT NOTE: allocation-free computation for integer lines (projectionApproxInts).
+  double px;
+  double py;
+  if (projectionApproxInts(line, px, py)) {
     return new (jrt::kGeom) FloatPoint(px, py);
   }
   FloatLine* floatLine = new (jrt::kGeom) FloatLine(line->a->toFloat(), line->b->toFloat());

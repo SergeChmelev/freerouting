@@ -28,6 +28,16 @@ IntBox::IntBox(int32_t lowerLeftX, int32_t lowerLeftY, int32_t upperRightX,
                int32_t upperRightY)
     : ll(new (jrt::kGeom) IntPoint(lowerLeftX, lowerLeftY)), ur(new (jrt::kGeom) IntPoint(upperRightX, upperRightY)) {}
 
+IntBox* IntBox::ofInts(int32_t llx, int32_t lly, int32_t urx, int32_t ury) {
+  // One block: [IntBox][IntPoint ll][IntPoint ur]; interior pointers keep the block alive.
+  static_assert(sizeof(IntBox) % alignof(IntPoint) == 0);
+  constexpr std::size_t kBox = sizeof(IntBox);
+  char* mem = static_cast<char*>(::operator new(kBox + 2 * sizeof(IntPoint), jrt::kGeom));
+  IntPoint* lowerLeft = new (mem + kBox) IntPoint(llx, lly);
+  IntPoint* upperRight = new (mem + kBox + sizeof(IntPoint)) IntPoint(urx, ury);
+  return new (mem) IntBox(lowerLeft, upperRight);
+}
+
 std::string IntBox::toString() {
   return "IntBox(ll=" + jrt::str(ll) + ", ur=" + jrt::str(ur) + ")";
 }

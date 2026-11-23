@@ -70,6 +70,8 @@ class IntVector : public Vector {
   Direction* toNormalizedDirection() override;
   /** toNormalizedDirection() of the vector (x, y), without creating the vector. */
   static Direction* normalizedDirection(int32_t x, int32_t y);
+  /** The coordinates of normalizedDirection(x, y), in place. */
+  static void normalizeDirectionCoordinates(int32_t& x, int32_t& y);
 };
 
 }  // namespace fr

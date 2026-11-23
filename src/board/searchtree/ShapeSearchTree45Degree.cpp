@@ -26,6 +26,34 @@ namespace fr {
 
 namespace {
 
+/** Accumulates IntOctagon.union_ of several octagons, starting at IntOctagon.EMPTY(). */
+struct OctagonUnion {
+  IntOctagon* empty = IntOctagon::EMPTY();
+  int32_t lx = empty->leftX, ly = empty->bottomY, rx = empty->rightX, uy = empty->topY;
+  int32_t ulx = empty->upperLeftDiagonalX, lrx = empty->lowerRightDiagonalX;
+  int32_t llx = empty->lowerLeftDiagonalX, urx = empty->upperRightDiagonalX;
+  bool any = false;
+
+  void add(IntOctagon* o) {
+    lx = jrt::Math::min(lx, o->leftX);
+    ly = jrt::Math::min(ly, o->bottomY);
+    rx = jrt::Math::max(rx, o->rightX);
+    uy = jrt::Math::max(uy, o->topY);
+    ulx = jrt::Math::min(ulx, o->upperLeftDiagonalX);
+    lrx = jrt::Math::max(lrx, o->lowerRightDiagonalX);
+    llx = jrt::Math::min(llx, o->lowerLeftDiagonalX);
+    urx = jrt::Math::max(urx, o->upperRightDiagonalX);
+    any = true;
+  }
+  IntOctagon* get() const {
+    return any ? new (jrt::kGeom) IntOctagon(lx, ly, rx, uy, ulx, lrx, llx, urx) : empty;
+  }
+};
+
+}  // namespace
+
+namespace {
+
 /** Java `finally { releaseScratchStack(stack); }`. */
 struct ReleaseStackOnExit45 {
   ArrayStack<ShapeTree_TreeNode*>* stack;
@@ -203,9 +231,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
                 continue;
               }
             }
-            jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newResult =
-                new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
-            IntOctagon* newBoundingShape = IntOctagon::EMPTY();
+            auto* newResult = new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+            // PORT NOTE: the union of the new room shapes is accumulated as coordinates and created
+            // once (same values as the chain of IntOctagon.union_ calls starting at EMPTY).
+            OctagonUnion newBoundingShape;
             bool hadRoomsBeforeObstacle = !result->isEmpty();
             for (IncompleteFreeSpaceExpansionRoom* currentRoom : *result) {
               IntOctagon* currentShape = jrt::fast_cast<IntOctagon>(currentRoom->getShape());
@@ -224,7 +253,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
                     // 2-dim overlap-door with the fromRoom.
                     if (!ignoreShape->contains(static_cast<TileShape*>(currentShape))) {
                       newResult->add(currentRoom);
-                      newBoundingShape = newBoundingShape->union_(currentShape);
+                      newBoundingShape.add(currentShape);
                     }
                     continue;
                   }
@@ -233,13 +262,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
                   traceCompleteShapeDecision(debugStep, netNumber, roomLayer, "RESTRAIN",
                                              overlaps, currentShape, currentObjectShape);
                 }
-                jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRestrainedShapes =
-                    restrainShape(currentRoom, currentObjectShape);
-                newResult->addAll(newRestrainedShapes);
-
-                for (IncompleteFreeSpaceExpansionRoom* tmpShape : *newRestrainedShapes) {
-                  newBoundingShape =
-                      newBoundingShape->union_(jrt::fast_cast<IntOctagon>(tmpShape->getShape()));
+                int32_t firstRestrained = newResult->size();
+                restrainShapeInto(currentRoom, currentObjectShape, newResult);
+                for (int32_t k = firstRestrained; k < newResult->size(); ++k) {
+                  newBoundingShape.add(jrt::fast_cast<IntOctagon>(newResult->get(k)->getShape()));
                 }
               } else {
                 if (debugAnchor) {
@@ -247,7 +273,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
                                              overlaps, currentShape, currentObjectShape);
                 }
                 newResult->add(currentRoom);
-                newBoundingShape = newBoundingShape->union_(currentShape);
+                newBoundingShape.add(currentShape);
               }
             }
             if (hadRoomsBeforeObstacle && newResult->isEmpty()) {
@@ -268,7 +294,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
               // Stop the walk early rather than continuing to pop and reject remaining nodes.
               break;
             }
-            boundingShape = newBoundingShape;
+            boundingShape = newBoundingShape.get();
           }
           if (debugAnchor) {
             debugStep++;
@@ -308,6 +334,14 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::div
 
 jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::restrainShape(
     IncompleteFreeSpaceExpansionRoom* incompleteRoom, IntOctagon* obstacleShape) {
+  auto* result = new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+  restrainShapeInto(incompleteRoom, obstacleShape, result);
+  return result;
+}
+
+void ShapeSearchTree45Degree::restrainShapeInto(
+    IncompleteFreeSpaceExpansionRoom* incompleteRoom, IntOctagon* obstacleShape,
+    jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>* result) {
   // Search the edge line of obstacleShape, so that shapeToBeContained
   // are on the right side of this line, and that the line segment
   // intersects with the interior of shape.
@@ -316,13 +350,11 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
   // Then intersect shape with the halfplane defined by the
   // opposite of this line.
 
-  jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
 
   TileShape* containedShape = incompleteRoom->getContainedShape();
   if (containedShape == nullptr || containedShape->isEmpty()) {
     FRLogger::debug("ShapeSearchTree45Degree.restrain_shape: shapeToBeContained is empty");
-    return result;
+    return;
   }
   IntOctagon* shapeToBeContained;
   if (containedShape->isIntOctagon()) {
@@ -331,11 +363,11 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
     shapeToBeContained = containedShape->boundingOctagon();
     if (shapeToBeContained == nullptr) {
       FRLogger::warn("restrain_shape: cannot convert Simplex to IntOctagon");
-      return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      return;
     }
   } else {
     FRLogger::warn("restrain_shape: incompatible shape type");
-    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return;
   }
 
   IntOctagon* roomShape;
@@ -345,11 +377,11 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
     roomShape = incompleteRoom->getShape()->boundingOctagon();
     if (roomShape == nullptr) {
       FRLogger::warn("restrain_shape: cannot convert room shape Simplex to IntOctagon");
-      return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      return;
     }
   } else {
     FRLogger::warn("restrain_shape: unsupported room shape type");
-    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return;
   }
 
   double cutLineDistance = -1;
@@ -369,7 +401,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
         calcOutsideRestrainedShape(obstacleShape, restrainingLineNo, roomShape);
     result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(restrainedShape, incompleteRoom->getLayer(),
                                                      shapeToBeContained));
-    return result;
+    return;
   }
 
   // There is no cut line, so that all shapeToBeContained is
@@ -377,7 +409,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
   // at least part of shapeToBeContained is on the right side.
   if (shapeToBeContained->dimension() < 1) {
     // There is already a completed expansion room around shapeToBeContained.
-    return result;
+    return;
   }
 
   restrainingLineNo = -1;
@@ -394,7 +426,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
   if (restrainingLineNo < 0) {
     // cut line not found, parts or the whole of shape may be already
     // occupied from somewhere else.
-    return result;
+    return;
   }
   IntOctagon* restrainedShape =
       calcOutsideRestrainedShape(obstacleShape, restrainingLineNo, roomShape);
@@ -412,10 +444,9 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::res
     if (restShapeToBeContained->dimension() >= 0) {
       IncompleteFreeSpaceExpansionRoom* restIncompleteRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
           restPiece, incompleteRoom->getLayer(), restShapeToBeContained);
-      result->addAll(restrainShape(restIncompleteRoom, obstacleShape));
+      restrainShapeInto(restIncompleteRoom, obstacleShape, result);
     }
   }
-  return result;
 }
 
 IntOctagon* ShapeSearchTree45Degree::calcOutsideRestrainedShape(IntOctagon* obstacleShape,
