@@ -78,6 +78,10 @@ RoutingBoard* RoutingBoardUndoFacade::deepCopy() {
   boardCopy->finishAutoroute();
   // The copy has the same incomplete counts: no need to count every net again.
   boardCopy->routingLedger()->seed(ledgerCounts);
+  // Stage E: copy temporaries (the memos were adopted by the copied planes).
+  jrt::disposeMapAndEntries(itemMap);
+  jrt::dispose(writtenPlanes);
+  jrt::dispose(planeMemos);
   return boardCopy;
 }
 

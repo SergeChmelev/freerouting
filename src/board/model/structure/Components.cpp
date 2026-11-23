@@ -46,6 +46,7 @@ Components* Components::deepCopy() {
                                                    : jrt::fast_cast<Component>(mapObject(component)));
   }
   result->flipStyleRotateFirst = this->flipStyleRotateFirst;
+  jrt::disposeMapAndEntries(copies);  // stage E: copy temporary
   return result;
 }
 

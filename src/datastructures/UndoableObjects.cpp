@@ -106,6 +106,7 @@ UndoableObjects* UndoableObjects::copyMapped(
     copy->undoObject = getCopy(original->undoObject);
     copy->redoObject = getCopy(original->redoObject);
   }
+  jrt::disposeMapAndEntries(nodeCopies);  // stage E: copy temporary
   return result;
 }
 

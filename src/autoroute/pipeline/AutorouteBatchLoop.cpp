@@ -81,6 +81,7 @@ bool AutorouteBatchLoop::run() {
   RoutingBoard* const loopInputBoard = router->board;
   auto dropReplacedBoard = [&](RoutingBoard* old) {
     if (old != nullptr && old != loopInputBoard && old != router->board && old != job->board) {
+      router->forgetPassItems();  // they may hold items of `old`
       BasicBoard::discard(old, "autoroute");
     }
   };

@@ -1399,6 +1399,7 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
   // padstack on use; a stale precalculatedMinWidth of the source is not carried over) and the
   // cached DrillItem center of a Pin (recomputed lazily from the deep-copied component).
   // Via.padstack stays the source's object, which is correct because the library is shared.
+  jrt::disposeMapAndEntries(memo);  // stage E: copy temporary (keys are the source's items)
 }
 
 int64_t BasicBoard::copiesMade() { return gCopiesMade; }
@@ -1425,6 +1426,10 @@ void BasicBoard::discard(BasicBoard* board, const char* site) {
 
 void BasicBoard::releaseOwnedData() {
   BoardStatisticsBoundsCalculator::forget(this);
+  // The copy's rules are not freed yet: drop their back link to this board.
+  if (rules != nullptr && rules->nets != nullptr && rules->nets->getBoard() == this) {
+    rules->nets->setBoard(nullptr);
+  }
   // Trees first: their leaves are referenced by the items' leaf arrays, never read again.
   if (searchTreeManager != nullptr) {
     searchTreeManager->disposeTrees();

@@ -397,7 +397,8 @@ BoardRules* BoardRules::deepCopy() {
   };
 
   // --- via infos ---
-  auto* viaInfoMap = new (jrt::kOp) IdMap<ViaInfo*, ViaInfo*>();
+  IdMap<ViaInfo*, ViaInfo*> viaInfoMapStore;  // local (stage E)
+  auto* viaInfoMap = &viaInfoMapStore;
   BoardRules* self = this;
   auto mapViaInfo = [viaInfoMap, self, copy](ViaInfo* v) -> ViaInfo* {
     if (v == nullptr) {
@@ -418,7 +419,8 @@ BoardRules* BoardRules::deepCopy() {
   }
 
   // --- via rules ---
-  auto* viaRuleMap = new (jrt::kOp) IdMap<ViaRule*, ViaRule*>();
+  IdMap<ViaRule*, ViaRule*> viaRuleMapStore;  // local (stage E)
+  auto* viaRuleMap = &viaRuleMapStore;
   auto mapViaRule = [viaRuleMap, mapViaInfo](ViaRule* r) -> ViaRule* {
     if (r == nullptr) {
       return nullptr;
@@ -442,9 +444,10 @@ BoardRules* BoardRules::deepCopy() {
   }
 
   // --- net classes ---
-  auto* itemClassesMap =
-      new (jrt::kOp) IdMap<DefaultItemClearanceClasses*, DefaultItemClearanceClasses*>();
-  auto* netClassMap = new (jrt::kOp) IdMap<NetClass*, NetClass*>();
+  IdMap<DefaultItemClearanceClasses*, DefaultItemClearanceClasses*> itemClassesMapStore;  // local (stage E)
+  auto* itemClassesMap = &itemClassesMapStore;
+  IdMap<NetClass*, NetClass*> netClassMapStore;  // local (stage E)
+  auto* netClassMap = &netClassMapStore;
   auto mapNetClass = [netClassMap, itemClassesMap, mapViaRule,
                       mapMatrix](NetClass* nc) -> NetClass* {
     if (nc == nullptr) {
@@ -491,7 +494,8 @@ BoardRules* BoardRules::deepCopy() {
   copy->nets->board = this->nets->board;  // re-pointed by the caller
   Nets* srcNets = this->nets;
   Nets* dstNets = copy->nets;
-  auto* netMap = new (jrt::kOp) IdMap<Net*, Net*>();
+  IdMap<Net*, Net*> netMapStore;  // local (stage E)
+  auto* netMap = &netMapStore;
   auto mapNet = [netMap, srcNets, dstNets, mapNetClass](Net* n) -> Net* {
     if (n == nullptr) {
       return nullptr;
@@ -510,7 +514,8 @@ BoardRules* BoardRules::deepCopy() {
   }
 
   // --- differential pairs ---
-  auto* pairMap = new (jrt::kOp) IdMap<DifferentialPair*, DifferentialPair*>();
+  IdMap<DifferentialPair*, DifferentialPair*> pairMapStore;  // local (stage E)
+  auto* pairMap = &pairMapStore;
   auto mapPair = [pairMap, mapNet](DifferentialPair* p) -> DifferentialPair* {
     if (p == nullptr) {
       return nullptr;
