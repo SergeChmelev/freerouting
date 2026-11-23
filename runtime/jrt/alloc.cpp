@@ -129,6 +129,11 @@ void Arena::refill(std::size_t n) {
   c->size = size;
   c->next = head_;
   head_ = c;
+  {
+    std::pair<const char*, const char*> r{data(c), data(c) + size};
+    ranges_.insert(std::upper_bound(ranges_.begin(), ranges_.end(), r), r);
+  }
+  if (chunkHook_ != nullptr) chunkHook_(data(c), data(c) + size, true);
   cur_ = data(c);
   end_ = cur_ + size;
   std::size_t live = g_live.fetch_add(size, std::memory_order_relaxed) + size;
@@ -139,6 +144,16 @@ void Arena::refill(std::size_t n) {
 
 std::size_t Arena::bytesAllocated() const {
   return head_ == nullptr ? 0 : fullBytes_ + static_cast<std::size_t>(cur_ - data(head_));
+}
+
+bool Arena::contains(const void* p) const {
+  // Whole chunk ranges (the unused tail of the head chunk counts too: nothing points there).
+  auto* q = static_cast<const char*>(p);
+  auto it = std::upper_bound(ranges_.begin(), ranges_.end(), std::pair<const char*, const char*>{q, nullptr},
+                             [](const auto& a, const auto& b) { return a.first < b.first; });
+  if (it == ranges_.begin()) return false;
+  --it;
+  return q >= it->first && q < it->second;
 }
 
 void Arena::release() {
@@ -169,6 +184,10 @@ void Arena::release() {
     c = next;
   }
   head_ = nullptr;
+  if (chunkHook_ != nullptr) {
+    for (auto& r : ranges_) chunkHook_(r.first, r.second, false);
+  }
+  ranges_.clear();
   cur_ = end_ = nullptr;
   fullBytes_ = 0;
 }
@@ -176,6 +195,10 @@ void Arena::release() {
 void Arena::abandon() {
   for (Chunk* c = head_; c != nullptr; c = c->next) g_live.fetch_sub(c->size, std::memory_order_relaxed);
   head_ = nullptr;
+  if (chunkHook_ != nullptr) {
+    for (auto& r : ranges_) chunkHook_(r.first, r.second, false);
+  }
+  ranges_.clear();
   cur_ = end_ = nullptr;
   fullBytes_ = 0;
 }
@@ -440,6 +463,12 @@ void dispose_check_register(void*, const char*) {}
 #endif
 
 }  // namespace
+
+#if !JRT_NO_GC
+/** Diagnostics (region check): is the heap block held by static data through at most four
+ * heap blocks? False means only a thread stack keeps it (a dead object). Marks must be valid. */
+bool debug_is_rooted(void* block) { return is_rooted(block); }
+#endif
 
 #if JRT_NO_GC
 // Every pointer outside the arenas is taken to be a separate heap block: dispose() is only

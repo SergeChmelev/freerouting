@@ -149,6 +149,7 @@ jrt::Array<TileShape*>* PolylineArea::splitToConvex() { return splitToConvex(nul
 
 jrt::Array<TileShape*>* PolylineArea::splitToConvex(Stoppable* stoppableThread) {
   if (precalculatedConvexPieces == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     jrt::Array<TileShape*>* convexBorderPieces = borderShape->splitToConvex();
     if (convexBorderPieces == nullptr) {
       return nullptr;

@@ -159,7 +159,7 @@ jrt::List<FloatPoint*>* ringToPoints(const GEOSGeometry* ring) {
 }  // namespace
 
 PlanarArea* PlanarArea::EMPTY() {
-  static PlanarArea* v = new (jrt::kGeom) PlanarArea(wrap(createEmptyPolygon()));
+  static PlanarArea* v = jrt::onHeap([] { return new (jrt::kGeom) PlanarArea(wrap(createEmptyPolygon())); });
   return v;
 }
 

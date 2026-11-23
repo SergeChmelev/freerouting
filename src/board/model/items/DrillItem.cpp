@@ -1,5 +1,6 @@
 // Port of app.freerouting.board.model.items.DrillItem.
 #include "board/model/items/DrillItem.h"
+#include "geometry/planar/GeomCopy.h"
 
 #include "board/facade/BasicBoard.h"
 #include "board/model/items/ConductionArea.h"
@@ -29,7 +30,7 @@ namespace fr {
 DrillItem::DrillItem(Point* center, jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex,
                      int32_t id, int32_t groupId, FixedState fixedState, BasicBoard* board)
     : Item(netNumbers, clearanceClassIndex, id, groupId, fixedState, board) {
-  this->center = center == nullptr ? nullptr : center->toIntegerExact();
+  this->center = geomcopy::keep(center == nullptr ? nullptr : center->toIntegerExact());
 }
 
 void DrillItem::translateBy(Vector* vector) {
@@ -49,7 +50,7 @@ void DrillItem::turn90Degree(int32_t factor, IntPoint* pole) {
 void DrillItem::rotateApprox(double angleInDegree, FloatPoint* pole) {
   if (center != nullptr) {
     FloatPoint* newCenter = center->toFloat()->rotate(jrt::Math::toRadians(angleInDegree), pole);
-    this->center = newCenter->round();
+    this->center = geomcopy::keep(newCenter->round());
   }
   this->clearDerivedData();
 }
@@ -177,7 +178,7 @@ double DrillItem::smallestRadius() {
 }
 
 void DrillItem::setCenter(Point* center) {
-  this->center = center == nullptr ? nullptr : center->toIntegerExact();
+  this->center = geomcopy::keep(center == nullptr ? nullptr : center->toIntegerExact());
 }
 
 TileShape* DrillItem::getTreeShapeOnLayer(ShapeSearchTree* tree, int32_t layer) {

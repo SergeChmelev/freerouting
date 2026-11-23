@@ -359,3 +359,38 @@ than 3.5 GB), plus the two old failures. bm02: SES identical, 2.85 GB leaked (pe
 So explicit freeing is functionally sound; what is left is ownership of everything else,
 ordered by leaked volume (geometry first: `Line::ofInts`, octagon results, simplices; then
 the result collections of search-tree queries).
+
+### E1 — geometry regions ("region + copy")
+
+Chosen 2026-11-23 over intrusive ref-counting (which would change ~1100 geometry-returning
+functions, ~130 fields and ~900 array uses in 333 files). Immutable geometry (`kGeom`) of an
+operation lives in a `jrt::GeomRegion` (an arena) and is dropped with it; whatever must outlive
+the operation is copied out into the holder's domain.
+
+* `GeomRegion` + `GeomRegionScope` (activate, nesting) / `LocalGeomRegion` (active for its own
+  lifetime, released at the end). `kGeom` allocates in the current region, else on the heap.
+  `jrt::Array` storage follows the array object (region or heap; the destructor frees heap
+  storage, so disposed arrays no longer leak their elements).
+* Domain rule: an object fills lazy caches and stores computed geometry in its own domain —
+  `jrt::DomainScope(owner)` selects the active region that owns `owner` (a region also owns the
+  objects of its *companion* arena, e.g. the search arena), else the heap. Applied to every
+  `precalculated*` / `dir` cache of geometry and items (30 sites, by pattern), the exact-copper
+  cache of drill items, and `MinAreaTree` insert/remove (inner-node bounding unions belong to
+  the tree, not to the search that inserts a room). Function-local geometry singletons
+  (`EMPTY()`, directions, `Side` constants: 21) are created with `jrt::onHeap`.
+* Copy-out: `geometry/planar/GeomCopy.h` (`geomcopy::tileShape/octagon/line/point/intPoints`;
+  copies only objects inside the given region, aborts on an unhandled shape type).
+* Regions so far: `ShapeSearchTree45Degree::completeShape` (local; result room shapes copied
+  out) and the **search region** of each `AutorouteEngine` (companion of its search arena,
+  active exactly when the arena is; released with it, arena first). The found connection's
+  corners are copied out before the inserter puts them into board items.
+* Diagnostics: `FR_REGION_CHECK=N` (GC build) scans the live heap and statics for pointers into
+  every N-th local region and every search region at release and prints the holders (vtable as
+  `exe+offset`, resolved with `nm -C`; for buffers the chain of holders). Known noise: removed
+  tree nodes and leaves left in a live board arena (stale memory, never read), dead objects kept
+  by stale stack slots (marked `[dead holder]`). `FR_NO_GEOM_REGION=1` disables all regions,
+  `=2` only the non-local ones. Checked builds poison released region memory, so a missed
+  escape shows up as a crash or SES difference.
+
+bm02 (no-GC build): leaked 2.85 GB → 2.08 GB, SES identical in the release, checked and no-GC
+builds.

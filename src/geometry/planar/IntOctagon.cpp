@@ -30,9 +30,7 @@ jrt::Array<TileShape*>* toTileShapeArray(jrt::Array<IntOctagon*>* arr) {
 }  // namespace
 
 IntOctagon* IntOctagon::EMPTY() {
-  static IntOctagon* v =
-      new (jrt::kGeom) IntOctagon(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT,
-                     Limits::CRIT_INT, -Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT);
+  static IntOctagon* v = jrt::onHeap([] { return new (jrt::kGeom) IntOctagon(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT); });
   return v;
 }
 
@@ -510,6 +508,7 @@ Simplex* IntOctagon::toSimplex() {
     return Simplex::EMPTY();
   }
   if (precalculatedToSimplex == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     auto* lines = new (jrt::kGeom) jrt::Array<Line*>(8);
     for (int32_t i = 0; i < 8; i++) {
       (*lines)[i] = borderLine(i);

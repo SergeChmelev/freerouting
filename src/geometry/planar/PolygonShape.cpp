@@ -261,6 +261,7 @@ RegularTileShape* PolygonShape::boundingShape(ShapeBoundingDirections* dirs) {
 
 IntBox* PolygonShape::boundingBox() {
   if (precalculatedBoundingBox == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     double llx = jrt::Integer::MAX_VALUE;
     double lly = jrt::Integer::MAX_VALUE;
     double urx = jrt::Integer::MIN_VALUE;
@@ -283,6 +284,7 @@ IntBox* PolygonShape::boundingBox() {
 
 IntOctagon* PolygonShape::boundingOctagon() {
   if (precalculatedBoundingOctagon == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     double lx = jrt::Integer::MAX_VALUE;
     double ly = jrt::Integer::MAX_VALUE;
     double rx = jrt::Integer::MIN_VALUE;
@@ -525,6 +527,7 @@ void PolygonShape::reuseConvexPiecesOf(PolygonShape* source) {
 
 jrt::Array<TileShape*>* PolygonShape::splitToConvex() {
   if (this->precalculatedConvexPieces == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // not yet precalculated
     // use a fixed seed to get reproducible result
     randomGenerator()->setSeed(seed);

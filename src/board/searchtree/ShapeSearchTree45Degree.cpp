@@ -1,6 +1,8 @@
 // Port of app.freerouting.board.searchtree.ShapeSearchTree45Degree
 #include "board/searchtree/ShapeSearchTree45Degree.h"
 
+#include "geometry/planar/GeomCopy.h"
+
 #include "autoroute/expansion/CompleteFreeSpaceExpansionRoom.h"
 #include "autoroute/expansion/IncompleteFreeSpaceExpansionRoom.h"
 #include "board/facade/BasicBoard.h"
@@ -132,7 +134,17 @@ double ShapeSearchTree45Degree::signedLineDistance(IntOctagon* obstacleShape,
 jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::completeShape(
     IncompleteFreeSpaceExpansionRoom* room, int32_t netNumber, SearchTreeObject* ignoreObject,
     TileShape* ignoreShape) {
-  return completeShapeUnlocked(room, netNumber, ignoreObject, ignoreShape);
+  // PORT NOTE (stage E, "region + copy"): the restraining geometry is temporary; only the shapes
+  // of the resulting rooms leave the region (copied into the caller's domain).
+  jrt::LocalGeomRegion region;
+  jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
+      completeShapeUnlocked(room, netNumber, ignoreObject, ignoreShape);
+  jrt::GeomTarget out(region.enclosing());
+  for (IncompleteFreeSpaceExpansionRoom* resultRoom : *result) {
+    resultRoom->setShape(geomcopy::tileShape(resultRoom->getShape(), region));
+    resultRoom->setContainedShape(geomcopy::tileShape(resultRoom->getContainedShape(), region));
+  }
+  return result;
 }
 
 jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::completeShapeUnlocked(

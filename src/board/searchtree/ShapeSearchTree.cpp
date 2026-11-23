@@ -817,6 +817,8 @@ ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_
       (*cache)[index] != nullptr && (*cache)[index]->treeShape == treeShape) {
     return (*cache)[index]->copper;
   }
+  // PORT NOTE (stage E): the result is cached in the item: compute it in the item's domain.
+  jrt::DomainScope domain(drillItem);
   Shape* shape = drillItem->getShape(index);
   if (shape == nullptr) {
     shape = drillHoleObstacle(drillItem);

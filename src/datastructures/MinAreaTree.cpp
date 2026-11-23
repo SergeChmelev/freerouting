@@ -117,6 +117,9 @@ void MinAreaTree::collectOverlapsUnlocked(RegularTileShape* shape,
 void MinAreaTree::insert(ShapeTree_Leaf* leaf) { insertUnlocked(leaf); }
 
 void MinAreaTree::insertUnlocked(ShapeTree_Leaf* leaf) {
+  // PORT NOTE (stage E): inner-node bounding shapes belong to the tree, not to the operation
+  // (a search region) that inserts a leaf.
+  jrt::DomainScope domain(this);
   ++this->leafCount;
 
   // Tree is empty - just insert the new leaf
@@ -219,6 +222,7 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
   if (leaf->parent == nullptr && root != leaf) {
     return;
   }
+  jrt::DomainScope domain(this);  // see insertUnlocked
   // remove the leaf node
   ShapeTree_InnerNode* parent = leaf->parent;
   --this->leafCount;

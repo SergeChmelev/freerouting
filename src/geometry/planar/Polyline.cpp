@@ -49,6 +49,12 @@ Polyline::Polyline(Point* fromCorner, Point* toCorner) {
   (*lines)[2] = endpointCap((*lines)[1], toCorner);
 }
 
+Polyline* Polyline::ofNormalizedLines(jrt::Array<Line*>* normalizedLines) {
+  auto* p = new (jrt::kGeom) Polyline(new (jrt::kGeom) jrt::Array<Line*>(0));
+  p->lines = normalizedLines;
+  return p;
+}
+
 Polyline::Polyline(jrt::Array<Line*>* inputLines) {
   jrt::Array<Line*>* filteredLines = removeConsecutiveParallelLines(inputLines);
   filteredLines = removeOverlaps(filteredLines);
@@ -202,11 +208,13 @@ jrt::Array<Point*>* Polyline::corners() {
     return new (jrt::kGeom) jrt::Array<Point*>(0);
   }
   if (precalculatedCorners == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner array is not yet allocated
     precalculatedCorners = new (jrt::kGeom) jrt::Array<Point*>(lines->length - 1);
   }
   for (int32_t i = 0; i < precalculatedCorners->length; i++) {
     if ((*precalculatedCorners)[i] == nullptr) {
+      jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
       (*precalculatedCorners)[i] = (*lines)[i]->intersection((*lines)[i + 1]);
     }
   }
@@ -218,11 +226,13 @@ jrt::Array<FloatPoint*>* Polyline::cornerApproxArr() {
     return new (jrt::kGeom) jrt::Array<FloatPoint*>(0);
   }
   if (precalculatedFloatCorners == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner array is not yet allocated
     precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length - 1);
   }
   for (int32_t i = 0; i < precalculatedFloatCorners->length; i++) {
     if ((*precalculatedFloatCorners)[i] == nullptr) {
+      jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
       (*precalculatedFloatCorners)[i] = (*lines)[i]->intersectionApprox((*lines)[i + 1]);
     }
   }
@@ -241,10 +251,12 @@ FloatPoint* Polyline::cornerApprox(int32_t cornerIndex) {
     no = cornerIndex;
   }
   if (precalculatedFloatCorners == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner array is not yet allocated
     precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length - 1);
   }
   if ((*precalculatedFloatCorners)[no] == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner is not yet calculated
     (*precalculatedFloatCorners)[no] = (*lines)[no]->intersectionApprox((*lines)[no + 1]);
   }
@@ -269,10 +281,12 @@ Point* Polyline::corner(int32_t cornerIndex) {
     no = cornerIndex;
   }
   if (precalculatedCorners == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner array is not yet allocated
     precalculatedCorners = new (jrt::kGeom) jrt::Array<Point*>(lines->length - 1);
   }
   if ((*precalculatedCorners)[no] == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner is not yet calculated
     (*precalculatedCorners)[no] = (*lines)[no]->intersection((*lines)[no + 1]);
   }
@@ -543,6 +557,7 @@ IntBox* Polyline::boundingBox(int32_t requestedFromCornerNo, int32_t requestedTo
 
 IntBox* Polyline::boundingBox() {
   if (precalculatedBoundingBox == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     precalculatedBoundingBox = boundingBox(0, cornerCount() - 1);
   }
   return precalculatedBoundingBox;

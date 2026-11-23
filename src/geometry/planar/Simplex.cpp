@@ -28,7 +28,7 @@ void sortLines(jrt::Array<Line*>* lines) {
 }  // namespace
 
 Simplex* Simplex::EMPTY() {
-  static Simplex* v = new (jrt::kGeom) Simplex(new (jrt::kGeom) jrt::Array<Line*>(0));
+  static Simplex* v = jrt::onHeap([] { return new (jrt::kGeom) Simplex(new (jrt::kGeom) jrt::Array<Line*>(0)); });
   return v;
 }
 
@@ -131,10 +131,12 @@ Point* Simplex::corner(int32_t cornerIndex) {
     no = cornerIndex;
   }
   if (precalculatedCorners == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner array is not yet allocated
     precalculatedCorners = new (jrt::kGeom) jrt::Array<Point*>(lines->length);
   }
   if ((*precalculatedCorners)[no] == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner is not yet calculated
     Line* prev;
     if (no == 0) {
@@ -162,10 +164,12 @@ FloatPoint* Simplex::cornerApprox(int32_t cornerIndex) {
     no = cornerIndex;
   }
   if (precalculatedFloatCorners == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner array is not yet allocated
     precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length);
   }
   if ((*precalculatedFloatCorners)[no] == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner is not yet calculated
     Line* prev;
     if (no == 0) {
@@ -180,11 +184,13 @@ FloatPoint* Simplex::cornerApprox(int32_t cornerIndex) {
 
 jrt::Array<FloatPoint*>* Simplex::cornerApproxArr() {
   if (precalculatedFloatCorners == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // corner array is not yet allocated
     precalculatedFloatCorners = new (jrt::kGeom) jrt::Array<FloatPoint*>(lines->length);
   }
   for (int32_t i = 0; i < precalculatedFloatCorners->length; i++) {
     if ((*precalculatedFloatCorners)[i] == nullptr) {
+      jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
       // corner is not yet calculated
       Line* prev;
       if (i == 0) {
@@ -423,6 +429,7 @@ IntBox* Simplex::boundingBox() {
     return IntBox::EMPTY();
   }
   if (precalculatedBoundingBox == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     double llx = jrt::Integer::MAX_VALUE;
     double lly = jrt::Integer::MAX_VALUE;
     double urx = jrt::Integer::MIN_VALUE;
@@ -445,6 +452,7 @@ IntBox* Simplex::boundingBox() {
 
 IntOctagon* Simplex::boundingOctagon() {
   if (precalculatedBoundingOctagon == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     double lx = jrt::Integer::MAX_VALUE;
     double ly = jrt::Integer::MAX_VALUE;
     double rx = jrt::Integer::MIN_VALUE;

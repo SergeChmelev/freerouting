@@ -33,6 +33,8 @@ class Simplex final : public TileShape {
   /** Constructs a Simplex from the directed lines in lines. The simplex will not be normalized.
    * To get a normalized simplex use TileShape.getInstance. */
   explicit Simplex(jrt::Array<Line*>* lines) : lines(lines) {}
+  /** PORT NOTE (stage E): the edge lines, for copying a simplex out of a geometry region. */
+  jrt::Array<Line*>* edgeLines() { return lines; }
 
   /** Creates a Simplex as intersection of the half-planes defined by directed lines. */
   static Simplex* getInstance(jrt::Array<Line*>* lines);

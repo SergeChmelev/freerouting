@@ -76,7 +76,7 @@ std::string padLeft(const std::string& s, int32_t padding) {
 }  // namespace
 
 FloatPoint* FloatPoint::ZERO() {
-  static FloatPoint* v = new (jrt::kGeom) FloatPoint(0, 0);
+  static FloatPoint* v = jrt::onHeap([] { return new (jrt::kGeom) FloatPoint(0, 0); });
   return v;
 }
 

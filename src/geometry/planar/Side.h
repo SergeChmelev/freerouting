@@ -34,17 +34,17 @@ class Side final : public virtual jrt::Object {
 // Defined inline: called in the innermost geometry loops (sideOf), an out-of-line call per use
 // showed up in profiles.
 inline Side* Side::ON_THE_LEFT() {
-  static Side* v = new (jrt::kGeom) Side("onTheLeft");
+  static Side* v = jrt::onHeap([] { return new (jrt::kGeom) Side("onTheLeft"); });
   return v;
 }
 
 inline Side* Side::ON_THE_RIGHT() {
-  static Side* v = new (jrt::kGeom) Side("onTheRight");
+  static Side* v = jrt::onHeap([] { return new (jrt::kGeom) Side("onTheRight"); });
   return v;
 }
 
 inline Side* Side::COLLINEAR() {
-  static Side* v = new (jrt::kGeom) Side("collinear");
+  static Side* v = jrt::onHeap([] { return new (jrt::kGeom) Side("collinear"); });
   return v;
 }
 

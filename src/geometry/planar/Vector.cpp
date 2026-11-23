@@ -20,7 +20,7 @@ IntVector* Vector::toIntegerExact() {
 }
 
 IntVector* Vector::ZERO() {
-  static IntVector* v = new (jrt::kGeom) IntVector(0, 0);
+  static IntVector* v = jrt::onHeap([] { return new (jrt::kGeom) IntVector(0, 0); });
   return v;
 }
 

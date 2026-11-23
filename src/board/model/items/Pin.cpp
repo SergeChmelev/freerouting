@@ -129,6 +129,7 @@ std::optional<std::string> Pin::componentName() {
 Shape* Pin::getShape(int32_t index) {
   Padstack* padstack = getPadstack();
   if (this->precalculatedShapes == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // all shapes have to be calculated  at once, because otherwise calculation
     // of fromLayer and toLayer may not be correct
     int32_t shapeCount = jrt::Math::max(0, padstack->toLayer() - padstack->fromLayer() + 1);

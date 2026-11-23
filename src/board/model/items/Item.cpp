@@ -181,6 +181,7 @@ jrt::Array<TileShape*>* Item::getPrecalculatedTreeShapes(ShapeTree* tree) {
   jrt::Array<TileShape*>* precalculatedTreeShapes =
       this->searchTreesInfo->getPrecalculatedTreeShapes(tree);
   if (precalculatedTreeShapes == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // Java: (ShapeSearchTree) tree -- ClassCastException if it is not one.
     auto* searchTree = jrt::fast_cast<ShapeSearchTree>(tree);
     if (searchTree == nullptr && tree != nullptr) {

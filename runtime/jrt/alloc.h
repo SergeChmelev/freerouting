@@ -20,8 +20,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <optional>
 #include <type_traits>
 #include <typeinfo>
+#include <vector>
 
 namespace jrt {
 
@@ -73,6 +75,24 @@ class Arena {
 
   bool empty() const { return head_ == nullptr; }
   std::size_t bytesAllocated() const;
+  /** True if `p` points into memory handed out by this arena. */
+  bool contains(const void* p) const;
+  /** True if `p` lies in the chunk the next allocation comes from (where the object allocated
+   * last is). O(1), unlike contains(). */
+  bool inHeadChunk(const void* p) const {
+    auto* q = static_cast<const char*>(p);
+    return head_ != nullptr && q >= data(head_) && q < cur_;
+  }
+  /** Calls f(begin, end) for the used part of every chunk. */
+  template <class F>
+  void forEachUsedRange(F f) const {
+    bool first = true;
+    for (Chunk* c = head_; c != nullptr; c = c->next) {
+      char* b = data(c);
+      f(b, first ? cur_ : b + c->size);  // only the head chunk is partly used
+      first = false;
+    }
+  }
 
   /** Statistics over all arenas of the process (for diagnostics / benchmarks). */
   static std::size_t peakBytes();
@@ -91,6 +111,16 @@ class Arena {
   char* cur_ = nullptr;
   char* end_ = nullptr;
   std::size_t fullBytes_ = 0;  // used bytes in chunks other than head_
+  // Chunk data ranges sorted by address, for contains() in O(log n).
+  std::vector<std::pair<const char*, const char*>> ranges_;
+
+ public:
+  /** Called for every chunk the arena takes (added) or gives back (removed). */
+  using ChunkHook = void (*)(const char* begin, const char* end, bool added);
+  void setChunkHook(ChunkHook hook) { chunkHook_ = hook; }
+
+ private:
+  ChunkHook chunkHook_ = nullptr;
 };
 
 /** The arena kSearch allocations go to on this thread (nullptr: GC heap). */
@@ -135,6 +165,153 @@ inline void* board_data_alloc(std::size_t n) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Geometry regions (MEMORY_MODEL.md stage E, "region + copy")
+// ---------------------------------------------------------------------------------------------
+
+class GeomRegion;
+
+/** The innermost active geometry region of this thread whose arena kGeom allocations go to
+ * (nullptr: the heap). */
+GeomRegion*& current_geom_region();
+
+/**
+ * A scope in which immutable geometry (kGeom) is allocated in an arena that is dropped when the
+ * scope ends. Whatever must outlive the scope is copied out first (deep copy into the domain of
+ * its holder) - the escape rule. Regions nest; an inner region's objects must not be stored into
+ * objects of an outer region or the heap either.
+ *
+ * Lazily filled caches of objects outside the region are filled in the domain of their holder
+ * (jrt::DomainScope). Checked builds poison the memory on release; FR_REGION_CHECK=N (GC build)
+ * scans the heap for pointers into every N-th released region and reports their holders.
+ */
+class GeomRegion {
+ public:
+  GeomRegion() = default;
+  GeomRegion(const GeomRegion&) = delete;
+  GeomRegion& operator=(const GeomRegion&) = delete;
+
+  void* allocate(std::size_t n) { return arena_.allocate(n); }
+  bool contains(const void* p) const { return arena_.contains(p); }
+  /** Objects in `arena` belong to this region's domain too (their lazy caches and the geometry
+   * they store are allocated here): e.g. the search arena of an autoroute engine. */
+  void setCompanion(const Arena* arena) { companion_ = arena; }
+  bool owns(const void* p) const { return contains(p) || (companion_ != nullptr && companion_->contains(p)); }
+  bool inHeadChunk(const void* p) const { return arena_.inHeadChunk(p); }
+  bool active() const { return active_; }
+  bool local() const { return local_; }
+  GeomRegion* outer() const { return outer_; }
+  /** The kGeom domain that was current when the region was activated (nullptr: the heap): where
+   * results are copied out to. */
+  GeomRegion* enclosing() const { return restore_; }
+  const Arena& arena() const { return arena_; }
+
+  /** Drops every object of the region (it must not be active). FR_REGION_CHECK scans for
+   * escapes first. */
+  void release();
+  /** Forgets the memory without reusing it (an exception left the region's operation midway). */
+  void abandon();
+
+ private:
+  friend class GeomRegionScope;
+  Arena arena_;
+  const Arena* companion_ = nullptr;
+  GeomRegion* outer_ = nullptr;    // enclosing active region while active
+  GeomRegion* restore_ = nullptr;  // current region to restore when deactivated
+  bool active_ = false;
+
+ protected:
+  bool local_ = false;  // a LocalGeomRegion
+};
+
+/** Makes `region` the innermost active region and the kGeom target for the lifetime of the
+ * scope (nullptr: no effect). Activations nest. */
+class GeomRegionScope {
+ public:
+  /** `local`: the region of a LocalGeomRegion. Diagnostics: env FR_NO_GEOM_REGION=1 disables
+   * all regions, =2 only the non-local ones. */
+  explicit GeomRegionScope(GeomRegion* region, bool local = false);
+  ~GeomRegionScope();
+  GeomRegionScope(const GeomRegionScope&) = delete;
+  GeomRegionScope& operator=(const GeomRegionScope&) = delete;
+
+ private:
+  GeomRegion* region_;
+};
+
+/** A region that is active for exactly the lifetime of this local object. */
+class LocalGeomRegion : public GeomRegion {
+ public:
+  LocalGeomRegion() {
+    local_ = true;
+    scope_.emplace(this, true);
+  }
+  ~LocalGeomRegion() {
+    scope_.reset();
+    release();
+  }
+
+ private:
+  std::optional<GeomRegionScope> scope_;
+};
+
+/** Allocates kGeom in the domain of `owner`: the active region that contains it, else the heap.
+ * Used where a long-lived object fills a lazy cache or stores geometry it computed. */
+class DomainScope {
+ public:
+  explicit DomainScope(const void* owner);
+  ~DomainScope() { current_geom_region() = saved_; }
+  DomainScope(const DomainScope&) = delete;
+  DomainScope& operator=(const DomainScope&) = delete;
+
+ private:
+  GeomRegion* saved_;
+};
+
+/** Allocates kGeom on the heap for the lifetime of the scope (statics, board-owned geometry). */
+class HeapScope {
+ public:
+  HeapScope() : saved_(current_geom_region()) { current_geom_region() = nullptr; }
+  ~HeapScope() { current_geom_region() = saved_; }
+  HeapScope(const HeapScope&) = delete;
+  HeapScope& operator=(const HeapScope&) = delete;
+
+ private:
+  GeomRegion* saved_;
+};
+
+/** Allocates kGeom in `target` (nullptr: the heap) for the lifetime of the scope; used to copy
+ * results out of a region into its enclosing domain. */
+class GeomTarget {
+ public:
+  explicit GeomTarget(GeomRegion* target) : saved_(current_geom_region()) { current_geom_region() = target; }
+  ~GeomTarget() { current_geom_region() = saved_; }
+  GeomTarget(const GeomTarget&) = delete;
+  GeomTarget& operator=(const GeomTarget&) = delete;
+
+ private:
+  GeomRegion* saved_;
+};
+
+/** Returns f() with kGeom allocated on the heap: for function-local statics (singletons) that
+ * may be first touched inside a region. */
+template <class F>
+auto onHeap(F f) {
+  HeapScope heap;
+  return f();
+}
+
+/** True if `p` lies in an active geometry region (diagnostics, copy-out decisions). */
+bool in_geom_region(const void* p);
+/** True if `p` lies in a region of this thread that has not been released yet, active or not
+ * (copy-at-store: an inactive search region is still released later). */
+bool in_live_geom_region(const void* p);
+
+inline void* geom_alloc(std::size_t n) {
+  GeomRegion* r = current_geom_region();
+  return r != nullptr ? r->allocate(n) : ::operator new(n);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Explicit end of life (MEMORY_MODEL.md stage C)
 // ---------------------------------------------------------------------------------------------
 
@@ -176,7 +353,7 @@ inline void dispose(T* p) noexcept {
 
 inline void* operator new(std::size_t n, jrt::BoardLifetime) { return ::operator new(n); }
 inline void* operator new(std::size_t n, jrt::OpLifetime) { return ::operator new(n); }
-inline void* operator new(std::size_t n, jrt::GeomLifetime) { return ::operator new(n); }
+inline void* operator new(std::size_t n, jrt::GeomLifetime) { return jrt::geom_alloc(n); }
 inline void* operator new(std::size_t n, jrt::SearchLifetime) { return jrt::search_alloc(n); }
 inline void* operator new(std::size_t n, jrt::BoardDataLifetime) { return jrt::board_data_alloc(n); }
 // Called only if a constructor throws. GC memory is reclaimed by the collector, arena memory by

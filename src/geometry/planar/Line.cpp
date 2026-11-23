@@ -242,6 +242,7 @@ bool Line::fastEquals(Line* other) {
 
 Direction* Line::direction() {
   if (dir == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // PORT NOTE: fast path without the temporary difference vector (same arithmetic).
     auto* ia = jrt::fast_cast<IntPoint>(a);
     auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(b) : nullptr;

@@ -42,6 +42,10 @@ class Polyline : public virtual jrt::Object {
    * are skipped. The directed lines are expected to be normalized. */
   explicit Polyline(jrt::Array<Line*>* inputLines);
 
+  /** PORT NOTE (stage E): a polyline over already normalized lines, taken as they are (used to
+   * copy a polyline out of a geometry region; no normalization, same lines). */
+  static Polyline* ofNormalizedLines(jrt::Array<Line*>* normalizedLines);
+
  private:
   static Line* endpointCap(Line* support, Point* point);
   static jrt::Array<Line*>* removeConsecutiveParallelLines(jrt::Array<Line*>* lines);

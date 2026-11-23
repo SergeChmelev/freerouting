@@ -41,7 +41,7 @@ IntPoint* Point::toIntegerExact() {
 }
 
 IntPoint* Point::ZERO() {
-  static IntPoint* v = new (jrt::kGeom) IntPoint(0, 0);
+  static IntPoint* v = jrt::onHeap([] { return new (jrt::kGeom) IntPoint(0, 0); });
   return v;
 }
 

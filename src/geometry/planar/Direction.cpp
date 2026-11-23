@@ -13,39 +13,39 @@
 namespace fr {
 
 IntDirection* Direction::NULL_() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(0, 0);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(0, 0); });
   return v;
 }
 IntDirection* Direction::RIGHT() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(1, 0);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(1, 0); });
   return v;
 }
 IntDirection* Direction::RIGHT45() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(1, 1);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(1, 1); });
   return v;
 }
 IntDirection* Direction::UP() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(0, 1);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(0, 1); });
   return v;
 }
 IntDirection* Direction::UP45() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(-1, 1);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(-1, 1); });
   return v;
 }
 IntDirection* Direction::LEFT() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(-1, 0);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(-1, 0); });
   return v;
 }
 IntDirection* Direction::LEFT45() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(-1, -1);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(-1, -1); });
   return v;
 }
 IntDirection* Direction::DOWN() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(0, -1);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(0, -1); });
   return v;
 }
 IntDirection* Direction::DOWN45() {
-  static IntDirection* v = new (jrt::kGeom) IntDirection(1, -1);
+  static IntDirection* v = jrt::onHeap([] { return new (jrt::kGeom) IntDirection(1, -1); });
   return v;
 }
 

@@ -19,8 +19,7 @@
 namespace fr {
 
 IntBox* IntBox::EMPTY() {
-  static IntBox* v =
-      new (jrt::kGeom) IntBox(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT);
+  static IntBox* v = jrt::onHeap([] { return new (jrt::kGeom) IntBox(Limits::CRIT_INT, Limits::CRIT_INT, -Limits::CRIT_INT, -Limits::CRIT_INT); });
   return v;
 }
 

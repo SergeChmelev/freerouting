@@ -63,6 +63,7 @@ LineSegment::LineSegment(PolylineShape* shape, int32_t no) {
 
 Point* LineSegment::startPoint() {
   if (precalculatedStartPoint == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     precalculatedStartPoint = middle->intersection(start);
   }
   return precalculatedStartPoint;
@@ -70,6 +71,7 @@ Point* LineSegment::startPoint() {
 
 Point* LineSegment::endPoint() {
   if (precalculatedEndPoint == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     precalculatedEndPoint = middle->intersection(end);
   }
   return precalculatedEndPoint;

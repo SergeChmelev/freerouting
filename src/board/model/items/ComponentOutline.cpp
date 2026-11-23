@@ -1,5 +1,6 @@
 // Port of app.freerouting.board.model.items.ComponentOutline.
 #include "board/model/items/ComponentOutline.h"
+#include "geometry/planar/GeomCopy.h"
 
 #include <cmath>
 
@@ -25,7 +26,7 @@ ComponentOutline::ComponentOutline(Area* area, bool isFront, Vector* translation
     : Item(new (jrt::kBoard) jrt::Array<int32_t>(0), 0, id, componentId, fixedState, board),
       relativeArea(area) {
   this->isFront_ = isFront;
-  this->translation = translation;
+  this->translation = geomcopy::keep(translation);
   this->rotationInDegree = rotationInDegree;
   this->isCourtyard_ = isCourtyard;
   this->isFabrication_ = isFabrication;
@@ -54,14 +55,14 @@ int32_t ComponentOutline::getLayer() {
 IntBox* ComponentOutline::boundingBox() { return getArea()->boundingBox(); }
 
 void ComponentOutline::translateBy(Vector* vector) {
-  this->translation = this->translation->add(vector);
+  this->translation = geomcopy::keep(this->translation->add(vector));
   clearDerivedData();
 }
 
 void ComponentOutline::changePlacementSide(IntPoint* pole) {
   this->isFront_ = !this->isFront_;
   Point* relLocation = Point::ZERO()->translateBy(this->translation);
-  this->translation = relLocation->mirrorVertical(pole)->differenceBy(Point::ZERO());
+  this->translation = geomcopy::keep(relLocation->mirrorVertical(pole)->differenceBy(Point::ZERO()));
   clearDerivedData();
 }
 
@@ -79,7 +80,7 @@ void ComponentOutline::rotateApprox(double angleInDegree, FloatPoint* pole) {
   }
   FloatPoint* newTranslation =
       this->translation->toFloat()->rotate(jrt::Math::toRadians(angleInDegree), pole);
-  this->translation = newTranslation->round()->differenceBy(Point::ZERO());
+  this->translation = geomcopy::keep(newTranslation->round()->differenceBy(Point::ZERO()));
   clearDerivedData();
 }
 
@@ -92,12 +93,13 @@ void ComponentOutline::turn90Degree(int32_t factor, IntPoint* pole) {
     this->rotationInDegree += 360;
   }
   Point* relLocation = Point::ZERO()->translateBy(this->translation);
-  this->translation = relLocation->turn90Degree(factor, pole)->differenceBy(Point::ZERO());
+  this->translation = geomcopy::keep(relLocation->turn90Degree(factor, pole)->differenceBy(Point::ZERO()));
   clearDerivedData();
 }
 
 Area* ComponentOutline::getArea() {
   if (this->precalculatedAbsoluteArea == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     if (this->relativeArea == nullptr) {
       FRLogger::warn("ObstacleArea.get_area: area is null");
       return nullptr;

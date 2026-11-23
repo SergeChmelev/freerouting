@@ -1,5 +1,6 @@
 // Port of app.freerouting.board.model.items.ObstacleArea.
 #include "board/model/items/ObstacleArea.h"
+#include "geometry/planar/GeomCopy.h"
 
 #include <cmath>
 
@@ -39,7 +40,7 @@ ObstacleArea::ObstacleArea(Area* area, int32_t layer, Vector* translation, doubl
       name(name),
       relativeArea(area) {
   this->layer = layer;
-  this->translation = translation;
+  this->translation = geomcopy::keep(translation);
   this->rotationInDegree = rotationInDegree;
   this->sideChanged = sideChanged;
 }
@@ -62,6 +63,7 @@ Item* ObstacleArea::copy(int32_t id) {
 
 Area* ObstacleArea::getArea() {
   if (this->precalculatedAbsoluteArea == nullptr) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     if (this->relativeArea == nullptr) {
       FRLogger::warn("ObstacleArea.get_area: area is null");
       return nullptr;
@@ -143,7 +145,7 @@ TileShape* ObstacleArea::getTileShape(int32_t no) {
 }
 
 void ObstacleArea::translateBy(Vector* vector) {
-  this->translation = this->translation->add(vector);
+  this->translation = geomcopy::keep(this->translation->add(vector));
   this->clearDerivedData();
 }
 
@@ -156,7 +158,7 @@ void ObstacleArea::turn90Degree(int32_t factor, IntPoint* pole) {
     this->rotationInDegree += 360;
   }
   Point* relLocation = Point::ZERO()->translateBy(this->translation);
-  this->translation = relLocation->turn90Degree(factor, pole)->differenceBy(Point::ZERO());
+  this->translation = geomcopy::keep(relLocation->turn90Degree(factor, pole)->differenceBy(Point::ZERO()));
   this->clearDerivedData();
 }
 
@@ -174,7 +176,7 @@ void ObstacleArea::rotateApprox(double angleInDegree, FloatPoint* pole) {
   }
   FloatPoint* newTranslation =
       this->translation->toFloat()->rotate(jrt::Math::toRadians(angleInDegree), pole);
-  this->translation = newTranslation->round()->differenceBy(Point::ZERO());
+  this->translation = geomcopy::keep(newTranslation->round()->differenceBy(Point::ZERO()));
   this->clearDerivedData();
 }
 
@@ -184,7 +186,7 @@ void ObstacleArea::changePlacementSide(IntPoint* pole) {
     this->layer = board->getLayerCount() - this->layer - 1;
   }
   Point* relLocation = Point::ZERO()->translateBy(this->translation);
-  this->translation = relLocation->mirrorVertical(pole)->differenceBy(Point::ZERO());
+  this->translation = geomcopy::keep(relLocation->mirrorVertical(pole)->differenceBy(Point::ZERO()));
   this->clearDerivedData();
 }
 

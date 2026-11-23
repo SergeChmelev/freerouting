@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "jrt/alloc.h"
 #include "jrt/lang.h"
 
 #ifndef JRT_CHECKED
@@ -171,9 +172,17 @@ class Array : public virtual Object {
  public:
   const int32_t length;
 
-  explicit Array(int32_t n) : length(n), data_(n > 0 ? new T[n]() : nullptr) {
+  explicit Array(int32_t n) : length(n), data_(allocData(n)) {
     if (n < 0) throw IllegalArgumentException("negative array size");
   }
+  // PORT NOTE (stage E): an array owns its element storage. When the array object lives in the
+  // current geometry region, so does the storage (released with the region); otherwise it is a
+  // heap block freed by the destructor (jrt::dispose).
+  ~Array() override {
+    if (data_ != nullptr && is_heap_block(data_)) delete[] data_;
+  }
+  Array(const Array&) = delete;
+  Array& operator=(const Array&) = delete;
   Array(std::initializer_list<T> init) : Array(static_cast<int32_t>(init.size())) {
     std::copy(init.begin(), init.end(), data_);
   }
@@ -202,6 +211,17 @@ class Array : public virtual Object {
   std::vector<T> toVector() { return std::vector<T>(data_, data_ + length); }
 
  private:
+  T* allocData(int32_t n) {
+    if (n <= 0) return nullptr;
+    if constexpr (std::is_trivially_default_constructible_v<T> && std::is_trivially_destructible_v<T>) {
+      GeomRegion* r = current_geom_region();
+      if (r != nullptr && r->inHeadChunk(this)) {  // `this` was allocated just before
+        // arena memory is zero-filled: value-initialised trivial elements
+        return static_cast<T*>(r->allocate(sizeof(T) * static_cast<std::size_t>(n)));
+      }
+    }
+    return new T[n]();
+  }
   T* data_;
 };
 

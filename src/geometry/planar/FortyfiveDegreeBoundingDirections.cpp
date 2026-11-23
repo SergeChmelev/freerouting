@@ -10,7 +10,7 @@
 namespace fr {
 
 FortyfiveDegreeBoundingDirections* FortyfiveDegreeBoundingDirections::INSTANCE() {
-  static FortyfiveDegreeBoundingDirections* v = new (jrt::kGeom) FortyfiveDegreeBoundingDirections();
+  static FortyfiveDegreeBoundingDirections* v = jrt::onHeap([] { return new (jrt::kGeom) FortyfiveDegreeBoundingDirections(); });
   return v;
 }
 

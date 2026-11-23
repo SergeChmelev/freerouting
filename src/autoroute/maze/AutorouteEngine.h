@@ -47,6 +47,10 @@ class AutorouteEngine : public virtual jrt::Object {
   /** Connection-search arena (MEMORY_MODEL.md): holds the kSearch objects of this engine while
    * it does not maintain its database. Released by releaseSearchArena(). */
   jrt::Arena searchArena;
+  /** Geometry region of the search (MEMORY_MODEL.md stage E): the immutable geometry created while
+   * the search arena is current lives as long as the rooms and drills that refer to it. The
+   * corners of a found connection are copied out before they are inserted into the board. */
+  jrt::GeomRegion searchRegion;
   bool searchArenaReleased = false;
   bool searchArenaEscaped = false;
 

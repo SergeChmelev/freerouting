@@ -17,6 +17,7 @@
 #include "autoroute/maze/MazeSearchEngine.h"
 #include "autoroute/path/FoundConnectionInserter.h"
 #include "autoroute/path/FoundConnectionLocator.h"
+#include "geometry/planar/GeomCopy.h"
 #include "board/facade/RoutingBoard.h"
 #include "board/model/items/Item.h"
 #include "board/model/structure/Layer.h"
@@ -47,12 +48,14 @@ AutorouteEngine::AutorouteEngine(RoutingBoard* board, int32_t traceClearanceClas
       maintainDatabase(maintainDatabase),
       drillPageArray(nullptr),
       board(board) {
+  this->searchRegion.setCompanion(&this->searchArena);
   this->netNumber = -1;
   int32_t maxDrillPageWidth = jrt::d2i(5 * board->rules->getDefaultViaDiameter());
   maxDrillPageWidth = jrt::Math::max(maxDrillPageWidth, 10000);
   {
     // The drill pages cache drills (and their rooms) for the lifetime of the engine.
     jrt::ArenaScope arenaScope(usesSearchArena() ? &searchArena : nullptr);
+    jrt::GeomRegionScope regionScope(usesSearchArena() ? &searchRegion : nullptr);
     this->drillPageArray = new (jrt::kSearch) DrillPageArray(this->board, maxDrillPageWidth);
   }
   this->stoppableThread = nullptr;
@@ -70,8 +73,11 @@ bool AutorouteEngine::usesSearchArena() {
 void AutorouteEngine::releaseSearchArena() {
   if (this->searchArenaEscaped) {
     this->searchArena.abandon();
+    this->searchRegion.abandon();
   } else {
+    // the arena first: its objects refer into the region, not the other way round
     this->searchArena.release();
+    this->searchRegion.release();
   }
   this->searchArenaReleased = true;
 }
@@ -138,6 +144,8 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   EscapeGuard escapeGuard{this};
   std::optional<jrt::ArenaScope> arenaScope;
   arenaScope.emplace(usesSearchArena() ? &searchArena : nullptr);
+  std::optional<jrt::GeomRegionScope> regionScope;
+  regionScope.emplace(usesSearchArena() ? &searchRegion : nullptr);
   MazeSearchEngine* mazeSearchAlgo;
   try {
     mazeSearchAlgo = MazeSearchEngine::getInstance(startSet, destSet, this, ctrl);
@@ -194,8 +202,15 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   // Always clean up expansion rooms from the search tree, regardless of search outcome.
   // This mirrors v1.9's behavior: clear() is called before any early returns so that
   // stale CompleteFreeSpaceExpansionRoom objects don't pollute subsequent routing attempts.
+  regionScope.reset();
   arenaScope.reset();
   escapeGuard.armed = false;
+  // The found corners go into board items: copy them out of the search region.
+  if (autorouteResult != nullptr && autorouteResult->connectionItems != nullptr) {
+    for (FoundConnectionLocator_ResultItem* item : *autorouteResult->connectionItems) {
+      item->corners = geomcopy::intPoints(item->corners, searchRegion);
+    }
+  }
   if (!this->maintainDatabase) {
     this->clear();
   } else {
