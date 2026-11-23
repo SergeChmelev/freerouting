@@ -61,7 +61,7 @@ struct ReleaseStackOnExit {
 
 /** Java `list.subList(0, count).sort(null)` with the natural (Leaf) order; stable like Java. */
 void sortLeafPrefix(jrt::ArrayList<ShapeTree_Leaf*>* list, int32_t count) {
-  std::vector<ShapeTree_Leaf*>& v = list->vec();
+  auto& v = list->vec();
   std::stable_sort(v.begin(), v.begin() + count, [](ShapeTree_Leaf* a, ShapeTree_Leaf* b) {
     return a->compareTo(b) < 0;
   });

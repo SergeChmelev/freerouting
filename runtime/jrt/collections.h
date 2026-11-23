@@ -624,10 +624,13 @@ class ArrayList : public virtual List<T> {
   ArrayList() = default;
   explicit ArrayList(int32_t initial_capacity) { v_.reserve(initial_capacity > 0 ? initial_capacity : 0); }
   explicit ArrayList(Collection<T>* c) {
-    if (c) v_ = c->toVector();
+    if (c) {
+      std::vector<T> src = c->toVector();
+      v_.assign(src.begin(), src.end());
+    }
   }
-  ArrayList(std::initializer_list<T> init) : v_(init) {}
-  explicit ArrayList(std::vector<T> v) : v_(std::move(v)) {}
+  ArrayList(std::initializer_list<T> init) { v_.assign(init.begin(), init.end()); }
+  explicit ArrayList(const std::vector<T>& v) { v_.assign(v.begin(), v.end()); }
   static ArrayList* of(std::initializer_list<T> init) { return new ArrayList(init); }
 
   int32_t size() override { return static_cast<int32_t>(v_.size()); }
@@ -741,7 +744,9 @@ class ArrayList : public virtual List<T> {
   // (Java would throw ConcurrentModificationException).
   auto begin() { return v_.begin(); }
   auto end() { return v_.end(); }
-  std::vector<T>& vec() { return v_; }
+  // PORT NOTE (stage E): storage in the collection's domain (jrt::DomainAlloc).
+  using Vec = std::vector<T, DomainAlloc<T>>;
+  Vec& vec() { return v_; }
 
  private:
   void check_index(int32_t i) {
@@ -753,7 +758,7 @@ class ArrayList : public virtual List<T> {
   void check_pos(int32_t i) {
     if (i < 0 || static_cast<std::size_t>(i) > v_.size()) throw IndexOutOfBoundsException("Index: " + std::to_string(i));
   }
-  std::vector<T> v_;
+  Vec v_{DomainAlloc<T>(domain_arena_of(this))};
 };
 
 template <class T>
@@ -776,7 +781,8 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
     if (c)
       for (ScopedIter<T> it(c); it->hasNext();) l_.push_back(it->next());
   }
-  LinkedList(std::initializer_list<T> init) : l_(init) {}
+  LinkedList(std::initializer_list<T> init) { l_.assign(init.begin(), init.end()); }
+  using ListT = std::list<T, DomainAlloc<T>>;  // storage in the collection's domain
 
   int32_t size() override { return static_cast<int32_t>(l_.size()); }
   bool add(T x) override {
@@ -859,7 +865,7 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
 
    private:
     LinkedList* l_;
-    typename std::list<T>::iterator cur_, last_;
+    typename ListT::iterator cur_, last_;
   };
   class DescIt : public Iterator<T> {
    public:
@@ -879,7 +885,7 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
 
    private:
     LinkedList* l_;
-    typename std::list<T>::iterator cur_;
+    typename ListT::iterator cur_;
     bool last_valid_ = false;
   };
   Iterator<T>* iterator() override { return new It(this); }
@@ -887,10 +893,10 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
   Iterator<T>* descendingIterator() { return new DescIt(this); }
   auto begin() { return l_.begin(); }
   auto end() { return l_.end(); }
-  std::list<T>& raw() { return l_; }
+  ListT& raw() { return l_; }
 
  private:
-  typename std::list<T>::iterator pos(int32_t i, bool allow_end) {
+  typename ListT::iterator pos(int32_t i, bool allow_end) {
     int32_t n = size();
     if (i < 0 || i > n || (!allow_end && i == n)) throw IndexOutOfBoundsException("Index: " + std::to_string(i));
     if (i <= n / 2) {
@@ -902,7 +908,7 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
     std::advance(p, -(n - i));
     return p;
   }
-  std::list<T> l_;
+  ListT l_{DomainAlloc<T>(domain_arena_of(this))};
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -972,7 +978,7 @@ class ArrayDeque : public virtual Deque<T> {
   auto end() { return d_.end(); }
 
  private:
-  std::deque<T> d_;
+  std::deque<T, DomainAlloc<T>> d_{DomainAlloc<T>(domain_arena_of(this))};
 };
 
 template <class T>
@@ -1080,7 +1086,7 @@ class PriorityQueue : public virtual Queue<T> {
     }
     q_[k] = x;
   }
-  std::vector<T> q_;
+  std::vector<T, DomainAlloc<T>> q_{DomainAlloc<T>(domain_arena_of(this))};
   Comparator<T> cmp_;
 };
 
@@ -1380,7 +1386,7 @@ class HashMap : public virtual Map<K, V> {
     return nullptr;
   }
   Node* newNode(int32_t h, K k, V v) {
-    Node* n = new Node(h, std::move(k), std::move(v));
+    Node* n = new (Like{this}) Node(h, std::move(k), std::move(v));  // map's domain
     if (mode_ != HashMode::Hash) {
       n->before = tail_;
       if (tail_) tail_->after = n;
@@ -1419,7 +1425,7 @@ class HashMap : public virtual Map<K, V> {
       new_thr = (new_cap < (1 << 30) && ft < static_cast<float>(1 << 30)) ? static_cast<int32_t>(ft) : Integer::MAX_VALUE;
     }
     threshold_ = new_thr;
-    std::vector<Node*> nt(new_cap, nullptr);
+    decltype(table_) nt(new_cap, nullptr, table_.get_allocator());
     for (int32_t j = 0; j < old_cap; ++j) {
       Node* e = table_[j];
       if (!e) continue;
@@ -1443,7 +1449,7 @@ class HashMap : public virtual Map<K, V> {
     table_.swap(nt);
   }
 
-  std::vector<Node*> table_;
+  std::vector<Node*, DomainAlloc<Node*>> table_{DomainAlloc<Node*>(domain_arena_of(this))};
   int32_t size_ = 0;
   int32_t threshold_ = 0;
   float load_factor_ = 0.75f;
@@ -1486,10 +1492,10 @@ template <class T>
 class HashSet : public virtual Set<T> {
  public:
   using Collection<T>::addAll;
-  HashSet() : m_(new HashMap<T, Present>()) {}
-  explicit HashSet(int32_t cap) : m_(new HashMap<T, Present>(cap)) {}
+  HashSet() : m_(new (Like{this}) HashMap<T, Present>()) {}
+  explicit HashSet(int32_t cap) : m_(new (Like{this}) HashMap<T, Present>(cap)) {}
   explicit HashSet(Collection<T>* c)
-      : m_(new HashMap<T, Present>(Math::max(static_cast<int32_t>(c->size() / .75f) + 1, 16))) {
+      : m_(new (Like{this}) HashMap<T, Present>(Math::max(static_cast<int32_t>(c->size() / .75f) + 1, 16))) {
     this->addAll(c);
   }
   HashSet(std::initializer_list<T> init) : HashSet() {
@@ -1588,9 +1594,15 @@ template <class T>
 class TreeSet : public virtual Set<T> {
  public:
   using Collection<T>::addAll;
-  TreeSet() : cmp_(new Comparator<T>(naturalOrder<T>())), s_(CmpLess<T>{cmp_, true}), natural_(true) {}
+  TreeSet()
+      : cmp_(new (Like{this}) Comparator<T>(naturalOrder<T>())),
+        s_(CmpLess<T>{cmp_, true}, DomainAlloc<T>(domain_arena_of(this))),
+        natural_(true) {}
   explicit TreeSet(Comparator<T> c)
-      : cmp_(new Comparator<T>(c ? c : naturalOrder<T>())), s_(CmpLess<T>{cmp_, !c}), natural_(!c) {}
+      : cmp_(new (Like{this}) Comparator<T>(c ? c : naturalOrder<T>())),
+        s_(CmpLess<T>{cmp_, !c}, DomainAlloc<T>(domain_arena_of(this))),
+        natural_(!c) {}
+  using SetT = std::set<T, CmpLess<T>, DomainAlloc<T>>;  // storage in the collection's domain
   explicit TreeSet(Collection<T>* c) : TreeSet() { this->addAll(c); }
   TreeSet(Comparator<T> c, Collection<T>* src) : TreeSet(c) { this->addAll(src); }
 
@@ -1679,7 +1691,7 @@ class TreeSet : public virtual Set<T> {
 
    private:
     TreeSet* s_;
-    typename std::set<T, CmpLess<T>>::iterator cur_, last_;
+    typename SetT::iterator cur_, last_;
   };
   class DescIt : public Iterator<T> {
    public:
@@ -1699,7 +1711,7 @@ class TreeSet : public virtual Set<T> {
 
    private:
     TreeSet* s_;
-    typename std::set<T, CmpLess<T>>::iterator cur_;
+    typename SetT::iterator cur_;
     bool valid_ = false;
   };
   Iterator<T>* iterator() override { return new It(this); }
@@ -1710,7 +1722,7 @@ class TreeSet : public virtual Set<T> {
 
  private:
   Comparator<T>* cmp_;
-  std::set<T, CmpLess<T>> s_;
+  SetT s_;
   bool natural_ = true;
 };
 
@@ -1723,9 +1735,13 @@ template <class K, class V>
 class TreeMap : public virtual Map<K, V> {
  public:
   using Entry = MapEntry<K, V>;
-  TreeMap() : cmp_(new Comparator<K>(naturalOrder<K>())), m_(CmpLess<K>{cmp_, true}) {}
+  using MapT = std::map<K, Entry*, CmpLess<K>, DomainAlloc<std::pair<const K, Entry*>>>;  // domain storage
+  TreeMap()
+      : cmp_(new (Like{this}) Comparator<K>(naturalOrder<K>())),
+        m_(CmpLess<K>{cmp_, true}, DomainAlloc<std::pair<const K, Entry*>>(domain_arena_of(this))) {}
   explicit TreeMap(Comparator<K> c)
-      : cmp_(new Comparator<K>(c ? c : naturalOrder<K>())), m_(CmpLess<K>{cmp_, !c}) {}
+      : cmp_(new (Like{this}) Comparator<K>(c ? c : naturalOrder<K>())),
+        m_(CmpLess<K>{cmp_, !c}, DomainAlloc<std::pair<const K, Entry*>>(domain_arena_of(this))) {}
   explicit TreeMap(Map<K, V>* src) : TreeMap() { this->putAll(src); }
 
   int32_t size() override { return static_cast<int32_t>(m_.size()); }
@@ -1740,7 +1756,7 @@ class TreeMap : public virtual Map<K, V> {
       it->second->value = std::move(v);
       return old;
     }
-    Entry* e = new Entry(k, std::move(v));
+    Entry* e = new (Like{this}) Entry(k, std::move(v));
     m_.emplace(std::move(k), e);
     return V{};
   }
@@ -1819,7 +1835,7 @@ class TreeMap : public virtual Map<K, V> {
   // Range-for over live entries (Entry*) in key order.
   class EIter {
    public:
-    explicit EIter(typename std::map<K, Entry*, CmpLess<K>>::iterator it) : it_(it) {}
+    explicit EIter(typename MapT::iterator it) : it_(it) {}
     Entry* operator*() const { return it_->second; }
     EIter& operator++() {
       ++it_;
@@ -1828,14 +1844,14 @@ class TreeMap : public virtual Map<K, V> {
     bool operator!=(const EIter& o) const { return it_ != o.it_; }
 
    private:
-    typename std::map<K, Entry*, CmpLess<K>>::iterator it_;
+    typename MapT::iterator it_;
   };
   EIter begin() { return EIter(m_.begin()); }
   EIter end() { return EIter(m_.end()); }
 
   // Raw navigation for iterators that want O(1) steps. A MapIt stays valid as long as
   // eraseCount() is unchanged (insertions never invalidate std::map iterators).
-  using MapIt = typename std::map<K, Entry*, CmpLess<K>>::iterator;
+  using MapIt = typename MapT::iterator;
   MapIt mapBegin() { return m_.begin(); }
   MapIt mapEnd() { return m_.end(); }
   MapIt mapUpperBound(const K& k) { return m_.upper_bound(k); }
@@ -1843,7 +1859,7 @@ class TreeMap : public virtual Map<K, V> {
 
  private:
   Comparator<K>* cmp_;
-  std::map<K, Entry*, CmpLess<K>> m_;
+  MapT m_;
   uint64_t erases_ = 0;
 };
 

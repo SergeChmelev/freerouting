@@ -436,6 +436,16 @@ profiler by allocation site is the tool for that part. Direct leaks it found: el
 taken from the same arena — and `std::vector` buffers of `jrt` collections inside arena objects
 (door lists of rooms: `FreeSpaceExpansionRoom::addDoor`), still open.
 
+### E4 — collection storage in the collection's domain
+
+`jrt::DomainAlloc<T>` (alloc.h): the std containers inside `ArrayList`, `LinkedList`,
+`ArrayDeque`, `PriorityQueue`, `HashMap` (table; nodes via `new (jrt::Like{this})`), `HashSet`
+(its map), `TreeSet` / `TreeMap` (nodes, entries, comparator) allocate from the arena that holds
+the collection object (region, search or board arena — `domain_arena_of(this)` in the
+constructor), else from the heap. Arena-backed storage that a container gives back goes to
+per-size free lists (`Arena::allocateReusable` / `recycle`, 16–1024 bytes), so churning sets in
+long-lived regions reuse memory. bm02 no-GC leak 0.80 → 0.57 GB; smoke clean.
+
 ## TODO (stage C/E)
 
 * **Live-memory profiler by allocation site** (no-GC build): LeakSanitizer reports only what is
@@ -444,9 +454,6 @@ taken from the same arena — and `std::vector` buffers of `jrt` collections ins
   `nogc.cpp`, put the site slot in a 16-byte block header, subtract on free, dump live bytes by
   site at exit (`block_size`/`is_heap_block` must then account for the header). heaptrack /
   valgrind are not installed in WSL (needs sudo).
-* `std::vector` / `std::list` buffers of `jrt` collections inside arena objects (e.g. door lists
-  of rooms, `FreeSpaceExpansionRoom::addDoor`) leak when the arena is dropped: allocator-aware
-  collections (allocate from the arena that holds the collection).
 * Items: deferred disposal of removed items and their geometry (callers keep using an item after
   `removeItem`; caches refer to items).
 * Performance after the migration: domain lookups (`DomainScope`, `keep`, chunk map) slowed long

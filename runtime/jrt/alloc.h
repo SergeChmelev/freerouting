@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <new>
 #include <optional>
 #include <type_traits>
@@ -85,6 +86,32 @@ class Arena {
    * Used when objects may still be referenced (e.g. an exception left the operation midway). */
   void abandon();
 
+  /** allocate() for container storage that may be given back (recycle): small blocks are
+   * reused from per-size free lists, so churning containers in a long-lived arena do not grow
+   * it without bound. The memory is zero-filled like allocate()'s. */
+  void* allocateReusable(std::size_t n) {
+    n = (n + 15) & ~std::size_t{15};
+    std::size_t cls = n / 16 - 1;
+    if (cls < kFreeClasses && free_[cls] != nullptr) {
+      void* p = free_[cls];
+      JRT_ASAN_UNPOISON(p, n);
+      free_[cls] = *static_cast<void**>(p);
+      std::memset(p, 0, n);
+      return p;
+    }
+    return allocate(n);
+  }
+  /** Gives a block of allocateReusable(n) back (blocks above the size classes are abandoned
+   * until release()). */
+  void recycle(void* p, std::size_t n) {
+    n = (n + 15) & ~std::size_t{15};
+    std::size_t cls = n / 16 - 1;
+    if (cls >= kFreeClasses) return;
+    *static_cast<void**>(p) = free_[cls];
+    free_[cls] = p;
+    JRT_ASAN_POISON(static_cast<char*>(p) + sizeof(void*), n - sizeof(void*));
+  }
+
   bool empty() const { return head_ == nullptr; }
   std::size_t bytesAllocated() const;
   /** True if `p` points into memory handed out by this arena. */
@@ -123,6 +150,8 @@ class Arena {
   char* cur_ = nullptr;
   char* end_ = nullptr;
   std::size_t fullBytes_ = 0;  // used bytes in chunks other than head_
+  static constexpr std::size_t kFreeClasses = 64;  // 16 .. 1024 bytes
+  void* free_[kFreeClasses] = {};
   // Chunk data ranges sorted by address, for contains() in O(log n).
   std::vector<std::pair<const char*, const char*>> ranges_;
 
@@ -229,6 +258,7 @@ class GeomRegion {
    * results are copied out to. */
   GeomRegion* enclosing() const { return restore_; }
   const Arena& arena() const { return arena_; }
+  Arena& arenaRef() { return arena_; }
 
   /** Drops every object of the region (it must not be active). FR_REGION_CHECK scans for
    * escapes first. */
@@ -348,6 +378,52 @@ inline void* op_alloc(std::size_t n) {
   return ::operator new(n);
 }
 
+/** The arena (region, search or board arena) a just-constructed object `p` was allocated in, or
+ * nullptr (heap, stack, static). Only valid in constructors: it checks the chunk the next
+ * allocation comes from. */
+inline Arena* domain_arena_of(const void* p) {
+  for (GeomRegion* r = current_geom_region(); r != nullptr; r = r->outer()) {
+    if (r->inHeadChunk(p)) return &r->arenaRef();
+  }
+  Arena* a = current_search_arena();
+  if (a != nullptr && a->inHeadChunk(p)) return a;
+  a = current_board_arena();
+  if (a != nullptr && a->inHeadChunk(p)) return a;
+  return nullptr;
+}
+
+/** std allocator for the containers inside jrt collections: storage comes from the arena that
+ * holds the collection (dropped with it), else from the heap. */
+template <class T>
+struct DomainAlloc {
+  using value_type = T;
+  using is_always_equal = std::false_type;
+  using propagate_on_container_move_assignment = std::true_type;
+  Arena* arena = nullptr;
+  DomainAlloc() noexcept = default;
+  explicit DomainAlloc(Arena* a) noexcept : arena(a) {}
+  template <class U>
+  DomainAlloc(const DomainAlloc<U>& o) noexcept : arena(o.arena) {}
+  T* allocate(std::size_t n) {
+    std::size_t bytes = n * sizeof(T);
+    return static_cast<T*>(arena != nullptr ? arena->allocateReusable(bytes) : ::operator new(bytes));
+  }
+  void deallocate(T* p, std::size_t n) noexcept {
+    if (arena != nullptr) {
+      arena->recycle(p, n * sizeof(T));
+    } else {
+      ::operator delete(p);
+    }
+  }
+  template <class U>
+  bool operator==(const DomainAlloc<U>& o) const noexcept { return arena == o.arena; }
+};
+
+/** Placement tag: allocate in the domain of `owner` (see domain_arena_of; constructors only). */
+struct Like {
+  const void* owner;
+};
+
 inline void* geom_alloc(std::size_t n) {
   GeomRegion* r = current_geom_region();
   return r != nullptr ? r->allocate(n) : ::operator new(n);
@@ -395,6 +471,11 @@ inline void dispose(T* p) noexcept {
 
 inline void* operator new(std::size_t n, jrt::BoardLifetime) { return ::operator new(n); }
 inline void* operator new(std::size_t n, jrt::OpLifetime) { return jrt::op_alloc(n); }
+inline void* operator new(std::size_t n, jrt::Like like) {
+  jrt::Arena* a = jrt::domain_arena_of(like.owner);
+  return a != nullptr ? a->allocate(n) : ::operator new(n);
+}
+inline void operator delete(void*, jrt::Like) noexcept {}
 inline void* operator new(std::size_t n, jrt::GeomLifetime) { return jrt::geom_alloc(n); }
 inline void* operator new(std::size_t n, jrt::SearchLifetime) { return jrt::search_alloc(n); }
 inline void* operator new(std::size_t n, jrt::BoardDataLifetime) { return jrt::board_data_alloc(n); }

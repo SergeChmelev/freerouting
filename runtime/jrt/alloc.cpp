@@ -159,6 +159,7 @@ bool Arena::contains(const void* p) const {
 }
 
 void Arena::release() {
+  for (auto& f : free_) f = nullptr;
   Pool* pool = thread_pool();
   bool first = true;
   for (Chunk* c = head_; c != nullptr;) {
@@ -197,6 +198,7 @@ void Arena::release() {
 }
 
 void Arena::abandon() {
+  for (auto& f : free_) f = nullptr;
   for (Chunk* c = head_; c != nullptr; c = c->next) g_live.fetch_sub(c->size, std::memory_order_relaxed);
   head_ = nullptr;
   if (chunkHook_ != nullptr) {
