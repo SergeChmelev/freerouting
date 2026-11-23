@@ -980,6 +980,11 @@ bool Item::isSelectedByFixedFilter(ItemSelectionFilter* filter) {
   return result;
 }
 
+void Item::clearSearchTreeEntries() {
+  jrt::dispose(this->searchTreesInfo);
+  this->searchTreesInfo = nullptr;
+}
+
 void Item::setSearchTreeEntries(jrt::Array<ShapeTree_Leaf*>* treeEntries, ShapeTree* tree) {
   if (this->board == nullptr) {
     return;

@@ -300,6 +300,27 @@ objects/bytes.
   rerunning the 7 boards gave survivors in 3 of them only: stale slots in live stack frames
   (conservative noise), no dangling reference.
 
+* **C2 — item search-tree info.** `ItemSearchTreesInfo` owns its tree list, the per-tree
+  records and the leaf arrays (not the leaves: the trees own them; not the precalculated tree
+  shapes: some `calculateTreeShapes` results may be shared). `Item::clearSearchTreeEntries`
+  disposes it — every caller has removed the leaves from the trees or handed them to another
+  trace first (merge / cut-out of traces), and a replaced leaf array is disposed in
+  `setTreeEntries`. bm02: +29k disposals, 0 survivors. Sample (120 s, 60 boards): 58 SAME on
+  the checked build; release + `FR_DISPOSE_CHECK=1` 57 SAME + Issue178 (over the 900 s limit in
+  check mode, SAME when rerun alone), 289M disposals, 0 survivors.
+
+Not yet owned, with the reason found:
+
+* `UndoableObjects` nodes: `UndoableObjects_NodeIterator` prefetches the *next* node like
+  Java's weakly consistent skip-list iterator and returns it even if it was deleted meanwhile,
+  and deleted nodes stay reachable through `redoObject` links of nodes kept for undo. Freeing a
+  node at `delete_` is therefore unsafe; this needs deferred disposal (e.g. at the next
+  snapshot boundary when no iterator is live).
+* Items: callers keep using an item after `removeItem` (observers, building replacement
+  traces); same deferred scheme.
+* Dropped search trees (`clearanceValueChanged`, `clearanceClassRemoved`): rare; items keep
+  stale `ItemSearchTreesInfo` records for them.
+
 **Referrer search** (verification mode): for each survivor (up to 200 per run) the check walks
 every reachable heap block (`GC_enumerate_reachable_objects_inner` right after the collection),
 the writable static segments and the main thread's stack for words pointing into it. Survivors

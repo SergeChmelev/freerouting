@@ -422,7 +422,9 @@ class Item : public virtual SearchTreeObject,
   virtual void setPrecalculatedTreeShapes(jrt::Array<TileShape*>* shapes, ShapeSearchTree* tree);
 
   /** Sets the search tree entries of this item to null. */
-  virtual void clearSearchTreeEntries() { this->searchTreesInfo = nullptr; }
+  // PORT NOTE (stage C): the item owns its search-tree info; callers have removed the leaves
+  // from the trees (or handed them to another trace) before.
+  virtual void clearSearchTreeEntries();
 
   /** Gets the information for the autoroute algorithm. Creates it, if it does not yet exist. */
   virtual ItemAutorouteInfo* getAutorouteInfo();

@@ -32,6 +32,17 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
   /** Creates a new instance of ItemSearchTreeEntries. */
   ItemSearchTreesInfo() { this->treeList = new (jrt::kOp) jrt::LinkedList<ItemSearchTreesInfo_SearchTreeInfo*>(); }
 
+  // PORT NOTE (stage C): owns its tree list, the per-tree records and the leaf arrays (the
+  // leaves belong to the trees, the precalculated shapes are not owned). Destroyed through
+  // jrt::dispose by Item::clearSearchTreeEntries once the item has left the trees.
+  ~ItemSearchTreesInfo() override {
+    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
+      jrt::dispose(currentTreeInfo->entryArr);
+      jrt::dispose(currentTreeInfo);
+    }
+    jrt::dispose(this->treeList);
+  }
+
   /**
    * Returns the tree entries for the tree with identification number treeNo, or null, if for this
    * tree no entries of this item are inserted.
@@ -49,6 +60,9 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
   void setTreeEntries(jrt::Array<ShapeTree_Leaf*>* treeEntries, ShapeTree* tree) {
     for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
       if (currentTreeInfo->tree == tree) {
+        if (currentTreeInfo->entryArr != treeEntries) {
+          jrt::dispose(currentTreeInfo->entryArr);  // replaced: owned (stage C)
+        }
         currentTreeInfo->entryArr = treeEntries;
         return;
       }
