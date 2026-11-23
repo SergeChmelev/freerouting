@@ -187,6 +187,24 @@ Successful Java results are kept as a reference in WSL `~/frtest/java-reference/
 it without running Java (`FR_SKIP_JAVA=1` with a copy of it as `<outdir>/java` does the same for
 `parity_corpus.sh`).
 
+### Results (release build, WSL, single-threaded C++)
+
+| | bm02 wall | bm02 peak RSS | bm01 wall | bm01 peak RSS |
+|---|---:|---:|---:|---:|
+| `gc-port-baseline` | 4.97 s | 292 MB | 2219 s | 389 MB |
+| stage B (arenas only, commit 384492a) | 4.83 s | 291 MB | — | — |
+| stage B + perf fixes (commit b9bd456) | **4.03 s** | 289 MB | **1781 s** | 394 MB |
+| Java, default threads | 4.24 s | 1320 MB | 185 s | 4639 MB |
+| Java, 1 thread | 6.97 s | 767 MB | 727 s | 1547 MB |
+
+bm02: mean of 3 runs on an idle machine; bm01: baseline and final run concurrently (so equally
+loaded); all SES byte-identical to Java. The arenas alone gain little while the collector still
+marks the whole heap (bm02 −3%); most of the gain comes from the hot-path fixes found while
+profiling (O(1) item-list iteration, allocation-free integer geometry fast paths, natural-order
+comparators without `std::function`, see commit 113b4cd/f299e09). Profiles after these fixes:
+GC (allocation + marking) is 40–50% of the time (bm01: `GC_mark_from` alone 17%), so stages C–E
+remain the main lever; bm01 C++ is still ~2.4x slower than Java with one thread.
+
 ## Verification
 
 * `tools/parity_corpus.sh` (180 fixtures, C++ vs Java SES byte-for-byte) after every stage;
