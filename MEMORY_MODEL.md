@@ -529,7 +529,18 @@ the end of the caller's scope; iteration order and semantics are unchanged.
   everything in `AutorouteEngine` and the room completion of `ShapeSearchTree45Degree`
   (region work of E1), `HashMap` nodes (entries can be handed out, so neither `clear()` nor the
   destructor frees them).
-* Open: on 4 large sample boards `FR_DISPOSE_CHECK` reports `RegularTileShape` survivors
+* Resolved (main, after the merge): the `RegularTileShape` survivors below were real stale
+  pointers, not a check artefact — `MinAreaTree::removeLeafUnlocked` disposed the removed
+  parent's bounding shape and the parent, but on an optimizer worker board the parent lives in
+  the board arena, so `dispose` leaves it in place and live arena memory kept a pointer to the
+  freed shape (more disposals = more such nodes). The node is now cleared before the shape is
+  freed: Issue022 1253 → 15, Issue102 ~11.3k → 43 survivors. The rest (`Set<Item*>`,
+  `Array<int>`, `std::function`, referred from fields of unrelated live objects) are artefacts
+  of the check mode in the GC build (the collector reclaims disposed, unreachable blocks and
+  reuses the addresses); ASan on the no-GC build reports no double free or use after free on
+  Issue022. Also: `BasicBoard::cachedNormalContacts` allocates the cached sets in the item's
+  domain (they could live in an operation region and outlive it in the board cache).
+* Former note: on 4 large sample boards `FR_DISPOSE_CHECK` reports `RegularTileShape` survivors
   (Issue015 24777, Issue022 1253, Issue027 62–86k, Issue102 ~11.3k; stable between runs and
   under other Boehm heap settings), none on bm02 and the other 50 boards. Every explained one is
   a `MinAreaTree` bounding union that a word inside a 1 MB arena chunk refers to, at the place

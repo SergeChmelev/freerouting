@@ -263,7 +263,14 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
     }
   }
   // PORT NOTE (stage C): the removed inner node and its bounding shape are owned by the tree.
-  jrt::dispose(parent->boundingShape);
+  // The node is cleared first: in a board arena (optimizer worker board) dispose() leaves it in
+  // place, and a stale pointer to the freed shape would remain in live arena memory.
+  RegularTileShape* parentBounds = parent->boundingShape;
+  parent->parent = nullptr;
+  parent->firstChild = nullptr;
+  parent->secondChild = nullptr;
+  parent->boundingShape = nullptr;
+  jrt::dispose(parentBounds);
   jrt::dispose(parent);
 
   // recalculate the bounding shapes of the ancestors

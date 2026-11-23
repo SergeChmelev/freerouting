@@ -135,6 +135,9 @@ jrt::Set<Item*>* BasicBoard::cachedNormalContacts(Item* item) {
   }
   jrt::Set<Item*>* contacts = normalContactCache->get(item);
   if (contacts == nullptr) {
+    // PORT NOTE (stage E): the cached set outlives the current operation region: allocate it in
+    // the item's domain (heap on the main board, the candidate region on a worker board).
+    jrt::DomainScope domain(item);
     contacts = item->getNormalContacts();
     if (contacts != nullptr) {
       normalContactCache->put(item, contacts);
