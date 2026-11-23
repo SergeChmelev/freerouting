@@ -17,6 +17,12 @@ pkg_check_modules(BDWGC REQUIRED IMPORTED_TARGET bdw-gc)
 # Static GC/GMP by default: the collector's thread-local free lists are then reached through the
 # fast initial-exec TLS model instead of __tls_get_addr on every allocation.
 option(FR_STATIC_GC "Link Boehm GC and GMP statically into executables" ON)
+# MEMORY_MODEL.md stage E: operator new = calloc, delete / jrt::dispose = free, no collector.
+# Objects without an owner leak (FR_MEM_STATS prints the live bytes at exit).
+option(FR_NO_GC "Build without the garbage collector (manual memory management only)" OFF)
+if(FR_NO_GC)
+  add_compile_definitions(JRT_NO_GC=1)
+endif()
 find_library(GMP_SHARED_LIB gmp REQUIRED)
 # Shared GC/GMP: always used by the Lua module (Ubuntu's libgc.a uses local-exec TLS, which a
 # shared object cannot contain).

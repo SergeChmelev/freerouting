@@ -343,3 +343,19 @@ levels of referrers (`heap block … (size, word0=<module>+<offset>) at +<field 
 * Benchmarks `tools/bench.sh` on bm01 / bm02 (wall time, peak RSS).
 * Sanitizer builds: `-fsanitize=address,undefined`, then LeakSanitizer once GC is gone.
 * Work one subsystem at a time, no parallel agents (plan-usage limits).
+
+## Stage E — build without the collector (started)
+
+`cmake -DFR_NO_GC=ON` (defines `JRT_NO_GC=1`): `runtime/jrt/nogc.cpp` replaces the Boehm backend
+— `operator new` is `calloc` (zero-filled like `GC_MALLOC`), `delete` / `jrt::dispose` is
+`free`, arena chunks are plain heap blocks whose address ranges `dispose` checks, thread
+registration is a no-op. Nothing is collected: every object without an owner leaks, and
+`FR_MEM_STATS=1` reports the live (= leaked) bytes at exit as "GC heap". The verification mode
+`FR_DISPOSE_CHECK` needs the collector and is off in this build.
+
+First run (2026-11-23, `~/build/fr-nogc`, `parity_sample.sh 120 60`, 3.5 GB address-space limit
+per run): **32 SAME, 0 DIFF**; 26 boards abort with `bad_alloc` after 6–10 s (they leak more
+than 3.5 GB), plus the two old failures. bm02: SES identical, 2.85 GB leaked (peak RSS 3.4 GB).
+So explicit freeing is functionally sound; what is left is ownership of everything else,
+ordered by leaked volume (geometry first: `Line::ofInts`, octagon results, simplices; then
+the result collections of search-tree queries).

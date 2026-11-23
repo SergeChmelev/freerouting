@@ -2,13 +2,21 @@
 // pool of free chunks is anchored in uncollectable memory so that pooled chunks are not
 // reclaimed by the collector.
 
+#ifndef JRT_NO_GC
+#define JRT_NO_GC 0
+#endif
+#if !JRT_NO_GC
 #define GC_THREADS 1
 #include <gc.h>
 #include <gc/gc_mark.h>
 #include <dlfcn.h>
 #include <link.h>
+#else
+#include <malloc.h>
+#endif
 
 #include "jrt/alloc.h"
+#include "jrt/threads.h"
 
 #include <algorithm>
 #include <atomic>
@@ -39,10 +47,48 @@ struct Pool {
   std::size_t bytes;
 };
 
+#if JRT_NO_GC
+// Without a collector, dispose() must know arena memory by address: the live chunk ranges.
+std::mutex g_chunkMutex;
+std::map<std::uintptr_t, std::size_t>* g_chunks = nullptr;  // start -> size
+
+void* chunk_alloc(std::size_t bytes) {
+  void* c = alloc_uncollectable(bytes);
+  std::lock_guard<std::mutex> lock(g_chunkMutex);
+  if (g_chunks == nullptr) g_chunks = new std::map<std::uintptr_t, std::size_t>();
+  (*g_chunks)[reinterpret_cast<std::uintptr_t>(c)] = bytes;
+  return c;
+}
+
+void chunk_free(void* c) {
+  {
+    std::lock_guard<std::mutex> lock(g_chunkMutex);
+    g_chunks->erase(reinterpret_cast<std::uintptr_t>(c));
+  }
+  free_uncollectable(c);
+}
+
+bool in_arena_chunk(const void* p) {
+  auto a = reinterpret_cast<std::uintptr_t>(p);
+  std::lock_guard<std::mutex> lock(g_chunkMutex);
+  if (g_chunks == nullptr) return false;
+  auto it = g_chunks->upper_bound(a);
+  if (it == g_chunks->begin()) return false;
+  --it;
+  return a < it->first + it->second;
+}
+#else
+// Large pointer-containing block: IGNORE_OFF_PAGE (the arena always keeps a pointer to the
+// chunk start) so that the collector does not expand the heap looking for a 1 MB range free of
+// blacklisted pages (that grew bm01 from 0.4 to 3 GB). Zero-filled, like Java objects.
+void* chunk_alloc(std::size_t bytes) { return GC_MALLOC_IGNORE_OFF_PAGE(bytes); }
+void chunk_free(void* c) { GC_FREE(c); }
+#endif
+
 Pool* thread_pool() {
   thread_local Pool* pool = nullptr;
   if (pool == nullptr) {
-    pool = static_cast<Pool*>(GC_MALLOC_UNCOLLECTABLE(sizeof(Pool)));
+    pool = static_cast<Pool*>(alloc_uncollectable(sizeof(Pool)));
     pool->head = nullptr;
     pool->bytes = 0;
   }
@@ -77,10 +123,7 @@ void Arena::refill(std::size_t n) {
     std::memset(c, 0, kHeader + kChunkSize);
 #endif
   } else {
-    // Large pointer-containing block: IGNORE_OFF_PAGE (the arena always keeps a pointer to the
-    // chunk start) so that the collector does not expand the heap looking for a 1 MB range free
-    // of blacklisted pages (that grew bm01 from 0.4 to 3 GB). Zero-filled, like Java objects.
-    c = static_cast<Chunk*>(GC_MALLOC_IGNORE_OFF_PAGE(kHeader + size));
+    c = static_cast<Chunk*>(chunk_alloc(kHeader + size));
     if (c == nullptr) throw std::bad_alloc();
   }
   c->size = size;
@@ -121,7 +164,7 @@ void Arena::release() {
 #if JRT_CHECKED
       std::memset(data(c), kPoison, used);
 #endif
-      GC_FREE(c);
+      chunk_free(c);
     }
     c = next;
   }
@@ -146,6 +189,7 @@ namespace {
 std::atomic<std::size_t> g_disposedCount{0};
 std::atomic<std::size_t> g_disposedBytes{0};
 
+#if !JRT_NO_GC
 // Verification mode: disposed blocks are poisoned but not freed (a read through a dangling
 // pointer sees 0xA5 bytes, a virtual call crashes); a disappearing link per block tells whether
 // it was still reachable after a full collection (a dangling reference, or a conservative false
@@ -390,12 +434,28 @@ void dispose_check_register(void* mem, const char* type) {
   if (++g_checkTotal % kCheckScanEvery == 0) dispose_check_scan(false);
 }
 
+#else
+bool dispose_check_enabled() { return false; }  // needs the collector
+void dispose_check_register(void*, const char*) {}
+#endif
+
 }  // namespace
 
+#if JRT_NO_GC
+// Every pointer outside the arenas is taken to be a separate heap block: dispose() is only
+// called on whole objects allocated with new (never on statics, stack values or the parts of a
+// combined block such as the points of Line::ofInts).
+bool is_heap_block(const void* mem) noexcept { return mem != nullptr && !in_arena_chunk(mem); }
+static std::size_t block_size(void* mem) { return malloc_usable_size(mem); }
+static void block_free(void* mem) { free_uncollectable(mem); }
+#else
 bool is_heap_block(const void* mem) noexcept { return GC_base(const_cast<void*>(mem)) == mem; }
+static std::size_t block_size(void* mem) { return GC_size(mem); }
+static void block_free(void* mem) { GC_FREE(mem); }
+#endif
 
 void dispose_block(void* mem, const char* type) noexcept {
-  std::size_t size = GC_size(mem);  // the whole block (may exceed the object's size)
+  std::size_t size = block_size(mem);  // the whole block (may exceed the object's size)
   g_disposedCount.fetch_add(1, std::memory_order_relaxed);
   g_disposedBytes.fetch_add(size, std::memory_order_relaxed);
   // Through a volatile copy: with LTO, _FORTIFY_SOURCE knows the size of the `new` expression
@@ -409,7 +469,7 @@ void dispose_block(void* mem, const char* type) noexcept {
 #if JRT_CHECKED
   std::memset(block, kPoison, size);
 #endif
-  GC_FREE(mem);
+  block_free(mem);
 }
 
 std::size_t disposed_count() noexcept { return g_disposedCount.load(std::memory_order_relaxed); }

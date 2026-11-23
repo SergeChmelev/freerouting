@@ -12,6 +12,11 @@
 // malloc'ed by the C++ runtime, so jrt exceptions keep their message in uncollectable
 // storage (see jrt::Throwable).
 
+#ifndef JRT_NO_GC
+#define JRT_NO_GC 0
+#endif
+#if !JRT_NO_GC  // the collector-free backend is nogc.cpp
+
 #define GC_THREADS 1
 #include <gc.h>
 #include <gmp.h>
@@ -186,3 +191,5 @@ GcThreadScope::~GcThreadScope() {
 void gc_collect() { GC_gcollect(); }
 
 }  // namespace jrt
+
+#endif  // !JRT_NO_GC
