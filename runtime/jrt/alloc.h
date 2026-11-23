@@ -20,6 +20,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <type_traits>
+#include <typeinfo>
 
 namespace jrt {
 
@@ -130,6 +132,44 @@ class BoardArenaScope {
 inline void* board_data_alloc(std::size_t n) {
   Arena* a = current_board_arena();
   return a != nullptr ? a->allocate(n) : ::operator new(n);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Explicit end of life (MEMORY_MODEL.md stage C)
+// ---------------------------------------------------------------------------------------------
+
+/** True if `mem` is the start of a separate GC heap block, i.e. it can be freed on its own (not
+ * an arena object, not an object inside another allocation such as the points of
+ * Line::ofInts, not static or stack memory). */
+bool is_heap_block(const void* mem) noexcept;
+
+/** Frees the block `mem` (destructor already run). Verification mode (env FR_DISPOSE_CHECK=1)
+ * instead poisons it and reports at exit how many disposed objects were still reachable. */
+void dispose_block(void* mem, const char* type) noexcept;
+
+/** Disposed objects / bytes so far (diagnostics). */
+std::size_t disposed_count() noexcept;
+std::size_t disposed_bytes() noexcept;
+
+/**
+ * Ends the life of `p` now: its owner drops the only reference. Runs the destructor and returns
+ * the memory to the heap. Objects that cannot be freed on their own (arena objects, parts of a
+ * combined block, statics) are left alone, so callers need not know where `p` came from.
+ *
+ * Contract (checked by FR_DISPOSE_CHECK=1 runs): nothing reads `p` afterwards.
+ */
+template <class T>
+inline void dispose(T* p) noexcept {
+  if (p == nullptr) return;
+  void* mem;
+  if constexpr (std::is_polymorphic_v<T>) {
+    mem = dynamic_cast<void*>(p);
+  } else {
+    mem = static_cast<void*>(p);
+  }
+  if (!is_heap_block(mem)) return;
+  p->~T();
+  dispose_block(mem, typeid(T).name());
 }
 
 }  // namespace jrt

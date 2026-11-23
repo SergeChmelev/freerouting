@@ -34,7 +34,10 @@ int32_t CompleteFreeSpaceExpansionRoom::compareTo(jrt::Object* other) {
   return result;
 }
 
-void CompleteFreeSpaceExpansionRoom::removeFromTree(ShapeTree* shapeTree) { shapeTree->remove(this->treeEntries); }
+void CompleteFreeSpaceExpansionRoom::removeFromTree(ShapeTree* shapeTree) {
+  shapeTree->remove(this->treeEntries);
+  this->treeEntries = nullptr;  // PORT NOTE (stage C): the tree freed the leaves
+}
 
 void CompleteFreeSpaceExpansionRoom::addTargetDoor(TargetItemExpansionDoor* door) { this->targetDoors->add(door); }
 

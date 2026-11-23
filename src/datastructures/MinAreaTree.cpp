@@ -166,8 +166,11 @@ ShapeTree_Leaf* MinAreaTree::positionLocate(ShapeTree_TreeNode* currentNode,
     auto* insertOctagon =
         innerOctagon != nullptr ? jrt::fast_cast<IntOctagon>(leafToInsert->boundingShape) : nullptr;
     if (insertOctagon == nullptr || !insertOctagon->unionEquals(innerOctagon)) {
-      currentInnerNode->boundingShape =
-          leafToInsert->boundingShape->union_(currentInnerNode->boundingShape);
+      // PORT NOTE (stage C): an inner node owns its bounding shape (always a fresh union, never
+      // shared: board copies rebuild their trees by insertion), so the replaced one is freed.
+      RegularTileShape* oldBounds = currentInnerNode->boundingShape;
+      currentInnerNode->boundingShape = leafToInsert->boundingShape->union_(oldBounds);
+      jrt::dispose(oldBounds);
     }
 
     // Choose the child, so that the area increase of that child after taking the union
@@ -178,17 +181,25 @@ ShapeTree_Leaf* MinAreaTree::positionLocate(ShapeTree_TreeNode* currentNode,
     auto* leafOctagon = jrt::fast_cast<IntOctagon>(leafToInsert->boundingShape);
     RegularTileShape* firstChildShape = currentInnerNode->firstChild->boundingShape;
     auto* firstOctagon = leafOctagon != nullptr ? jrt::fast_cast<IntOctagon>(firstChildShape) : nullptr;
-    double firstAreaIncrease =
-        (firstOctagon != nullptr ? leafOctagon->unionArea(firstOctagon)
-                                 : leafToInsert->boundingShape->union_(firstChildShape)->area()) -
-        firstChildShape->area();
+    double firstAreaIncrease;
+    if (firstOctagon != nullptr) {
+      firstAreaIncrease = leafOctagon->unionArea(firstOctagon) - firstChildShape->area();
+    } else {
+      RegularTileShape* tmpUnion = leafToInsert->boundingShape->union_(firstChildShape);
+      firstAreaIncrease = tmpUnion->area() - firstChildShape->area();
+      jrt::dispose(tmpUnion);
+    }
 
     RegularTileShape* secondChildShape = currentInnerNode->secondChild->boundingShape;
     auto* secondOctagon = leafOctagon != nullptr ? jrt::fast_cast<IntOctagon>(secondChildShape) : nullptr;
-    double secondAreaIncrease =
-        (secondOctagon != nullptr ? leafOctagon->unionArea(secondOctagon)
-                                  : leafToInsert->boundingShape->union_(secondChildShape)->area()) -
-        secondChildShape->area();
+    double secondAreaIncrease;
+    if (secondOctagon != nullptr) {
+      secondAreaIncrease = leafOctagon->unionArea(secondOctagon) - secondChildShape->area();
+    } else {
+      RegularTileShape* tmpUnion = leafToInsert->boundingShape->union_(secondChildShape);
+      secondAreaIncrease = tmpUnion->area() - secondChildShape->area();
+      jrt::dispose(tmpUnion);
+    }
 
     if (firstAreaIncrease <= secondAreaIncrease) {
       node = currentInnerNode->firstChild;
@@ -210,10 +221,10 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
   }
   // remove the leaf node
   ShapeTree_InnerNode* parent = leaf->parent;
-  // Keep payload fields valid for callers that retained this Leaf from an earlier query; only
-  // structural ownership is cleared by detaching the leaf.
-  leaf->parent = nullptr;
   --this->leafCount;
+  // PORT NOTE (stage C): the tree owns its leaves (the bounding shape is owned by the item's
+  // precalculated tree shapes, not by the leaf). Experimental: freed when removed.
+  jrt::dispose(leaf);
   if (parent == nullptr) {
     // tree gets empty
     root = nullptr;
@@ -247,10 +258,9 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
       FRLogger::warn("MinAreaTree.remove_leaf: grandParent inconsistent");
     }
   }
-  parent->parent = nullptr;
-  parent->firstChild = nullptr;
-  parent->secondChild = nullptr;
-  parent->boundingShape = nullptr;
+  // PORT NOTE (stage C): the removed inner node and its bounding shape are owned by the tree.
+  jrt::dispose(parent->boundingShape);
+  jrt::dispose(parent);
 
   // recalculate the bounding shapes of the ancestors
   // as long as it gets smaller after removing leaf
@@ -260,8 +270,10 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
         nodeToRecalculate->firstChild->boundingShape);
     if (newBounds->contains(nodeToRecalculate->boundingShape)) {
       // the new bounds are not smaller, no further recalculate necessary
+      jrt::dispose(newBounds);
       break;
     }
+    jrt::dispose(nodeToRecalculate->boundingShape);
     nodeToRecalculate->boundingShape = newBounds;
     nodeToRecalculate = nodeToRecalculate->parent;
   }

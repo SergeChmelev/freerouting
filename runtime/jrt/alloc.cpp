@@ -9,7 +9,12 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <map>
+#include <mutex>
+#include <string>
 
 #ifndef JRT_CHECKED
 #define JRT_CHECKED 1
@@ -128,6 +133,116 @@ void Arena::abandon() {
   cur_ = end_ = nullptr;
   fullBytes_ = 0;
 }
+
+// ---------------------------------------------------------------------------------------------
+// dispose (stage C)
+// ---------------------------------------------------------------------------------------------
+
+namespace {
+
+std::atomic<std::size_t> g_disposedCount{0};
+std::atomic<std::size_t> g_disposedBytes{0};
+
+// Verification mode: disposed blocks are poisoned but not freed (a read through a dangling
+// pointer sees 0xA5 bytes, a virtual call crashes); a disappearing link per block tells whether
+// it was still reachable after a full collection (a dangling reference, or a conservative false
+// positive from a stale stack slot). Links live in non-scanned, never-moved blocks.
+struct CheckEntry {
+  void* link;  // cleared by the collector once the block is unreachable
+  const char* type;
+  std::size_t scan;  // number of periodic scans before this block was disposed
+};
+constexpr std::size_t kCheckBlock = 1 << 16;
+struct CheckBlock {
+  CheckBlock* next;
+  std::size_t used;
+  CheckEntry entries[kCheckBlock];
+};
+std::mutex g_checkMutex;
+CheckBlock* g_checkBlocks = nullptr;
+std::size_t g_checkTotal = 0;
+std::size_t g_checkScans = 0;
+std::map<std::string, std::size_t> g_checkSurvivors;
+constexpr std::size_t kCheckScanEvery = std::size_t{1} << 20;
+
+// Full collection, then every watched block disposed before the previous scan (so it has lived
+// through at least one full collection since) that is still reachable counts as a survivor and
+// is no longer watched. `all` also counts the blocks disposed since the previous scan (exit).
+void dispose_check_scan(bool all) {
+  GC_gcollect();
+  for (CheckBlock* b = g_checkBlocks; b != nullptr; b = b->next) {
+    for (std::size_t i = 0; i < b->used; ++i) {
+      CheckEntry& e = b->entries[i];
+      if (e.link != nullptr && (all || e.scan < g_checkScans)) {
+        ++g_checkSurvivors[e.type];
+        GC_unregister_disappearing_link(&e.link);
+        e.link = nullptr;
+      }
+    }
+  }
+  ++g_checkScans;
+}
+
+bool dispose_check_enabled() {
+  static const bool on = [] {
+    const char* v = std::getenv("FR_DISPOSE_CHECK");
+    return v != nullptr && *v != '\0' && *v != '0';
+  }();
+  return on;
+}
+
+void dispose_check_report() {
+  std::lock_guard<std::mutex> lock(g_checkMutex);
+  dispose_check_scan(true);
+  std::size_t survivors = 0;
+  for (auto& [type, n] : g_checkSurvivors) survivors += n;
+  std::fprintf(stderr, "dispose check: %zu disposed, %zu reachable after a full collection\n", g_checkTotal,
+               survivors);
+  for (auto& [type, n] : g_checkSurvivors) std::fprintf(stderr, "  %8zu  %s\n", n, type.c_str());
+}
+
+void dispose_check_register(void* mem, const char* type) {
+  std::lock_guard<std::mutex> lock(g_checkMutex);
+  if (g_checkBlocks == nullptr || g_checkBlocks->used == kCheckBlock) {
+    auto* b = static_cast<CheckBlock*>(GC_MALLOC_ATOMIC_UNCOLLECTABLE(sizeof(CheckBlock)));
+    if (b == nullptr) return;
+    if (g_checkBlocks == nullptr) std::atexit(dispose_check_report);
+    b->next = g_checkBlocks;
+    b->used = 0;
+    g_checkBlocks = b;
+  }
+  CheckEntry& e = g_checkBlocks->entries[g_checkBlocks->used++];
+  e.link = mem;
+  e.type = type;
+  e.scan = g_checkScans;
+  GC_general_register_disappearing_link(&e.link, mem);
+  if (++g_checkTotal % kCheckScanEvery == 0) dispose_check_scan(false);
+}
+
+}  // namespace
+
+bool is_heap_block(const void* mem) noexcept { return GC_base(const_cast<void*>(mem)) == mem; }
+
+void dispose_block(void* mem, const char* type) noexcept {
+  std::size_t size = GC_size(mem);  // the whole block (may exceed the object's size)
+  g_disposedCount.fetch_add(1, std::memory_order_relaxed);
+  g_disposedBytes.fetch_add(size, std::memory_order_relaxed);
+  // Through a volatile copy: with LTO, _FORTIFY_SOURCE knows the size of the `new` expression
+  // and would reject poisoning the rounded-up block.
+  void* volatile block = mem;
+  if (dispose_check_enabled()) {
+    std::memset(block, kPoison, size);
+    dispose_check_register(mem, type);
+    return;
+  }
+#if JRT_CHECKED
+  std::memset(block, kPoison, size);
+#endif
+  GC_FREE(mem);
+}
+
+std::size_t disposed_count() noexcept { return g_disposedCount.load(std::memory_order_relaxed); }
+std::size_t disposed_bytes() noexcept { return g_disposedBytes.load(std::memory_order_relaxed); }
 
 std::size_t Arena::peakBytes() { return g_peak.load(std::memory_order_relaxed); }
 std::size_t Arena::liveBytes() { return g_live.load(std::memory_order_relaxed); }

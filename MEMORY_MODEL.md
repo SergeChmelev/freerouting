@@ -1,6 +1,6 @@
 # Memory model: from Boehm GC to explicit ownership
 
-Status: stages **A and B done**, **D in progress** (D1–D3, 2026-11-23), C and E open; plan agreed 2026-11-23. Baseline: tag `gc-port-baseline` (backup in WSL
+Status: stages **A and B done**, **C and D in progress** (C1, D1–D3, 2026-11-23), E open; plan agreed 2026-11-23. Baseline: tag `gc-port-baseline` (backup in WSL
 `~/_backup_before_kill_gc`). The GC port is the reference implementation: every step below must
 keep the routing output byte-identical to Java (and to `gc-port-baseline`).
 
@@ -265,6 +265,38 @@ of `intersection` / `union_` / `offset`, result sets of `overlappingObjects` (`T
 256 MB), so its GC cost is allocation (`GC_malloc_kind`, free-list building); bm01 runs ~9100
 collections on a ~340 MB heap, so there marking dominates — fewer allocated bytes or a larger
 `GC_free_space_divisor` (tuning, not yet measured on bm01) reduce the number of collections.
+
+## Stage C — explicit ownership (in progress)
+
+Board data of optimizer candidates already lives in arenas (stage B), so ownership on the main
+board matters for stage E, not for speed. Stage C therefore introduces owners one structure at a
+time, each verified on its own, while the collector stays as the safety net for everything not
+yet owned.
+
+**Tool: `jrt::dispose(p)`** (`runtime/jrt/alloc.h`): the owner ends the object's life — the
+destructor runs and the block goes back to the heap (`GC_FREE`) at once. Pointers that are not a
+separate heap block (arena objects, the points inside a `Line::ofInts` block, statics, stack
+values) are left alone, so a call site need not know where the object came from. Checked builds
+poison the block before freeing it. **Verification mode** `FR_DISPOSE_CHECK=1`: disposed blocks
+are poisoned and *not* freed (a read through a dangling pointer sees `0xA5` bytes, a virtual call
+crashes), and a disappearing link per block tells whether it is still reachable after a full
+collection (every 2^20 disposals and at exit). The exit report lists those survivors by type:
+each one is a dangling reference (or a stale pointer the conservative collector sees, e.g. in
+the unused capacity of a cleared `std::vector`). `tests/dispose_check.cpp` (ctest) checks that a
+dangling reference is reported and garbage is not. `FR_MEM_STATS=1` prints the disposed
+objects/bytes.
+
+* **C1 — shape-tree nodes.** `MinAreaTree` owns its inner nodes, their bounding shapes (always a
+  fresh union, never shared: board copies rebuild their trees by insertion) and its leaves (the
+  leaf's bounding shape belongs to the item's tree shape and is not freed). Replaced bounding
+  shapes, temporary unions of the area comparison, the removed parent node and the removed
+  leaf are disposed. `CompleteFreeSpaceExpansionRoom::removeFromTree` drops its leaf array; the
+  shared query leaf buffer nulls its slots before `clear()` (the only survivors the check
+  found). bm02: 1.13M objects / 86 MB disposed, 0 survivors, SES identical, time unchanged
+  (3.3 s, within noise). `parity_sample.sh <out> 120 60`: 58 SAME on the release build with
+  `FR_DISPOSE_CHECK=1` and on the checked build, only the two old failures; 286M disposals, 9
+  survivors in 7 boards (1–3 each, no crash or diff; presumably stale stack slots, not yet
+  confirmed).
 
 ## Verification
 

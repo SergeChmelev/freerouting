@@ -79,6 +79,13 @@ target_compile_options(bigint_fuzz PRIVATE ${FR_COMMON_FLAGS})
 target_link_libraries(bigint_fuzz PRIVATE jrt fr_gc_exe)
 add_test(NAME bigint_fuzz COMMAND bigint_fuzz)
 
+add_executable(dispose_check ${CMAKE_SOURCE_DIR}/tests/dispose_check.cpp)
+target_compile_options(dispose_check PRIVATE ${FR_COMMON_FLAGS})
+target_link_libraries(dispose_check PRIVATE jrt fr_gc_exe)
+add_test(NAME dispose_check COMMAND dispose_check)
+set_tests_properties(dispose_check PROPERTIES ENVIRONMENT "FR_DISPOSE_CHECK=1"
+                     PASS_REGULAR_EXPRESSION "dispose check: 1001 disposed, 1 reachable")
+
 # --- Lua 5.3 module "frcore" for the Nuklear/MoonGL front end (ui/)
 pkg_check_modules(LUA53 IMPORTED_TARGET lua5.3)
 if(LUA53_FOUND AND TARGET frcore)
