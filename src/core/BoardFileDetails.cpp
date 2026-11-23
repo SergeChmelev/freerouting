@@ -19,7 +19,7 @@ namespace {
 class Crc32 {
  public:
   void update(const int8_t* data, int32_t len) {
-    static const uint32_t* table = makeTable();
+    static const uint32_t* table = jrt::onHeap([&] { return makeTable(); });
     for (int32_t i = 0; i < len; i++) {
       crc_ = table[(crc_ ^ static_cast<uint8_t>(data[i])) & 0xFF] ^ (crc_ >> 8);
     }

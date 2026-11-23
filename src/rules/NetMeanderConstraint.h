@@ -26,8 +26,8 @@ class NetMeanderConstraint : public virtual jrt::Object {
 
   /** A constraint without amplitude and spacing. */
   static NetMeanderConstraint* UNCONSTRAINED() {
-    static NetMeanderConstraint* v = new (jrt::kBoard) NetMeanderConstraint(
-        0.0, 0.0, 0.0, DEFAULT_CORNER_STYLE, DEFAULT_RADIUS_PERCENTAGE, DEFAULT_SINGLE_SIDED);
+    static NetMeanderConstraint* v = jrt::onHeap([&] { return new (jrt::kBoard) NetMeanderConstraint(
+        0.0, 0.0, 0.0, DEFAULT_CORNER_STYLE, DEFAULT_RADIUS_PERCENTAGE, DEFAULT_SINGLE_SIDED); });
     return v;
   }
 

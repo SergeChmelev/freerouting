@@ -175,12 +175,12 @@ std::string ExitStubs_JointEntry::toString() {
 // ---------------------------------------------------------------------------------------------
 
 std::regex& ExitStubs::KICAD_PAD_SIZE() {
-  static std::regex* v = new (jrt::kBoard) std::regex("Pad_([0-9]+(?:\\.[0-9]+)?)x([0-9]+(?:\\.[0-9]+)?)_");
+  static std::regex* v = jrt::onHeap([&] { return new (jrt::kBoard) std::regex("Pad_([0-9]+(?:\\.[0-9]+)?)x([0-9]+(?:\\.[0-9]+)?)_"); });
   return *v;
 }
 
 std::regex& ExitStubs::TOLERANCE_COPY() {
-  static std::regex* v = new (jrt::kBoard) std::regex("^(.*)#tolerance[0-9]+$");
+  static std::regex* v = jrt::onHeap([&] { return new (jrt::kBoard) std::regex("^(.*)#tolerance[0-9]+$"); });
   return *v;
 }
 

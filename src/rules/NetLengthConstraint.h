@@ -16,7 +16,7 @@ class NetLengthConstraint : public virtual jrt::Object {
 
   /** A constraint without minimum and maximum. */
   static NetLengthConstraint* UNCONSTRAINED() {
-    static NetLengthConstraint* v = new (jrt::kBoard) NetLengthConstraint(0.0, 0.0);
+    static NetLengthConstraint* v = jrt::onHeap([&] { return new (jrt::kBoard) NetLengthConstraint(0.0, 0.0); });
     return v;
   }
 

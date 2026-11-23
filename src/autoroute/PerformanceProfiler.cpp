@@ -5,27 +5,27 @@
 namespace fr {
 
 jrt::Map<std::string, int64_t>* PerformanceProfiler::timings() {
-  static jrt::Map<std::string, int64_t>* v = new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, int64_t>();
+  static jrt::Map<std::string, int64_t>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, int64_t>(); });
   return v;
 }
 
 jrt::Map<std::string, int64_t>* PerformanceProfiler::counts() {
-  static jrt::Map<std::string, int64_t>* v = new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, int64_t>();
+  static jrt::Map<std::string, int64_t>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, int64_t>(); });
   return v;
 }
 
 jrt::Deque<PerformanceProfiler_Invocation*>* PerformanceProfiler::stack() {
-  static jrt::Deque<PerformanceProfiler_Invocation*>* v = new (jrt::kBoard) jrt::ArrayDeque<PerformanceProfiler_Invocation*>();
+  static jrt::Deque<PerformanceProfiler_Invocation*>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ArrayDeque<PerformanceProfiler_Invocation*>(); });
   return v;
 }
 
 jrt::List<PerformanceProfiler_PassInfo*>* PerformanceProfiler::passHistory() {
-  static jrt::List<PerformanceProfiler_PassInfo*>* v = new (jrt::kBoard) jrt::ArrayList<PerformanceProfiler_PassInfo*>();
+  static jrt::List<PerformanceProfiler_PassInfo*>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ArrayList<PerformanceProfiler_PassInfo*>(); });
   return v;
 }
 
 PerformanceProfiler_ConfigInfo*& PerformanceProfiler::configInfo() {
-  static PerformanceProfiler_ConfigInfo* v = nullptr;
+  static PerformanceProfiler_ConfigInfo* v = jrt::onHeap([&] { return nullptr; });
   return v;
 }
 

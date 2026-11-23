@@ -3,12 +3,12 @@
 namespace fr::dsn {
 
 DsnReadOptions* DsnReadOptions::INPUT_ORDER() {
-  static DsnReadOptions* v = new (jrt::kBoard) DsnReadOptions(false);
+  static DsnReadOptions* v = jrt::onHeap([&] { return new (jrt::kBoard) DsnReadOptions(false); });
   return v;
 }
 
 DsnReadOptions* DsnReadOptions::REFERENCE_NAME() {
-  static DsnReadOptions* v = new (jrt::kBoard) DsnReadOptions(true);
+  static DsnReadOptions* v = jrt::onHeap([&] { return new (jrt::kBoard) DsnReadOptions(true); });
   return v;
 }
 

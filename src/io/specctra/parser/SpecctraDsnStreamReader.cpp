@@ -517,34 +517,34 @@ constexpr std::u16string_view packed(const char16_t (&a)[N]) {
 // --- static tables -----------------------------------------------------------------------------
 
 jrt::Array<char16_t>* SpecctraDsnStreamReader::ZZ_CMAP() {
-  static jrt::Array<char16_t>* v = zzUnpackCMap(packed(ZZ_CMAP_PACKED));
+  static jrt::Array<char16_t>* v = jrt::onHeap([&] { return zzUnpackCMap(packed(ZZ_CMAP_PACKED)); });
   return v;
 }
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::ZZ_ACTION() {
-  static jrt::Array<int32_t>* v = zzUnpackAction();
+  static jrt::Array<int32_t>* v = jrt::onHeap([&] { return zzUnpackAction(); });
   return v;
 }
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::ZZ_ROWMAP() {
-  static jrt::Array<int32_t>* v = zzUnpackRowMap();
+  static jrt::Array<int32_t>* v = jrt::onHeap([&] { return zzUnpackRowMap(); });
   return v;
 }
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::ZZ_TRANS() {
-  static jrt::Array<int32_t>* v = zzUnpackTrans();
+  static jrt::Array<int32_t>* v = jrt::onHeap([&] { return zzUnpackTrans(); });
   return v;
 }
 
 jrt::Array<std::string>* SpecctraDsnStreamReader::ZZ_ERROR_MSG() {
-  static jrt::Array<std::string>* v = jrt::Array<std::string>::of(
+  static jrt::Array<std::string>* v = jrt::onHeap([&] { return jrt::Array<std::string>::of(
       {"Unknown internal scanner error", "Error: could not match input",
-       "Error: pushback value was too large"});
+       "Error: pushback value was too large"}); });
   return v;
 }
 
 jrt::Array<int32_t>* SpecctraDsnStreamReader::ZZ_ATTRIBUTE() {
-  static jrt::Array<int32_t>* v = zzUnpackAttribute();
+  static jrt::Array<int32_t>* v = jrt::onHeap([&] { return zzUnpackAttribute(); });
   return v;
 }
 

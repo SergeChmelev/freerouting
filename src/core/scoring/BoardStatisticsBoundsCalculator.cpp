@@ -127,8 +127,7 @@ void BoardStatisticsBoundsCalculator_LayerGroups::union_(int32_t firstLayer, int
 
 jrt::Map<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>*
 BoardStatisticsBoundsCalculator::CACHE() {
-  static jrt::Map<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>* v =
-      new (jrt::kBoard) jrt::HashMap<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>();
+  static jrt::Map<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::HashMap<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>(); });
   return v;
 }
 

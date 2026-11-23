@@ -33,8 +33,7 @@ std::string BallEscapeOrder_Entry::toString() {
 }
 
 jrt::Set<std::string>* BallEscapeOrder::MODES() {
-  static jrt::Set<std::string>* v =
-      new (jrt::kBoard) jrt::HashSet<std::string>({"auto", "off", "outer_first", "inner_first"});
+  static jrt::Set<std::string>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::HashSet<std::string>({"auto", "off", "outer_first", "inner_first"}); });
   return v;
 }
 

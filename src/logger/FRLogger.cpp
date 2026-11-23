@@ -47,27 +47,27 @@ std::string FRLogger_DecimalFormat::format(double value) {
 // ---------------------------------------------------------------------------------------------
 
 FRLogger_DecimalFormat* FRLogger::defaultFloatFormat() {
-  static FRLogger_DecimalFormat* v = new (jrt::kBoard) FRLogger_DecimalFormat("0.00");
+  static FRLogger_DecimalFormat* v = jrt::onHeap([&] { return new (jrt::kBoard) FRLogger_DecimalFormat("0.00"); });
   return v;
 }
 
 FRLogger_DecimalFormat* FRLogger::defaultSignedFloatFormat() {
-  static FRLogger_DecimalFormat* v = new (jrt::kBoard) FRLogger_DecimalFormat("+0.00;-0.00");
+  static FRLogger_DecimalFormat* v = jrt::onHeap([&] { return new (jrt::kBoard) FRLogger_DecimalFormat("+0.00;-0.00"); });
   return v;
 }
 
 jrt::HashMap<int32_t, int64_t>* FRLogger::perfData() {
-  static jrt::HashMap<int32_t, int64_t>* v = new (jrt::kBoard) jrt::HashMap<int32_t, int64_t>();
+  static jrt::HashMap<int32_t, int64_t>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::HashMap<int32_t, int64_t>(); });
   return v;
 }
 
 LogEntries* FRLogger::logEntries() {
-  static LogEntries* v = new (jrt::kBoard) LogEntries();
+  static LogEntries* v = jrt::onHeap([&] { return new (jrt::kBoard) LogEntries(); });
   return v;
 }
 
 jrt::ArrayList<TraceEventListener*>* FRLogger::traceEventListeners() {
-  static jrt::ArrayList<TraceEventListener*>* v = new (jrt::kBoard) jrt::ArrayList<TraceEventListener*>();
+  static jrt::ArrayList<TraceEventListener*>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ArrayList<TraceEventListener*>(); });
   return v;
 }
 

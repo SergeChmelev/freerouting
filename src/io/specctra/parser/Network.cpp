@@ -168,8 +168,7 @@ std::string Network_PlacedComponent::toString() {
 // -------------------------------------------------------------------------------------------------
 
 jrt::List<std::string>* Network::NON_WIRE_ITEM_CLASS_NAMES() {
-  static jrt::List<std::string>* v =
-      new (jrt::kBoard) jrt::ArrayList<std::string>({"via", "smd", "pin", "area"});
+  static jrt::List<std::string>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ArrayList<std::string>({"via", "smd", "pin", "area"}); });
   return v;
 }
 

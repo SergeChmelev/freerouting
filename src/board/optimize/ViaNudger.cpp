@@ -61,16 +61,16 @@ std::string ViaNudger_ZoneRegion::toString() {
 // ViaNudger
 
 jrt::Array<int32_t>* ViaNudger::STEPS_IN_HALF_PITCHES() {
-  static jrt::Array<int32_t>* v = jrt::Array<int32_t>::of({1, 2, 4, 6});
+  static jrt::Array<int32_t>* v = jrt::onHeap([&] { return jrt::Array<int32_t>::of({1, 2, 4, 6}); });
   return v;
 }
 
 jrt::Array<jrt::Array<int32_t>*>* ViaNudger::DIRECTIONS() {
-  static jrt::Array<jrt::Array<int32_t>*>* v = jrt::Array<jrt::Array<int32_t>*>::of(
+  static jrt::Array<jrt::Array<int32_t>*>* v = jrt::onHeap([&] { return jrt::Array<jrt::Array<int32_t>*>::of(
       {jrt::Array<int32_t>::of({1, 0}), jrt::Array<int32_t>::of({1, 1}),
        jrt::Array<int32_t>::of({0, 1}), jrt::Array<int32_t>::of({-1, 1}),
        jrt::Array<int32_t>::of({-1, 0}), jrt::Array<int32_t>::of({-1, -1}),
-       jrt::Array<int32_t>::of({0, -1}), jrt::Array<int32_t>::of({1, -1})});
+       jrt::Array<int32_t>::of({0, -1}), jrt::Array<int32_t>::of({1, -1})}); });
   return v;
 }
 

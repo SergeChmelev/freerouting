@@ -446,6 +446,16 @@ constructor), else from the heap. Arena-backed storage that a container gives ba
 per-size free lists (`Arena::allocateReusable` / `recycle`, 16–1024 bytes), so churning sets in
 long-lived regions reuse memory. bm02 no-GC leak 0.80 → 0.57 GB; smoke clean.
 
+### E5 — runtime results are operation temporaries; statics on the heap
+
+The jrt runtime's own results (`Array::of`, `clone`, `Arrays::copyOf`, `newArray2`, iterators,
+`toArray`, `subList`, `Collections` helpers, …) are allocated with `kOp` instead of a plain
+`new`, so they follow operation regions; owned sub-objects (`LinkedHashSet`'s map) use
+`jrt::Like{this}`. Every function-local static pointer in `src/` whose initialiser allocates is
+created with `jrt::onHeap` (a static first touched inside a region would otherwise point into
+it: `BigIntAux::trailingZeroTable` was the first crash). `ShoveCheckCache_Key::heapCopy` runs in
+a `HeapScope`. bm02 no-GC leak 0.57 → 0.50 GB; smoke clean.
+
 ## TODO (stage C/E)
 
 * **Live-memory profiler by allocation site** (no-GC build): LeakSanitizer reports only what is

@@ -189,7 +189,7 @@ class Array : public virtual Object {
   explicit Array(const std::vector<T>& v) : Array(static_cast<int32_t>(v.size())) {
     std::copy(v.begin(), v.end(), data_);
   }
-  static Array* of(std::initializer_list<T> init) { return new Array(init); }
+  static Array* of(std::initializer_list<T> init) { return new (kOp) Array(init); }
 
   T& operator[](int32_t i) {
 #if JRT_CHECKED
@@ -204,7 +204,7 @@ class Array : public virtual Object {
   T* begin() { return data_; }
   T* end() { return data_ + length; }
   Array* clone() {
-    auto* a = new Array(length);
+    auto* a = new (kOp) Array(length);
     std::copy(data_, data_ + length, a->data_);
     return a;
   }
@@ -233,8 +233,8 @@ class Array : public virtual Object {
 
 template <class T>
 Array<Array<T>*>* newArray2(int32_t n, int32_t m) {
-  auto* a = new Array<Array<T>*>(n);
-  for (int32_t i = 0; i < n; ++i) (*a)[i] = new Array<T>(m);
+  auto* a = new (kOp) Array<Array<T>*>(n);
+  for (int32_t i = 0; i < n; ++i) (*a)[i] = new (kOp) Array<T>(m);
   return a;
 }
 
@@ -301,7 +301,7 @@ inline Iterator<T>* make_iter_in(IterBuf* buf, C* c) {
   if constexpr (sizeof(It) <= kIterBufSize && alignof(It) <= alignof(IterBuf)) {
     return new (static_cast<void*>(buf)) It(c);
   } else {
-    return new It(c);
+    return new (kOp) It(c);
   }
 }
 
@@ -423,7 +423,7 @@ class Collection : public virtual Object {
     for (ScopedIter<T> it(this); it->hasNext();) v.push_back(it->next());
     return v;
   }
-  Array<T>* toArray() { return new Array<T>(toVector()); }
+  Array<T>* toArray() { return new (kOp) Array<T>(toVector()); }
 
   // Generic (virtual) range-for support. Concrete classes provide faster begin()/end().
   IterAdapter<T> begin() { return IterAdapter<T>(this, 0); }
@@ -631,7 +631,7 @@ class ArrayList : public virtual List<T> {
   }
   ArrayList(std::initializer_list<T> init) { v_.assign(init.begin(), init.end()); }
   explicit ArrayList(const std::vector<T>& v) { v_.assign(v.begin(), v.end()); }
-  static ArrayList* of(std::initializer_list<T> init) { return new ArrayList(init); }
+  static ArrayList* of(std::initializer_list<T> init) { return new (kOp) ArrayList(init); }
 
   int32_t size() override { return static_cast<int32_t>(v_.size()); }
   bool add(T x) override {
@@ -694,7 +694,7 @@ class ArrayList : public virtual List<T> {
   void removeRange(int32_t from, int32_t to) { eraseRange(from, to); }
   // Java subList(from, to) as a COPY (Java returns a live view).
   ArrayList* subList(int32_t from, int32_t to) {
-    return new ArrayList(std::vector<T>(v_.begin() + from, v_.begin() + to));
+    return new (kOp) ArrayList(std::vector<T>(v_.begin() + from, v_.begin() + to));
   }
   T removeFirst() {
     if (v_.empty()) throw NoSuchElementException();
@@ -714,7 +714,7 @@ class ArrayList : public virtual List<T> {
     if (!c) c = naturalOrder<T>();
     std::stable_sort(v_.begin(), v_.end(), [&](const T& a, const T& b) { return c(a, b) < 0; });
   }
-  ArrayList* clone() { return new ArrayList(v_); }
+  ArrayList* clone() { return new (kOp) ArrayList(v_); }
 
   class It : public Iterator<T> {
    public:
@@ -737,7 +737,7 @@ class ArrayList : public virtual List<T> {
     int32_t cursor_ = 0;
     int32_t last_ = -1;
   };
-  Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iterator() override { return new (kOp) It(this); }
   Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
 
   // Fast native iteration. Do not structurally modify the list inside such a loop
@@ -888,9 +888,9 @@ class LinkedList : public virtual List<T>, public virtual Deque<T> {
     typename ListT::iterator cur_;
     bool last_valid_ = false;
   };
-  Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iterator() override { return new (kOp) It(this); }
   Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
-  Iterator<T>* descendingIterator() { return new DescIt(this); }
+  Iterator<T>* descendingIterator() { return new (kOp) DescIt(this); }
   auto begin() { return l_.begin(); }
   auto end() { return l_.end(); }
   ListT& raw() { return l_; }
@@ -972,7 +972,7 @@ class ArrayDeque : public virtual Deque<T> {
     std::size_t i_ = 0;
     int64_t last_ = -1;
   };
-  Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iterator() override { return new (kOp) It(this); }
   Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
   auto begin() { return d_.begin(); }
   auto end() { return d_.end(); }
@@ -1042,7 +1042,7 @@ class PriorityQueue : public virtual Queue<T> {
     PriorityQueue* q_;
     std::size_t i_ = 0;
   };
-  Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iterator() override { return new (kOp) It(this); }
   Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
   auto begin() { return q_.begin(); }
   auto end() { return q_.end(); }
@@ -1178,10 +1178,10 @@ class Map : public virtual Object {
     for (Entry* e : m->entryVector()) put(e->key, e->value);
   }
   // Snapshots (Java returns live views; mutate the map itself instead of these).
-  ArrayList<Entry*>* entrySet() { return new ArrayList<Entry*>(entryVector()); }
+  ArrayList<Entry*>* entrySet() { return new (kOp) ArrayList<Entry*>(entryVector()); }
   LinkedHashSet<K>* keySet();
   ArrayList<V>* values() {
-    auto* r = new ArrayList<V>();
+    auto* r = new (kOp) ArrayList<V>();
     for (Entry* e : entryVector()) r->add(e->value);
     return r;
   }
@@ -1532,7 +1532,7 @@ class HashSet : public virtual Set<T> {
     std::size_t i_ = 0;
     MapEntry<T, Present>* last_ = nullptr;
   };
-  Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iterator() override { return new (kOp) It(this); }
   Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
 
   class KeyIter {
@@ -1560,10 +1560,10 @@ class HashSet : public virtual Set<T> {
 template <class T>
 class LinkedHashSet : public HashSet<T> {
  public:
-  LinkedHashSet() : HashSet<T>(new LinkedHashMap<T, Present>()) {}
-  explicit LinkedHashSet(int32_t cap) : HashSet<T>(new LinkedHashMap<T, Present>(cap)) {}
+  LinkedHashSet() : HashSet<T>(new (Like{this}) LinkedHashMap<T, Present>()) {}
+  explicit LinkedHashSet(int32_t cap) : HashSet<T>(new (Like{this}) LinkedHashMap<T, Present>(cap)) {}
   explicit LinkedHashSet(Collection<T>* c)
-      : HashSet<T>(new LinkedHashMap<T, Present>(Math::max(2 * c->size(), 11))) {
+      : HashSet<T>(new (Like{this}) LinkedHashMap<T, Present>(Math::max(2 * c->size(), 11))) {
     this->addAll(c);
   }
   LinkedHashSet(std::initializer_list<T> init) : LinkedHashSet() {
@@ -1573,7 +1573,7 @@ class LinkedHashSet : public HashSet<T> {
 
 template <class K, class V>
 LinkedHashSet<K>* Map<K, V>::keySet() {
-  auto* s = new LinkedHashSet<K>();
+  auto* s = new (kOp) LinkedHashSet<K>();
   for (Entry* e : entryVector()) s->add(e->key);
   return s;
 }
@@ -1657,22 +1657,22 @@ class TreeSet : public virtual Set<T> {
   }
   // Snapshots (Java returns live views).
   TreeSet* headSet(const T& to, bool inclusive = false) {
-    auto* r = new TreeSet(*cmp_);
+    auto* r = new (kOp) TreeSet(*cmp_);
     auto e = inclusive ? s_.upper_bound(to) : s_.lower_bound(to);
     for (auto it = s_.begin(); it != e; ++it) r->s_.insert(*it);
     return r;
   }
   TreeSet* tailSet(const T& from, bool inclusive = true) {
-    auto* r = new TreeSet(*cmp_);
+    auto* r = new (kOp) TreeSet(*cmp_);
     for (auto it = inclusive ? s_.lower_bound(from) : s_.upper_bound(from); it != s_.end(); ++it) r->s_.insert(*it);
     return r;
   }
   TreeSet* subSet(const T& from, const T& to) {
-    auto* r = new TreeSet(*cmp_);
+    auto* r = new (kOp) TreeSet(*cmp_);
     for (auto it = s_.lower_bound(from); it != s_.end() && (*cmp_)(*it, to) < 0; ++it) r->s_.insert(*it);
     return r;
   }
-  ArrayList<T>* descendingList() { return new ArrayList<T>(std::vector<T>(s_.rbegin(), s_.rend())); }
+  ArrayList<T>* descendingList() { return new (kOp) ArrayList<T>(std::vector<T>(s_.rbegin(), s_.rend())); }
 
   class It : public Iterator<T> {
    public:
@@ -1714,9 +1714,9 @@ class TreeSet : public virtual Set<T> {
     typename SetT::iterator cur_;
     bool valid_ = false;
   };
-  Iterator<T>* iterator() override { return new It(this); }
+  Iterator<T>* iterator() override { return new (kOp) It(this); }
   Iterator<T>* iteratorIn(IterBuf* buf) override { return make_iter_in<It, T>(buf, this); }
-  Iterator<T>* descendingIterator() { return new DescIt(this); }
+  Iterator<T>* descendingIterator() { return new (kOp) DescIt(this); }
   auto begin() { return s_.begin(); }
   auto end() { return s_.end(); }
 
@@ -1821,13 +1821,13 @@ class TreeMap : public virtual Map<K, V> {
     return it == m_.begin() ? nullptr : std::prev(it)->second;
   }
   TreeMap* headMap(const K& to, bool inclusive = false) {
-    auto* r = new TreeMap(*cmp_);
+    auto* r = new (kOp) TreeMap(*cmp_);
     auto e = inclusive ? m_.upper_bound(to) : m_.lower_bound(to);
     for (auto it = m_.begin(); it != e; ++it) r->put(it->first, it->second->value);
     return r;
   }
   TreeMap* tailMap(const K& from, bool inclusive = true) {
-    auto* r = new TreeMap(*cmp_);
+    auto* r = new (kOp) TreeMap(*cmp_);
     for (auto it = inclusive ? m_.lower_bound(from) : m_.upper_bound(from); it != m_.end(); ++it)
       r->put(it->first, it->second->value);
     return r;
@@ -1918,23 +1918,23 @@ struct Collections {
   }
   template <class T>
   static ArrayList<T>* emptyList() {
-    return new ArrayList<T>();
+    return new (kOp) ArrayList<T>();
   }
   template <class T>
   static HashSet<T>* emptySet() {
-    return new HashSet<T>();
+    return new (kOp) HashSet<T>();
   }
   template <class K, class V>
   static HashMap<K, V>* emptyMap() {
-    return new HashMap<K, V>();
+    return new (kOp) HashMap<K, V>();
   }
   template <class T>
   static ArrayList<T>* singletonList(T x) {
-    return new ArrayList<T>({x});
+    return new (kOp) ArrayList<T>({x});
   }
   template <class T>
   static ArrayList<T>* nCopies(int32_t n, T x) {
-    return new ArrayList<T>(std::vector<T>(n, x));
+    return new (kOp) ArrayList<T>(std::vector<T>(n, x));
   }
   template <class C>
   static C* unmodifiable(C* c) {
@@ -1960,23 +1960,23 @@ struct Arrays {
   }
   template <class T>
   static Array<T>* copyOf(Array<T>* a, int32_t n) {
-    auto* r = new Array<T>(n);
+    auto* r = new (kOp) Array<T>(n);
     std::copy(a->begin(), a->begin() + std::min(n, a->length), r->begin());
     return r;
   }
   template <class T>
   static Array<T>* copyOfRange(Array<T>* a, int32_t from, int32_t to) {
-    auto* r = new Array<T>(to - from);
+    auto* r = new (kOp) Array<T>(to - from);
     std::copy(a->begin() + from, a->begin() + std::min(to, a->length), r->begin());
     return r;
   }
   template <class T>
   static ArrayList<T>* asList(std::initializer_list<T> init) {
-    return new ArrayList<T>(init);
+    return new (kOp) ArrayList<T>(init);
   }
   template <class T>
   static ArrayList<T>* asList(Array<T>* a) {
-    return new ArrayList<T>(a->toVector());
+    return new (kOp) ArrayList<T>(a->toVector());
   }
   template <class T>
   static void sort(Array<T>* a, Comparator<T> c = nullptr) {

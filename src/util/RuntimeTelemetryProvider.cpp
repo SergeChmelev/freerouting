@@ -20,7 +20,7 @@ class FallbackRuntimeTelemetryProvider : public RuntimeTelemetryProvider {
 }  // namespace
 
 RuntimeTelemetryProvider* RuntimeTelemetryProvider::FALLBACK() {
-  static RuntimeTelemetryProvider* v = new (jrt::kBoard) FallbackRuntimeTelemetryProvider();
+  static RuntimeTelemetryProvider* v = jrt::onHeap([&] { return new (jrt::kBoard) FallbackRuntimeTelemetryProvider(); });
   return v;
 }
 
@@ -29,7 +29,7 @@ RuntimeTelemetryProvider* RuntimeTelemetryProvider::get() {
 }
 
 RuntimeTelemetryProvider* RuntimeTelemetryProvider_Holder::INSTANCE() {
-  static RuntimeTelemetryProvider* v = load();
+  static RuntimeTelemetryProvider* v = jrt::onHeap([&] { return load(); });
   return v;
 }
 

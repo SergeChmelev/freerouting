@@ -8,7 +8,7 @@
 namespace fr {
 
 ViaRule* ViaRule::EMPTY() {
-  static ViaRule* v = new (jrt::kBoard) ViaRule("empty");
+  static ViaRule* v = jrt::onHeap([&] { return new (jrt::kBoard) ViaRule("empty"); });
   return v;
 }
 

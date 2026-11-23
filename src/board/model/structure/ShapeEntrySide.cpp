@@ -14,7 +14,7 @@
 namespace fr {
 
 ShapeEntrySide* ShapeEntrySide::NOT_CALCULATED() {
-  static ShapeEntrySide* v = new (jrt::kBoard) ShapeEntrySide(-1, nullptr);
+  static ShapeEntrySide* v = jrt::onHeap([&] { return new (jrt::kBoard) ShapeEntrySide(-1, nullptr); });
   return v;
 }
 

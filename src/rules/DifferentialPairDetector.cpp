@@ -115,13 +115,13 @@ jrt::Array<DifferentialPairDetector_SuffixTokenPattern*>*
 DifferentialPairDetector::DELIMITED_PATTERNS() {
   using S = DifferentialPairDetector_SuffixStyle;
   using P = DifferentialPairDetector_SuffixTokenPattern;
-  static jrt::Array<P*>* v = jrt::Array<P*>::of({
+  static jrt::Array<P*>* v = jrt::onHeap([&] { return jrt::Array<P*>::of({
       new (jrt::kOp) P("POS", "NEG", S::POS_NEG),
       new (jrt::kOp) P("DP", "DM", S::DP_DM),
       new (jrt::kOp) P("D+", "D-", S::D_PLUS_MINUS),
       new (jrt::kOp) P("P", "N", S::P_N),
       new (jrt::kOp) P("+", "-", S::PLUS_MINUS),
-  });
+  }); });
   return v;
 }
 

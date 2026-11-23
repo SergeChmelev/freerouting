@@ -22,7 +22,7 @@
 namespace fr {
 
 jrt::Random* PolygonShape::randomGenerator() {
-  static jrt::Random* v = new (jrt::kBoard) jrt::Random(seed);
+  static jrt::Random* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::Random(seed); });
   return v;
 }
 

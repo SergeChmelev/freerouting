@@ -18,7 +18,7 @@
 namespace fr {
 
 ShoveCheckCache*& ShoveCheckCache::CURRENT() {
-  static ShoveCheckCache* v = new (jrt::kBoard) ShoveCheckCache();
+  static ShoveCheckCache* v = jrt::onHeap([&] { return new (jrt::kBoard) ShoveCheckCache(); });
   return v;
 }
 
@@ -43,8 +43,9 @@ void ShoveCheckCache::put(RoutingBoard* board, int64_t contentStamp, ShoveCheckC
 }
 
 ShoveCheckCache_Key* ShoveCheckCache_Key::heapCopy() {
+  jrt::HeapScope heap;  // kOp (the coords clone) on the heap too
   auto* copy = new (jrt::kBoard) ShoveCheckCache_Key(*this);
-  copy->coords = this->coords->clone();  // plain new: heap
+  copy->coords = this->coords->clone();
   return copy;
 }
 
