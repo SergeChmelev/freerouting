@@ -131,6 +131,11 @@ BoardStatisticsBoundsCalculator::CACHE() {
   return v;
 }
 
+void BoardStatisticsBoundsCalculator::forget(BasicBoard* board) {
+  // The value may live in an operation region (kOp): only the entry is dropped.
+  CACHE()->remove(board);
+}
+
 BoardStatisticsBounds* BoardStatisticsBoundsCalculator::calculate(BasicBoard* board) {
   AngleRestriction angleRestriction = board->rules->getTraceAngleRestriction();
   BoardStatisticsBoundsCalculator_CachedBounds* cached = CACHE()->get(board);

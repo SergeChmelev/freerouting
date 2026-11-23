@@ -70,6 +70,12 @@ class SearchTreeManager : public virtual jrt::Object {
    */
   virtual void reinsertTreeItems();
 
+  /**
+   * PORT NOTE (stage E, board teardown): frees every search tree of the board (its nodes and
+   * the tree objects). The items' leaf arrays are dropped by the caller.
+   */
+  void disposeTrees();
+
  private:
   void removeAllBoardItems();
 

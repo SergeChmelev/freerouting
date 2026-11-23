@@ -35,6 +35,7 @@
 #include "core/library/BoardLibrary.h"
 #include "core/library/Padstack.h"
 #include "datastructures/ShapeTree.h"
+#include "core/scoring/BoardStatisticsBoundsCalculator.h"
 #include "datastructures/UndoableObjects.h"
 #include "drc/NetRoutingLedger.h"
 #include "geometry/planar/Area.h"
@@ -53,6 +54,12 @@
 #include "rules/Nets.h"
 
 namespace fr {
+
+namespace {
+// Diagnostics: board copies made / freed (BasicBoard::copiesMade / copiesDiscarded).
+int64_t gCopiesMade = 0;
+int64_t gCopiesDiscarded = 0;
+}  // namespace
 
 BasicBoard::BasicBoard(IntBox* boundingBox, LayerStructure* layerStructure,
                        jrt::Array<PolylineShape*>* outlineShapes, int32_t outlineClClassNo,
@@ -74,6 +81,7 @@ BasicBoard::BasicBoard(IntBox* boundingBox, LayerStructure* layerStructure,
 
 BasicBoard::BasicBoard(BasicBoard_CopyTag tag, BasicBoard* source) {
   (void)tag;
+  ++gCopiesMade;
   // PORT NOTE: replaces Java deserialization (see RoutingBoardUndoFacade.h). Non-transient state:
   // mutable parts deep copied, immutable parts (library, layer structure, bounding box) shared.
   itemList = nullptr;  // set by copyItemListFrom
@@ -1388,6 +1396,53 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
   // padstack on use; a stale precalculatedMinWidth of the source is not carried over) and the
   // cached DrillItem center of a Pin (recomputed lazily from the deep-copied component).
   // Via.padstack stays the source's object, which is correct because the library is shared.
+}
+
+int64_t BasicBoard::copiesMade() { return gCopiesMade; }
+int64_t BasicBoard::copiesDiscarded() { return gCopiesDiscarded; }
+
+void BasicBoard::discard(BasicBoard* board) {
+  if (board == nullptr) {
+    return;
+  }
+  ++gCopiesDiscarded;
+  board->releaseOwnedData();
+  jrt::dispose(board);
+}
+
+void BasicBoard::releaseOwnedData() {
+  BoardStatisticsBoundsCalculator::forget(this);
+  // Trees first: their leaves are referenced by the items' leaf arrays, never read again.
+  if (searchTreeManager != nullptr) {
+    searchTreeManager->disposeTrees();
+    jrt::dispose(searchTreeManager);
+    searchTreeManager = nullptr;
+  }
+  jrt::dispose(itemRepository);  // with its id map
+  itemRepository = nullptr;
+  if (normalContactCache != nullptr) {
+    normalContactCache->forEach([](Item*, jrt::Set<Item*>* contacts) { jrt::dispose(contacts); });
+    jrt::disposeMapAndEntries(normalContactCache);
+    normalContactCache = nullptr;
+  }
+  if (itemList != nullptr) {
+    // Every item of the list is this board's own (copies clone them; undo versions are clones
+    // too). Their geometry, net-number arrays and padstacks may be shared and are kept.
+    itemList->disposeAll([](UndoableObjects_Storable* object) {
+      if (auto* item = jrt::fast_cast<Item>(object)) {
+        item->clearSearchTreeEntries();
+        jrt::dispose(item->netNumbers);  // every item (and undo version) has its own array
+      }
+      jrt::dispose(object);
+    });
+    jrt::dispose(itemList);
+    itemList = nullptr;
+  }
+  if (components != nullptr) {
+    components->disposeAll();
+    jrt::dispose(components);
+    components = nullptr;
+  }
 }
 
 BasicBoard* BasicBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {

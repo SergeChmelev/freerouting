@@ -1,6 +1,8 @@
 // Port of app.freerouting.datastructures.ShapeTree
 #include "datastructures/ShapeTree.h"
 
+#include <vector>
+
 #include "geometry/planar/RegularTileShape.h"
 #include "geometry/planar/Shape.h"
 #include "geometry/planar/ShapeBoundingDirections.h"
@@ -52,6 +54,28 @@ ShapeTree_Leaf* ShapeTree::insert(ShapeTree_Storable* object, int32_t index) {
 }
 
 jrt::Array<ShapeTree_Leaf*>* ShapeTree::toArray() { return toArrayUnlocked(); }
+
+void ShapeTree::disposeNodes() {
+  // Owned by the tree (stage C1): inner nodes with their bounding shapes (always a fresh union)
+  // and the leaves. Not the leaf bounding shapes (the stored objects' tree shapes) and not the
+  // stored objects. Iterative: degenerate trees can be deep.
+  std::vector<ShapeTree_TreeNode*> stack;
+  if (this->root != nullptr) stack.push_back(this->root);
+  while (!stack.empty()) {
+    ShapeTree_TreeNode* node = stack.back();
+    stack.pop_back();
+    if (auto* inner = jrt::fast_cast<ShapeTree_InnerNode>(node)) {
+      if (inner->firstChild != nullptr) stack.push_back(inner->firstChild);
+      if (inner->secondChild != nullptr) stack.push_back(inner->secondChild);
+      jrt::dispose(inner->boundingShape);
+      jrt::dispose(inner);
+    } else {
+      jrt::dispose(jrt::fast_cast<ShapeTree_Leaf>(node));
+    }
+  }
+  this->root = nullptr;
+  this->leafCount = 0;
+}
 
 jrt::Array<ShapeTree_Leaf*>* ShapeTree::toArrayUnlocked() {
   auto* result = new (jrt::kOp) jrt::Array<ShapeTree_Leaf*>(this->leafCount);

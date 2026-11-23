@@ -150,6 +150,10 @@ class BoardStatisticsBoundsCalculator final : public virtual jrt::Object {
  public:
   static BoardStatisticsBounds* calculate(BasicBoard* board);
 
+  /** PORT NOTE (stage E): drops the entry of a board that is freed (Java: the WeakHashMap key
+   * is collected), so a later board at the same address never sees its bounds. */
+  static void forget(BasicBoard* board);
+
  private:
   static BoardStatisticsBounds* calculateUncached(BasicBoard* board,
                                                   AngleRestriction angleRestriction);

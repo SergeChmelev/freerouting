@@ -61,6 +61,8 @@ class BoardHistory : public virtual jrt::Object {
 
  private:
   static RouterSettings* createLegacyRouterSettings(RoutingCostSettings* scoringSettings);
+  /** Frees an entry dropped from the history together with its snapshot board. */
+  static void discardEntry(BoardHistory_BoardHistoryEntry* entry);
 
  public:
   /** Clears all boards from history. */

@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <unordered_set>
 
 #include "board/model/items/Item.h"
 #include "logger/FRLogger.h"
@@ -167,6 +168,53 @@ void UndoableObjects::sweepNodes() {
   std::fill(ownedNodes_.begin() + static_cast<std::ptrdiff_t>(kept), ownedNodes_.end(), nullptr);
   ownedNodes_.resize(kept);
   sweepAt_ = std::max<std::size_t>(sweepMinimum(), 2 * kept);
+}
+
+void UndoableObjects::disposeAll(const std::function<void(UndoableObjects_Storable*)>& disposeObject) {
+  // The objects of every node the list can still reach (the map, the delete lists, undo/redo
+  // links). Objects only held by unreachable nodes that were not swept yet are not owned any
+  // more (Java: garbage) and are left alone; their nodes are freed below like all others.
+  uint32_t epoch = ++markEpoch_;
+  if (epoch == 0) {
+    epoch = markEpoch_ = 1;
+    for (UONode* n : ownedNodes_) n->mark = 0;
+  }
+  std::vector<UONode*> nodes;
+  std::vector<UONode*> stack;
+  auto push = [&](UONode* n) {
+    if (n != nullptr && n->mark != epoch) {
+      n->mark = epoch;
+      stack.push_back(n);
+      nodes.push_back(n);
+    }
+  };
+  for (auto* entry : *this->objects) push(entry->getValue());
+  for (auto* deleteList : *this->deletedObjectsStack) {
+    for (UONode* n : *deleteList) push(n);
+  }
+  while (!stack.empty()) {
+    UONode* n = stack.back();
+    stack.pop_back();
+    push(n->undoObject);
+    push(n->redoObject);
+  }
+  std::unordered_set<UndoableObjects_Storable*> seen;
+  std::vector<UndoableObjects_Storable*> objectsToDispose;
+  for (UONode* n : nodes) {
+    if (n->object != nullptr && seen.insert(n->object).second) objectsToDispose.push_back(n->object);
+  }
+  for (UndoableObjects_Storable* object : objectsToDispose) disposeObject(object);
+  jrt::disposeMapAndEntries(this->objects);
+  this->objects = nullptr;
+  for (auto* deleteList : *this->deletedObjectsStack) jrt::dispose(deleteList);
+  this->deletedObjectsStack->clear();
+  jrt::dispose(this->deletedObjectsStack);
+  this->deletedObjectsStack = nullptr;
+  // Board-arena nodes are not registered (released with the arena).
+  for (UONode* n : ownedNodes_) jrt::dispose(n);
+  std::fill(ownedNodes_.begin(), ownedNodes_.end(), nullptr);
+  ownedNodes_.clear();
+  ownedNodes_.shrink_to_fit();
 }
 
 UndoableObjects_Storable* UndoableObjects::readObject(jrt::Iterator<UONode*>* it) {

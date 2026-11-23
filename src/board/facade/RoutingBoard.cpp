@@ -703,6 +703,16 @@ void RoutingBoard::discardAutorouteEngineWithBoard() {
   this->autorouteEngine = nullptr;
 }
 
+void RoutingBoard::releaseOwnedData() {
+  ShoveCheckCache::forThread()->forget(this);
+  // The engine's arena objects (rooms, drills) are referenced only by this board; the trees
+  // are freed below without reading their leaves' objects.
+  AutorouteEngine* engine = this->autorouteEngine;
+  discardAutorouteEngineWithBoard();
+  jrt::dispose(engine);
+  BasicBoard::releaseOwnedData();
+}
+
 void RoutingBoard::clearTransientAutorouteState() {
   finishAutoroute();
   clearAllItemTemporaryAutorouteData();

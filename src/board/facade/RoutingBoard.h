@@ -212,6 +212,12 @@ class RoutingBoard : public BasicBoard {
    * Only for a board that is dropped as a whole (optimizer worker board). */
   virtual void discardAutorouteEngineWithBoard();
 
+ protected:
+  /** BasicBoard::discard: also the autoroute engine and the caches keyed by this board. */
+  void releaseOwnedData() override;
+
+ public:
+
   /**
    * Drops maze/search scratch that snapshot undo does not restore. Optimizer worker-board reuse
    * must call this after each candidate.

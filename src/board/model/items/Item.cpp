@@ -58,10 +58,12 @@ namespace fr {
 
 Item::Item(jrt::Array<int32_t>* netNumbers, int32_t clearanceClassIndex, int32_t id,
            int32_t componentId, FixedState fixedState, BasicBoard* board) {
+  // PORT NOTE (stage E): the item's own copy, in the item's domain (an optimizer worker item
+  // lives in the candidate arena; a heap item's array is freed with it by BasicBoard::discard).
   if (netNumbers == nullptr) {
-    this->netNumbers = new (jrt::kBoard) jrt::Array<int32_t>(0);
+    this->netNumbers = new (jrt::Like{this}) jrt::Array<int32_t>(0);
   } else {
-    this->netNumbers = new (jrt::kBoard) jrt::Array<int32_t>(netNumbers->length);
+    this->netNumbers = new (jrt::Like{this}) jrt::Array<int32_t>(netNumbers->length);
     jrt::arraycopy(netNumbers, 0, this->netNumbers, 0, netNumbers->length);
   }
   this->clearanceClassIndex_ = clearanceClassIndex;

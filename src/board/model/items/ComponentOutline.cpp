@@ -23,7 +23,7 @@ ComponentOutline::ComponentOutline(Area* area, bool isFront, Vector* translation
                                    double rotationInDegree, int32_t id, int32_t componentId,
                                    bool isCourtyard, bool isFabrication, bool isClosed,
                                    FixedState fixedState, BasicBoard* board)
-    : Item(new (jrt::kBoard) jrt::Array<int32_t>(0), 0, id, componentId, fixedState, board),
+    : Item(nullptr, 0, id, componentId, fixedState, board),  // no nets (Item makes its own array)
       relativeArea(area) {
   this->isFront_ = isFront;
   this->translation = geomcopy::keep(translation, this);

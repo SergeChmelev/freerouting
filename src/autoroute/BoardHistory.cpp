@@ -45,7 +45,7 @@ void BoardHistory::add(RoutingBoard* board) {
     if (newScore <= worstScore) {
       return;
     }
-    boards->removeAt(worstIndex);
+    discardEntry(boards->removeAt(worstIndex));
   }
 
   boards->add(new (jrt::kOp) BoardHistory_BoardHistoryEntry(board, routerSettings));
@@ -57,7 +57,22 @@ RouterSettings* BoardHistory::createLegacyRouterSettings(RoutingCostSettings* sc
   return settings;
 }
 
-void BoardHistory::clear() { boards->clear(); }
+void BoardHistory::clear() {
+  for (BoardHistory_BoardHistoryEntry* entry : *boards) {
+    discardEntry(entry);
+  }
+  boards->clear();
+}
+
+void BoardHistory::discardEntry(BoardHistory_BoardHistoryEntry* entry) {
+  // PORT NOTE (stage E): the history owns its snapshots (Java: byte[]); restoreBoard hands out
+  // copies, never the snapshot itself.
+  if (entry == nullptr) {
+    return;
+  }
+  BasicBoard::discard(entry->board);
+  jrt::dispose(entry);
+}
 
 bool BoardHistory::contains(RoutingBoard* board) {
   std::string hash = board->getHash();
@@ -73,7 +88,7 @@ void BoardHistory::remove(RoutingBoard* board) {
   std::string hash = board->getHash();
   for (int32_t i = 0; i < boards->size(); i++) {
     if (boards->get(i)->hash == hash) {
-      boards->removeAt(i);
+      discardEntry(boards->removeAt(i));
       return;
     }
   }

@@ -209,6 +209,10 @@ class BatchOptimizer : public NamedAlgorithm {
   std::optional<int64_t> deadlineMs;
   bool isTimedOut_ = false;
   RoutingBoard* bestBoard = nullptr;
+  // PORT NOTE (stage E): the board this->board had when runBatchLoop started (owned by the job's
+  // caller, never freed here). Every other board this->board / bestBoard takes is a copy made by
+  // the optimizer and is freed when the optimizer drops it (dropBoard).
+  RoutingBoard* inputBoard_ = nullptr;
   float bestScore = 0.0f;
   int32_t bestIncompleteCount = 0;
   int32_t bestClearanceViolationCount = 0;
@@ -276,6 +280,9 @@ class BatchOptimizer : public NamedAlgorithm {
    * and destroy the snapshot).
    */
   void restoreIncumbentBoard();
+  /** Frees `old`, a board the optimizer no longer refers to, unless it is the input board or
+   * still the job's / incumbent board. */
+  void dropBoard(RoutingBoard* old);
 
  public:
   /**

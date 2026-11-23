@@ -1,6 +1,8 @@
 // Port of app.freerouting.board.model.structure.Components
 #include "board/model/structure/Components.h"
 
+#include <unordered_set>
+
 #include "board/model/structure/Component.h"
 #include "board/state/BoardObservers.h"
 #include "core/library/Package.h"
@@ -45,6 +47,22 @@ Components* Components::deepCopy() {
   }
   result->flipStyleRotateFirst = this->flipStyleRotateFirst;
   return result;
+}
+
+void Components::disposeAll() {
+  std::unordered_set<Component*> disposed;
+  undoList->disposeAll([&disposed](UndoableObjects_Storable* object) {
+    if (auto* component = jrt::fast_cast<Component>(object)) disposed.insert(component);
+    jrt::dispose(object);
+  });
+  jrt::dispose(undoList);
+  undoList = nullptr;
+  for (Component* component : *componentArr) {
+    if (component != nullptr && disposed.insert(component).second) jrt::dispose(component);
+  }
+  componentArr->clear();
+  jrt::dispose(componentArr);
+  componentArr = nullptr;
 }
 
 Components::Components()
