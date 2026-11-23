@@ -1,6 +1,8 @@
 #include "jrt/bignum.h"
 
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "jrt/collections.h"
@@ -9,28 +11,71 @@ namespace jrt {
 
 // ---------------------------------------------------------------------------------------------
 // BigInteger
+//
+// PORT NOTE (MEMORY_MODEL.md stage D): values that fit in int64 are stored inline (rep_ ==
+// nullptr, no allocation); GMP is used only for larger values and for rare operations (pow,
+// sqrt, modInverse, parsing). Every result is normalised: it is inline whenever it fits, so
+// the representation of a value is unique.
 // ---------------------------------------------------------------------------------------------
+namespace {
+
+// Temporary mpz holding a BigInteger's value (rep_ shared or a copy of the inline value).
+struct MpzArg {
+  explicit MpzArg(const BigInteger& b) {
+    if (b.isSmall()) {
+      mpz_init_set_si(own, static_cast<long>(b.smallValue()));
+      p = own;
+      owned = true;
+    } else {
+      p = b.raw();
+    }
+  }
+  ~MpzArg() {
+    if (owned) mpz_clear(own);
+  }
+  MpzArg(const MpzArg&) = delete;
+  MpzArg& operator=(const MpzArg&) = delete;
+  mpz_t own;
+  const __mpz_struct* p;
+  bool owned = false;
+};
+
+}  // namespace
+
 BigInteger::Rep* BigInteger::newRep() {
   Rep* r = new Rep;  // collected; limbs are GC memory too (see gc.cpp), so never mpz_clear
   mpz_init(r->v);
   return r;
 }
 
-BigInteger::BigInteger(int64_t v) : rep_(newRep()) {
-  static_assert(sizeof(long) == 8, "LP64 expected");
-  mpz_set_si(rep_->v, static_cast<long>(v));
+BigInteger BigInteger::fromRep(Rep* r) {
+  if (mpz_fits_slong_p(r->v)) return BigInteger(static_cast<int64_t>(mpz_get_si(r->v)));
+  return BigInteger(r);
 }
 
-BigInteger::BigInteger(const std::string& s) : rep_(newRep()) {
+BigInteger::BigInteger(const std::string& s) {
   std::string t = s;
   if (!t.empty() && t[0] == '+') t.erase(0, 1);
-  if (t.empty() || mpz_set_str(rep_->v, t.c_str(), 10) != 0) throw NumberFormatException("For input string: \"" + s + "\"");
+  Rep* r = newRep();
+  if (t.empty() || mpz_set_str(r->v, t.c_str(), 10) != 0) throw NumberFormatException("For input string: \"" + s + "\"");
+  *this = fromRep(r);
 }
 
 BigInteger BigInteger::fromRaw(const mpz_t v) {
   Rep* r = newRep();
   mpz_set(r->v, v);
-  return BigInteger(r);
+  return fromRep(r);
+}
+
+const __mpz_struct* BigInteger::raw() const {
+  if (rep_ == nullptr) {
+    // GMP form of an inline value (not cached: rep_ == nullptr marks the inline form).
+    Rep* r = newRep();
+    static_assert(sizeof(long) == 8, "LP64 expected");
+    mpz_set_si(r->v, static_cast<long>(small_));
+    return r->v;
+  }
+  return rep_->v;
 }
 
 const BigInteger& BigInteger::ZERO() {
@@ -51,37 +96,61 @@ const BigInteger& BigInteger::TEN() {
 }
 
 BigInteger BigInteger::add(const BigInteger& o) const {
-  Rep* r = newRep();
-  mpz_add(r->v, rep_->v, o.rep_->v);
-  return BigInteger(r);
+  int64_t r;
+  if (isSmall() && o.isSmall() && !__builtin_add_overflow(small_, o.small_, &r)) return BigInteger(r);
+  MpzArg a(*this), b(o);
+  Rep* rr = newRep();
+  mpz_add(rr->v, a.p, b.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::subtract(const BigInteger& o) const {
-  Rep* r = newRep();
-  mpz_sub(r->v, rep_->v, o.rep_->v);
-  return BigInteger(r);
+  int64_t r;
+  if (isSmall() && o.isSmall() && !__builtin_sub_overflow(small_, o.small_, &r)) return BigInteger(r);
+  MpzArg a(*this), b(o);
+  Rep* rr = newRep();
+  mpz_sub(rr->v, a.p, b.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::multiply(const BigInteger& o) const {
-  Rep* r = newRep();
-  mpz_mul(r->v, rep_->v, o.rep_->v);
-  return BigInteger(r);
+  int64_t r;
+  if (isSmall() && o.isSmall() && !__builtin_mul_overflow(small_, o.small_, &r)) return BigInteger(r);
+  MpzArg a(*this), b(o);
+  Rep* rr = newRep();
+  mpz_mul(rr->v, a.p, b.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::divide(const BigInteger& o) const {
   if (o.signum() == 0) throw ArithmeticException("BigInteger divide by zero");
-  Rep* r = newRep();
-  mpz_tdiv_q(r->v, rep_->v, o.rep_->v);
-  return BigInteger(r);
+  if (isSmall() && o.isSmall() && !(small_ == INT64_MIN && o.small_ == -1)) {
+    return BigInteger(small_ / o.small_);  // C++ truncates toward zero like mpz_tdiv_q
+  }
+  MpzArg a(*this), b(o);
+  Rep* rr = newRep();
+  mpz_tdiv_q(rr->v, a.p, b.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::remainder(const BigInteger& o) const {
   if (o.signum() == 0) throw ArithmeticException("BigInteger divide by zero");
-  Rep* r = newRep();
-  mpz_tdiv_r(r->v, rep_->v, o.rep_->v);
-  return BigInteger(r);
+  if (isSmall() && o.isSmall()) {
+    if (o.small_ == -1) return BigInteger(int64_t{0});
+    return BigInteger(small_ % o.small_);  // sign of the dividend like mpz_tdiv_r
+  }
+  MpzArg a(*this), b(o);
+  Rep* rr = newRep();
+  mpz_tdiv_r(rr->v, a.p, b.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::mod(const BigInteger& m) const {
   if (m.signum() <= 0) throw ArithmeticException("BigInteger: modulus not positive");
-  Rep* r = newRep();
-  mpz_mod(r->v, rep_->v, m.rep_->v);
-  return BigInteger(r);
+  if (isSmall() && m.isSmall()) {
+    int64_t r = small_ % m.small_;  // m > 0
+    if (r < 0) r += m.small_;
+    return BigInteger(r);
+  }
+  MpzArg a(*this), b(m);
+  Rep* rr = newRep();
+  mpz_mod(rr->v, a.p, b.p);
+  return fromRep(rr);
 }
 Array<BigInteger>* BigInteger::divideAndRemainder(const BigInteger& o) const {
   auto* a = new Array<BigInteger>(2);
@@ -90,58 +159,95 @@ Array<BigInteger>* BigInteger::divideAndRemainder(const BigInteger& o) const {
   return a;
 }
 BigInteger BigInteger::negate() const {
-  Rep* r = newRep();
-  mpz_neg(r->v, rep_->v);
-  return BigInteger(r);
+  if (isSmall() && small_ != INT64_MIN) return BigInteger(-small_);
+  MpzArg a(*this);
+  Rep* rr = newRep();
+  mpz_neg(rr->v, a.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::abs() const {
   if (signum() >= 0) return *this;
   return negate();
 }
 BigInteger BigInteger::gcd(const BigInteger& o) const {
-  Rep* r = newRep();
-  mpz_gcd(r->v, rep_->v, o.rep_->v);
-  return BigInteger(r);
+  if (isSmall() && o.isSmall() && small_ != INT64_MIN && o.small_ != INT64_MIN) {
+    uint64_t a = static_cast<uint64_t>(small_ < 0 ? -small_ : small_);
+    uint64_t b = static_cast<uint64_t>(o.small_ < 0 ? -o.small_ : o.small_);
+    while (b != 0) {
+      uint64_t t = a % b;
+      a = b;
+      b = t;
+    }
+    return BigInteger(static_cast<int64_t>(a));
+  }
+  MpzArg a(*this), b(o);
+  Rep* rr = newRep();
+  mpz_gcd(rr->v, a.p, b.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::pow(int32_t e) const {
   if (e < 0) throw ArithmeticException("Negative exponent");
-  Rep* r = newRep();
-  mpz_pow_ui(r->v, rep_->v, static_cast<unsigned long>(e));
-  return BigInteger(r);
+  MpzArg a(*this);
+  Rep* rr = newRep();
+  mpz_pow_ui(rr->v, a.p, static_cast<unsigned long>(e));
+  return fromRep(rr);
 }
 BigInteger BigInteger::modInverse(const BigInteger& m) const {
   if (m.signum() <= 0) throw ArithmeticException("BigInteger: modulus not positive");
-  Rep* r = newRep();
-  if (mpz_invert(r->v, rep_->v, m.rep_->v) == 0) throw ArithmeticException("BigInteger not invertible.");
-  if (mpz_sgn(r->v) < 0) mpz_add(r->v, r->v, m.rep_->v);  // Java returns a value in [0, m)
-  return BigInteger(r);
+  MpzArg a(*this), b(m);
+  Rep* rr = newRep();
+  if (mpz_invert(rr->v, a.p, b.p) == 0) throw ArithmeticException("BigInteger not invertible.");
+  if (mpz_sgn(rr->v) < 0) mpz_add(rr->v, rr->v, b.p);  // Java returns a value in [0, m)
+  return fromRep(rr);
 }
 BigInteger BigInteger::sqrt() const {
   if (signum() < 0) throw ArithmeticException("Negative BigInteger");
-  Rep* r = newRep();
-  mpz_sqrt(r->v, rep_->v);
-  return BigInteger(r);
+  MpzArg a(*this);
+  Rep* rr = newRep();
+  mpz_sqrt(rr->v, a.p);
+  return fromRep(rr);
 }
 BigInteger BigInteger::shiftLeft(int32_t n) const {
   if (n < 0) return shiftRight(-n);
-  Rep* r = newRep();
-  mpz_mul_2exp(r->v, rep_->v, static_cast<mp_bitcnt_t>(n));
-  return BigInteger(r);
+  if (isSmall()) {
+    if (small_ == 0) return *this;
+    int64_t r;
+    if (n < 63 && !__builtin_mul_overflow(small_, int64_t{1} << n, &r)) return BigInteger(r);
+  }
+  MpzArg a(*this);
+  Rep* rr = newRep();
+  mpz_mul_2exp(rr->v, a.p, static_cast<mp_bitcnt_t>(n));
+  return fromRep(rr);
 }
 BigInteger BigInteger::shiftRight(int32_t n) const {
   if (n < 0) return shiftLeft(-n);
-  Rep* r = newRep();
-  mpz_fdiv_q_2exp(r->v, rep_->v, static_cast<mp_bitcnt_t>(n));
-  return BigInteger(r);
+  if (isSmall()) {
+    // floor division by 2^n (arithmetic shift)
+    if (n >= 63) return BigInteger(int64_t{small_ < 0 ? -1 : 0});
+    return BigInteger(small_ >> n);
+  }
+  MpzArg a(*this);
+  Rep* rr = newRep();
+  mpz_fdiv_q_2exp(rr->v, a.p, static_cast<mp_bitcnt_t>(n));
+  return fromRep(rr);
 }
 int32_t BigInteger::compareTo(const BigInteger& o) const {
-  int c = mpz_cmp(rep_->v, o.rep_->v);
+  if (isSmall() && o.isSmall()) return small_ < o.small_ ? -1 : (small_ > o.small_ ? 1 : 0);
+  MpzArg a(*this), b(o);
+  int c = mpz_cmp(a.p, b.p);
   return c < 0 ? -1 : (c > 0 ? 1 : 0);
 }
 int32_t BigInteger::hashCode() const {
   // Java: hash over the big-endian int[] magnitude, times signum.
   int sgn = signum();
   if (sgn == 0) return 0;
+  if (isSmall()) {
+    uint64_t m = small_ < 0 ? 0 - static_cast<uint64_t>(small_) : static_cast<uint64_t>(small_);
+    uint32_t hi = static_cast<uint32_t>(m >> 32);
+    uint32_t lo = static_cast<uint32_t>(m);
+    uint32_t h = hi != 0 ? 31 * hi + lo : lo;
+    return static_cast<int32_t>(h * static_cast<uint32_t>(sgn));
+  }
   std::size_t count = 0;
   std::vector<uint32_t> words((mpz_sizeinbase(rep_->v, 2) + 31) / 32 + 1);
   mpz_export(words.data(), &count, 1, sizeof(uint32_t), 0, 0, rep_->v);
@@ -150,6 +256,10 @@ int32_t BigInteger::hashCode() const {
   return static_cast<int32_t>(h * static_cast<uint32_t>(sgn));
 }
 int32_t BigInteger::bitLength() const {
+  if (isSmall()) {
+    uint64_t m = static_cast<uint64_t>(small_ < 0 ? ~small_ : small_);  // negative: -x - 1
+    return m == 0 ? 0 : 64 - __builtin_clzll(m);
+  }
   if (signum() == 0) return 0;
   if (signum() > 0) return static_cast<int32_t>(mpz_sizeinbase(rep_->v, 2));
   // negative: bitLength of (-x - 1)
@@ -161,6 +271,9 @@ int32_t BigInteger::bitLength() const {
   return r;
 }
 double BigInteger::doubleValue() const {
+  // int64 -> double conversion rounds to nearest even, like Java (long) -> double and like the
+  // correctly rounded GMP path below.
+  if (isSmall()) return static_cast<double>(small_);
   int sgn = signum();
   if (sgn == 0) return 0.0;
   mpz_t a;
@@ -184,6 +297,7 @@ double BigInteger::doubleValue() const {
   return sgn < 0 ? -r : r;
 }
 int64_t BigInteger::longValue() const {
+  if (isSmall()) return small_;
   // low 64 bits of the two's complement representation
   mpz_t t;
   mpz_init(t);
@@ -193,14 +307,18 @@ int64_t BigInteger::longValue() const {
 }
 int32_t BigInteger::intValue() const { return static_cast<int32_t>(static_cast<uint32_t>(static_cast<uint64_t>(longValue()))); }
 int32_t BigInteger::intValueExact() const {
-  if (!mpz_fits_sint_p(rep_->v)) throw ArithmeticException("BigInteger out of int range");
-  return static_cast<int32_t>(mpz_get_si(rep_->v));
+  if (isSmall()) {
+    if (small_ < INT32_MIN || small_ > INT32_MAX) throw ArithmeticException("BigInteger out of int range");
+    return static_cast<int32_t>(small_);
+  }
+  throw ArithmeticException("BigInteger out of int range");
 }
 int64_t BigInteger::longValueExact() const {
-  if (!mpz_fits_slong_p(rep_->v)) throw ArithmeticException("BigInteger out of long range");
-  return static_cast<int64_t>(mpz_get_si(rep_->v));
+  if (isSmall()) return small_;
+  throw ArithmeticException("BigInteger out of long range");
 }
 std::string BigInteger::toString() const {
+  if (isSmall()) return std::to_string(small_);
   std::string s(mpz_sizeinbase(rep_->v, 10) + 2, '\0');
   mpz_get_str(s.data(), 10, rep_->v);
   s.resize(std::strlen(s.c_str()));

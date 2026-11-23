@@ -17,7 +17,7 @@ class Array;
 class BigInteger {
  public:
   BigInteger() : BigInteger(int64_t{0}) {}
-  BigInteger(int64_t v);  // NOLINT(google-explicit-constructor): mirrors BigInteger.valueOf
+  BigInteger(int64_t v) : small_(v), rep_(nullptr) {}  // NOLINT: mirrors BigInteger.valueOf
   BigInteger(int32_t v) : BigInteger(static_cast<int64_t>(v)) {}  // NOLINT
   explicit BigInteger(const std::string& decimal);
   static BigInteger valueOf(int64_t v) { return BigInteger(v); }
@@ -43,7 +43,9 @@ class BigInteger {
   BigInteger shiftRight(int32_t n) const;  // floor
   BigInteger min(const BigInteger& o) const { return compareTo(o) <= 0 ? *this : o; }
   BigInteger max(const BigInteger& o) const { return compareTo(o) >= 0 ? *this : o; }
-  int32_t signum() const { return mpz_sgn(rep_->v); }
+  int32_t signum() const {
+    return rep_ == nullptr ? (small_ > 0) - (small_ < 0) : mpz_sgn(rep_->v);
+  }
   int32_t compareTo(const BigInteger& o) const;
   bool equals(const BigInteger& o) const { return compareTo(o) == 0; }
   int32_t hashCode() const;
@@ -53,23 +55,27 @@ class BigInteger {
   int64_t longValue() const;   // low 64 bits (two's complement)
   int32_t intValueExact() const;
   int64_t longValueExact() const;
-  bool fitsLong() const { return mpz_fits_slong_p(rep_->v) != 0; }
+  bool fitsLong() const { return rep_ == nullptr; }  // results are normalised (see bignum.cpp)
+  bool isSmall() const { return rep_ == nullptr; }
+  int64_t smallValue() const { return small_; }
   std::string toString() const;
 
   bool operator==(const BigInteger& o) const { return compareTo(o) == 0; }
   bool operator!=(const BigInteger& o) const { return compareTo(o) != 0; }
   bool operator<(const BigInteger& o) const { return compareTo(o) < 0; }
 
-  const __mpz_struct* raw() const { return rep_->v; }
+  const __mpz_struct* raw() const;
   static BigInteger fromRaw(const mpz_t v);
 
  private:
   struct Rep {
     mpz_t v;
   };
-  explicit BigInteger(Rep* r) : rep_(r) {}
+  explicit BigInteger(Rep* r) : small_(0), rep_(r) {}
   static Rep* newRep();
-  Rep* rep_;
+  static BigInteger fromRep(Rep* r);  // normalises: inline when the value fits in int64
+  int64_t small_;  // the value when rep_ == nullptr
+  Rep* rep_;       // GMP value (only for values outside int64), immutable and shared
 };
 
 inline std::string str(const BigInteger& b) { return b.toString(); }
