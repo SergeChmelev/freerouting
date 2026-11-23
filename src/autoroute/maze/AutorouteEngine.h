@@ -35,7 +35,8 @@ class AutorouteEngine : public virtual jrt::Object {
   TimeLimit* timeLimit = nullptr;
 
   /** The list of incomplete expansion rooms on the routing board. */
-  jrt::List<IncompleteFreeSpaceExpansionRoom*>* incompleteExpansionRooms = nullptr;
+  // PORT NOTE: declared ArrayList (Java: List, always an ArrayList) for removeIdentical.
+  jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>* incompleteExpansionRooms = nullptr;
 
   /** The list of complete expansion rooms on the routing board. */
   jrt::List<CompleteFreeSpaceExpansionRoom*>* completeExpansionRooms = nullptr;

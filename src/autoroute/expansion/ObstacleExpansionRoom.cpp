@@ -93,7 +93,7 @@ void ObstacleExpansionRoom::resetDoors() {
 }
 
 jrt::Collection<TargetItemExpansionDoor*>* ObstacleExpansionRoom::getTargetDoors() {
-  return new (jrt::kSearch) jrt::ArrayList<TargetItemExpansionDoor*>();
+  return new (jrt::kOp) jrt::ArrayList<TargetItemExpansionDoor*>();
 }
 
 SearchTreeObject* ObstacleExpansionRoom::getObject() { return this->item; }

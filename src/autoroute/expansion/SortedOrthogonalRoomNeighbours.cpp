@@ -427,7 +427,7 @@ bool SortedOrthogonalRoomNeighbours::tryRemoveEdge(int32_t netNumber, ShapeSearc
                     ", tie_count=" + jrt::str(equalAreaTieCount) + ", selected_bounds=" +
                     (ignoreShape == nullptr ? std::string("null") : jrt::str(ignoreShape->boundingBox())) +
                     ", selected_area=" + jrt::str(maxDoorArea));
-    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
         enlargedBox, currentIncompleteRoom->getLayer(), currentIncompleteRoom->getContainedShape());
     jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRooms =
         autorouteSearchTree->completeShape(enlargedRoom, netNumber, ignoreObject, ignoreShape);

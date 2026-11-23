@@ -362,7 +362,7 @@ bool Sorted45DegreeRoomNeighbours::tryRemoveEdgeLine(int32_t netNumber, ShapeSea
         }
       }
     }
-    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
         enlargedOct, currentIncompleteRoom->getLayer(), currentIncompleteRoom->getContainedShape());
     jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRooms =
         autorouteSearchTree->completeShape(enlargedRoom, netNumber, ignoreObject, ignoreShape);

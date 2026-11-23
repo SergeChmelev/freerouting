@@ -65,6 +65,26 @@ struct FastCastCache {
 };
 
 template <class T, class U>
+inline T* fast_cast_slow(U* p, const void* vptr, FastCastCache<T, U>& cache) {
+  auto h = (reinterpret_cast<uintptr_t>(vptr) >> 4) & (FastCastCache<T, U>::kSlots - 1);
+  for (int probe = 0; probe < 8; ++probe) {
+    auto i = (h + probe) & (FastCastCache<T, U>::kSlots - 1);
+    if (cache.keys[i] == vptr) {
+      ptrdiff_t off = cache.offsets[i];
+      if (off == FastCastCache<T, U>::kFail) return nullptr;
+      return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + off);
+    }
+    if (cache.keys[i] == nullptr) {
+      T* r = dynamic_cast<T*>(p);
+      cache.keys[i] = vptr;
+      cache.offsets[i] = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : FastCastCache<T, U>::kFail;
+      return r;
+    }
+  }
+  return dynamic_cast<T*>(p);  // table region full: uncached
+}
+
+template <class T, class U>
 inline T* fast_cast(U* p) {
   static_assert(std::is_polymorphic_v<U>, "fast_cast needs a polymorphic source type");
   if (p == nullptr) return nullptr;
@@ -72,23 +92,18 @@ inline T* fast_cast(U* p) {
     return p;  // upcast: implicit conversion (also through virtual bases)
   } else {
     static FastCastCache<T, U> cache;
+    // Most call sites see the same dynamic type again and again: one-entry memo first.
+    static const void* lastVptr = nullptr;
+    static ptrdiff_t lastOff = 0;
     const void* vptr = *reinterpret_cast<const void* const*>(p);
-    auto h = (reinterpret_cast<uintptr_t>(vptr) >> 4) & (FastCastCache<T, U>::kSlots - 1);
-    for (int probe = 0; probe < 8; ++probe) {
-      auto i = (h + probe) & (FastCastCache<T, U>::kSlots - 1);
-      if (cache.keys[i] == vptr) {
-        ptrdiff_t off = cache.offsets[i];
-        if (off == FastCastCache<T, U>::kFail) return nullptr;
-        return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + off);
-      }
-      if (cache.keys[i] == nullptr) {
-        T* r = dynamic_cast<T*>(p);
-        cache.keys[i] = vptr;
-        cache.offsets[i] = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : FastCastCache<T, U>::kFail;
-        return r;
-      }
+    if (vptr == lastVptr) {
+      if (lastOff == FastCastCache<T, U>::kFail) return nullptr;
+      return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + lastOff);
     }
-    return dynamic_cast<T*>(p);  // table region full: uncached
+    T* r = fast_cast_slow<T, U>(p, vptr, cache);
+    lastVptr = vptr;
+    lastOff = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : FastCastCache<T, U>::kFail;
+    return r;
   }
 }
 

@@ -376,7 +376,7 @@ bool SortedRoomNeighbours::tryRemoveEdge(int32_t netNumber, ShapeSearchTree* aut
                     jrt::str(removeEdgeNo) + ", room_bounds=" +
                     jrt::str(currentIncompleteRoom->getShape()->boundingBox()));
     Simplex* enlargedShape = roomSimplex->removeBorderLine(removeEdgeNo);
-    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* enlargedRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
         enlargedShape, currentIncompleteRoom->getLayer(), currentIncompleteRoom->getContainedShape());
     jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newRooms =
         autorouteSearchTree->completeShape(enlargedRoom, netNumber, nullptr, nullptr);

@@ -83,7 +83,7 @@ void AutorouteEngine::initConnection(int32_t netNumber, Stoppable* stoppableThre
       if (this->completeExpansionRooms != nullptr) {
         // invalidate the net dependent complete free space expansion rooms.
         jrt::Collection<CompleteFreeSpaceExpansionRoom*>* roomsToRemove =
-            new (jrt::kSearch) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+            new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
         for (CompleteFreeSpaceExpansionRoom* currentRoom : *completeExpansionRooms) {
           if (currentRoom->isNetDependent()) {
             roomsToRemove->add(currentRoom);
@@ -356,7 +356,8 @@ IncompleteFreeSpaceExpansionRoom* AutorouteEngine::getFirstIncompleteExpansionRo
 
 void AutorouteEngine::removeIncompleteExpansionRoom(IncompleteFreeSpaceExpansionRoom* room) {
   this->removeAllDoors(room);
-  incompleteExpansionRooms->remove(room);
+  // Rooms do not override equals(): identity removal is Java's List.remove(Object).
+  incompleteExpansionRooms->removeIdentical(room);
 }
 
 void AutorouteEngine::removeCompleteExpansionRoom(CompleteFreeSpaceExpansionRoom* room) {
@@ -403,7 +404,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
     IncompleteFreeSpaceExpansionRoom* room) {
   try {
     jrt::Collection<CompleteFreeSpaceExpansionRoom*>* result =
-        new (jrt::kSearch) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+        new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
     TileShape* fromDoorShape = nullptr;
     SearchTreeObject* ignoreObject = nullptr;
     jrt::Collection<ExpansionDoor*>* roomDoors = room->getDoors();
@@ -485,7 +486,7 @@ jrt::Collection<CompleteFreeSpaceExpansionRoom*>* AutorouteEngine::completeExpan
     return result;
   } catch (const jrt::Exception& e) {
     FRLogger::error("AutorouteEngine.complete_expansion_room: ", &e);
-    return new (jrt::kSearch) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::ArrayList<CompleteFreeSpaceExpansionRoom*>();
   }
 }
 

@@ -574,6 +574,16 @@ class ArrayList : public virtual List<T> {
     }
     return false;
   }
+  // remove(x) for element types whose equals() is identity (no virtual call per element).
+  bool removeIdentical(const T& x) {
+    for (std::size_t i = 0; i < v_.size(); ++i) {
+      if (v_[i] == x) {
+        v_.erase(v_.begin() + i);
+        return true;
+      }
+    }
+    return false;
+  }
   bool contains(const T& x) override { return indexOf(x) >= 0; }
   int32_t indexOf(const T& x) override {
     for (std::size_t i = 0; i < v_.size(); ++i)

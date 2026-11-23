@@ -47,7 +47,7 @@ void DrillPageArray::invalidate(TileShape* shape) {
 }
 
 jrt::Collection<DrillPage*>* DrillPageArray::overlappingPages(TileShape* shape) {
-  jrt::Collection<DrillPage*>* result = new (jrt::kSearch) jrt::LinkedList<DrillPage*>();
+  jrt::Collection<DrillPage*>* result = new (jrt::kOp) jrt::LinkedList<DrillPage*>();
 
   IntBox* shapeBox = shape->boundingBox()->intersection(this->bounds);
 

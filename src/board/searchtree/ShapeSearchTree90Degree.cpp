@@ -51,16 +51,16 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
   auto* shapeToBeContained = jrt::fast_cast<IntBox>(room->getContainedShape());
   if (shapeToBeContained == nullptr) {
     FRLogger::warn("BoxShapeSearchTree.complete_shape: unexpected shapeToBeContained");
-    return new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   if (this->root == nullptr) {
-    return new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   IntBox* startShape = board->getBoundingBox();
   if (room->getShape() != nullptr) {
     if (jrt::fast_cast<IntBox>(room->getShape()) == nullptr) {
       FRLogger::warn("BoxShapeSearchTree.complete_shape: startShape of type IntBox expected");
-      return new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
     }
     startShape = jrt::fast_cast<IntBox>(room->getShape())->intersection(startShape);
   }
@@ -69,8 +69,8 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
   bool debugAnchor = isCompleteShapeDebugAnchor(netNumber, roomLayer, startShape);
   int32_t debugStep = 0;
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
-  result->add(new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(startShape, roomLayer, shapeToBeContained));
+      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+  result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(startShape, roomLayer, shapeToBeContained));
 
   // Process obstacles inline during tree traversal with dynamic boundingShape updates.
   // This matches v1.9's algorithm exactly: as obstacles are processed, boundingShape
@@ -90,10 +90,13 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
         if (auto* currentLeaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
           SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
           int32_t shapeIndex = currentLeaf->shapeIndexInObject;
-          bool isObstacle = currentObject->isTraceObstacle(netNumber, shapeIndex);
           int32_t objectLayer = currentObject->shapeLayer(shapeIndex);
           bool sameLayer = objectLayer == roomLayer;
           bool ignoredObject = currentObject == ignoreObject;
+          // PORT NOTE: Java evaluates isTraceObstacle first for every leaf; it is free of side
+          // effects (BoardOutline only memoizes), so it is skipped when the result is unused.
+          bool isObstacle = (debugAnchor || (sameLayer && !ignoredObject)) &&
+                            currentObject->isTraceObstacle(netNumber, shapeIndex);
           if (debugAnchor) {
             traceCompleteShapeFilter(debugStep, netNumber, roomLayer, shapeIndex, objectLayer,
                                      isObstacle, sameLayer, ignoredObject, currentObject);
@@ -106,7 +109,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::com
                                           currentObjectShape);
             }
             jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newResult =
-                new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+                new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
             IntBox* newBoundingShape = IntBox::EMPTY();
             bool hadRoomsBeforeObstacle = !result->isEmpty();
             for (IncompleteFreeSpaceExpansionRoom* currentRoom : *result) {
@@ -188,7 +191,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::res
   // opposite of this line.
 
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
 
   TileShape* containedShape = incompleteRoom->getContainedShape();
   if (containedShape == nullptr || containedShape->isEmpty()) {
@@ -245,7 +248,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::res
     }
   }
   if (restrainedShape != nullptr) {
-    result->add(new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(restrainedShape, incompleteRoom->getLayer(),
+    result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(restrainedShape, incompleteRoom->getLayer(),
                                                      shapeToBeContained));
     return result;
   }
@@ -281,9 +284,9 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree90Degree::res
   if (newShape1 != nullptr) {
     IntBox* newShapeToBeContained = shapeToBeContained->intersection(newShape1);
     if (newShapeToBeContained->dimension() > 0) {
-      result->add(new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(newShape1, incompleteRoom->getLayer(),
+      result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(newShape1, incompleteRoom->getLayer(),
                                                        newShapeToBeContained));
-      IncompleteFreeSpaceExpansionRoom* newIncompleteRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
+      IncompleteFreeSpaceExpansionRoom* newIncompleteRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
           newShape2, incompleteRoom->getLayer(), shapeToBeContained->intersection(newShape2));
       result->addAll(restrainShape(newIncompleteRoom, obstacleShape));
     }

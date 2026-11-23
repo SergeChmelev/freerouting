@@ -943,10 +943,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
     TileShape* ignoreShape) {
   if (room->getContainedShape() == nullptr) {
     FRLogger::warn("ShapeSearchTree.completeShape: shapeToBeContained != null expected");
-    return new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   if (this->root == nullptr) {
-    return new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+    return new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   }
   TileShape* startShape = board->getBoundingBox();
   if (room->getShape() != nullptr) {
@@ -954,10 +954,10 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
   }
   RegularTileShape* boundingShape = startShape->boundingShape(this->boundingDirections);
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   if (startShape->dimension() == 2) {
     IncompleteFreeSpaceExpansionRoom* newRoom =
-        new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(startShape, room->getLayer(), room->getContainedShape());
+        new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(startShape, room->getLayer(), room->getContainedShape());
     result->add(newRoom);
   }
 
@@ -997,7 +997,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
         currentObject->shapeLayer(shapeIndex) == roomLayer && currentObject != ignoreObject) {
       TileShape* currentObjectShape = currentObject->getTreeShape(this, shapeIndex);
       jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* newResult =
-          new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+          new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
       RegularTileShape* newBoundingShape = IntOctagon::EMPTY();
 
       for (IncompleteFreeSpaceExpansionRoom* currentIncompleteRoom : *result) {
@@ -1048,7 +1048,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
 jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainShape(
     IncompleteFreeSpaceExpansionRoom* incompleteRoom, TileShape* obstacleShape) {
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kSearch) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::ArrayList<IncompleteFreeSpaceExpansionRoom*>();
   // Search the edge line of obstacleShape, so that shapeToBeContained
   // are on the right side of this line, and that the line segment
   // intersects with the interior of shape.
@@ -1098,7 +1098,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
       resultPiece = roomShape->intersection(resultPiece);
     }
     if (resultPiece->dimension() >= 2) {
-      result->add(new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, shapeToBeContained));
+      result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, shapeToBeContained));
     }
   } else {
     // There is no cut line, so that all shapeToBeContained is
@@ -1138,7 +1138,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
       resultPiece = roomShape->intersection(cutHalfPlane);
     }
     if (resultPiece->dimension() >= 2) {
-      result->add(new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, newShapeToBeContained));
+      result->add(new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(resultPiece, layer, newShapeToBeContained));
     }
     TileShape* oppositeHalfPlane = TileShape::getInstance(cutLine->opposite());
     TileShape* restPiece;
@@ -1150,7 +1150,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::restrainSha
     if (restPiece->dimension() >= 2) {
       TileShape* restShapeToBeContained = shapeToBeContained->intersection(oppositeHalfPlane);
       IncompleteFreeSpaceExpansionRoom* restIncompleteRoom =
-          new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(restPiece, layer, restShapeToBeContained);
+          new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(restPiece, layer, restShapeToBeContained);
       result->addAll(restrainShape(restIncompleteRoom, obstacleShape));
     }
   }
@@ -1423,11 +1423,11 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::divideLarge
       0.5 * jrt::Math::max(boardBoundingBox->height(), boardBoundingBox->width());
   jrt::Array<TileShape*>* sectionArr = currentRoom->getShape()->divideIntoSections(maxSectionWidth);
   jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* result =
-      new (jrt::kSearch) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
+      new (jrt::kOp) jrt::LinkedList<IncompleteFreeSpaceExpansionRoom*>();
   for (TileShape* currentSection : *sectionArr) {
     TileShape* currentShapeToBeContained =
         currentSection->intersection(currentRoom->getContainedShape());
-    IncompleteFreeSpaceExpansionRoom* currentSectionRoom = new (jrt::kSearch) IncompleteFreeSpaceExpansionRoom(
+    IncompleteFreeSpaceExpansionRoom* currentSectionRoom = new (jrt::kOp) IncompleteFreeSpaceExpansionRoom(
         currentSection, currentRoom->getLayer(), currentShapeToBeContained);
     result->add(currentSectionRoom);
   }

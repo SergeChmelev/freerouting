@@ -113,10 +113,14 @@ returns the chunks to a per-thread pool anchored in uncollectable memory; `aband
 chunks and leaves them to the collector. Arena memory is zero-filled on allocation like
 `GC_MALLOC`/Java objects. Destructors of arena objects never run (as for collected objects).
 
-**1. Connection-search arena** (`kSearch`, 107 sites): expansion rooms (incomplete, complete,
-obstacle), doors, target doors, door sections (`MazeSearchElement`), drills and drill pages,
-`MazeListElement`, backtrack elements, the `MazeSearchEngine` and its helpers, and the
-collections owned by those objects. Each `AutorouteEngine` that does not maintain its database
+**1. Connection-search arena** (`kSearch`, 53 sites): the long-lived search graph — complete
+and obstacle rooms, the engine's incomplete rooms, doors, target doors, door sections
+(`MazeSearchElement`), drills and drill pages, backtrack elements, the `MazeSearchEngine` and its
+helpers, and the collections owned by those objects. High-churn temporaries stay `kOp` (GC):
+`MazeListElement`, candidate room pieces and result lists of `ShapeSearchTree*::completeShape`,
+door-list copies, page lists. A first version put those into the arena too: since the arena
+lives as long as the engine, bm01's huge searches then kept every temporary until the engine
+was dropped and the peak RSS went from 391 MB to 3.3 GB (the collector frees them at once). Each `AutorouteEngine` that does not maintain its database
 (the default; `freerouting.benchmark.retain_autoroute_database` keeps the GC path) owns an arena.
 It is current (`jrt::ArenaScope`) while the engine builds its drill pages and during
 `autorouteConnection` up to `clear()`. Contrary to the original plan, the arena can **not** be
@@ -151,9 +155,9 @@ Sites per package after stage B (`classify_allocs.py report --top`):
 
 | package | board | board data | op | search | geom | total |
 |---|---:|---:|---:|---:|---:|---:|
-| autoroute | 24 | 0 | 578 | 70 | 169 | 841 |
-| board | 120 | 37 | 273 | 37 | 211 | 678 |
-| geometry | 1 | 0 | 51 | 0 | 597 | 649 |
+| autoroute | 24 | 0 | 596 | 52 | 169 | 841 |
+| board | 120 | 37 | 309 | 1 | 211 | 678 |
+| geometry | 1 | 0 | 51 | 0 | 598 | 650 |
 | io (DSN/SES) | 154 | 0 | 285 | 0 | 34 | 473 |
 | core | 70 | 0 | 82 | 0 | 2 | 154 |
 | rules | 79 | 0 | 36 | 0 | 3 | 118 |
@@ -162,7 +166,7 @@ Sites per package after stage B (`classify_allocs.py report --top`):
 | datastructures | 7 | 6 | 67 | 0 | 3 | 83 |
 | interactive | 0 | 0 | 25 | 0 | 8 | 33 |
 | logger, util, bindings/lua | 12 | 0 | 7 | 0 | 0 | 19 |
-| **total** | **527** | **43** | **1518** | **107** | **1040** | **3235** |
+| **total** | **527** | **43** | **1572** | **53** | **1041** | **3236** |
 
 Parity after stage B: corpus run (`tools/parity_corpus.sh`, release build, stopped after 71 of
 180 fixtures): 60 SAME, 0 DIFF; 9 time out (900 s) in both Java and C++; 2 fail in C++ already
