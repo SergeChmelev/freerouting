@@ -478,6 +478,14 @@ item caches and query results.
 * `SpecctraDsnStreamReader` owns its input buffer; the three DSN reads dispose their scanner.
 * bm02 no-GC leak 0.50 → 0.39 GB; smoke clean.
 
+### E7 — step slider in a local region
+
+`StepSlider::run` (an optimization stage that shoves traces on the main board through
+`insertForcedTracePolyline` / `TraceShover`) runs each trace's move trials in a geometry-only
+local region. bm02 no-GC leak 317 → 246 MB; smoke clean. Letting this region also take `kOp`
+broke 11 of 40 smoke boards (main-board structures keep per-operation objects), so main-board
+regions stay geometry-only until those stores are known.
+
 ## TODO (stage C/E)
 
 * Items: deferred disposal of removed items and their geometry (callers keep using an item after

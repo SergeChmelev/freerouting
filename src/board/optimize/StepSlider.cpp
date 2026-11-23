@@ -71,6 +71,9 @@ StepSlider_Result* StepSlider::run() {
     }
     jrt::Collections::sort(traceIds);
     for (int32_t traceId : *traceIds) {
+      // PORT NOTE (stage E): the geometry of trying the moves of one trace (candidate polylines,
+      // shoving) lives in a local region; board items copy out what they keep.
+      jrt::LocalGeomRegion traceRegion;
       if (isStopRequested()) {
         break;
       }
