@@ -1,4 +1,4 @@
-#include "geometry/planar/IntPoint.h"
+﻿#include "geometry/planar/IntPoint.h"
 
 #include "geometry/planar/FloatPoint.h"
 #include "geometry/planar/IntBox.h"
@@ -69,6 +69,11 @@ Point* IntPoint::translateBy(IntVector* vector) {
 Point* IntPoint::translateBy(RationalVector* vector) { return vector->addTo(this); }
 
 Vector* IntPoint::differenceBy(Point* other) {
+  // PORT NOTE: fast path for an integer point: -(other - this) == this - other bit for bit
+  // (-fwrapv), one new vector instead of two.
+  if (auto* otherInt = jrt::fast_cast<IntPoint>(other)) {
+    return new (jrt::kGeom) IntVector(x - otherInt->x, y - otherInt->y);
+  }
   Vector* tmp = other->differenceBy(this);
   return tmp->negate();
 }
@@ -83,6 +88,19 @@ IntVector* IntPoint::differenceBy(IntPoint* other) {
 }
 
 Side* IntPoint::sideOf(Line* line) {
+  // PORT NOTE: allocation-free fast path for a line through integer points. Same arithmetic as
+  // the generic path below: v1 = this - a, v2 = b - a, IntVector::sideOf dispatches to
+  // v2.sideOf(v1) = Side::of(v1.x * v2.y - v1.y * v2.x) and negates it.
+  auto* a = jrt::fast_cast<IntPoint>(line->a);
+  auto* b = a != nullptr ? jrt::fast_cast<IntPoint>(line->b) : nullptr;
+  if (b != nullptr) {
+    int32_t v1x = x - a->x;
+    int32_t v1y = y - a->y;
+    int32_t v2x = b->x - a->x;
+    int32_t v2y = b->y - a->y;
+    double determinant = static_cast<double>(v1x) * v2y - static_cast<double>(v1y) * v2x;
+    return Side::of(determinant)->negate();
+  }
   Vector* v1 = differenceBy(line->a);
   Vector* v2 = line->b->differenceBy(line->a);
   return v1->sideOf(v2);

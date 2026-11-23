@@ -1,4 +1,4 @@
-// Port of app.freerouting.datastructures.UndoableObjects
+﻿// Port of app.freerouting.datastructures.UndoableObjects
 #pragma once
 
 #include "fwd.h"
@@ -64,6 +64,11 @@ class UndoableObjects_NodeIterator
   UndoableObjects_UndoableObjectNode* nextValue_ = nullptr;
   jrt::MapEntry<UndoableObjects_Storable*, UndoableObjects_UndoableObjectNode*>* lastReturned_ =
       nullptr;
+  // PORT NOTE: position of nextEntry_ in the map, valid while the map erase count equals
+  // nextStamp_; lets next() step in O(1) instead of a higherEntry() search (same result).
+  typename jrt::ConcurrentSkipListMap<UndoableObjects_Storable*,
+                                      UndoableObjects_UndoableObjectNode*>::MapIt nextIt_{};
+  uint64_t nextStamp_ = 0;
 };
 
 /**

@@ -142,6 +142,23 @@ int32_t IntOctagon::cornerX(int32_t no) {
 }
 
 double IntOctagon::area() {
+  return areaOf(leftX, bottomY, rightX, topY, upperLeftDiagonalX, lowerRightDiagonalX,
+                lowerLeftDiagonalX, upperRightDiagonalX);
+}
+
+double IntOctagon::unionArea(IntOctagon* other) {
+  // Same fields as union_(other) (and other->union_(this): min/max are symmetric).
+  return areaOf(jrt::Math::min(leftX, other->leftX), jrt::Math::min(bottomY, other->bottomY),
+                jrt::Math::max(rightX, other->rightX), jrt::Math::max(topY, other->topY),
+                jrt::Math::min(upperLeftDiagonalX, other->upperLeftDiagonalX),
+                jrt::Math::max(lowerRightDiagonalX, other->lowerRightDiagonalX),
+                jrt::Math::min(lowerLeftDiagonalX, other->lowerLeftDiagonalX),
+                jrt::Math::max(upperRightDiagonalX, other->upperRightDiagonalX));
+}
+
+double IntOctagon::areaOf(int32_t leftX, int32_t bottomY, int32_t rightX, int32_t topY,
+                          int32_t upperLeftDiagonalX, int32_t lowerRightDiagonalX,
+                          int32_t lowerLeftDiagonalX, int32_t upperRightDiagonalX) {
   // calculate half of the absolute value of
   // x0 (y1 - y7) + x1 (y2 - y0) + x2 (y3 - y1) + ...+ x7( y0 - y6)
   // where xi, yi are the coordinates of the i-th corner of this Octagon.

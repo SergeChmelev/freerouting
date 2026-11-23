@@ -2,21 +2,6 @@
 
 namespace fr {
 
-Side* Side::ON_THE_LEFT() {
-  static Side* v = new (jrt::kGeom) Side("onTheLeft");
-  return v;
-}
-
-Side* Side::ON_THE_RIGHT() {
-  static Side* v = new (jrt::kGeom) Side("onTheRight");
-  return v;
-}
-
-Side* Side::COLLINEAR() {
-  static Side* v = new (jrt::kGeom) Side("collinear");
-  return v;
-}
-
 Side* Side::of(double value) {
   Side* result;
   if (value > 0) {

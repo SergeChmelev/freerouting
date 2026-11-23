@@ -86,8 +86,19 @@ bool Simplex::cornerIsBounded(int32_t cornerIndex) {
   } else {
     prevNo = no - 1;
   }
-  IntVector* prevDir = jrt::fast_cast<IntVector>((*lines)[prevNo]->direction()->getVector());
-  IntVector* currentDirection = jrt::fast_cast<IntVector>((*lines)[no]->direction()->getVector());
+  Direction* prevLineDir = (*lines)[prevNo]->direction();
+  Direction* currentLineDir = (*lines)[no]->direction();
+  // PORT NOTE: integer directions are used directly instead of through new IntVectors (same
+  // value as IntVector::determinant).
+  auto* prevInt = jrt::fast_cast<IntDirection>(prevLineDir);
+  auto* currentInt = jrt::fast_cast<IntDirection>(currentLineDir);
+  if (prevInt != nullptr && currentInt != nullptr) {
+    return static_cast<int64_t>(prevInt->x) * currentInt->y -
+               static_cast<int64_t>(prevInt->y) * currentInt->x >
+           0;
+  }
+  IntVector* prevDir = jrt::fast_cast<IntVector>(prevLineDir->getVector());
+  IntVector* currentDirection = jrt::fast_cast<IntVector>(currentLineDir->getVector());
   return prevDir->determinant(currentDirection) > 0;
 }
 

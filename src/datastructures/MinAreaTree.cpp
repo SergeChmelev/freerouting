@@ -3,6 +3,7 @@
 
 #include <algorithm>
 
+#include "geometry/planar/IntOctagon.h"
 #include "geometry/planar/RegularTileShape.h"
 #include "geometry/planar/Shape.h"
 #include "logger/FRLogger.h"
@@ -165,14 +166,22 @@ ShapeTree_Leaf* MinAreaTree::positionLocate(ShapeTree_TreeNode* currentNode,
     // Choose the child, so that the area increase of that child after taking the union
     // with the shape of leafToInsert is minimal.
 
+    // PORT NOTE: for octagons the area of the union is computed without creating it (same
+    // value; the union shapes were only used for their area).
+    auto* leafOctagon = jrt::fast_cast<IntOctagon>(leafToInsert->boundingShape);
     RegularTileShape* firstChildShape = currentInnerNode->firstChild->boundingShape;
-    RegularTileShape* unionWithFirstChildShape = leafToInsert->boundingShape->union_(firstChildShape);
-    double firstAreaIncrease = unionWithFirstChildShape->area() - firstChildShape->area();
+    auto* firstOctagon = leafOctagon != nullptr ? jrt::fast_cast<IntOctagon>(firstChildShape) : nullptr;
+    double firstAreaIncrease =
+        (firstOctagon != nullptr ? leafOctagon->unionArea(firstOctagon)
+                                 : leafToInsert->boundingShape->union_(firstChildShape)->area()) -
+        firstChildShape->area();
 
     RegularTileShape* secondChildShape = currentInnerNode->secondChild->boundingShape;
-    RegularTileShape* unionWithSecondChildShape =
-        leafToInsert->boundingShape->union_(secondChildShape);
-    double secondAreaIncrease = unionWithSecondChildShape->area() - secondChildShape->area();
+    auto* secondOctagon = leafOctagon != nullptr ? jrt::fast_cast<IntOctagon>(secondChildShape) : nullptr;
+    double secondAreaIncrease =
+        (secondOctagon != nullptr ? leafOctagon->unionArea(secondOctagon)
+                                  : leafToInsert->boundingShape->union_(secondChildShape)->area()) -
+        secondChildShape->area();
 
     if (firstAreaIncrease <= secondAreaIncrease) {
       node = currentInnerNode->firstChild;

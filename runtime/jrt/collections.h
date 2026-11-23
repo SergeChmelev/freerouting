@@ -1467,16 +1467,19 @@ LinkedHashSet<K>* Map<K, V>::keySet() {
 template <class T>
 struct CmpLess {
   Comparator<T>* c;
-  bool operator()(const T& a, const T& b) const { return (*c)(a, b) < 0; }
+  bool natural = false;  // c is naturalOrder<T>(): call compareOf directly (same result)
+  bool operator()(const T& a, const T& b) const {
+    return (natural ? compareOf<T>(a, b) : (*c)(a, b)) < 0;
+  }
 };
 
 template <class T>
 class TreeSet : public virtual Set<T> {
  public:
   using Collection<T>::addAll;
-  TreeSet() : cmp_(new Comparator<T>(naturalOrder<T>())), s_(CmpLess<T>{cmp_}), natural_(true) {}
+  TreeSet() : cmp_(new Comparator<T>(naturalOrder<T>())), s_(CmpLess<T>{cmp_, true}), natural_(true) {}
   explicit TreeSet(Comparator<T> c)
-      : cmp_(new Comparator<T>(c ? c : naturalOrder<T>())), s_(CmpLess<T>{cmp_}), natural_(!c) {}
+      : cmp_(new Comparator<T>(c ? c : naturalOrder<T>())), s_(CmpLess<T>{cmp_, !c}), natural_(!c) {}
   explicit TreeSet(Collection<T>* c) : TreeSet() { this->addAll(c); }
   TreeSet(Comparator<T> c, Collection<T>* src) : TreeSet(c) { this->addAll(src); }
 
@@ -1608,8 +1611,9 @@ template <class K, class V>
 class TreeMap : public virtual Map<K, V> {
  public:
   using Entry = MapEntry<K, V>;
-  TreeMap() : cmp_(new Comparator<K>(naturalOrder<K>())), m_(CmpLess<K>{cmp_}) {}
-  explicit TreeMap(Comparator<K> c) : cmp_(new Comparator<K>(c ? c : naturalOrder<K>())), m_(CmpLess<K>{cmp_}) {}
+  TreeMap() : cmp_(new Comparator<K>(naturalOrder<K>())), m_(CmpLess<K>{cmp_, true}) {}
+  explicit TreeMap(Comparator<K> c)
+      : cmp_(new Comparator<K>(c ? c : naturalOrder<K>())), m_(CmpLess<K>{cmp_, !c}) {}
   explicit TreeMap(Map<K, V>* src) : TreeMap() { this->putAll(src); }
 
   int32_t size() override { return static_cast<int32_t>(m_.size()); }
@@ -1633,9 +1637,13 @@ class TreeMap : public virtual Map<K, V> {
     if (it == m_.end()) return std::nullopt;
     V v = it->second->value;
     m_.erase(it);
+    ++erases_;
     return v;
   }
-  void clear() override { m_.clear(); }
+  void clear() override {
+    m_.clear();
+    ++erases_;
+  }
   std::vector<Entry*> entryVector() override {
     std::vector<Entry*> out;
     out.reserve(m_.size());
@@ -1657,6 +1665,7 @@ class TreeMap : public virtual Map<K, V> {
     if (m_.empty()) return nullptr;
     Entry* e = m_.begin()->second;
     m_.erase(m_.begin());
+    ++erases_;
     return e;
   }
   Entry* pollLastEntry() {
@@ -1664,6 +1673,7 @@ class TreeMap : public virtual Map<K, V> {
     auto it = std::prev(m_.end());
     Entry* e = it->second;
     m_.erase(it);
+    ++erases_;
     return e;
   }
   Entry* ceilingEntry(const K& k) {
@@ -1711,9 +1721,18 @@ class TreeMap : public virtual Map<K, V> {
   EIter begin() { return EIter(m_.begin()); }
   EIter end() { return EIter(m_.end()); }
 
+  // Raw navigation for iterators that want O(1) steps. A MapIt stays valid as long as
+  // eraseCount() is unchanged (insertions never invalidate std::map iterators).
+  using MapIt = typename std::map<K, Entry*, CmpLess<K>>::iterator;
+  MapIt mapBegin() { return m_.begin(); }
+  MapIt mapEnd() { return m_.end(); }
+  MapIt mapUpperBound(const K& k) { return m_.upper_bound(k); }
+  uint64_t eraseCount() const { return erases_; }
+
  private:
   Comparator<K>* cmp_;
   std::map<K, Entry*, CmpLess<K>> m_;
+  uint64_t erases_ = 0;
 };
 
 template <class K, class V>

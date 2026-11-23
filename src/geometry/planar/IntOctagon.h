@@ -83,6 +83,15 @@ class IntOctagon final : public RegularTileShape {
   virtual int32_t cornerX(int32_t no);
 
   double area() override;
+
+  /** area() of union_(other), without creating the union (PORT NOTE: allocation-free helper
+   * for MinAreaTree::positionLocate). */
+  double unionArea(IntOctagon* other);
+
+  /** area() of the octagon with these fields. */
+  static double areaOf(int32_t leftX, int32_t bottomY, int32_t rightX, int32_t topY,
+                       int32_t upperLeftDiagonalX, int32_t lowerRightDiagonalX,
+                       int32_t lowerLeftDiagonalX, int32_t upperRightDiagonalX);
   int32_t borderLineCount() override;
   Line* borderLine(int32_t no) override;
   IntOctagon* translateBy(Vector* relCoor) override;

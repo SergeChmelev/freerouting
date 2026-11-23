@@ -1,4 +1,4 @@
-// Port of app.freerouting.datastructures.UndoableObjects
+﻿// Port of app.freerouting.datastructures.UndoableObjects
 #include "datastructures/UndoableObjects.h"
 
 #include "board/model/items/Item.h"
@@ -15,7 +15,9 @@ using UONode = UndoableObjects_UndoableObjectNode;
 UndoableObjects_NodeIterator::UndoableObjects_NodeIterator(
     jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UONode*>* map)
     : map_(map) {
-  nextEntry_ = map_->firstEntry();
+  nextIt_ = map_->mapBegin();
+  nextStamp_ = map_->eraseCount();
+  nextEntry_ = nextIt_ != map_->mapEnd() ? nextIt_->second : nullptr;
   nextValue_ = nextEntry_ != nullptr ? nextEntry_->value : nullptr;
 }
 
@@ -25,8 +27,15 @@ UONode* UndoableObjects_NodeIterator::next() {
   }
   UONode* v = nextValue_;
   lastReturned_ = nextEntry_;
-  // advance (Java prefetches the following node and its value right away)
-  nextEntry_ = map_->higherEntry(lastReturned_->key);
+  // advance (Java prefetches the following node and its value right away): the entry after
+  // lastReturned_ in key order, i.e. higherEntry(lastReturned_->key).
+  if (map_->eraseCount() == nextStamp_) {
+    ++nextIt_;  // nextIt_ still points at lastReturned_
+  } else {
+    nextIt_ = map_->mapUpperBound(lastReturned_->key);
+    nextStamp_ = map_->eraseCount();
+  }
+  nextEntry_ = nextIt_ != map_->mapEnd() ? nextIt_->second : nullptr;
   nextValue_ = nextEntry_ != nullptr ? nextEntry_->value : nullptr;
   return v;
 }
