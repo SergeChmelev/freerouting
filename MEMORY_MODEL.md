@@ -456,14 +456,20 @@ created with `jrt::onHeap` (a static first touched inside a region would otherwi
 it: `BigIntAux::trailingZeroTable` was the first crash). `ShoveCheckCache_Key::heapCopy` runs in
 a `HeapScope`. bm02 no-GC leak 0.57 → 0.50 GB; smoke clean.
 
+### Live-memory profile (no-GC build)
+
+`-DFR_NO_GC=ON` with `-DJRT_ALLOC_PROFILE=1 -fno-omit-frame-pointer` (`~/build/fr-nogc-prof`):
+every block has a 32-byte header with its allocation site; frees subtract; the dump at exit
+lists what is still allocated. `tools/mem/live_profile.sh <bin> <out> <dsn>` resolves it by
+site and caller, largest first (`FR_ALLOC_PROFILE_FP=N`: caller N levels up). bm02 after E5:
+476 MB live at exit — ~130 MB are pooled free arena chunks (a cache), 32 MB
+`PolygonWireScan::netsByLayer` at the start of routing, shove / forced-trace geometry and
+collections on the main board (`TraceShover::springOver*`, `insertForcedTracePolyline`,
+`StepSlider`), board copies outside the candidate arena (`copyMapped`, `copyAsDeserialized`),
+item caches and query results.
+
 ## TODO (stage C/E)
 
-* **Live-memory profiler by allocation site** (no-GC build): LeakSanitizer reports only what is
-  unreachable at exit (bm02: 25 MB of 1.25 GB not freed), so the reachable remainder (undo
-  history, kept board copies, caches) needs its own tool. Plan: with `JRT_ALLOC_PROFILE` in
-  `nogc.cpp`, put the site slot in a 16-byte block header, subtract on free, dump live bytes by
-  site at exit (`block_size`/`is_heap_block` must then account for the header). heaptrack /
-  valgrind are not installed in WSL (needs sudo).
 * Items: deferred disposal of removed items and their geometry (callers keep using an item after
   `removeItem`; caches refer to items).
 * Performance after the migration: domain lookups (`DomainScope`, `keep`, chunk map) slowed long

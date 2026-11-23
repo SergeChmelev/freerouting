@@ -481,7 +481,8 @@ bool debug_is_rooted(void* block) { return is_rooted(block); }
 // called on whole objects allocated with new (never on statics, stack values or the parts of a
 // combined block such as the points of Line::ofInts).
 bool is_heap_block(const void* mem) noexcept { return mem != nullptr && !in_arena_chunk(mem); }
-static std::size_t block_size(void* mem) { return malloc_usable_size(mem); }
+std::size_t nogc_block_size(void* p);  // nogc.cpp
+static std::size_t block_size(void* mem) { return nogc_block_size(mem); }
 static void block_free(void* mem) { free_uncollectable(mem); }
 #else
 bool is_heap_block(const void* mem) noexcept { return GC_base(const_cast<void*>(mem)) == mem; }

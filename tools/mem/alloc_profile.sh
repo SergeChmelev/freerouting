@@ -13,7 +13,7 @@ total=$(awk '{c+=$2; b+=$3} END {printf "%d allocations, %.1f MB", c, b/1048576}
 head -n 20000 "$out.raw" > "$out.top"
 { cut -d' ' -f1 "$out.top"; cut -d' ' -f4 "$out.top"; } | sort -u | grep -v '^0x0$' | addr2line -f -C -i -e "$bin" -a > "$out.sym"
 python3 - "$out.top" "$out.sym" "$top" "$total" > "$out.txt" <<'PY'
-import sys, collections, re
+import sys, collections, re, os
 rows = [l.split() for l in open(sys.argv[1])]
 sym = open(sys.argv[2]).read().split('\n')
 top = int(sys.argv[3])
@@ -45,7 +45,9 @@ print('total:', sys.argv[4])
 for title, c, b in (('top sites (innermost frame)', site, siteb), ('top enclosing functions', fn, fnb),
                     ('top enclosing function <- caller', pair, pairb)):
     print(f'\n== {title} ==')
-    for k, n in c.most_common(top):
+    order = b if os.environ.get("FR_PROFILE_BY_BYTES") else c
+    for k, _ in order.most_common(top):
+        n = c[k]
         print(f'{n:>12} {b[k]/1048576:>9.1f} MB  {k}')
 PY
 head -n 1 "$out.txt"
