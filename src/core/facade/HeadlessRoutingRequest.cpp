@@ -124,6 +124,9 @@ HeadlessRoutingRequest* HeadlessRoutingRequest_Builder::build() {
                                              runDrc_, computeSes_);
   request->boardObserver = boardObserver_;
   request->presetBoard = presetBoard_;
+  request->kicadDesignRulesFile = kicadDesignRulesFile_;
+  request->kicadProjectFile = kicadProjectFile_;
+  request->kicadBoardFile = kicadBoardFile_;
   return request;
 }
 

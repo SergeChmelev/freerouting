@@ -19,10 +19,11 @@ writes for a design is the same file Java writes. Differences are only in the ru
 | | |
 |---|---|
 | Autorouter, fanout, optimizer, DRC, Specctra DSN / `.rules` input, SES output | ported, SES identical to Java on the test corpus |
+| KiCad project inputs | `.kicad_dru` custom clearance rules, `.kicad_pro` minimum track width, `.kicad_pcb` zone fill settings (`-de board.dsn+board.kicad_dru+...`) |
 | CLI | `-de/-do/-dr/-mt`, `--router.<setting>=<value>` (Java's JSON setting names) |
 | KiCad | Action Plugin: route the open board with one button ([integrations/kicad](integrations/kicad)) |
 | UI | Lua + Nuklear + MoonGL: view, autoroute, interactive routing and dragging ([ui/](ui)) |
-| Not ported | Java GUI (Swing), API server, MCP, KiCad project inputs (`.kicad_dru`), SES input, result JSON |
+| Not ported | Java GUI (Swing), API server, MCP, KiCad JSON board input, KiCad DRC report, SES input, result JSON |
 
 Speed (one thread, same machine): from about Java's speed on large boards with long post-processing
 to several times faster on boards dominated by the optimizer; see the speed comparison in
@@ -35,6 +36,9 @@ freerouting-cpp -de board.dsn -do board.ses [-dr board.rules] [-mt 4] [-mp 50]
                 [--timeout PT10M] [--no-optimizer] [--no-drc]
                 [--router.<setting>=<value> ...] [-q|-v|-vv]
 ```
+
+With a KiCad design, its custom rules, project and board file can be given with the DSN, in any
+order (the extension decides), as in Java: `-de board.dsn+board.kicad_dru+board.kicad_pro+board.kicad_pcb`.
 
 Examples of `--router.*` settings (the same paths as Java's CLI and `freerouting.json`):
 

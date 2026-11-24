@@ -64,6 +64,38 @@ class FreeroutingHeadlessEngine final : public virtual jrt::Object {
   /** Applies plane_as_obstacle (board->changePlaneAsObstacle) when set. */
   static void applyBoardSettingsOverrides(RoutingBoard* board, RouterSettings* routerSettings);
 
+  // PORT EXTENSION: the KiCad inputs of the job, applied as Java's HeadlessBoardManager does in
+  // applyRouterSettingsForLoadedBoard (same methods, same order: after applyNetClassExclusions,
+  // before the other board overrides).
+
+  /**
+   * Translates the KiCad custom design rules of the job into clearance classes. Runs before the
+   * other clearance overrides, so that they also reach the classes it adds, and after the net class
+   * exclusions, which the split net classes inherit.
+   */
+  static void applyKiCadDesignRules(RoutingBoard* board, RoutingJob* routingJob);
+
+  /**
+   * Makes the minimum track width of the KiCad project of the job the narrowest trace the board
+   * allows; every automatic narrowing stops there.
+   */
+  static void applyKiCadProjectMinTrackWidth(RoutingBoard* board, RoutingJob* routingJob);
+
+  /**
+   * Gives each plane the clearance and the minimum width of its zone in the KiCad board of the job.
+   * A plane is matched to the zone of its net and layer; if the net has several zones on the layer,
+   * to the one whose outline has the nearest bounding box.
+   */
+  static void applyKiCadZoneFillRules(RoutingBoard* board, RoutingJob* routingJob);
+
+  /**
+   * Gives each pin the zone connection of its pad in the KiCad board: the pad at the position of
+   * the pin, on a layer of the pin. Returns the number of pins that found their pad.
+   */
+  static int32_t applyKiCadPadConnections(RoutingBoard* board, KiCadBoardZones* boardZones);
+
+  static int64_t cellKey(int64_t x, int64_t y) { return x * 4000037LL + y; }
+
   /**
    * expandBoundingBoxToIncludeAllItems, reduceNetsOfRouteItems, connectNetlessPads(false,
    * fixKicadFootprints, new int[1]), clusterNetTies, DifferentialPairDetector::detectAndRegister.

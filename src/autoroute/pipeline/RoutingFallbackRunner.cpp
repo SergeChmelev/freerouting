@@ -10,6 +10,7 @@
 #include "core/RoutingJobState.h"
 #include "core/StoppableThread.h"
 #include "drc/ClearanceBaseline.h"
+#include "io/kicad/KiCadProject.h"
 #include "settings/RouterSettings.h"
 
 namespace fr {
@@ -349,9 +350,8 @@ jrt::List<RoutingFallback_Strategy*>* RoutingFallbackRunner::automaticContinuati
   if (continueStrategy != nullptr) {
     result->add(continueStrategy);
   }
-  // PORT NOTE: KiCad project support is not ported (job.kicadProject is always null), so
-  // hasProjectMinTrackWidth is always false.
-  bool hasProjectMinTrackWidth = false;
+  bool hasProjectMinTrackWidth = job != nullptr && job->kicadProject != nullptr &&
+                                 job->kicadProject->narrowestTraceWidthUm().has_value();
   if (job != nullptr && job->routerSettings != nullptr && job->routerSettings->getNeckWidthUm() > 0 &&
       !hasProjectMinTrackWidth) {
     RoutingFallback_Strategy* noNeck = RoutingFallback::find("continue-no-neck");

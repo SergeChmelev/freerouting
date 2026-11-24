@@ -1,6 +1,9 @@
 // freerouting-cpp: command-line front end of the C++ port (headless DSN -> SES routing).
 //
 // usage: freerouting-cpp -de <input.dsn> -do <output.ses> [options]
+//   -de <files>        the design: board.dsn, or several files joined with '+' (or given one
+//                      after the other), the extension deciding: .dsn, .rules, .kicad_dru,
+//                      .kicad_pro, .kicad_pcb (Java GlobalSettings)
 //   -dr <file.rules>   apply a rules file
 //   -mp <n>            maximum autorouter passes
 //   -mt <n>            maximum threads of the optimizer (Java: router.max_threads; 1 = sequential)
@@ -11,9 +14,11 @@
 //                      --router.scoring.via_costs=200, --router.automatic_neckdown=false)
 //   -q / -v / -vv      log level warn / debug / trace (default info)
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -210,8 +215,51 @@ bool applyRouterSetting(fr::RouterSettings* s, const std::string& property, cons
   return true;
 }
 
+// Java GlobalSettings.DE_VALID_EXTENSIONS
+const std::vector<std::string>& deValidExtensions() {
+  static const std::vector<std::string> extensions = {".dsn",       ".json",      ".ses",      ".rules",
+                                                      ".kicad_dru", ".kicad_pro", ".kicad_pcb"};
+  return extensions;
+}
+
+// Java GlobalSettings.isMultiFileConcatenation: whether an argument is a '+' concatenated list of
+// file paths ("file1.dsn+file2.rules"), rather than one path with a '+' in its name.
+bool isMultiFileConcatenation(const std::string& rawArg, const std::vector<std::string>* validExtensions) {
+  if (rawArg.find('+') == std::string::npos) {
+    return false;
+  }
+  std::vector<std::string> parts = jrt::split(rawArg, '+');  // Java split("\+", -1); a trailing empty part fails either way
+  if (parts.size() < 2) {
+    return false;
+  }
+  for (const std::string& part : parts) {
+    std::string trimmed = jrt::trim(part);
+    if (trimmed.empty()) {
+      return false;
+    }
+    // Each file in a '+' concatenation must have a file extension
+    int32_t lastSlash = std::max(jrt::lastIndexOf(trimmed, "/"), jrt::lastIndexOf(trimmed, "\\"));
+    int32_t lastDot = jrt::lastIndexOf(trimmed, ".");
+    if (lastDot <= lastSlash || lastDot == static_cast<int32_t>(trimmed.size()) - 1) {
+      return false;
+    }
+    std::string ext = jrt::toLowerCase(trimmed.substr(lastDot));
+    if (validExtensions != nullptr &&
+        std::find(validExtensions->begin(), validExtensions->end(), ext) == validExtensions->end()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool fileExists(const std::string& path) {
+  std::error_code ec;
+  return std::filesystem::exists(path, ec);
+}
+
 int runMain(int argc, char** argv) {
   std::string input, output, rules;
+  std::optional<std::string> kicadDesignRules, kicadProject, kicadBoard;
   std::optional<int32_t> maxPasses, maxThreads;
   std::optional<std::string> timeout;
   bool optimizer = true, drc = true;
@@ -225,7 +273,96 @@ int runMain(int argc, char** argv) {
       }
       return argv[++i];
     };
-    if (a == "-de") input = next();
+    if (a == "-de") {
+      // Java GlobalSettings: the design file(s), each identified by its extension
+      if (i + 1 < argc && argv[i + 1][0] != '-') {
+        std::vector<std::string> files;
+        int j = i + 1;
+        while (j < argc && argv[j][0] != '-') {
+          std::string rawArg = jrt::trim(argv[j]);
+          if (fileExists(rawArg)) {
+            files.push_back(rawArg);
+          } else if (isMultiFileConcatenation(rawArg, &deValidExtensions())) {
+            // Split each argument by '+' to support legacy concatenation (e.g. file1.dsn+file2.rules)
+            for (const std::string& part : jrt::split(rawArg, '+')) {
+              if (!jrt::trim(part).empty()) {
+                files.push_back(jrt::trim(part));
+              }
+            }
+          } else {
+            files.push_back(rawArg);
+          }
+          j++;
+        }
+        bool hasDsn = false, hasSes = false, hasRules = false;
+        bool hasKiCadRules = false, hasKiCadProject = false, hasKiCadBoard = false;
+        for (std::string file : files) {
+          file = jrt::trim(file);
+          if (file.empty()) {
+            continue;
+          }
+          std::string lowerFile = jrt::toLowerCase(file);
+          if (jrt::endsWith(lowerFile, ".dsn")) {
+            if (hasDsn) {
+              fr::FRLogger::warn("Multiple DSN files provided in -de argument. Only the last one will be used.");
+            }
+            input = file;
+            hasDsn = true;
+          } else if (jrt::endsWith(lowerFile, ".json")) {
+            if (!hasDsn) {
+              input = file;
+              hasDsn = true;
+            } else {
+              if (hasSes) {
+                fr::FRLogger::warn(
+                    "Multiple session files (SES/JSON) provided in -de argument. Only the last one will be used.");
+              }
+              // PORT NOTE: initial session files (designSessionFilename) are not supported by the port.
+              fr::FRLogger::warn("Ignored session file (not supported by freerouting-cpp): " + file);
+              hasSes = true;
+            }
+          } else if (jrt::endsWith(lowerFile, ".ses")) {
+            if (hasSes) {
+              fr::FRLogger::warn("Multiple SES files provided in -de argument. Only the last one will be used.");
+            }
+            fr::FRLogger::warn("Ignored session file (not supported by freerouting-cpp): " + file);
+            hasSes = true;
+          } else if (jrt::endsWith(lowerFile, ".rules")) {
+            if (hasRules) {
+              fr::FRLogger::warn("Multiple RULES files provided in -de argument. Only the last one will be used.");
+            }
+            rules = file;
+            hasRules = true;
+          } else if (jrt::endsWith(lowerFile, ".kicad_dru")) {
+            if (hasKiCadRules) {
+              fr::FRLogger::warn(
+                  "Multiple KiCad design rules files provided in -de argument. Only the last one will be used.");
+            }
+            kicadDesignRules = file;
+            hasKiCadRules = true;
+          } else if (jrt::endsWith(lowerFile, ".kicad_pro")) {
+            if (hasKiCadProject) {
+              fr::FRLogger::warn(
+                  "Multiple KiCad project files provided in -de argument. Only the last one will be used.");
+            }
+            kicadProject = file;
+            hasKiCadProject = true;
+          } else if (jrt::endsWith(lowerFile, ".kicad_pcb")) {
+            if (hasKiCadBoard) {
+              fr::FRLogger::warn(
+                  "Multiple KiCad board files provided in -de argument. Only the last one will be used.");
+            }
+            kicadBoard = file;
+            hasKiCadBoard = true;
+          } else {
+            fr::FRLogger::warn("Unknown file type in -de argument: " + file +
+                               ". Expected .dsn, .json, .ses, .rules, .kicad_dru, .kicad_pro or .kicad_pcb");
+          }
+        }
+        // Skip the processed arguments
+        i = j - 1;
+      }
+    }
     else if (a == "-do") output = next();
     else if (a == "-dr") rules = next();
     else if (a == "-mp") maxPasses = std::stoi(next());
@@ -274,6 +411,7 @@ int runMain(int argc, char** argv) {
     // the name to check is the file name without its extension.
     builder->rulesBytes(rulesBytes)->rulesName(designName(rules));
   }
+  builder->kicadDesignRulesFile(kicadDesignRules)->kicadProjectFile(kicadProject)->kicadBoardFile(kicadBoard);
   if (maxPasses || maxThreads || timeout || !optimizer || !routerArgs.empty()) {
     // Same role as Java's CLI/API settings source: only the given values override.
     auto* s = new (jrt::kBoard) fr::RouterSettings();

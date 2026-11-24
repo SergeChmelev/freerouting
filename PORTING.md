@@ -12,7 +12,9 @@ because they look unimportant. When Java does something odd, port the oddity. If
 deviate, leave a `// PORT NOTE: ...` comment explaining why.
 
 Scope: the classes listed in `tools/porting/classes.txt` (transitive closure of
-`core.facade.FreeroutingHeadlessEngine`, without GUI / KiCad / REST / analytics). Every type in
+`core.facade.FreeroutingHeadlessEngine`, without GUI / KiCad JSON / REST / analytics; the KiCad
+project inputs of `io.kicad` (`.kicad_dru`, `.kicad_pro`, `.kicad_pcb` zones) are ported, namespace
+`fr`). Every type in
 those files (including nested types) is listed in `tools/porting/classmap.tsv` with its C++ name and
 header. References to classes **outside** that list (gui, api, management, analytics, kicad,
 util.gson, debug) must be removed / stubbed with a `// PORT NOTE` (e.g. GUI callbacks become

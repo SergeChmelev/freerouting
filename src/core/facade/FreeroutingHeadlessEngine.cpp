@@ -1,6 +1,8 @@
 #include "core/facade/FreeroutingHeadlessEngine.h"
 
 #include <sstream>
+#include <unordered_map>
+#include <vector>
 
 #include "autoroute/events/BoardUpdatedEvent.h"
 #include "autoroute/events/BoardUpdatedEventListener.h"
@@ -11,6 +13,13 @@
 #include "autoroute/pipeline/RoutingPipeline.h"
 #include "autoroute/pipeline/TaskState.h"
 #include "board/facade/RoutingBoard.h"
+#include "board/model/items/ConductionArea.h"
+#include "board/model/items/PadPlaneConnection.h"
+#include "board/model/items/Pin.h"
+#include "board/model/structure/Layer.h"
+#include "board/model/structure/LayerStructure.h"
+#include "board/model/structure/Unit.h"
+#include "board/state/Communication.h"
 #include "core/RoutingJob.h"
 #include "core/RoutingJobState.h"
 #include "core/RoutingStage.h"
@@ -25,17 +34,29 @@
 #include "drc/ClearanceBaseline.h"
 #include "drc/ClearanceViolation.h"
 #include "drc/DesignRulesChecker.h"
+#include "geometry/planar/FloatPoint.h"
+#include "geometry/planar/IntBox.h"
+#include "geometry/planar/Point.h"
 #include "io/BoardReadResult.h"
+#include "io/CoordinateTransform.h"
+#include "io/kicad/KiCadBoardZones.h"
+#include "io/kicad/KiCadDesignRules.h"
+#include "io/kicad/KiCadDesignRulesTranslator.h"
+#include "io/kicad/KiCadProject.h"
 #include "io/specctra/DsnReader.h"
 #include "io/specctra/RulesReader.h"
 #include "io/specctra/SesWriter.h"
 #include "logger/FRLogger.h"
+#include "rules/BoardRules.h"
 #include "rules/DifferentialPairDetector.h"
+#include "rules/Net.h"
+#include "rules/Nets.h"
 #include "settings/RouterSettings.h"
 #include "settings/SettingsMerger.h"
 #include "settings/sources/ApiSettings.h"
 #include "settings/sources/DefaultSettings.h"
 #include "settings/sources/DsnFileSettings.h"
+#include "settings/sources/KiCadProjectSettings.h"
 #include "settings/sources/RulesFileSettings.h"
 
 namespace fr {
@@ -80,6 +101,31 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   if (request->cancellationToken()->isCancelled()) {
     return HeadlessRoutingResult::cancelled(nullptr, nullptr,
                                             jrt::System::currentTimeMillis() - startTime);
+  }
+
+  // PORT NOTE: the job is created before the board is read (Java's CLI creates it first too), so
+  // that it can hold the KiCad inputs; nothing of it is used before step 3.
+  auto* job = new (jrt::kBoard) RoutingJob();
+
+  // PORT EXTENSION (Java: CliRunner, before the board is loaded): routing without the rules of a
+  // .kicad_dru given with the design would produce a board that fails the KiCad DRC; without the
+  // minimum track width of the .kicad_pro, the router may neck traces down below it; without the
+  // fill settings of the zones of the .kicad_pcb, a plane that KiCad refills in several pieces
+  // counts as one.
+  if (!job->loadKiCadDesignRules(request->kicadDesignRulesFile)) {
+    return HeadlessRoutingResult::failure(
+        "Couldn't read the KiCad design rules file '" + *request->kicadDesignRulesFile + "'",
+        jrt::System::currentTimeMillis() - startTime);
+  }
+  if (!job->loadKiCadProject(request->kicadProjectFile)) {
+    return HeadlessRoutingResult::failure(
+        "Couldn't read the KiCad project file '" + *request->kicadProjectFile + "'",
+        jrt::System::currentTimeMillis() - startTime);
+  }
+  if (!job->loadKiCadBoardZones(request->kicadBoardFile)) {
+    return HeadlessRoutingResult::failure(
+        "Couldn't read the KiCad board file '" + *request->kicadBoardFile + "'",
+        jrt::System::currentTimeMillis() - startTime);
   }
 
   // 1. Parse DSN into RoutingBoard (purely in-memory, no temporary files)
@@ -148,6 +194,12 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
     settingsMerger->addOrReplaceSources(new (jrt::kBoard) RulesFileSettings(rulesStream, rulesName));
   }
 
+  // Java CliRunner.addKiCadProjectSettings: priority 25, above the DSN file, below every user
+  // setting.
+  if (job->kicadProject != nullptr) {
+    settingsMerger->addOrReplaceSources(new (jrt::kBoard) KiCadProjectSettings(job->kicadProject));
+  }
+
   if (request->settings() != nullptr) {
     settingsMerger->addOrReplaceSources(new (jrt::kBoard) ApiSettings(request->settings()));
   }
@@ -159,12 +211,14 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
   }
   routerSettings->applyBoardSpecificOptimizations(board);
   routerSettings->applyNetClassExclusions(board);
+  applyKiCadDesignRules(board, job);
+  applyKiCadProjectMinTrackWidth(board, job);
+  applyKiCadZoneFillRules(board, job);
   applyBoardSettingsOverrides(board, routerSettings);
   prepareBoardConnectivity(board, routerSettings);
   captureInitialClearanceBaseline(board);
 
-  // 3. Prepare RoutingJob
-  auto* job = new (jrt::kBoard) RoutingJob();
+  // 3. Prepare RoutingJob (created at the start, see above)
   job->board = board;
   job->routerSettings = routerSettings;
   job->name = request->designName();
@@ -380,6 +434,184 @@ void FreeroutingHeadlessEngine::applyBoardSettingsOverrides(RoutingBoard* board,
   if (routerSettings->planeAsObstacle.has_value()) {
     board->changePlaneAsObstacle(*routerSettings->planeAsObstacle);
   }
+}
+
+void FreeroutingHeadlessEngine::applyKiCadDesignRules(RoutingBoard* board, RoutingJob* routingJob) {
+  KiCadDesignRules* designRules = routingJob->kicadDesignRules;
+  if (designRules == nullptr || board == nullptr) {
+    return;
+  }
+  KiCadDesignRulesTranslator_Result* result = KiCadDesignRulesTranslator::apply(board, designRules);
+  for (const std::string& warning : *result->warnings()) {
+    routingJob->logWarning("KiCad design rules: " + warning);
+  }
+  routingJob->logInfo(KiCadDesignRulesTranslator::summary(result, designRules->sourceName()));
+}
+
+void FreeroutingHeadlessEngine::applyKiCadProjectMinTrackWidth(RoutingBoard* board,
+                                                               RoutingJob* routingJob) {
+  KiCadProject* project = routingJob->kicadProject;
+  if (project == nullptr || !project->minTrackWidthUm().has_value() || board == nullptr) {
+    return;
+  }
+  double minWidth = board->communication->physicalToBoard(*project->minTrackWidthUm(), Unit::UM);
+  int32_t minHalfWidth = jrt::d2i(jrt::Math::ceil(minWidth / 2));
+  if (minHalfWidth > board->rules->getMinAllowedTraceHalfWidth()) {
+    board->rules->setMinAllowedTraceHalfWidth(minHalfWidth);
+    routingJob->logInfo("KiCad project: no automatic narrowing below the minimum track width of " +
+                        jrt::str(*project->minTrackWidthUm()) + " um.");
+  }
+}
+
+void FreeroutingHeadlessEngine::applyKiCadZoneFillRules(RoutingBoard* board, RoutingJob* routingJob) {
+  KiCadBoardZones* boardZones = routingJob->kicadBoardZones;
+  if (boardZones == nullptr || board == nullptr) {
+    return;
+  }
+  Communication* communication = board->communication;
+  int32_t matched = 0;
+  // board order, so that the log is the same on every run
+  auto* areas = new (jrt::kOp) jrt::ArrayList<ConductionArea*>();
+  for (ConductionArea* area : *board->getConductionAreas()) {
+    areas->add(area);
+  }
+  areas->sort([](ConductionArea* a, ConductionArea* b) {
+    return jrt::Integer::compare(a->getId(), b->getId());
+  });
+  for (ConductionArea* area : *areas) {
+    if (area->netCount() != 1 || board->rules->nets->get(area->getNetNumber(0)) == nullptr) {
+      continue;
+    }
+    std::string netName = board->rules->nets->get(area->getNetNumber(0))->name;
+    std::string layerName = (*board->layerStructure->layers)[area->getLayer()]->name;
+    // the bounding box of the plane in micrometres, as KiCad writes it into the DSN
+    jrt::Array<double>* box = communication->coordinateTransform->boardToDsn(area->boundingBox());
+    for (int32_t i = 0; i < box->length; i++) {
+      (*box)[i] = Unit_scale((*box)[i], communication->unit, Unit::UM);
+    }
+    KiCadBoardZones_Zone* best = nullptr;
+    double bestDistance = jrt::Double::MAX_VALUE;
+    for (KiCadBoardZones_Zone* zone : *boardZones->zones()) {
+      if (zone->netName() != netName || !zone->isOnLayer(layerName)) {
+        continue;
+      }
+      // the y axis of KiCad points down, the one of the DSN up
+      double distance = jrt::Math::abs(zone->minXUm() - (*box)[0]) +
+                        jrt::Math::abs(-zone->maxYUm() - (*box)[1]) +
+                        jrt::Math::abs(zone->maxXUm() - (*box)[2]) +
+                        jrt::Math::abs(-zone->minYUm() - (*box)[3]);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = zone;
+      }
+    }
+    if (best == nullptr) {
+      continue;
+    }
+    matched++;
+    int32_t clearance =
+        jrt::d2i(jrt::Math::ceil(communication->physicalToBoard(best->clearanceUm(), Unit::UM)));
+    int32_t minWidth =
+        jrt::d2i(jrt::Math::ceil(communication->physicalToBoard(best->minThicknessUm(), Unit::UM)));
+    if (clearance != area->getFillClearance() || minWidth != area->getFillMinWidth()) {
+      area->setFillRules(clearance, minWidth);
+    }
+    PadPlaneConnection_Mode padConnection =
+        PadPlaneConnection_Mode_valueOf(KiCadBoardZones_PadConnection_name(best->padConnection()));
+    int32_t thermalGap = static_cast<int32_t>(
+        jrt::Math::round(communication->physicalToBoard(best->thermalGapUm(), Unit::UM)));
+    int32_t spokeWidth = static_cast<int32_t>(
+        jrt::Math::round(communication->physicalToBoard(best->thermalBridgeWidthUm(), Unit::UM)));
+    if (std::optional<PadPlaneConnection_Mode>(padConnection) != area->getPadConnection() ||
+        thermalGap != area->getThermalGap() || spokeWidth != area->getThermalSpokeWidth()) {
+      area->setPadConnectionRules(padConnection, thermalGap, spokeWidth);
+    }
+    int32_t edgeClearance = static_cast<int32_t>(
+        jrt::Math::round(communication->physicalToBoard(boardZones->edgeClearanceUm(), Unit::UM)));
+    if (edgeClearance != area->getFillEdgeClearance()) {
+      area->setFillEdgeClearance(edgeClearance);
+    }
+    bool fillets = best->cornerSmoothing() == KiCadBoardZones_CornerSmoothing::FILLET;
+    int32_t corner =
+        best->cornerSmoothing() == KiCadBoardZones_CornerSmoothing::NONE
+            ? 0
+            : static_cast<int32_t>(
+                  jrt::Math::round(communication->physicalToBoard(best->cornerRadiusUm(), Unit::UM)));
+    if (fillets != area->hasCornerFillets() || corner != area->getCornerSmoothing()) {
+      area->setFillCornerSmoothing(fillets, corner);
+    }
+  }
+  int32_t matchedPads = applyKiCadPadConnections(board, boardZones);
+  routingJob->logInfo("KiCad board '" + boardZones->sourceName() +
+                      "': zone clearance and minimum width applied to " + jrt::str(matched) +
+                      " of " + jrt::str(areas->size()) + " planes, pad connection to " +
+                      jrt::str(matchedPads) + " pads.");
+}
+
+int32_t FreeroutingHeadlessEngine::applyKiCadPadConnections(RoutingBoard* board,
+                                                            KiCadBoardZones* boardZones) {
+  Communication* communication = board->communication;
+  // the pads by cells of 10 um, to find the pad of a pin without comparing each with each
+  double cell = 10.0;
+  // Java: HashMap<Long, List<Pad>>, only looked up
+  std::unordered_map<int64_t, std::vector<KiCadBoardZones_Pad*>> padsByCell;
+  for (KiCadBoardZones_Pad* pad : *boardZones->pads()) {
+    int64_t key = cellKey(jrt::Math::round(pad->xUm() / cell), jrt::Math::round(-pad->yUm() / cell));
+    padsByCell[key].push_back(pad);
+  }
+  int32_t matched = 0;
+  auto* pins = new (jrt::kOp) jrt::ArrayList<Pin*>();
+  for (Pin* pin : *board->getPins()) {
+    pins->add(pin);
+  }
+  pins->sort([](Pin* a, Pin* b) { return jrt::Integer::compare(a->getId(), b->getId()); });
+  for (Pin* pin : *pins) {
+    // the centre of the pin in micrometres, the y axis pointing up as in the DSN
+    jrt::Array<double>* centre =
+        communication->coordinateTransform->boardToDsn(pin->getCenter()->toFloat());
+    double x = Unit_scale((*centre)[0], communication->unit, Unit::UM);
+    double y = Unit_scale((*centre)[1], communication->unit, Unit::UM);
+    std::string firstLayer = (*board->layerStructure->layers)[pin->firstLayer()]->name;
+    std::string lastLayer = (*board->layerStructure->layers)[pin->lastLayer()]->name;
+    KiCadBoardZones_Pad* best = nullptr;
+    double bestDistance = 5.0;
+    int64_t cellX = jrt::Math::round(x / cell);
+    int64_t cellY = jrt::Math::round(y / cell);
+    for (int64_t dx = -1; dx <= 1; dx++) {
+      for (int64_t dy = -1; dy <= 1; dy++) {
+        auto candidates = padsByCell.find(cellKey(cellX + dx, cellY + dy));
+        if (candidates == padsByCell.end()) {
+          continue;
+        }
+        for (KiCadBoardZones_Pad* pad : candidates->second) {
+          double distance = jrt::Math::hypot(pad->xUm() - x, -pad->yUm() - y);
+          if (distance < bestDistance && (pad->isOnLayer(firstLayer) || pad->isOnLayer(lastLayer))) {
+            bestDistance = distance;
+            best = pad;
+          }
+        }
+      }
+    }
+    if (best == nullptr) {
+      continue;
+    }
+    matched++;
+    auto* shapeTuple = new (jrt::kOp) jrt::Array<double>(2);
+    (*shapeTuple)[0] = Unit_scale(best->shapeXUm(), Unit::UM, communication->unit);
+    (*shapeTuple)[1] = Unit_scale(-best->shapeYUm(), Unit::UM, communication->unit);
+    FloatPoint* shapeCentre = communication->coordinateTransform->dsnToBoard(shapeTuple);
+    pin->setPlaneConnection(new (jrt::kBoard) PadPlaneConnection(
+        PadPlaneConnection_Mode_valueOf(KiCadBoardZones_PadConnection_name(best->connection())),
+        best->throughHole(), shapeCentre->x, shapeCentre->y,
+        communication->physicalToBoard(best->sizeXUm() / 2.0, Unit::UM),
+        communication->physicalToBoard(best->sizeYUm() / 2.0, Unit::UM), best->angleDeg(),
+        best->spokeAngleDeg(), best->circular(),
+        static_cast<int32_t>(
+            jrt::Math::round(communication->physicalToBoard(best->thermalGapUm(), Unit::UM))),
+        static_cast<int32_t>(
+            jrt::Math::round(communication->physicalToBoard(best->thermalBridgeWidthUm(), Unit::UM)))));
+  }
+  return matched;
 }
 
 void FreeroutingHeadlessEngine::prepareBoardConnectivity(RoutingBoard* board,

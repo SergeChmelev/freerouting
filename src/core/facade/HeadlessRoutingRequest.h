@@ -52,10 +52,30 @@ class HeadlessRoutingRequest_Builder : public virtual jrt::Object {
     presetBoard_ = board;
     return this;
   }
+  /**
+   * PORT EXTENSION (Java: GlobalSettings.initialKiCadDesignRulesFile / initialKiCadProjectFile /
+   * initialKiCadBoardFile, given with -de): the KiCad custom design rules (.kicad_dru), project
+   * (.kicad_pro) and board (.kicad_pcb) files of the design, read and applied as the Java CLI does.
+   */
+  HeadlessRoutingRequest_Builder* kicadDesignRulesFile(const std::optional<std::string>& path) {
+    kicadDesignRulesFile_ = path;
+    return this;
+  }
+  HeadlessRoutingRequest_Builder* kicadProjectFile(const std::optional<std::string>& path) {
+    kicadProjectFile_ = path;
+    return this;
+  }
+  HeadlessRoutingRequest_Builder* kicadBoardFile(const std::optional<std::string>& path) {
+    kicadBoardFile_ = path;
+    return this;
+  }
   /** Builds the immutable HeadlessRoutingRequest. */
   HeadlessRoutingRequest* build();
 
  private:
+  std::optional<std::string> kicadDesignRulesFile_;
+  std::optional<std::string> kicadProjectFile_;
+  std::optional<std::string> kicadBoardFile_;
   RoutingBoard* presetBoard_ = nullptr;
   std::function<void(RoutingBoard*, const std::string&)> boardObserver_;
   jrt::Array<int8_t>* dsnBytes_ = nullptr;
@@ -116,6 +136,14 @@ class HeadlessRoutingRequest : public virtual jrt::Object {
   std::function<void(RoutingBoard*, const std::string&)> boardObserver;
   /** PORT EXTENSION: route this board instead of parsing dsnBytes (which still feed the settings). */
   RoutingBoard* presetBoard = nullptr;
+  /**
+   * PORT EXTENSION: the KiCad files given with the design (paths, or nullopt): custom design rules
+   * (.kicad_dru), project (.kicad_pro) and board (.kicad_pcb). The engine reads them like Java's
+   * CliRunner and applies them like Java's HeadlessBoardManager.applyRouterSettingsForLoadedBoard.
+   */
+  std::optional<std::string> kicadDesignRulesFile;
+  std::optional<std::string> kicadProjectFile;
+  std::optional<std::string> kicadBoardFile;
 
   /** Creates a new builder for HeadlessRoutingRequest. */
   static HeadlessRoutingRequest_Builder* builder();

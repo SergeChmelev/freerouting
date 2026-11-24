@@ -17,9 +17,8 @@ namespace fr {
 /** Represents a job that needs to be processed by the router. */
 // PORT NOTE: reduced to what the headless pipeline uses (board, settings, state/stage, name,
 // thread/stop handling, current pass, resource usage, phase metrics, input/rules file details,
-// log helpers and events). Removed: KiCad inputs (kicadDesignRules, kicadProject,
-// kicadBoardZones and their load* methods: KiCad-specific inputs are treated as absent, i.e.
-// callers testing `job.kicadProject != null` take the null branch), apiKeyHash,
+// log helpers and events, the KiCad inputs kicadDesignRules / kicadProject / kicadBoardZones with
+// their load* methods). Removed: apiKeyHash,
 // toCompactJsonObject() (gson), getFusionScriptFile(), getInputFileDetails() /
 // getOutputFileDetails(). UUID -> std::string (random UUID text); Instant -> epoch milliseconds
 // (std::optional<int64_t>, nullopt = null); Duration -> milliseconds; File/Path -> std::string.
@@ -84,6 +83,21 @@ class RoutingJob : public virtual jrt::Object {
   std::optional<std::string> hostVersion;
   // "drc": details of the design rules check output
   BoardFileDetails* drc = nullptr;
+  /**
+   * KiCad custom design rules (.kicad_dru), translated into clearance classes once the board is
+   * loaded; null if none was given.
+   */
+  KiCadDesignRules* kicadDesignRules = nullptr;
+  /**
+   * The board settings of the KiCad project (.kicad_pro) given with the design, whose minimum track
+   * width bounds the neck width; null if none was given.
+   */
+  KiCadProject* kicadProject = nullptr;
+  /**
+   * The zones of the KiCad board (.kicad_pcb) given with the design, whose clearance and minimum
+   * width are applied to the planes of the loaded board; null if none was given.
+   */
+  KiCadBoardZones* kicadBoardZones = nullptr;
   // "router_settings": router configuration settings (new RouterSettings() in the constructor)
   RouterSettings* routerSettings = nullptr;
   // "drc_settings": DRC configuration settings (new DesignRulesCheckerSettings())
@@ -150,6 +164,30 @@ class RoutingJob : public virtual jrt::Object {
 
   /** Loads the rules file from the specified path, if it exists (Java: String / File). */
   void setRules(const std::string& rulesFilePath);
+
+  /**
+   * Reads the KiCad custom design rules of this job when explicitly provided.
+   *
+   * @param explicitFile the .kicad_dru given with the design, or null
+   * @return false if {@code explicitFile} cannot be read
+   */
+  bool loadKiCadDesignRules(const std::optional<std::string>& explicitFile);
+
+  /**
+   * Reads the KiCad project file of this job when explicitly provided.
+   *
+   * @param explicitFile the .kicad_pro given with the design, or null
+   * @return false if {@code explicitFile} cannot be read
+   */
+  bool loadKiCadProject(const std::optional<std::string>& explicitFile);
+
+  /**
+   * Reads the zones of the KiCad board file of this job when explicitly provided.
+   *
+   * @param explicitFile the .kicad_pcb given with the design, or null
+   * @return false if {@code explicitFile} cannot be read
+   */
+  bool loadKiCadBoardZones(const std::optional<std::string>& explicitFile);
 
   /** Sets the initial session from file content. */
   bool setInitialSession(jrt::Array<int8_t>* sessionFileContent,

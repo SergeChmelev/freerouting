@@ -17,10 +17,14 @@
 #include "core/events/RoutingJobUpdatedEvent.h"
 #include "core/results/RoutingResultManifest.h"
 #include "io/FileFormat.h"
+#include "io/kicad/KiCadBoardZones.h"
+#include "io/kicad/KiCadDesignRules.h"
+#include "io/kicad/KiCadProject.h"
 #include "logger/FRLogger.h"
 #include "logger/LogEntry.h"
 #include "settings/DesignRulesCheckerSettings.h"
 #include "settings/RouterSettings.h"
+#include "util/FileText.h"
 
 namespace fr {
 
@@ -231,6 +235,86 @@ void RoutingJob::setRules(const std::string& rulesFilePath) {
     this->rules->format = io::FileFormat::RULES;
     this->rules->setFilename(fileName(rulesFilePath));
     this->rules->setData(data);
+  }
+}
+
+bool RoutingJob::loadKiCadDesignRules(const std::optional<std::string>& explicitFile) {
+  if (!explicitFile.has_value()) {
+    return true;
+  }
+  std::string path = FileText::pathString(*explicitFile);
+  try {
+    this->kicadDesignRules = KiCadDesignRules::read(path);
+    FRLogger::info("Using the KiCad design rules of '" + path + "'.");
+    return true;
+  } catch (const jrt::IOException& e) {
+    std::string reason = dynamic_cast<const NoSuchFileException*>(&e) != nullptr
+                             ? std::string("file not found")
+                             : e.getMessage();
+    FRLogger::error("Couldn't read the KiCad design rules file '" + path + "': " + reason, nullptr);
+    return false;
+  } catch (const jrt::IllegalArgumentException& e) {
+    FRLogger::error("Couldn't read the KiCad design rules file '" + path + "': " + e.getMessage(),
+                    nullptr);
+    return false;
+  }
+}
+
+bool RoutingJob::loadKiCadProject(const std::optional<std::string>& explicitFile) {
+  if (!explicitFile.has_value()) {
+    return true;
+  }
+  std::string path = FileText::pathString(*explicitFile);
+  try {
+    this->kicadProject = KiCadProject::read(path);
+    std::optional<double> minWidth = this->kicadProject->minTrackWidthUm();
+    std::optional<double> minConnection = this->kicadProject->minConnectionWidthUm();
+    FRLogger::info(
+        "Using the KiCad project '" + path + "': " +
+        (!minWidth.has_value() && !minConnection.has_value()
+             ? std::string("it sets no minimum track or connection width.")
+             : "minimum track width " +
+                   (!minWidth.has_value() ? std::string("not set") : jrt::str(*minWidth) + " um") +
+                   ", minimum connection width " +
+                   (!minConnection.has_value() ? std::string("not set")
+                                               : jrt::str(*minConnection) + " um") +
+                   ": default neck width is " +
+                   jrt::str(this->kicadProject->narrowestTraceWidthUm()) +
+                   " um (unless overridden)."));
+    return true;
+  } catch (const jrt::IOException& e) {
+    std::string reason = dynamic_cast<const NoSuchFileException*>(&e) != nullptr
+                             ? std::string("file not found")
+                             : e.getMessage();
+    FRLogger::error("Couldn't read the KiCad project file '" + path + "': " + reason, nullptr);
+    return false;
+  } catch (const jrt::IllegalArgumentException& e) {
+    FRLogger::error("Couldn't read the KiCad project file '" + path + "': " + e.getMessage(),
+                    nullptr);
+    return false;
+  }
+}
+
+bool RoutingJob::loadKiCadBoardZones(const std::optional<std::string>& explicitFile) {
+  if (!explicitFile.has_value()) {
+    return true;
+  }
+  std::string path = FileText::pathString(*explicitFile);
+  try {
+    this->kicadBoardZones = KiCadBoardZones::read(path);
+    FRLogger::info("Using the " + jrt::str(this->kicadBoardZones->zones()->size()) +
+                   " copper zones of the KiCad board '" + path + "'.");
+    return true;
+  } catch (const jrt::IOException& e) {
+    std::string reason = dynamic_cast<const NoSuchFileException*>(&e) != nullptr
+                             ? std::string("file not found")
+                             : e.getMessage();
+    FRLogger::error("Couldn't read the KiCad board file '" + path + "': " + reason, nullptr);
+    return false;
+  } catch (const jrt::IllegalArgumentException& e) {
+    FRLogger::error("Couldn't read the KiCad board file '" + path + "': " + e.getMessage(),
+                    nullptr);
+    return false;
   }
 }
 
