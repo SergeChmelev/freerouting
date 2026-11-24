@@ -3,10 +3,15 @@
 # Pure Python (no pcbnew, no wx), so it can be tested outside KiCad:
 #   python -m freerouting_cpp.runner in.dsn out.ses
 #
-# On Windows the router is a Linux binary inside WSL; it is started as
-#   wsl -d <distro> -e sh -c 'echo $$ > <pidfile>; exec "$@"' sh-pidfile <binary> <args...>
-# so that Cancel can kill the Linux process by its pid (closing wsl.exe alone does not
-# always stop the process inside WSL).
+# Two ways to run the router (setting "mode"):
+#   native -- freerouting-cpp.exe (or a Linux binary on Linux) started directly; by default
+#             the one next to the plugin: freerouting_cpp/bin/freerouting-cpp.exe or
+#             freerouting_cpp/freerouting-cpp.exe;
+#   wsl    -- the Linux binary inside WSL, started as
+#             wsl -d <distro> -e sh -c 'echo $$ > <pidfile>; exec "$@"' <pidfile> <binary> <args...>
+#             so that Cancel can kill the Linux process by its pid (closing wsl.exe alone
+#             does not always stop the process inside WSL);
+#   auto   -- native when the binary is found, otherwise wsl (the default).
 
 import json
 import os
@@ -24,13 +29,39 @@ DEFAULT_SETTINGS = {
     "max_passes": 0,  # -mp; 0 = router default
     "timeout_minutes": 0,  # --timeout PT<n>M; 0 = no limit
     "no_optimizer": False,  # --no-optimizer
+    "no_fanout": False,  # --router.fanout.enabled=false
     "extra_args": "",  # more arguments, e.g. --router.automatic_neckdown=false
-    "use_wsl": IS_WINDOWS,
+    "mode": "auto",  # auto, native, wsl (see the top of this file)
+    "native_path": "",  # router executable for native mode; empty = the one next to the plugin
     "wsl_distro": "Ubuntu",
-    "router_path": "/home/halt/opt/freerouting-cpp/freerouting-cpp",
+    "router_path": "/home/halt/opt/freerouting-cpp/freerouting-cpp",  # inside WSL
 }
+MODES = ("auto", "native", "wsl")
 
-SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
+PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
+SETTINGS_FILE = os.path.join(PLUGIN_DIR, "settings.json")
+EXE_NAME = "freerouting-cpp.exe" if IS_WINDOWS else "freerouting-cpp"
+
+
+def bundled_router(plugin_dir=PLUGIN_DIR):
+    """The router shipped with the plugin, or None."""
+    for p in (os.path.join(plugin_dir, "bin", EXE_NAME), os.path.join(plugin_dir, EXE_NAME)):
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def resolve(settings, plugin_dir=PLUGIN_DIR):
+    """(mode, native executable) to use: mode is "native" or "wsl"; the executable is None
+    in wsl mode, and also in native mode when nothing was found (start() then fails with a
+    clear message)."""
+    mode = settings.get("mode", "auto")
+    exe = settings.get("native_path", "").strip() or bundled_router(plugin_dir)
+    if mode == "wsl" or (mode == "auto" and not exe and IS_WINDOWS):
+        return "wsl", None
+    if not exe and not IS_WINDOWS:
+        exe = settings.get("router_path") or None  # on Linux the "WSL" path is a native one
+    return "native", exe
 
 
 def load_settings(path=SETTINGS_FILE):
@@ -43,6 +74,8 @@ def load_settings(path=SETTINGS_FILE):
                 s[k] = saved[k]
     except (OSError, ValueError):
         pass
+    if s["mode"] not in MODES:
+        s["mode"] = "auto"
     return s
 
 
@@ -74,6 +107,8 @@ def router_args(settings, dsn, ses, path_conv=lambda p: p):
         args += ["--timeout", "PT%dM" % settings["timeout_minutes"]]
     if settings.get("no_optimizer"):
         args.append("--no-optimizer")
+    if settings.get("no_fanout"):
+        args.append("--router.fanout.enabled=false")
     if settings.get("via_costs", 0) > 0:
         args.append("--router.scoring.via_costs=%d" % settings["via_costs"])
     extra = settings.get("extra_args", "").strip()
@@ -82,9 +117,11 @@ def router_args(settings, dsn, ses, path_conv=lambda p: p):
     return args
 
 
-def build_command(settings, dsn, ses, pidfile=None):
-    """Full command line (list) for subprocess."""
-    if settings.get("use_wsl"):
+def build_command(settings, dsn, ses, pidfile=None, mode=None, exe=None):
+    """Full command line (list) for subprocess; mode and exe as returned by resolve()."""
+    if mode is None:
+        mode, exe = resolve(settings)
+    if mode == "wsl":
         args = router_args(settings, dsn, ses, to_wsl_path)
         cmd = ["wsl"]
         if settings.get("wsl_distro"):
@@ -94,7 +131,7 @@ def build_command(settings, dsn, ses, pidfile=None):
         else:
             cmd += ["-e"]
         return cmd + [settings["router_path"]] + args
-    return [settings["router_path"]] + router_args(settings, dsn, ses)
+    return [exe or EXE_NAME] + router_args(settings, dsn, ses)
 
 
 # --- log parsing -------------------------------------------------------------------
@@ -197,17 +234,24 @@ class RouterRun(object):
         self.proc = None
         self.cancelled = False
         self.returncode = None
-        self.pidfile = os.path.join(work_dir, "router.pid") if settings.get("use_wsl") else None
+        self.mode, self.exe = resolve(settings)
+        self.pidfile = os.path.join(work_dir, "router.pid") if self.mode == "wsl" else None
         self.log_path = os.path.join(work_dir, "router.log")
-        self.command = build_command(settings, dsn, ses, self.pidfile)
+        self.command = build_command(settings, dsn, ses, self.pidfile, self.mode, self.exe)
         self._thread = None
 
     def start(self):
+        """Starts the router; raises OSError when it cannot be started."""
+        if self.mode == "native" and not (self.exe and os.path.isfile(self.exe)):
+            raise OSError("router executable not found: %s (expected %s, or set the path in the settings)"
+                          % (self.exe or EXE_NAME, os.path.join(PLUGIN_DIR, "bin", EXE_NAME)))
         if self.pidfile and os.path.exists(self.pidfile):
             os.remove(self.pidfile)
         kwargs = {}
         if IS_WINDOWS:
-            kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW: no console window pops up
+            # CREATE_NO_WINDOW: no console window pops up; CREATE_NEW_PROCESS_GROUP: the router
+            # gets no Ctrl+C/Ctrl+Break meant for KiCad.
+            kwargs["creationflags"] = 0x08000000 | 0x00000200
         self.proc = subprocess.Popen(
             self.command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             cwd=self.work_dir, **kwargs)
@@ -267,7 +311,7 @@ class RouterRun(object):
                         return
                     time.sleep(0.05)
         try:
-            self.proc.terminate()
+            self.proc.kill()  # TerminateProcess on Windows, SIGKILL elsewhere
         except OSError:
             pass
 
@@ -277,13 +321,15 @@ class RouterRun(object):
 
 
 def _main(argv):
-    """Command-line check: python -m freerouting_cpp.runner in.dsn out.ses [threads]"""
+    """Command-line check: python -m freerouting_cpp.runner in.dsn out.ses [threads [auto|native|wsl]]"""
     if len(argv) < 3:
-        print("usage: python -m freerouting_cpp.runner in.dsn out.ses [threads]")
+        print("usage: python -m freerouting_cpp.runner in.dsn out.ses [threads [auto|native|wsl]]")
         return 2
     s = load_settings()
     if len(argv) > 3:
         s["threads"] = int(argv[3])
+    if len(argv) > 4:
+        s["mode"] = argv[4]
     work = os.path.dirname(os.path.abspath(argv[2]))
     run = RouterRun(s, argv[1], argv[2], work, on_line=lambda l: None)
     last = [None]

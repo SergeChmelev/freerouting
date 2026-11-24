@@ -84,23 +84,38 @@ class SettingsDialog(wx.Dialog):
         self.no_optimizer = wx.CheckBox(self, label="Skip the optimizer (faster, longer traces)")
         self.no_optimizer.SetValue(self.s["no_optimizer"])
         grid.Add(self.no_optimizer)
+        grid.Add((0, 0))
+        self.no_fanout = wx.CheckBox(self, label="Skip the SMD fanout stage (--router.fanout.enabled=false)")
+        self.no_fanout.SetValue(self.s["no_fanout"])
+        grid.Add(self.no_fanout)
         self.extra = text("Extra arguments:", "extra_args")
+        grid.Add((0, 0))
+        grid.Add(wx.StaticText(self, label="e.g. --router.automatic_neckdown=false --router.optimizer.max_passes=10"))
 
-        adv = wx.StaticBoxSizer(wx.VERTICAL, self, "Router location")
+        adv = wx.StaticBoxSizer(wx.VERTICAL, self, "Router")
+        box = adv.GetStaticBox()
         agrid = wx.FlexGridSizer(cols=2, vgap=6, hgap=10)
         agrid.AddGrowableCol(1)
-        self.use_wsl = wx.CheckBox(adv.GetStaticBox(), label="Run in WSL")
-        self.use_wsl.SetValue(self.s["use_wsl"])
-        agrid.Add(self.use_wsl)
-        dbox = wx.BoxSizer(wx.HORIZONTAL)
-        dbox.Add(wx.StaticText(adv.GetStaticBox(), label="distribution:"), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        self.distro = wx.TextCtrl(adv.GetStaticBox(), value=self.s["wsl_distro"], size=(140, -1))
-        dbox.Add(self.distro)
-        agrid.Add(dbox)
-        agrid.Add(wx.StaticText(adv.GetStaticBox(), label="Router binary:"), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.path = wx.TextCtrl(adv.GetStaticBox(), value=self.s["router_path"], size=(380, -1))
+        agrid.Add(wx.StaticText(box, label="Run:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.mode = wx.RadioBox(box, choices=["Auto", "Native (.exe)", "WSL"], majorDimension=3,
+                                style=wx.RA_SPECIFY_COLS)
+        self.mode.SetSelection(runner.MODES.index(self.s["mode"]))
+        agrid.Add(self.mode)
+        agrid.Add(wx.StaticText(box, label="Native executable:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.native = wx.TextCtrl(box, value=self.s["native_path"], size=(380, -1))
+        self.native.SetHint("empty = next to the plugin: " + os.path.join("freerouting_cpp", "bin", runner.EXE_NAME))
+        agrid.Add(self.native, 1, wx.EXPAND)
+        agrid.Add(wx.StaticText(box, label="WSL distribution:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.distro = wx.TextCtrl(box, value=self.s["wsl_distro"], size=(140, -1))
+        agrid.Add(self.distro)
+        agrid.Add(wx.StaticText(box, label="Router in WSL:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.path = wx.TextCtrl(box, value=self.s["router_path"], size=(380, -1))
         agrid.Add(self.path, 1, wx.EXPAND)
         adv.Add(agrid, 1, wx.EXPAND | wx.ALL, 6)
+        self.found = wx.StaticText(box, label="")
+        adv.Add(self.found, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
+        self.mode.Bind(wx.EVT_RADIOBOX, self.show_resolved)
+        self.native.Bind(wx.EVT_TEXT, self.show_resolved)
 
         note = wx.StaticText(self, label="Routing replaces the board's tracks and vias with the router's result.\n"
                                          "Save the board first: the import may not be undoable.")
@@ -111,8 +126,20 @@ class SettingsDialog(wx.Dialog):
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
         self.FindWindowById(wx.ID_OK).SetLabel("Route")
         top.Add(buttons, 0, wx.EXPAND | wx.ALL, 10)
+        self.show_resolved()
         self.SetSizerAndFit(top)
         self.CentreOnParent()
+
+    def show_resolved(self, _evt=None):
+        """Says which router the current choice will run."""
+        mode, exe = runner.resolve(self.values())
+        if mode == "wsl":
+            label = "Will run in WSL (%s)." % (self.distro.GetValue().strip() or "default distribution")
+        elif exe and os.path.isfile(exe):
+            label = "Will run: " + exe
+        else:
+            label = "Native executable not found: " + (exe or os.path.join(runner.PLUGIN_DIR, "bin", runner.EXE_NAME))
+        self.found.SetLabel(label)
 
     def values(self):
         s = dict(self.s)
@@ -122,7 +149,9 @@ class SettingsDialog(wx.Dialog):
         s["timeout_minutes"] = self.timeout.GetValue()
         s["no_optimizer"] = self.no_optimizer.GetValue()
         s["extra_args"] = self.extra.GetValue().strip()
-        s["use_wsl"] = self.use_wsl.GetValue()
+        s["no_fanout"] = self.no_fanout.GetValue()
+        s["mode"] = runner.MODES[self.mode.GetSelection()]
+        s["native_path"] = self.native.GetValue().strip()
         s["wsl_distro"] = self.distro.GetValue().strip()
         s["router_path"] = self.path.GetValue().strip()
         return s

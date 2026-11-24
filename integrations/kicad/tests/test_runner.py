@@ -1,6 +1,9 @@
 """Checks of freerouting_cpp.runner without KiCad.
 
-    python tests/test_runner.py <fixtures dir> <work dir>
+    python tests/test_runner.py <fixtures dir> <work dir> [<freerouting-cpp.exe>]
+
+Without the exe the router runs as the settings say (auto: the exe next to the plugin, else WSL);
+with it, natively from that path.
 
 1. routes a small DSN and checks the SES and the parsed progress;
 2. starts a large DSN, cancels it after a few seconds and checks that the Linux process is gone.
@@ -14,9 +17,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from freerouting_cpp import runner  # noqa: E402
 
 
-def main(fixtures, work):
+def main(fixtures, work, exe=None):
     os.makedirs(work, exist_ok=True)
     s = runner.load_settings()
+    if exe:
+        s.update(mode="native", native_path=os.path.abspath(exe))
+    print("mode:", runner.resolve(s))
 
     # 1. a full run
     dsn = os.path.join(fixtures, "Issue107-freq_teiler_200kHz_kicad.dsn")
@@ -40,17 +46,19 @@ def main(fixtures, work):
     run2.start()
     time.sleep(6)
     assert run2.running(), "big board finished too fast for the cancel check"
-    with open(run2.pidfile) as f:
-        pid = f.read().strip()
+    pid = None
+    if run2.pidfile:
+        with open(run2.pidfile) as f:
+            pid = f.read().strip()
     t = time.time()
     run2.cancel()
     run2.wait(30)
     assert not run2.running() and not run2.succeeded()
-    alive = subprocess.call(["wsl", "-d", s["wsl_distro"], "-e", "kill", "-0", pid],
+    alive = pid is not None and subprocess.call(["wsl", "-d", s["wsl_distro"], "-e", "kill", "-0", pid],
                             stderr=subprocess.DEVNULL) == 0
     assert not alive, "router process %s still alive in WSL" % pid
     print("cancel ok in %.1f s, exit code %s, status: %s" % (time.time() - t, run2.returncode, run2.progress.status))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:4])
