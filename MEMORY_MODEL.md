@@ -478,6 +478,93 @@ item caches and query results.
 * `SpecctraDsnStreamReader` owns its input buffer; the three DSN reads dispose their scanner.
 * bm02 no-GC leak 0.50 → 0.39 GB; smoke clean.
 
+### E7 — board copies are freed by their owner (`BasicBoard::discard`)
+
+`BasicBoard::discard(board)` ends the life of a board copy whose only owner drops it. It frees
+what a copy owns and only that: the search trees (`ShapeTree::disposeNodes`: inner nodes with
+their bounding unions, leaves; then the tree objects and the `SearchTreeManager`), every item of
+the item list — current, deleted on an undo level, or only reachable through undo/redo links —
+with its `ItemSearchTreesInfo` and its net-number array (`UndoableObjects::disposeAll`, which also
+frees the nodes, the map with its entries and the delete lists), the components (all versions),
+the id map of `BoardItemRepository`, the normal-contact cache and, for a `RoutingBoard`, the
+autoroute engine (search arena and region released first) and finally the board object.
+Shared with the source and never freed here: library, padstacks, layer structure, bounding box,
+clearance baseline, item geometry (polylines, shapes, centres; copies share them), fracture
+memo geometry. Not owned yet (still leak with a freed copy): `BoardRules` (deep copy, ~1 MB per
+170 candidates on bm02), `Communication` / id generator, `RoutingFailureLog`, item geometry
+caches computed on the copy (precalculated tree shapes, `ComponentOutline` absolute area: deep
+geometry, possibly shared — needs a geometry owner first).
+
+Caches keyed by board identity must not see a reused address once boards are freed:
+`ShoveCheckCache::forget` (Java: the weak owner reference is cleared) and
+`BoardStatisticsBoundsCalculator::forget` (Java: WeakHashMap key) are called by `discard`.
+
+Owners and drop sites (the job's input board — the DSN board or a preset board of the Lua
+engine — is the caller's and is never freed):
+
+* Optimizer (`BatchOptimizer`): the incumbent snapshot `bestBoard` (replaced per accepted pass,
+  dropped at the end); a board `this->board` / `job->board` stops referring to (restore of the
+  incumbent, the winner replay replacing the pass baseline: `dropBoard`, which skips the input
+  board, the current, the incumbent and the job's board); a replayed winner that does not
+  match; a heap worker board the candidate task does not return (`DropUnreturnedBoard`); every
+  arena worker board (`~CandidateArena`: before the arena is released, so its heap parts — board
+  object, `UndoableObjects` with map, trees and tree objects, search-tree info, net-number
+  arrays — go too).
+* Auto-router: `BoardHistory` owns its snapshots (evicted, removed and cleared entries are
+  freed); `AutorouteBatchLoop` frees a restored board when the next restore / the final best
+  board replaces it (never the board the loop started on or `job->board`).
+* Routing fallback: the input snapshot of `RoutingPipeline::run` after `RoutingFallbackRunner::run`
+  (it only deserializes copies of it), the exploration snapshot right after its copy is made.
+* Not yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with `strict_drc`), the
+  attempt boards of the fallback runner that lose (their router keeps them), the candidate
+  `RoutingJob` with its cloned settings.
+
+`Item::Item` allocates the item's own net-number array in the item's domain (`jrt::Like{this}`:
+the candidate arena for worker items; was always the heap) and `ComponentOutline` no longer
+makes a throw-away empty array per copy; `BoardItemRepository` frees its stale id map when the
+item list changes. The temporaries of a copy are freed when it is made (the item memo of
+`copyItemListFrom`, the node map of `UndoableObjects::copyMapped`, the component map, the item
+map and plane lists of `RoutingBoardUndoFacade::deepCopy`; the id maps of `BoardRules::deepCopy`
+and `ClearanceMatrix::deepCopy` are locals now): the dispose check found freed items "reachable"
+through such dead maps (stale stack words). A freed copy's rules, which are not freed yet, lose
+their back link (`Nets::board`). Before `AutorouteBatchLoop` frees a replaced board, the
+router's per-pass item collections (`forgetPassItems`: refilled at every pass start) are
+emptied — they still held the old board's items (the dispose check found them on Issue214, and
+on bm02 when the machine was loaded). Diagnostics: `FR_MEM_STATS=1` also prints `board copies
+made N, freed M`; `FR_NO_BOARD_DISCARD=all` (or a list of drop sites: `optimizer`, `candidate`,
+`replay`, `history`, `autoroute`, `fallback`) keeps those boards as before.
+
+bm02 (no-GC build): leaked 315.9 MB → 269.7 MB (−46.2 MB, −15%); board copies made 177, freed
+176 (the one left is the final board of the job); `FR_NO_BOARD_DISCARD=all` gives 306.0 MB (the
+other ~10 MB are the net-number arrays, id maps, outline arrays and copy temporaries above).
+Live-memory profile (profiling build, before the copy temporaries were freed): 296.8 → 255.4 MB;
+what is still attributed to board copies is ~12 MB, mostly geometry caches computed on freed
+copies (tree shapes, outline areas) and their rules. `FR_DISPOSE_CHECK=1` on bm02 (checked
+build): 2.47M disposed, 0 reachable after a full collection. SES identical in the checked,
+no-GC and profiling builds.
+
+Smoke (`FR_SMOKE_BUILDS="bc-checked bc-nogc"`): checked 38 SAME, no-GC 37 SAME + Issue190
+out of memory, only the two old failures besides.
+
+`parity_sample.sh <out> 120 60` (FR_JOBS=4): checked build with `FR_DISPOSE_CHECK=1` **56 SAME,
+0 DIFF** + Issue006, Issue179 and the Issue110-Pajalnaja_stancija pair (pre-existing, below);
+674M disposals, 224 reachable in 7 boards, all explained: `ShapeTree_Leaf` referred by
+`ShapeSearchTree_EntrySortedByClearance` objects in live search-arena chunks (Issue022 has the
+same 15 on plain 73fd11f, also with `FR_NO_BOARD_DISCARD=all`), items referred by a `std::regex`
+NFA block (known noise) or by a stale map slot of the `std::deque` inside the profiler's
+`ArrayDeque` pointing at a reused address (a dead item array; Issue209, Issue214), one
+`RegularTileShape` (the E2b class). No-GC build (3.5 GB limit): **48 SAME, 0 DIFF**, 10 boards
+`bad_alloc` (RC 134, they still leak more than 3.5 GB), the two old failures; E2b had 35 SAME /
+23 out of memory.
+
+Found while testing, **not caused by E7**: Issue110-Pajalnaja_stancija (and its Cyrillic-named
+twin) crash on the checked build of main 73fd11f as well (RC 134: `bad_alloc` of ~90 TB). In
+the routing-fallback continuation (`RoutingFallbackRunner::runAttempt` → `AutorouteBatchLoop` →
+`AutoroutePassRunner::runSingleThread`, pass 2) the `AutorouteAttemptResult` of a connection is
+already zero-filled memory when its `details` are recorded in the failure log: it lived in an
+arena or region that was released and reused. `FR_NO_SEARCH_ARENA=1` or `FR_NO_GEOM_REGION=1`
+make the board SAME again. The E2b sample (checked) still had it SAME, so it came with E3–E6.
+
 ## TODO (stage C/E)
 
 * Items: deferred disposal of removed items and their geometry (callers keep using an item after
@@ -485,7 +572,10 @@ item caches and query results.
 * Performance after the migration: domain lookups (`DomainScope`, `keep`, chunk map) slowed long
   boards down (Issue110-RelayModule 583 s, Issue178 > 900 s under load); compare with
   `gc-port-baseline` once the migration is done.
-* Long-lived objects (rules, library, settings, DSN parse structures) and board teardown.
+* Long-lived objects (rules, library, settings, DSN parse structures). Board teardown (E7) still
+  leaves a copy's `BoardRules`, `Communication`, failure log and item geometry caches; the
+  strict-DRC snapshots, losing fallback attempts and the candidate `RoutingJob` are not freed.
+* The arena/region escape behind the Issue110-Pajalnaja_stancija crash (see E7).
 * Remove the collector: drop `GcThreadScope`, `new_root`, the Boehm backend; LeakSanitizer clean.
 
 ### E3 — operation regions take kOp too
