@@ -37,6 +37,8 @@ Without WSL (Linux, or a native build) clear "Run in WSL" and give the binary's 
 
 ## Installation (KiCad 10 on Windows)
 
+Step-by-step guide in Russian, with troubleshooting: [INSTALL.ru.md](INSTALL.ru.md).
+
 Copy the folder `freerouting_cpp` (the whole folder, not its files) into KiCad's user plugin
 folder:
 
@@ -51,7 +53,7 @@ KiCad versions use `Documents\KiCad\<version>\scripting\plugins`; KiCad shows th
 top toolbar; if not, enable it in **Preferences → PCB Editor → Action Plugins**.
 
 Requirements: WSL with the `Ubuntu` distribution, the router at
-`/home/halt/opt/freerouting-cpp/freerouting-cpp` with its libraries (`libgeos_c`), see the
+`/home/halt/opt/freerouting-cpp/freerouting-cpp` with its libraries (`libgeos_c`, Ubuntu package `libgeos-c1t64`), see the
 router's README.txt. Check it from PowerShell:
 
 ```powershell
