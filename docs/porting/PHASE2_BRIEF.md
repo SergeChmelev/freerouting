@@ -8,10 +8,10 @@ files of ONE bucket, as a faithful mechanical port of the Java method bodies.
 
 ## Read first
 1. `PORTING.md` — the translation rules. Follow them exactly.
-2. `tools/phase1-decisions.md` — cross-cutting decisions made while writing headers (renamed
+2. `docs/porting/phase1-decisions.md` — cross-cutting decisions made while writing headers (renamed
    fields, static accessors, optional<> uses, two-phase init, board snapshots, deepCopy hooks…).
 3. `runtime/jrt/lang.h`, `collections.h`, `bignum.h` — the Java runtime emulation.
-4. Your bucket's file list in `tools/phase2-buckets.md` (paths without extension). For each
+4. Your bucket's file list in `docs/porting/phase2-buckets.md` (paths without extension). For each
    entry `src/<path>`: Java source = `upstream/src/main/java/app/freerouting/<path>.java`,
    header = `src/<path>.h`, you write `src/<path>.cpp`.
 
@@ -38,7 +38,7 @@ files of ONE bucket, as a faithful mechanical port of the Java method bodies.
 
 ## Verify
 Syntax/instantiation check of your files (from Windows):
-`wsl.exe -d Ubuntu -e bash -lc 'cd /mnt/c/Users/HP/VibeCodes/freerouting && tools/check_cpp.sh src/<file>.cpp ...'`
+`wsl.exe -d Ubuntu -e bash -lc 'cd /mnt/c/path/to/freerouting && tools/check_cpp.sh src/<file>.cpp ...'`
 (a directory argument checks every .cpp directly in it). Your files must end with 0 errors.
 Errors that come only from another bucket's header must be reported, not "fixed" there.
 Do not run the full CMake build (other agents are mid-way; it will not link yet).

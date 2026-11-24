@@ -11,9 +11,9 @@ same iteration orders. Do not "improve", simplify or reorder algorithms. Do not 
 because they look unimportant. When Java does something odd, port the oddity. If you must
 deviate, leave a `// PORT NOTE: ...` comment explaining why.
 
-Scope: the classes listed in `tools/classes.txt` (transitive closure of
+Scope: the classes listed in `tools/porting/classes.txt` (transitive closure of
 `core.facade.FreeroutingHeadlessEngine`, without GUI / KiCad / REST / analytics). Every type in
-those files (including nested types) is listed in `tools/classmap.tsv` with its C++ name and
+those files (including nested types) is listed in `tools/porting/classmap.tsv` with its C++ name and
 header. References to classes **outside** that list (gui, api, management, analytics, kicad,
 util.gson, debug) must be removed / stubbed with a `// PORT NOTE` (e.g. GUI callbacks become
 no-ops, KiCad-specific inputs are treated as absent).
@@ -21,7 +21,7 @@ no-ops, KiCad-specific inputs are treated as absent).
 ## Build
 
 Linux / WSL, g++ 15, CMake + Ninja, Boehm GC (`libgc`), GMP. Build with `tools/build.sh` inside
-WSL (`wsl.exe -d Ubuntu -e bash -lc 'cd /mnt/c/Users/HP/VibeCodes/freerouting && tools/build.sh'`).
+WSL (`wsl.exe -d Ubuntu -e bash -lc 'cd /mnt/c/path/to/freerouting && tools/build.sh'`).
 Compiler flags include `-fwrapv` (Java int overflow semantics).
 
 ## Files, names, namespaces
@@ -36,7 +36,7 @@ Compiler flags include `-fwrapv` (Java int overflow semantics).
   `LayerStructure`, `Component`, `Package`, `Unit`) as `fr::Net` etc.
 * Class names are the Java simple names. **Nested / inner Java types are hoisted to namespace
   scope as `Outer_Inner`** (deeper: `Outer_Mid_Inner`) and are defined in the outer type's
-  header (before the outer class when the outer class needs them complete). `tools/classmap.tsv`
+  header (before the outer class when the outer class needs them complete). `tools/porting/classmap.tsv`
   is authoritative for every C++ name.
 * Method and field names: **exactly the Java names** (Java snake_case stays snake_case,
   camelCase stays camelCase), so call sites translate mechanically. Exceptions:

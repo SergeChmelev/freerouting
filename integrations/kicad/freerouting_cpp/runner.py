@@ -34,7 +34,7 @@ DEFAULT_SETTINGS = {
     "mode": "auto",  # auto, native, wsl (see the top of this file)
     "native_path": "",  # router executable for native mode; empty = the one next to the plugin
     "wsl_distro": "Ubuntu",
-    "router_path": "/home/halt/opt/freerouting-cpp/freerouting-cpp",  # inside WSL
+    "router_path": "/usr/local/bin/freerouting-cpp",  # inside WSL
 }
 MODES = ("auto", "native", "wsl")
 

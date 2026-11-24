@@ -27,7 +27,7 @@ TAGS = {"kBoard": "board", "kOp": "op", "kGeom": "geom", "kSearch": "search", "k
 
 # ---------------------------------------------------------------- class tables
 classmap = {}  # simple C++ name -> header (relative to src/)
-with open(os.path.join(ROOT, "tools/classmap.tsv"), encoding="utf-8") as f:
+with open(os.path.join(ROOT, "tools/porting/classmap.tsv"), encoding="utf-8") as f:
     for line in f:
         if line.startswith("#"):
             continue

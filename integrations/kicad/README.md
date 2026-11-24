@@ -7,7 +7,7 @@ Route with freerouting-cpp**) routes the open board with the C++ port:
    `%TEMP%\kicad-freerouting-cpp\<board>\`;
 2. `freerouting-cpp` routes it: natively, as `freerouting_cpp\bin\freerouting-cpp.exe` next to
    the plugin, or (when there is no exe) in WSL:
-   `wsl -d Ubuntu -e /home/halt/opt/freerouting-cpp/freerouting-cpp -de /mnt/c/... -do /mnt/c/...`;
+   `wsl -d Ubuntu -e /usr/local/bin/freerouting-cpp -de /mnt/c/... -do /mnt/c/...`;
 3. a dialog shows the router log, the stage (routing pass, unrouted count, optimizer pass),
    a progress bar (share of routed connections while routing) and the elapsed time;
    **Cancel** kills the router (the exe, or the process inside WSL) and leaves the board unchanged;
@@ -54,7 +54,7 @@ terminates the process. The settings dialog shows which router the chosen mode w
 | Run | Auto / Native (.exe) / WSL, see above | Auto |
 | Native executable | path of `freerouting-cpp.exe` | empty = next to the plugin |
 | WSL distribution | `wsl -d <distribution>` | `Ubuntu` |
-| Router in WSL | Linux path of the router | `/home/halt/opt/freerouting-cpp/freerouting-cpp` |
+| Router in WSL | Linux path of the router | `/usr/local/bin/freerouting-cpp` |
 
 The values are kept in `freerouting_cpp/settings.json` next to the plugin.
 The plugin passes no rules file (`-dr`): the DSN that KiCad writes already carries the board's
@@ -87,11 +87,11 @@ so that `Documents\KiCad\10.0\scripting\plugins\freerouting_cpp\__init__.py` and
 top toolbar; if not, enable it in **Preferences → PCB Editor → Action Plugins**.
 
 Without the exe the plugin falls back to WSL. That needs the `Ubuntu` distribution and the
-router at `/home/halt/opt/freerouting-cpp/freerouting-cpp` with its libraries (`libgeos_c`,
+router at `/usr/local/bin/freerouting-cpp` with its libraries (`libgeos_c`,
 Ubuntu package `libgeos-c1t64`), see the router's README.txt. Check it from PowerShell:
 
 ```powershell
-wsl -d Ubuntu -e /home/halt/opt/freerouting-cpp/freerouting-cpp --help
+wsl -d Ubuntu -e /usr/local/bin/freerouting-cpp --help
 ```
 
 ## Notes

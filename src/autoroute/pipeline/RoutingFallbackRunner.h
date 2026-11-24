@@ -43,7 +43,7 @@ class RoutingFallbackRunner_Attempt : public virtual jrt::Object {
  * Ported from freerouting.net (Erik Gavriluk, Experimental Television Center).
  *
  * PORT NOTE: `byte[] input` (BasicBoard.serialize) -> BasicBoard* frozen snapshot (see
- * BasicBoard::serialize / deserialize and tools/phase1-decisions.md).
+ * BasicBoard::serialize / deserialize and docs/porting/phase1-decisions.md).
  */
 class RoutingFallbackRunner : public virtual jrt::Object {
  private:

@@ -97,7 +97,7 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
    | Extra arguments | любые другие настройки роутера в виде `--router.<путь>=<значение>`, например `--router.automatic_neckdown=false` | пусто |
    | Run | Auto — exe, если найден, иначе WSL; Native (.exe) — только exe; WSL — только WSL | Auto |
    | Native executable | путь к `freerouting-cpp.exe`, если он не рядом с плагином | пусто |
-   | WSL distribution, Router in WSL | только для режима WSL (раздел 7) | `Ubuntu`, `/home/halt/opt/freerouting-cpp/freerouting-cpp` |
+   | WSL distribution, Router in WSL | только для режима WSL (раздел 7) | `Ubuntu`, `/usr/local/bin/freerouting-cpp` |
 
    Значения запоминаются в `freerouting_cpp\settings.json` рядом с плагином.
 3. Нажмите **Route**. В окне хода работы видны этап (проход трассировки, сколько связей ещё
@@ -149,15 +149,15 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
 ## 7. Запасной вариант: роутер в WSL
 
 Если exe нет, в режиме Auto (или WSL) плагин запускает Linux-сборку роутера:
-`wsl -d Ubuntu -e /home/halt/opt/freerouting-cpp/freerouting-cpp ...`, пути переводятся
+`wsl -d Ubuntu -e /usr/local/bin/freerouting-cpp ...`, пути переводятся
 в `/mnt/c/...`. Для этого нужны:
 
 - WSL с дистрибутивом `Ubuntu` (`wsl -l -v`);
-- роутер по пути `/home/halt/opt/freerouting-cpp/freerouting-cpp` (или свой путь в поле
+- роутер по пути `/usr/local/bin/freerouting-cpp` (или свой путь в поле
   «Router in WSL»); проверка:
 
   ```powershell
-  wsl -d Ubuntu -e /home/halt/opt/freerouting-cpp/freerouting-cpp --help
+  wsl -d Ubuntu -e /usr/local/bin/freerouting-cpp --help
   ```
 
 - библиотека `libgeos_c`; если роутер пишет `error while loading shared libraries: libgeos_c`:
