@@ -86,7 +86,7 @@ void TraceTightener::optChangedArea(
     return;
   }
   bool somethingChanged = true;
-  ViaMoveHistory* viaMoves = new (jrt::kBoard) ViaMoveHistory();
+  ViaMoveHistory* viaMoves = new (jrt::kOp) ViaMoveHistory();
   // starting with curr_min_translate_dist big is a try to
   // avoid fine approximation at the beginning to avoid
   // problems with dog ears

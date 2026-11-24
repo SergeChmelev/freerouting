@@ -22,6 +22,7 @@
 #include "core/facade/HeadlessRoutingRequest.h"
 #include "core/facade/HeadlessRoutingResult.h"
 #include "board/facade/BasicBoard.h"
+#include "board/facade/RoutingBoard.h"
 #include "core/scoring/BoardStatistics.h"
 #include "jrt/jrt.h"
 #include "logger/FRLogger.h"
@@ -57,9 +58,7 @@ std::string designName(const std::string& path) {
   return dot == std::string::npos ? b : b.substr(0, dot);
 }
 
-}  // namespace
-
-int main(int argc, char** argv) {
+int runMain(int argc, char** argv) {
   std::string input, output, rules;
   std::optional<int32_t> maxPasses, maxThreads;
   std::optional<std::string> timeout;
@@ -153,5 +152,30 @@ int main(int argc, char** argv) {
                  static_cast<long long>(fr::BasicBoard::copiesMade()),
                  static_cast<long long>(fr::BasicBoard::copiesDiscarded()));
   }
-  return result->isSuccess() ? 0 : 1;
+  int rc = result->isSuccess() ? 0 : 1;
+  // Stage E: the run is over. The routed board is the last board of the run.
+  fr::BasicBoard::discard(result->board(), "result");
+  jrt::dispose(result);
+  return rc;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  int rc;
+  {
+    // Stage E: geometry and temporaries that no operation region takes and no owner holds
+    // belong to the run and are dropped here (jrt::JobRegion).
+    jrt::JobRegion job;
+    rc = runMain(argc, argv);
+    if (std::getenv("FR_MEM_STATS") != nullptr) {
+      std::fprintf(stderr, "memory: job heap %.1f MB left at the end of the run (peak %.1f MB)\n",
+                   jrt::job_heap_live_bytes() / 1048576.0, jrt::job_heap_peak_bytes() / 1048576.0);
+    }
+  }
+  if (std::getenv("FR_MEM_STATS") != nullptr) {
+    jrt::drain_arena_pool();
+    std::fprintf(stderr, "memory: still allocated after the run %.1f MB\n", jrt::gc_heap_size() / 1048576.0);
+  }
+  return rc;
 }

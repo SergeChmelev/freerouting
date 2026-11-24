@@ -393,7 +393,7 @@ ShapeEntrySide* ForcedViaInserter::calculateFromSide(FloatPoint* viaLocation, Ti
         fromSideIndex = 2 * i;
       }
       FloatPoint* currentBorderPoint = new (jrt::kGeom) FloatPoint(borderX, borderY);
-      return new (jrt::kBoard) ShapeEntrySide(fromSideIndex, currentBorderPoint);
+      return new (jrt::kOp) ShapeEntrySide(fromSideIndex, currentBorderPoint);
     }
   }
   if (is90Degree) {
@@ -431,7 +431,7 @@ ShapeEntrySide* ForcedViaInserter::calculateFromSide(FloatPoint* viaLocation, Ti
     if (roomShape->contains(checkPoint)) {
       int32_t fromSideIndex = 2 * i + 1;
       FloatPoint* currentBorderPoint = new (jrt::kGeom) FloatPoint(borderX, borderY);
-      return new (jrt::kBoard) ShapeEntrySide(fromSideIndex, currentBorderPoint);
+      return new (jrt::kOp) ShapeEntrySide(fromSideIndex, currentBorderPoint);
     }
   }
   return nullptr;

@@ -34,12 +34,25 @@ void ShoveCheckCache::put(RoutingBoard* board, int64_t contentStamp, ShoveCheckC
                           ShoveCheckCache_Entry* entry) {
   reset(board, contentStamp);
   if (entries->size() >= MAX_ENTRIES) {
-    entries->clear();
+    clearEntries();
     board->getShoveCacheObstacles()->clear();
     return;
   }
   // PORT NOTE (stage E): the cache is global; key and entry may live in an operation region.
   entries->put(key->heapCopy(), new (jrt::kBoard) ShoveCheckCache_Entry(*entry));
+}
+
+void ShoveCheckCache::clearEntries() {
+  // PORT NOTE (stage E): keys and entries are the cache's heap copies (put); nothing else holds
+  // them or the map's entry objects.
+  for (auto* e : entries->entryVector()) {
+    ShoveCheckCache_Key* key = e->getKey();
+    jrt::dispose(key->coords);
+    jrt::dispose(key);
+    jrt::dispose(e->getValue());
+    jrt::dispose(e);
+  }
+  entries->clear();
 }
 
 ShoveCheckCache_Key* ShoveCheckCache_Key::heapCopy() {
@@ -64,7 +77,7 @@ void ShoveCheckCache::reset(RoutingBoard* board, int64_t contentStamp) {
     return;
   }
   if (!entries->isEmpty()) {
-    entries->clear();
+    clearEntries();
   }
   board->getShoveCacheObstacles()->clear();
   stamp = contentStamp;

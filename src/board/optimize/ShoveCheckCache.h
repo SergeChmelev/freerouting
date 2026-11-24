@@ -7,6 +7,7 @@ namespace fr {
 
 /** Inputs of one shove check, held strictly by value with no object references kept. */
 class ShoveCheckCache_Key final : public virtual jrt::Object {
+  friend class ShoveCheckCache;  // frees the coords of its heap copies (clearEntries)
  private:
   int32_t kind;  // 1 octagon, 2 box, 3 simplex
   int32_t lineCount;
@@ -122,6 +123,8 @@ class ShoveCheckCache final : public virtual jrt::Object {
 
  private:
   void reset(RoutingBoard* board, int64_t contentStamp);
+  /** Empties the cache, freeing its keys, entries and map nodes (the cache owns them). */
+  void clearEntries();
 
  public:
   /** True for a check whose key can be held strictly by value. dir and nets may be null. */

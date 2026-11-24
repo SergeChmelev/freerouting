@@ -1393,6 +1393,7 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
     if (jrt::fast_cast<ComponentObstacleArea>(originalItem) != nullptr ||
         jrt::fast_cast<ComponentOutline>(originalItem) != nullptr) {
       // copy drops the net numbers (and ComponentOutline also the clearance class).
+      jrt::dispose(copiedItem->netNumbers);  // the empty array copy(id) made (the item's own)
       copiedItem->netNumbers =
           originalItem->netNumbers != nullptr ? originalItem->netNumbers->clone() : nullptr;
       if (copiedItem->clearanceClassIndex() != originalItem->clearanceClassIndex()) {

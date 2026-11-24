@@ -51,6 +51,17 @@ inline constexpr GeomLifetime kGeom{};
 inline constexpr SearchLifetime kSearch{};
 inline constexpr BoardDataLifetime kBoardData{};
 
+// The job heap (jobheap.cpp; build without the collector only): memory of jrt::JobRegion.
+void job_heap_begin();
+void* job_heap_alloc(std::size_t n);  // zero-filled
+bool job_heap_owns(const void* p) noexcept;
+std::size_t job_heap_block_size(const void* p) noexcept;
+void job_heap_free(void* p) noexcept;
+void job_heap_release() noexcept;
+std::size_t job_heap_live_bytes() noexcept;
+std::size_t job_heap_peak_bytes() noexcept;
+std::size_t job_heap_reserved_bytes() noexcept;
+
 /**
  * Bump-pointer arena for per-operation object graphs (MEMORY_MODEL.md section 3).
  *
@@ -71,6 +82,7 @@ class Arena {
   Arena& operator=(const Arena&) = delete;
 
   void* allocate(std::size_t n) {
+    if (jobHeap_) [[unlikely]] return job_heap_alloc(n);
     n = (n + 15) & ~std::size_t{15};
     if (static_cast<std::size_t>(end_ - cur_) < n) refill(n);
     void* p = cur_;
@@ -90,6 +102,7 @@ class Arena {
    * reused from per-size free lists, so churning containers in a long-lived arena do not grow
    * it without bound. The memory is zero-filled like allocate()'s. */
   void* allocateReusable(std::size_t n) {
+    if (jobHeap_) [[unlikely]] return job_heap_alloc(n);
     n = (n + 15) & ~std::size_t{15};
     std::size_t cls = n / 16 - 1;
     if (cls < kFreeClasses && free_[cls] != nullptr) {
@@ -104,6 +117,10 @@ class Arena {
   /** Gives a block of allocateReusable(n) back (blocks above the size classes are abandoned
    * until release()). */
   void recycle(void* p, std::size_t n) {
+    if (jobHeap_) [[unlikely]] {
+      job_heap_free(p);
+      return;
+    }
     n = (n + 15) & ~std::size_t{15};
     std::size_t cls = n / 16 - 1;
     if (cls >= kFreeClasses) return;
@@ -112,13 +129,18 @@ class Arena {
     JRT_ASAN_POISON(static_cast<char*>(p) + sizeof(void*), n - sizeof(void*));
   }
 
-  bool empty() const { return head_ == nullptr; }
+  bool empty() const { return head_ == nullptr && !jobHeap_; }
+  /** Makes this arena the front of the job heap: allocations become single job-heap blocks
+   * (freed by recycle / dispose / delete), release() frees the whole job heap. */
+  void setJobHeap() { jobHeap_ = true; }
+  bool jobHeap() const { return jobHeap_; }
   std::size_t bytesAllocated() const;
   /** True if `p` points into memory handed out by this arena. */
   bool contains(const void* p) const;
   /** True if `p` lies in the chunk the next allocation comes from (where the object allocated
    * last is). O(1), unlike contains(). */
   bool inHeadChunk(const void* p) const {
+    if (jobHeap_) [[unlikely]] return job_heap_owns(p);
     auto* q = static_cast<const char*>(p);
     return head_ != nullptr && q >= data(head_) && q < cur_;
   }
@@ -150,6 +172,7 @@ class Arena {
   char* cur_ = nullptr;
   char* end_ = nullptr;
   std::size_t fullBytes_ = 0;  // used bytes in chunks other than head_
+  bool jobHeap_ = false;
   static constexpr std::size_t kFreeClasses = 64;  // 16 .. 1024 bytes
   void* free_[kFreeClasses] = {};
   // Chunk data ranges sorted by address, for contains() in O(log n).
@@ -282,6 +305,7 @@ class GeomRegion {
 
  protected:
   bool local_ = false;  // a LocalGeomRegion
+  bool job_ = false;    // the JobRegion: its chunks are not registered (heap-like domain)
 };
 
 /** Makes `region` the innermost active region and the kGeom target for the lifetime of the
@@ -314,6 +338,38 @@ class LocalGeomRegion : public GeomRegion {
  private:
   std::optional<GeomRegionScope> scope_;
 };
+
+/**
+ * The job region (MEMORY_MODEL.md stage E, "job region"): the outermost region of this thread
+ * for the lifetime of a routing job (the CLI run, the Lua engine thread). Geometry and
+ * per-operation temporaries (kGeom, kOp) that no operation region takes and no owner holds
+ * belong to the job and are dropped with it. Explicitly owned objects are not affected: kBoard,
+ * plain `new`, HeapScope / onHeap and DomainScope with a heap owner still allocate on the heap,
+ * so jrt::dispose keeps freeing them at once.
+ *
+ * Its objects count as heap objects for copy-out (geom_domain_of() is 0: they outlive every
+ * operation region), and geometry copied out to a heap owner (geomcopy::keep) lands here.
+ * Nothing may refer to its objects after the job (statics use onHeap).
+ */
+class JobRegion : public GeomRegion {
+ public:
+  JobRegion();
+  ~JobRegion();
+  /** Bytes handed out so far (diagnostics). */
+  std::size_t bytes() const { return arena().bytesAllocated(); }
+
+ private:
+  std::optional<GeomRegionScope> scope_;
+};
+
+/** The job region of this thread (nullptr: none). */
+GeomRegion* job_region();
+
+/** Diagnostics: jrt::dispose of an object that lives in the job region (it is not freed until
+ * the job ends). Counted with FR_MEM_STATS. */
+void note_job_region_dispose(const void* mem, std::size_t size) noexcept;
+std::size_t job_region_disposes() noexcept;
+std::size_t job_region_dispose_bytes() noexcept;
 
 /** Allocates kGeom in the domain of `owner`: the active region that contains it, else the heap.
  * Used where a long-lived object fills a lazy cache or stores geometry it computed. */
@@ -465,7 +521,10 @@ inline void dispose(T* p) noexcept {
   } else {
     mem = static_cast<void*>(p);
   }
-  if (!is_heap_block(mem)) return;
+  if (!is_heap_block(mem)) {
+    note_job_region_dispose(mem, sizeof(T));
+    return;
+  }
   p->~T();
   dispose_block(mem, typeid(T).name());
 }

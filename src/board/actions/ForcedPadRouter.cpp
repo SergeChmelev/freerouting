@@ -308,7 +308,7 @@ ForcedPadRouter_CheckDrillResult ForcedPadRouter::checkForcedPad(
       }
       if (isInFront) {
         ShapeAndEntrySide* current =
-            new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
+            new (jrt::kOp) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
         if (!shoveTraceAlgo->check(current->shape, current->fromSide, currentDirection, layer,
                                    currentSubstituteTrace->netNumbers,
                                    currentSubstituteTrace->clearanceClassIndex(),
@@ -396,7 +396,7 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
     jrt::Array<int32_t>* currentNetNumbers = currentSubstituteTrace->netNumbers;
     for (int32_t i = 0; i < currentSubstituteTrace->tileShapeCount(); i++) {
       ShapeAndEntrySide* current =
-          new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
+          new (jrt::kOp) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
       if (!shoveTraceAlgo->insert(current->shape, current->fromSide, layer, currentNetNumbers,
                                   currentSubstituteTrace->clearanceClassIndex(), ignoreItems,
                                   maxRecursionDepth - 1, maxViaRecursionDepth, 0)) {
@@ -449,14 +449,14 @@ ShapeEntrySide* ForcedPadRouter::calcFromSide(TileShape* shape, Point* shapeCent
     TileShape* checkShape = calcCheckShapeForFromSide(shape, shapeCenter, offsetShape->borderLine(i));
 
     if (board->checkTraceShape(checkShape, layer, emptyArr, clearanceClassIndex, nullptr)) {
-      return new (jrt::kBoard) ShapeEntrySide(i, nullptr);
+      return new (jrt::kOp) ShapeEntrySide(i, nullptr);
     }
   }
   // try second check without clearance
   for (int32_t i = 0; i < offsetShape->borderLineCount(); i++) {
     TileShape* checkShape = calcCheckShapeForFromSide(shape, shapeCenter, offsetShape->borderLine(i));
     if (board->checkTraceShape(checkShape, layer, emptyArr, 0, nullptr)) {
-      return new (jrt::kBoard) ShapeEntrySide(i, nullptr);
+      return new (jrt::kOp) ShapeEntrySide(i, nullptr);
     }
   }
   return ShapeEntrySide::NOT_CALCULATED();

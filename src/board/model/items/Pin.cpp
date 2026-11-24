@@ -133,7 +133,7 @@ Shape* Pin::getShape(int32_t index) {
     // all shapes have to be calculated  at once, because otherwise calculation
     // of fromLayer and toLayer may not be correct
     int32_t shapeCount = jrt::Math::max(0, padstack->toLayer() - padstack->fromLayer() + 1);
-    this->precalculatedShapes = new (jrt::kBoard) jrt::Array<Shape*>(shapeCount);
+    this->precalculatedShapes = new (jrt::kGeom) jrt::Array<Shape*>(shapeCount);
 
     Component* component = board->components->get(this->getComponentId());
     if (component == nullptr) {
@@ -211,7 +211,7 @@ PadOval* Pin::getPlacedOval(int32_t index) {
   PlacementTransform* placement =
       component->placementTransform(board->components->getFlipStyleRotateFirst());
   FloatPoint* offset = packagePin->getExactRelativeLocation();
-  return new (jrt::kBoard) PadOval(placement->padPoint(oval->start(), offset, packagePin->rotationInDegree),
+  return new (jrt::kOp) PadOval(placement->padPoint(oval->start(), offset, packagePin->rotationInDegree),
                      placement->padPoint(oval->end(), offset, packagePin->rotationInDegree),
                      oval->radius());
 }
@@ -286,7 +286,7 @@ jrt::Collection<Pin_TraceExitRestriction*>* Pin::getTraceExitRestrictions(int32_
     Line* currentExitLine = new (jrt::kGeom) Line(pinCenter, currentExitDirection);
     FloatPoint* nearestBorderPoint =
         currentExitLine->intersectionApprox(padShape->borderLine(intersectingBorderLineNo));
-    auto* currentExitRestriction = new (jrt::kBoard) Pin_TraceExitRestriction(
+    auto* currentExitRestriction = new (jrt::kOp) Pin_TraceExitRestriction(
         currentExitDirection, centerApprox->distance(nearestBorderPoint));
     result->add(currentExitRestriction);
   }

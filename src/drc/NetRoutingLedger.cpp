@@ -18,14 +18,24 @@ namespace fr {
 NetRoutingLedger::NetRoutingLedger(BasicBoard* board)
     : board(board),
       conductionAreas(new (jrt::kOp) jrt::ArrayList<ConductionArea*>()),
-      itemNets(new (jrt::kOp) jrt::IdentityHashMap<Item*, jrt::Array<int32_t>*>()) {}
+      itemNets(nullptr) {
+  // PORT NOTE (stage E): the ledger owns its per-item net arrays and the map's entries.
+  auto* map = new (jrt::kOp) jrt::IdentityHashMap<Item*, jrt::Array<int32_t>*>();
+  map->setFreesNodes(true);
+  itemNets = map;
+}
+
+void NetRoutingLedger::clearItemNets() {
+  for (auto* e : itemNets->entryVector()) jrt::dispose(e->getValue());
+  itemNets->clear();
+}
 
 void NetRoutingLedger::invalidate() {
   jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   built = false;
   conductionAreas->clear();
   dirtyNets->clear();
-  itemNets->clear();
+  clearItemNets();
   itemsByNet = emptyLists();
   incompleteByNet = new (jrt::kOp) jrt::Array<int32_t>(0);
   incompleteTotal = 0;
@@ -37,7 +47,7 @@ void NetRoutingLedger::noteInserted(Item* item) {
   if (!built || jrt::fast_cast<Connectable>(item) == nullptr) {
     return;
   }
-  itemNets->put(item, item->netNumbers->clone());
+  jrt::dispose(itemNets->put(item, item->netNumbers->clone()));
   addItem(item);
 }
 
@@ -124,7 +134,7 @@ int32_t NetRoutingLedger::buildItemLists() {
   auto* lists = new (jrt::kOp) jrt::Array<jrt::List<Item*>*>(maxNet + 1);
   itemsByNet = lists;
   dirtyNets->clear();
-  itemNets->clear();
+  clearItemNets();
   for (int32_t netNumber = 1; netNumber <= maxNet; netNumber++) {
     (*itemsByNet)[netNumber] = new (jrt::kOp) jrt::ArrayList<Item*>();
   }
@@ -133,7 +143,7 @@ int32_t NetRoutingLedger::buildItemLists() {
   for (Item* item : *loopSource1) {
     if (jrt::fast_cast<Connectable>(item) != nullptr) {
       addItemToLists(item);
-      itemNets->put(item, item->netNumbers->clone());
+      jrt::dispose(itemNets->put(item, item->netNumbers->clone()));
     }
     if (auto* ca = jrt::fast_cast<ConductionArea>(item)) {
       conductionAreas->add(ca);
@@ -198,6 +208,7 @@ void NetRoutingLedger::removeItem(Item* item) {
         dirtyNets->add(netNumber);
       }
     }
+    jrt::dispose(registeredNets);
   }
   for (int32_t index = 0; index < item->netCount(); index++) {
     int32_t netNumber = item->getNetNumber(index);

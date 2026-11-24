@@ -1032,7 +1032,10 @@ void Item::setPrecalculatedTreeShapes(jrt::Array<TileShape*>* shapes, ShapeSearc
 
 ItemAutorouteInfo* Item::getAutorouteInfo() {
   if (autorouteInfo == nullptr) {
-    autorouteInfo = new (jrt::kBoard) ItemAutorouteInfo(this);
+    // PORT NOTE (stage E): a derived cache (dropped by clearAutorouteInfo / clearDerivedData):
+    // in the item's domain, like its other caches.
+    jrt::DomainScope domain(this);
+    autorouteInfo = new (jrt::kOp) ItemAutorouteInfo(this);
   }
   return autorouteInfo;
 }

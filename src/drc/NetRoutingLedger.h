@@ -67,6 +67,7 @@ class NetRoutingLedger final : public virtual jrt::Object {
   int32_t maximumConnections_ = 0;
   jrt::Set<int32_t>* dirtyNets = new (jrt::kOp) jrt::TreeSet<int32_t>();
   jrt::Map<Item*, jrt::Array<int32_t>*>* itemNets;
+  void clearItemNets();
 
  public:
   explicit NetRoutingLedger(BasicBoard* board);

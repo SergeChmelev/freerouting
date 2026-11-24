@@ -449,7 +449,7 @@ Point* RoutingBoard::insertForcedTracePolyline(Polyline* polyline, int32_t halfW
     if (orthogonalMode) {
       currentTraceShape = currentTraceShape->boundingBox();
     }
-    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(
+    ShapeEntrySide* fromSide = new (jrt::kOp) ShapeEntrySide(
         combinedPolyline, combinedPolyline->cornerCount() - traceShapes->length - 1 + i,
         currentTraceShape);
     if (withCheck) {
@@ -678,8 +678,10 @@ AutorouteEngine* RoutingBoard::initAutoroute(int32_t netNumber, int32_t traceCle
       this->autorouteEngine->autorouteSearchTree->compensatedClearanceClassNo !=
           traceClearanceClassIndex) {
     if (this->autorouteEngine != nullptr) {
-      // PORT NOTE: the replaced engine is dropped (Java leaves it to the GC): free its arena.
+      // PORT NOTE: the replaced engine is dropped (Java leaves it to the GC): free its arena
+      // and the engine.
       this->autorouteEngine->releaseSearchArena();
+      jrt::dispose(this->autorouteEngine);
     }
     this->autorouteEngine =
         new (jrt::kBoard) AutorouteEngine(this, traceClearanceClassIndex, retainAutorouteDatabase);
@@ -692,6 +694,7 @@ void RoutingBoard::finishAutoroute() {
   if (this->autorouteEngine != nullptr) {
     this->autorouteEngine->clear();
     this->autorouteEngine->releaseSearchArena();
+    jrt::dispose(this->autorouteEngine);
   }
   this->autorouteEngine = nullptr;
 }
@@ -701,6 +704,7 @@ void RoutingBoard::discardAutorouteEngineWithBoard() {
   // this board (its search tree, item autoroute data), so no clear() is needed.
   if (this->autorouteEngine != nullptr) {
     this->autorouteEngine->releaseSearchArena();
+    jrt::dispose(this->autorouteEngine);
   }
   this->autorouteEngine = nullptr;
 }
@@ -709,9 +713,7 @@ void RoutingBoard::releaseOwnedData() {
   ShoveCheckCache::forThread()->forget(this);
   // The engine's arena objects (rooms, drills) are referenced only by this board; the trees
   // are freed below without reading their leaves' objects.
-  AutorouteEngine* engine = this->autorouteEngine;
-  discardAutorouteEngineWithBoard();
-  jrt::dispose(engine);
+  discardAutorouteEngineWithBoard();  // frees the engine too
   BasicBoard::releaseOwnedData();
 }
 

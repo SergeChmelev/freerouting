@@ -81,7 +81,7 @@ GeomRegionScope::GeomRegionScope(GeomRegion* region, bool local) : region_(regio
   }();
   if (disabled == 1 || (disabled == 2 && !local)) region_ = nullptr;
   if (region_ == nullptr) return;
-  region_->arena_.setChunkHook(region_chunk_hook, region_->id_);
+  if (!region_->job_) region_->arena_.setChunkHook(region_chunk_hook, region_->id_);
   region_->outer_ = innermost_region();
   region_->restore_ = current_geom_region();
   region_->active_ = true;
@@ -144,8 +144,63 @@ DomainScope::DomainScope(const void* owner) : saved_(current_geom_region()) {
       break;
     }
   }
-  current_geom_region() = domain;
+  // A heap owner: its caches and stored geometry are the job's (freed by dispose, or with
+  // the job), never a process-lifetime allocation (HeapScope / onHeap say so explicitly).
+  current_geom_region() = domain != nullptr ? domain : job_region();
 }
+
+namespace {
+GeomRegion*& job_region_slot() {
+  thread_local GeomRegion* job = nullptr;
+  return job;
+}
+bool mem_stats_enabled() {
+  static const bool on = std::getenv("FR_MEM_STATS") != nullptr;
+  return on;
+}
+std::atomic<std::size_t> g_jobDisposes{0}, g_jobDisposeBytes{0};
+}  // namespace
+
+GeomRegion* job_region() { return job_region_slot(); }
+
+JobRegion::JobRegion() {
+  if (innermost_region() != nullptr || job_region_slot() != nullptr) {
+    std::fprintf(stderr, "jrt: a JobRegion must be the outermost region of its thread\n");
+    std::abort();
+  }
+#if JRT_NO_GC
+  // FR_NO_JOB_REGION=1: allocate as before (heap), e.g. for the live-memory profiler.
+  static const bool disabled = std::getenv("FR_NO_JOB_REGION") != nullptr;
+  if (disabled) return;
+  setTakesOps(true);
+  job_ = true;
+  local_ = true;  // FR_NO_GEOM_REGION=2 keeps it; =1 disables it like every region
+  arenaRef().setJobHeap();
+  scope_.emplace(this, true);
+  if (active()) {
+    job_heap_begin();
+    job_region_slot() = this;
+  }
+#endif
+}
+
+JobRegion::~JobRegion() {
+  bool wasActive = active();
+  scope_.reset();
+  if (!wasActive) return;
+  job_region_slot() = nullptr;
+  arenaRef().release();  // the whole job heap; no escape check: nothing outlives the job
+}
+
+void note_job_region_dispose(const void* mem, std::size_t size) noexcept {
+  if (!mem_stats_enabled()) return;
+  GeomRegion* job = job_region_slot();
+  if (job == nullptr || !job->contains(mem)) return;
+  g_jobDisposes.fetch_add(1, std::memory_order_relaxed);
+  g_jobDisposeBytes.fetch_add(size, std::memory_order_relaxed);
+}
+std::size_t job_region_disposes() noexcept { return g_jobDisposes.load(std::memory_order_relaxed); }
+std::size_t job_region_dispose_bytes() noexcept { return g_jobDisposeBytes.load(std::memory_order_relaxed); }
 
 bool in_geom_region(const void* p) {
   for (GeomRegion* r = innermost_region(); r != nullptr; r = r->outer()) {

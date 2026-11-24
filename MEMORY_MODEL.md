@@ -627,6 +627,44 @@ make the board SAME again. The E2b sample (checked) still had it SAME, so it cam
   `clearanceClassRemoved`, `resetCompensatedTrees` and `setClearanceCompensationUsed` have no
   callers (interactive rule editing only); the trees live until `disposeTrees`.
 
+### E9 — job region: unowned memory belongs to the job
+
+Geometry and per-operation temporaries (kGeom, kOp) that no operation region takes and no owner
+frees (operations outside regions: statistics, DRC, ledger counting, DSN parsing, SES writing;
+caches of heap items; item geometry shared by board copies) now belong to the routing job:
+`jrt::JobRegion` (alloc.h) is the outermost region of the routing thread for the whole run
+(`main`; the Lua engine thread next). Its memory is the **job heap** (`runtime/jrt/jobheap.cpp`,
+no-GC build only): a size-class allocator on 64 KB pages (16-byte classes up to 1 KB, four per
+octave up to 32 KB, larger blocks on their own pages) with a page table over the address space,
+so `operator delete`, `jrt::dispose` and the domain lookups recognise job-heap blocks in O(1) and
+free single objects at once (memory reused, zeroed); the end of the job frees everything left.
+A bump arena instead (first try) kept 151 MB on bm02 instead of 102 MB: much of what lands here
+is freed explicitly during the run (query results, container growth).
+
+Rules: kGeom / kOp with no operation region → job heap; `DomainScope` with a heap owner → job
+heap (the owner's caches and stored geometry are the job's); `geomcopy::keep` to a heap owner
+copies into the job heap; `HeapScope` / `onHeap` (process-lifetime statics, the global shove
+cache) and kBoard / plain `new` (explicitly owned objects) stay on the heap. Job-heap objects
+count as heap objects for copy-out (`geom_domain_of` = 0: no chunk registration).
+`FR_NO_JOB_REGION=1` turns it off (e.g. for the live-memory profiler, which only sees heap
+blocks). `FR_MEM_STATS` prints what is left in the job heap at the end of the run and the heap
+bytes still allocated after it.
+
+Owners found with LeakSanitizer once the job heap took the diffuse part: operation temporaries
+tagged kBoard (`ExactCopper::of/ofOval`, `ShapeEntrySide`, `ShapeAndEntrySide`,
+`Pin_TraceExitRestriction`, `PadOval`, `ViaMoveHistory`, DSN tokens) are kOp; item caches
+(pin / via shape arrays, exact-copper cache, `ItemAutorouteInfo`, tree leaf arrays of an object)
+are allocated in the item's domain; `HashMap::setFreesNodes` frees the entries of removed /
+cleared mappings (only for maps that never hand out entries: the ledger's item→nets map, which
+also owns its net arrays); `ShoveCheckCache` frees its keys, entries and map nodes when it starts
+over; a replaced or finished `AutorouteEngine` is freed; a `ComponentOutline` copy frees the empty
+net array `copy(id)` made; the board read from the DSN bytes is freed by `route()` when the job
+finished on another board, and the CLI frees the routed board and the result at the end.
+
+bm02 (no-GC): job heap 102 MB at the end (peak 102 MB: it is the former leak), heap after the
+run 122 → 6.6 MB, LeakSanitizer 24 MB → 6.1 MB unreachable; SES identical; smoke clean (checked
+GC build and no-GC build 38 SAME each, only the two old failures).
+
 ## TODO (stage C/E)
 
 * kOp in main-board regions: done for the step slider, the insertion region of

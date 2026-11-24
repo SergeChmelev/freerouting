@@ -1645,7 +1645,7 @@ jrt::Object* SpecctraDsnStreamReader::nextToken() {
         case 11:
           {
             yybegin(YYINITIAL);
-            return new JString(utf16ToUtf8(stringBuffer.data(), static_cast<int32_t>(stringBuffer.size())));
+            return new (jrt::kOp) JString(utf16ToUtf8(stringBuffer.data(), static_cast<int32_t>(stringBuffer.size())));
           }
         case 219:
           break;
@@ -1764,9 +1764,9 @@ jrt::Object* SpecctraDsnStreamReader::nextToken() {
         case 5:
           {
             if (exactNumbers) {
-              return new JBigDecimal(jrt::BigDecimal(yytext()));
+              return new (jrt::kOp) JBigDecimal(jrt::BigDecimal(yytext()));
             }
-            return new JInteger(jrt::Integer::parseInt(yytext()));
+            return new (jrt::kOp) JInteger(jrt::Integer::parseInt(yytext()));
           }
         case 236:
           break;

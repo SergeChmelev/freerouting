@@ -4,11 +4,12 @@
 # usage: tools/mem/asan_run.sh <binary> <out-prefix> <fixture.dsn> [top]
 # writes <out-prefix>.ses, <out-prefix>.asan (raw report: memory errors first, then leaks) and
 # <out-prefix>.txt (leaks by site). Exit status: the router's (an ASan error aborts with 1).
+# FR_ASAN_CTX=N: allocation stack depth (default 10).
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 bin="$1"; out="$2"; dsn="$3"; top="${4:-40}"
 # halt_on_error: the first memory error is the interesting one; leaks are reported at exit.
-ASAN_OPTIONS="detect_leaks=1:halt_on_error=1:malloc_context_size=10:fast_unwind_on_malloc=1:log_path=$out.asanlog" \
+ASAN_OPTIONS="detect_leaks=1:halt_on_error=1:malloc_context_size=${FR_ASAN_CTX:-10}:fast_unwind_on_malloc=1:log_path=$out.asanlog" \
 LSAN_OPTIONS="report_objects=0:max_leaks=0" \
   "$bin" -q -de "$dsn" -do "$out.ses" > "$out.log" 2>&1
 rc=$?

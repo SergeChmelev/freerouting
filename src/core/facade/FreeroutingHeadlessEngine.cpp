@@ -114,6 +114,7 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
     return HeadlessRoutingResult::failure("DSN did not contain a valid board",
                                           jrt::System::currentTimeMillis() - startTime);
   }
+  RoutingBoard* inputBoard = board;
 
   if (request->cancellationToken()->isCancelled()) {
     return HeadlessRoutingResult::cancelled(board,
@@ -303,6 +304,13 @@ HeadlessRoutingResult* FreeroutingHeadlessEngine::route(HeadlessRoutingRequest* 
         errorMessage = "SES serialization failed: " + e.getMessage();
       }
     }
+  }
+
+  // PORT NOTE (stage E): the board read from the DSN bytes belongs to this call; when the job
+  // finished on another board (a snapshot / candidate), nothing uses it any more. A preset
+  // board is the caller's.
+  if (request->presetBoard == nullptr && inputBoard != board) {
+    BasicBoard::discard(inputBoard, "input");
   }
 
   int64_t executionTimeMillis = jrt::System::currentTimeMillis() - startTime;

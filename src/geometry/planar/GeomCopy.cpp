@@ -109,7 +109,9 @@ Line* lineCopy(Line* l, std::uint32_t home) {
 // Allocates the copy in the holder's domain: its region while that is active, else the heap.
 struct HomeTarget {
   jrt::GeomTarget target;
-  explicit HomeTarget(std::uint32_t home) : target(home != 0 ? jrt::active_geom_region(home) : nullptr) {}
+  // home 0: the heap domain. Geometry a heap owner keeps belongs to the job (JobRegion; the
+  // heap when there is none): copies share it, so no single item can free it.
+  explicit HomeTarget(std::uint32_t home) : target(home != 0 ? jrt::active_geom_region(home) : jrt::job_region()) {}
 };
 
 }  // namespace

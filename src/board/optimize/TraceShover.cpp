@@ -66,7 +66,7 @@ double TraceShover::check(RoutingBoard* board, LineSegment* lineSegment, bool sh
   if (!traceShape->isContainedIn(board->getBoundingBox())) {
     return 0;
   }
-  ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(lineSegment, traceShape, shoveToTheLeft);
+  ShapeEntrySide* fromSide = new (jrt::kOp) ShapeEntrySide(lineSegment, traceShape, shoveToTheLeft);
   ShapeTraceEntries* shapeEntries = new (jrt::kOp) ShapeTraceEntries(traceShape, layer, netNumbers,
                                                           clearanceClassIndex, fromSide, board);
   jrt::DisposeOnExit<jrt::Collection<Item*>> obstaclesOwner(searchTree->overlappingItemsWithClearance(
@@ -417,7 +417,7 @@ bool TraceShover::checkUncached(TileShape* traceShape, ShapeEntrySide* fromSide,
       bool isInFront = dir == nullptr || dir->equals(currentDirection);
       if (isInFront) {
         ShapeAndEntrySide* current =
-            new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
+            new (jrt::kOp) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, true);
         if (!this->check(current->shape, current->fromSide, currentDirection, layer,
                          currentSubstituteTrace->netNumbers,
                          currentSubstituteTrace->clearanceClassIndex(), maxRecursionDepth - 1,
@@ -511,7 +511,7 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
     jrt::Array<int32_t>* currentNetNumbers = currentSubstituteTrace->netNumbers;
     for (int32_t i = 0; i < currentSubstituteTrace->tileShapeCount(); i++) {
       ShapeAndEntrySide* current =
-          new (jrt::kBoard) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
+          new (jrt::kOp) ShapeAndEntrySide(currentSubstituteTrace, i, isOrthogonalMode, false);
       if (!this->insert(current->shape, current->fromSide, layer, currentNetNumbers,
                         currentSubstituteTrace->clearanceClassIndex(), ignoreItems,
                         maxRecursionDepth - 1, maxViaRecursionDepth,

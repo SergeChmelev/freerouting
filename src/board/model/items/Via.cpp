@@ -115,7 +115,7 @@ Shape* Via::getShape(int32_t index) {
   if (this->precalculatedShapes == nullptr) {
     jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     int32_t shapeCount = jrt::Math::max(0, padstack->toLayer() - padstack->fromLayer() + 1);
-    this->precalculatedShapes = new (jrt::kBoard) jrt::Array<Shape*>(shapeCount);
+    this->precalculatedShapes = new (jrt::kGeom) jrt::Array<Shape*>(shapeCount);
     for (int32_t i = 0; i < this->precalculatedShapes->length; i++) {
       int32_t padstackLayer = i + this->firstLayer();
       Vector* translateVector = getCenter()->differenceBy(Point::ZERO());

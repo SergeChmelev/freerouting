@@ -857,10 +857,10 @@ ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_
   }
   if (treeShape != nullptr) {
     if (cache == nullptr || cache->length != drillItem->tileShapeCount()) {
-      cache = new (jrt::kBoard) jrt::Array<DrillItem_ExactCopperEntry*>(drillItem->tileShapeCount());
+      cache = new (jrt::kOp) jrt::Array<DrillItem_ExactCopperEntry*>(drillItem->tileShapeCount());
       drillItem->exactCopperCache = cache;
     }
-    (*cache)[index] = new (jrt::kBoard) DrillItem_ExactCopperEntry(treeShape, result);
+    (*cache)[index] = new (jrt::kOp) DrillItem_ExactCopperEntry(treeShape, result);
   }
   return result;
 }

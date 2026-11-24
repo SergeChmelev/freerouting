@@ -26,7 +26,13 @@ void ShapeTree::insert(ShapeTree_Storable* obj) {
   if (shapeCount <= 0) {
     return;
   }
-  auto* leafArr = new (jrt::kBoardData) jrt::Array<ShapeTree_Leaf*>(shapeCount);
+  // PORT NOTE (stage E): the leaf array belongs to the object (its owner drops it when the
+  // object leaves the tree): the object's domain - a search room's dies with its engine.
+  jrt::Array<ShapeTree_Leaf*>* leafArr;
+  {
+    jrt::DomainScope domain(obj);
+    leafArr = new (jrt::kOp) jrt::Array<ShapeTree_Leaf*>(shapeCount);
+  }
   for (int32_t i = 0; i < shapeCount; i++) {
     (*leafArr)[i] = insert(obj, i);
   }

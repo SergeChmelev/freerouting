@@ -21,6 +21,7 @@
 #include <cstring>
 #include <new>
 
+#include "jrt/alloc.h"
 #include "jrt/threads.h"
 
 namespace {
@@ -132,10 +133,17 @@ __attribute__((noinline)) void* raw_alloc_aligned(std::size_t n, std::size_t ali
   return raw_alloc_site(n, align, fp != nullptr ? fp[1] : nullptr);
 }
 
-std::size_t raw_size(void* p) { return header_of(p)->size; }
+std::size_t raw_size(void* p) {
+  if (jrt::job_heap_owns(p)) return jrt::job_heap_block_size(p);
+  return header_of(p)->size;
+}
 
 void raw_free(void* p) noexcept {
   if (p == nullptr) return;
+  if (jrt::job_heap_owns(p)) {
+    jrt::job_heap_free(p);
+    return;
+  }
   Header* h = header_of(p);
   if (h->magic != kMagic) std::abort();  // every block comes from raw_alloc_site
   if (h->slot != 0) {
@@ -190,10 +198,17 @@ void* raw_alloc_aligned(std::size_t n, std::size_t align) {
   return p;
 }
 
-std::size_t raw_size(void* p) { return malloc_usable_size(p); }
+std::size_t raw_size(void* p) {
+  if (jrt::job_heap_owns(p)) return jrt::job_heap_block_size(p);
+  return malloc_usable_size(p);
+}
 
 void raw_free(void* p) noexcept {
   if (p == nullptr) return;
+  if (jrt::job_heap_owns(p)) {
+    jrt::job_heap_free(p);
+    return;
+  }
   note_free(malloc_usable_size(p));
   std::free(p);
 }

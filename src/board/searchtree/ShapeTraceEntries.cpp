@@ -436,7 +436,7 @@ void ShapeTraceEntries::searchFromSide() {
     }
     currentNode = currentNode->next;
   }
-  this->fromSide = new (jrt::kBoard) ShapeEntrySide(currentFromsideNo, currentEntryApprox);
+  this->fromSide = new (jrt::kOp) ShapeEntrySide(currentFromsideNo, currentEntryApprox);
 }
 
 void ShapeTraceEntries::resort() {
@@ -461,7 +461,7 @@ void ShapeTraceEntries::resort() {
         fromSide->borderIntersection->projectionApprox(shape->borderLine(fromSide->no));
     fromPointDist = fromPointProjection->distanceSquare(compareCorner1);
     if (fromPointDist >= compareCorner1->distanceSquare(compareCorner2)) {
-      fromSide = new (jrt::kBoard) ShapeEntrySide(fromSide->no, nullptr);
+      fromSide = new (jrt::kOp) ShapeEntrySide(fromSide->no, nullptr);
     }
   }
   // search the first intersection point between the side middle

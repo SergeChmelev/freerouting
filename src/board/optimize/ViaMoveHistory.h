@@ -37,7 +37,7 @@ class ViaMoveHistory final : public virtual jrt::Object {
   static constexpr int32_t RETURNS_FOR_CYCLE = 2;
 
   jrt::Map<int32_t, ViaMoveHistory_Track*>* tracks =
-      new (jrt::kBoard) jrt::HashMap<int32_t, ViaMoveHistory_Track*>();
+      new (jrt::Like{this}) jrt::HashMap<int32_t, ViaMoveHistory_Track*>();
 
  public:
   /**

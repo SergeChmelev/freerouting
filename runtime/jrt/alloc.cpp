@@ -167,10 +167,12 @@ void Arena::refill(std::size_t n) {
 }
 
 std::size_t Arena::bytesAllocated() const {
+  if (jobHeap_) return job_heap_live_bytes();
   return head_ == nullptr ? 0 : fullBytes_ + static_cast<std::size_t>(cur_ - data(head_));
 }
 
 bool Arena::contains(const void* p) const {
+  if (jobHeap_) return job_heap_owns(p);
   // Whole chunk ranges (the unused tail of the head chunk counts too: nothing points there).
   auto* q = static_cast<const char*>(p);
   auto it = std::upper_bound(ranges_.begin(), ranges_.end(), std::pair<const char*, const char*>{q, nullptr},
@@ -181,6 +183,10 @@ bool Arena::contains(const void* p) const {
 }
 
 void Arena::release() {
+  if (jobHeap_) {
+    job_heap_release();
+    return;
+  }
   for (auto& f : free_) f = nullptr;
   Pool* pool = thread_pool();
   bool first = true;

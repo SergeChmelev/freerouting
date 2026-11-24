@@ -80,7 +80,7 @@ bool DrillItemMover::check(DrillItem* drillItem, Vector* vector, int32_t maxRecu
     } else {
       currentTileShape = newShape->boundingOctagon();
     }
-    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(drillItem->getCenter(), currentTileShape);
+    ShapeEntrySide* fromSide = new (jrt::kOp) ShapeEntrySide(drillItem->getCenter(), currentTileShape);
     if (forcedPadRouter->checkForcedPad(
             currentTileShape, fromSide, currentLayer, drillItem->netNumbers,
             drillItem->clearanceClassIndex(), attachAllowed, effectiveIgnoreItems,
@@ -143,7 +143,7 @@ bool DrillItemMover::insertJoiningTidyRegion(DrillItem* drillItem, Vector* vecto
         (*tidyRegionHolder)[0] != nullptr) {
       (*tidyRegionHolder)[0] = (*tidyRegionHolder)[0]->union_(currentTileShape->boundingOctagon());
     }
-    ShapeEntrySide* fromSide = new (jrt::kBoard) ShapeEntrySide(drillItem->getCenter(), currentTileShape);
+    ShapeEntrySide* fromSide = new (jrt::kOp) ShapeEntrySide(drillItem->getCenter(), currentTileShape);
     if (!forcedPadRouter->forcedPad(currentTileShape, fromSide, currentLayer,
                                     drillItem->netNumbers, drillItem->clearanceClassIndex(),
                                     attachAllowed, ignoreItems, maxRecursionDepth,

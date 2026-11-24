@@ -1243,6 +1243,10 @@ class HashMap : public virtual Map<K, V> {
     }
   }
 
+  /** PORT NOTE (stage E): the map frees the entry objects of removed / cleared mappings too.
+   * Only for a map that never hands out its entries (no entrySet() holders across a removal). */
+  void setFreesNodes(bool v) { freesNodes_ = v; }
+
   int32_t size() override { return size_; }
   Entry* getEntry(const K& k) override { return findNode(k); }
   V put(K k, V v) override {
@@ -1279,12 +1283,23 @@ class HashMap : public virtual Map<K, V> {
         else table_[i] = e->next;
         unlinkOrder(e);
         --size_;
-        return e->value;
+        V value = e->value;
+        if (freesNodes_) dispose(e);
+        return value;
       }
     }
     return std::nullopt;
   }
   void clear() override {
+    if (freesNodes_) {
+      for (Node* head : table_) {
+        for (Node* e = head; e != nullptr;) {
+          Node* next = e->next;
+          dispose(e);
+          e = next;
+        }
+      }
+    }
     std::fill(table_.begin(), table_.end(), nullptr);
     size_ = 0;
     head_ = tail_ = nullptr;
@@ -1463,6 +1478,7 @@ class HashMap : public virtual Map<K, V> {
 
   std::vector<Node*, DomainAlloc<Node*>> table_{DomainAlloc<Node*>(domain_arena_of(this))};
   int32_t size_ = 0;
+  bool freesNodes_ = false;
   int32_t threshold_ = 0;
   float load_factor_ = 0.75f;
   HashMode mode_ = HashMode::Hash;
