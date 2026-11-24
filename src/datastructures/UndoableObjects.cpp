@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <unordered_set>
+#include <cstdio>
 #include <cstdlib>
 #include <unordered_set>
 
@@ -108,6 +109,7 @@ UndoableObjects* UndoableObjects::copyMapped(
     copy->redoObject = getCopy(original->redoObject);
   }
   jrt::disposeMapAndEntries(nodeCopies);  // stage E: copy temporary
+  result->rebuildIndex();
   return result;
 }
 
@@ -118,6 +120,84 @@ UndoableObjects::UndoableObjects() {
   map->setRetiresEntries(true);
   objects = map;
   deletedObjectsStack = new (jrt::kBoard) jrt::ArrayList<jrt::Collection<UONode*>*>();
+}
+
+void UndoableObjects::noteEntry(UndoableObjects_Storable* key, UONode* node) {
+  if (node->level >= 1) {
+    auto level = static_cast<std::size_t>(node->level);
+    if (levelKeys_.size() <= level) {
+      levelKeys_.resize(level + 1);
+    }
+    levelKeys_[level].push_back(key);
+  }
+  if (node->redoObject != nullptr) {
+    redoKeys_.push_back(key);
+  }
+}
+
+void UndoableObjects::rebuildIndex() {
+  for (auto& bucket : levelKeys_) {
+    bucket.clear();
+  }
+  redoKeys_.clear();
+  for (auto* entry : *this->objects) {
+    noteEntry(entry->getKey(), entry->getValue());
+  }
+}
+
+std::vector<UndoableObjects_Storable*> UndoableObjects::indexedKeys(int32_t fromLevel, int32_t toLevel,
+                                                                   bool withRedo) {
+  std::vector<UndoableObjects_Storable*> result;
+  std::unordered_set<UndoableObjects_Storable*> seen;
+  // Drops the stale and repeated keys of `keys` (kept: valid(node)) and collects the others.
+  auto prune = [&](std::vector<UndoableObjects_Storable*>& keys, auto valid) {
+    seen.clear();
+    std::size_t kept = 0;
+    for (UndoableObjects_Storable* key : keys) {
+      UONode* node = objects->get(key);
+      if (node != nullptr && valid(node) && seen.insert(key).second) {
+        keys[kept++] = key;
+        result.push_back(key);
+      }
+    }
+    keys.resize(kept);
+  };
+  auto last = std::min<std::size_t>(static_cast<std::size_t>(std::max(toLevel, 0)) + 1, levelKeys_.size());
+  for (std::size_t level = static_cast<std::size_t>(std::max(fromLevel, 1)); level < last; ++level) {
+    prune(levelKeys_[level], [level](UONode* node) { return node->level == static_cast<int32_t>(level); });
+  }
+  if (withRedo) {
+    prune(redoKeys_, [](UONode* node) { return node->redoObject != nullptr; });
+  }
+  // Map order, and one key per entry (keys of one entry compare equal).
+  std::sort(result.begin(), result.end(),
+            [](UndoableObjects_Storable* a, UndoableObjects_Storable* b) { return a->compareTo(b) < 0; });
+  result.erase(std::unique(result.begin(), result.end(),
+                           [](UndoableObjects_Storable* a, UndoableObjects_Storable* b) {
+                             return a->compareTo(b) == 0;
+                           }),
+               result.end());
+  // Diagnostics: FR_UNDO_INDEX_CHECK=1 compares with the full walk of the map.
+  static const bool check = std::getenv("FR_UNDO_INDEX_CHECK") != nullptr;
+  if (check) {
+    std::vector<UndoableObjects_Storable*> walked;
+    for (auto* entry : *this->objects) {
+      UONode* node = entry->getValue();
+      if ((node->level >= std::max(fromLevel, 1) && node->level <= toLevel) ||
+          (withRedo && node->redoObject != nullptr)) {
+        walked.push_back(entry->getKey());
+      }
+    }
+    bool same = walked.size() == result.size();
+    for (std::size_t i = 0; same && i < walked.size(); ++i) {
+      same = walked[i]->compareTo(result[i]) == 0;
+    }
+    if (!same) {
+      std::fprintf(stderr, "UndoableObjects index mismatch: levels [%d, %d]%s stack %d: walk %zu, index %zu\n",
+                   fromLevel, toLevel, withRedo ? " +redo" : "", stackLevel, walked.size(), result.size());
+    }
+  }
+  return result;
 }
 
 UONode* UndoableObjects::newNode(UndoableObjects_Storable* object, int32_t level) {
@@ -188,6 +268,8 @@ void UndoableObjects::sweepNodes() {
   std::fill(ownedNodes_.begin() + static_cast<std::ptrdiff_t>(kept), ownedNodes_.end(), nullptr);
   ownedNodes_.resize(kept);
   sweepAt_ = std::max<std::size_t>(sweepMinimum(), 2 * kept);
+  // Objects reported dead above may be freed from now on: the index must not keep their keys.
+  rebuildIndex();
 }
 
 void UndoableObjects::disposeAll(const std::function<void(UndoableObjects_Storable*)>& disposeObject) {
@@ -244,6 +326,13 @@ void UndoableObjects::disposeAll(const std::function<void(UndoableObjects_Storab
   std::fill(ownedNodes_.begin(), ownedNodes_.end(), nullptr);
   ownedNodes_.clear();
   ownedNodes_.shrink_to_fit();
+  levelKeys_.clear();
+  redoKeys_.clear();
+}
+
+UndoableObjects_Storable* UndoableObjects::findVisible(UndoableObjects_Storable* key) {
+  UONode* node = objects->get(key);
+  return node != nullptr && node->level <= this->stackLevel ? node->object : nullptr;
 }
 
 UndoableObjects_Storable* UndoableObjects::readObject(jrt::Iterator<UONode*>* it) {
@@ -264,6 +353,7 @@ void UndoableObjects::insert(UndoableObjects_Storable* object) {
   maybeSweepNodes();
   auto* currentUndoableObject = newNode(object, stackLevel);
   objects->put(object, currentUndoableObject);
+  noteEntry(object, currentUndoableObject);
 }
 
 bool UndoableObjects::delete_(UndoableObjects_Storable* object) {
@@ -324,14 +414,15 @@ bool UndoableObjects::undo(jrt::Collection<UndoableObjects_Storable*>* cancelled
   if (stackLevel == 0) {
     return false;  // no more undo possible
   }
-  for (auto scope = readScope(); scope.hasNext();) {
-    auto* it = &scope;
-    UONode* currentNode = it->next();
+  // PORT NOTE: Java walks the whole map for the nodes of this level; the index has their keys.
+  for (UndoableObjects_Storable* key : indexedKeys(stackLevel, stackLevel, false)) {
+    UONode* currentNode = objects->get(key);
     if (currentNode->level == stackLevel) {
       if (currentNode->undoObject != nullptr) {
         // replace the current object by its previous state.
         currentNode->undoObject->redoObject = currentNode;
         objects->put(currentNode->object, currentNode->undoObject);
+        noteEntry(currentNode->object, currentNode->undoObject);
         if (restoredObjects != nullptr) {
           restoredObjects->add(currentNode->undoObject->object);
         }
@@ -346,6 +437,7 @@ bool UndoableObjects::undo(jrt::Collection<UndoableObjects_Storable*>* cancelled
   for (auto it = currentDeleteList->iterator(); it->hasNext();) {
     UONode* currentDeletedNode = it->next();
     this->objects->put(currentDeletedNode->object, currentDeletedNode);
+    noteEntry(currentDeletedNode->object, currentDeletedNode);
     if (restoredObjects != nullptr) {
       restoredObjects->add(currentDeletedNode->object);
     }
@@ -372,6 +464,7 @@ bool UndoableObjects::redo(jrt::Collection<UndoableObjects_Storable*>* cancelled
       // Object was created on a lower level and changed on the current level,
       // replace the lower level object by the object on the current layer.
       objects->put(currentNode->object, currentNode->redoObject);
+      noteEntry(currentNode->object, currentNode->redoObject);
       if (cancelledObjects != nullptr) {
         cancelledObjects->add(currentNode->object);
       }
@@ -412,9 +505,8 @@ bool UndoableObjects::changesSinceSnapshot(jrt::Collection<UndoableObjects_Stora
   if (stackLevel == 0) {
     return false;
   }
-  for (auto scope = readScope(); scope.hasNext();) {
-    auto* it = &scope;
-    UONode* node = it->next();
+  for (UndoableObjects_Storable* key : indexedKeys(stackLevel, stackLevel, false)) {
+    UONode* node = objects->get(key);
     if (node == nullptr || node->level != stackLevel) {
       continue;
     }
@@ -436,9 +528,10 @@ bool UndoableObjects::popSnapshot() {
   if (stackLevel == 0) {
     return false;
   }
-  for (auto scope = readScope(); scope.hasNext();) {
-    auto* it = &scope;
-    UONode* currentNode = it->next();
+  // PORT NOTE: Java walks the whole map; only nodes with a redo link (first branch) or a level
+  // >= stackLevel (second branch) do anything, and the index has their keys.
+  for (UndoableObjects_Storable* key : indexedKeys(stackLevel, jrt::Integer::MAX_VALUE, true)) {
+    UONode* currentNode = objects->get(key);
     if (currentNode->level == stackLevel - 1) {
       if (currentNode->redoObject != nullptr && currentNode->redoObject->level == stackLevel) {
         currentNode->redoObject->undoObject = currentNode->undoObject;
@@ -448,6 +541,7 @@ bool UndoableObjects::popSnapshot() {
       }
     } else if (currentNode->level >= stackLevel) {
       --currentNode->level;
+      noteEntry(key, currentNode);
     }
   }
   int32_t deletedObjectsStackSize = deletedObjectsStack->size();
@@ -485,6 +579,7 @@ void UndoableObjects::saveForUndo(UndoableObjects_Storable* object) {
     oldNode->redoObject = currentNode;
     currentNode->undoObject = oldNode;
     currentNode->level = this->stackLevel;
+    noteEntry(object, currentNode);
   }
 }
 
@@ -494,13 +589,14 @@ void UndoableObjects::disableRedo() {
   }
   redoPossible = false;
   // shorten the size of the deletedObjectsStack to this.stackLevel
+  // shorten the size of the deletedObjectsStack to this.stackLevel
   deletedObjectsStack->removeRange(this->stackLevel, deletedObjectsStack->size());
-  auto scope = readScope();
-  jrt::Iterator<UONode*>* it = &scope;
-  while (it->hasNext()) {
-    UONode* currentNode = it->next();
+  // PORT NOTE: Java walks the whole map; only nodes above this level (removed) and nodes of this
+  // level with a redo link (unlinked) change, and the index has their keys.
+  for (UndoableObjects_Storable* key : indexedKeys(this->stackLevel + 1, jrt::Integer::MAX_VALUE, true)) {
+    UONode* currentNode = objects->get(key);
     if (currentNode->level > this->stackLevel) {
-      it->remove();
+      objects->remove(key);
     } else if (currentNode->level == this->stackLevel) {
       currentNode->redoObject = nullptr;
     }

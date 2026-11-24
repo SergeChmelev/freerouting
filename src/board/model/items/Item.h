@@ -489,4 +489,18 @@ class Item : public virtual SearchTreeObject,
   virtual std::string getAllNetNames();
 };
 
+/**
+ * PORT NOTE (not a Java type): a search key for a board's item list, which is ordered by
+ * Item::compareTo (by id): compares like an item with this id, so UndoableObjects::findVisible
+ * finds the item with an id in O(log n) instead of walking the list.
+ */
+class ItemIdProbe final : public virtual UndoableObjects_Storable {
+ public:
+  explicit ItemIdProbe(int32_t id) : id(id) {}
+  const int32_t id;
+  /** Like Item::compareTo: other.id - this.id. */
+  int32_t compareTo(jrt::Object* other) override;
+  jrt::Object* clone() override { return nullptr; }
+};
+
 }  // namespace fr

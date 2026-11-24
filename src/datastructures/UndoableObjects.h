@@ -121,6 +121,13 @@ class UndoableObjects : public virtual jrt::Object {
    */
   UndoableObjects_Storable* readObject(jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it);
 
+  /**
+   * PORT NOTE: the object readObject would return for the entry whose key compares equal to
+   * `key` (O(log n); e.g. an ItemIdProbe for an item id), or nullptr if there is none or it is
+   * not readable at this level.
+   */
+  UndoableObjects_Storable* findVisible(UndoableObjects_Storable* key);
+
   /** Adds object to the UndoableObjectsList. */
   void insert(UndoableObjects_Storable* object);
 
@@ -224,6 +231,25 @@ class UndoableObjects : public virtual jrt::Object {
   }
 
  private:
+  // PORT NOTE (performance): undo, disableRedo, popSnapshot and changesSinceSnapshot only act on
+  // entries whose node has a level >= 1 or a redo link, but Java walks the whole map for them
+  // (once or twice per trial move of the optimizer and StepSlider). The keys of such entries are
+  // indexed here: levelKeys_[l] holds the keys whose node got level l (l >= 1), redoKeys_ the keys
+  // whose node had a redo link, each noted when the node was put into the map or its level
+  // changed. Entries may be stale (dropped when read); the index is rebuilt from the map by every
+  // sweepNodes, before removed objects can be freed. The indexed keys are visited in map order,
+  // so every walk does exactly what the full walk did.
+  std::vector<std::vector<UndoableObjects_Storable*>> levelKeys_;
+  std::vector<UndoableObjects_Storable*> redoKeys_;
+  /** Indexes `key` after its map entry got `node` or node's level changed. */
+  void noteEntry(UndoableObjects_Storable* key, UndoableObjects_UndoableObjectNode* node);
+  void rebuildIndex();
+  /**
+   * The keys (in map order, each once) of the entries whose node level is in
+   * [fromLevel, toLevel] (fromLevel >= 1), and with withRedo also those whose node has a redo link.
+   */
+  std::vector<UndoableObjects_Storable*> indexedKeys(int32_t fromLevel, int32_t toLevel, bool withRedo);
+
   std::function<void(UndoableObjects_Storable*)> deadObjectListener_;
   std::vector<UndoableObjects_UndoableObjectNode*> ownedNodes_;
   static std::size_t sweepMinimum();  // 4096, or env FR_UNDO_SWEEP_MIN (stress tests)

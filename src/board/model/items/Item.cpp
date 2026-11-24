@@ -82,10 +82,22 @@ int32_t Item::compareTo(jrt::Object* other) {
   int32_t result;
   if (auto* item = jrt::fast_cast<Item>(other)) {
     result = item->id - id;
+  } else if (auto* probe = jrt::fast_cast<ItemIdProbe>(other)) {
+    result = probe->id - id;  // PORT NOTE: id lookups (ItemIdProbe)
   } else {
     result = 1;
   }
   return result;
+}
+
+int32_t ItemIdProbe::compareTo(jrt::Object* other) {
+  if (auto* item = jrt::fast_cast<Item>(other)) {
+    return item->getId() - id;
+  }
+  if (auto* probe = jrt::fast_cast<ItemIdProbe>(other)) {
+    return probe->id - id;
+  }
+  return 1;
 }
 
 BoardItemType Item::getBoardItemType() {

@@ -9,6 +9,7 @@
 #include "core/scoring/BoardStatistics.h"
 #include "core/scoring/BoardStatisticsClearanceViolations.h"
 #include "datastructures/Stoppable.h"
+#include "datastructures/UndoableObjects.h"
 #include "drc/NetRoutingLedger.h"
 #include "geometry/planar/FloatPoint.h"
 #include "geometry/planar/IntBox.h"
@@ -36,6 +37,24 @@ jrt::Array<Point*>* asPointArray(jrt::Array<IntPoint*>* corners) {
 /** board.getStatistics().clearanceViolations.totalCount (Java Integer auto-unboxing). */
 int32_t clearanceViolationCount(RoutingBoard* board) {
   return board->getStatistics()->clearanceViolations->totalCount.value();
+}
+
+/** Calls f(item) for the items of the board in list order (board.getItems() without building the
+ * list) until f returns false. f must not change the board. */
+template <class F>
+void forEachItem(RoutingBoard* board, F f) {
+  auto scope = board->itemList->readScope();
+  for (;;) {
+    UndoableObjects_Storable* object = board->itemList->readObject(&scope);
+    if (object == nullptr) {
+      return;
+    }
+    if (auto* item = jrt::fast_cast<Item>(object)) {
+      if (!f(item)) {
+        return;
+      }
+    }
+  }
 }
 
 }  // namespace
@@ -283,15 +302,9 @@ bool StepSlider::isStopRequested() {
 }
 
 PolylineTrace* StepSlider::traceById(int32_t id) {
-  jrt::DisposeOnExit loopSource2(board->getTraces());
-  for (Trace* trace : *loopSource2) {
-    if (trace->getId() == id) {
-      if (auto* polylineTrace = jrt::fast_cast<PolylineTrace>(trace)) {
-        return polylineTrace;
-      }
-    }
-  }
-  return nullptr;
+  // PORT NOTE: Java walks board.getTraces() for the trace with this id; ids are unique, so the
+  // item with the id (an O(log n) lookup in the id-ordered item list) is the same trace.
+  return jrt::fast_cast<PolylineTrace>(board->getItem(id));
 }
 
 bool StepSlider::traceEntersZone(PolylineTrace* trace) {
@@ -328,12 +341,12 @@ jrt::Map<int32_t, int32_t>* StepSlider::traceSignatures() {
   if (zones->isEmpty()) {
     return result;
   }
-  jrt::DisposeOnExit loopSource3(board->getItems());
-  for (Item* item : *loopSource3) {
+  forEachItem(board, [&](Item* item) {
     if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       result->put(trace->getId(), signature(trace));
     }
-  }
+    return true;
+  });
   return result;
 }
 
@@ -351,21 +364,23 @@ bool StepSlider::changedTraceEntersZone(jrt::Map<int32_t, int32_t>* tracesBefore
   if (zones->isEmpty()) {
     return false;
   }
-  jrt::DisposeOnExit loopSource4(board->getItems());
-  for (Item* item : *loopSource4) {
+  bool enters = false;
+  forEachItem(board, [&](Item* item) {
     auto* trace = jrt::fast_cast<PolylineTrace>(item);
     if (trace == nullptr) {
-      continue;
+      return true;
     }
     std::optional<int32_t> before = tracesBefore->getOpt(trace->getId());
     if (before.has_value() && *before == signature(trace)) {
-      continue;
-    }
-    if (traceEntersZone(trace)) {
       return true;
     }
-  }
-  return false;
+    if (traceEntersZone(trace)) {
+      enters = true;
+      return false;
+    }
+    return true;
+  });
+  return enters;
 }
 
 int32_t StepSlider::halfPitch(PolylineTrace* trace) {
@@ -379,15 +394,15 @@ StepSlider_Cost* StepSlider::cost() {
   double length = 0;
   int32_t bends = 0;
   int32_t vias = 0;
-  jrt::DisposeOnExit loopSource5(board->getItems());
-  for (Item* item : *loopSource5) {
+  forEachItem(board, [&](Item* item) {
     if (auto* trace = jrt::fast_cast<PolylineTrace>(item)) {
       length += trace->getLength();
       bends += jrt::Math::max(0, trace->cornerCount() - 2);
     } else if (jrt::fast_cast<Via>(item) != nullptr) {
       ++vias;
     }
-  }
+    return true;
+  });
   return new (jrt::kOp) StepSlider_Cost(length, bends, vias);
 }
 

@@ -1,6 +1,9 @@
 // Port of app.freerouting.board.facade.BoardItemRepository
 #include "board/facade/BoardItemRepository.h"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "board/facade/BasicBoard.h"
 #include "board/model/items/ConductionArea.h"
 #include "board/model/items/Item.h"
@@ -49,24 +52,27 @@ BoardOutline* BoardItemRepository::findOutline() {
 }
 
 Item* BoardItemRepository::getItem(int32_t id) {
-  int64_t stamp = board->itemList->getVersion();
-  if (idMap == nullptr || stamp != idMapStamp) {
-    jrt::disposeMapAndEntries(idMap);  // stale map: only read here
-    idMap = new (jrt::kBoard) jrt::HashMap<int32_t, Item*>();
+  // PORT NOTE: Java rebuilds an id map whenever the list changed (every change, in the
+  // optimizer and StepSlider). The list is ordered by id (Item::compareTo), so a key lookup finds
+  // the same item (the one readObject would return) in O(log n) without the map.
+  ItemIdProbe probe(id);
+  Item* result = jrt::fast_cast<Item>(board->itemList->findVisible(&probe));
+  static const bool check = std::getenv("FR_GETITEM_CHECK") != nullptr;  // diagnostics
+  if (check) {
+    Item* walked = nullptr;
     auto iteratorScope = board->itemList->readScope();
-    jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;
     for (;;) {
-      UndoableObjects_Storable* currentItem = board->itemList->readObject(iterator);
-      if (currentItem == nullptr) {
-        break;
-      }
-      if (auto* item = jrt::fast_cast<Item>(currentItem)) {
-        idMap->put(item->getId(), item);
-      }
+      UndoableObjects_Storable* current = board->itemList->readObject(&iteratorScope);
+      if (current == nullptr) break;
+      auto* item = jrt::fast_cast<Item>(current);
+      if (item != nullptr && item->getId() == id) walked = item;
     }
-    idMapStamp = stamp;
+    if (walked != result) {
+      std::fprintf(stderr, "getItem(%d): walk %p, lookup %p\n", id, static_cast<void*>(walked),
+                   static_cast<void*>(result));
+    }
   }
-  return idMap->get(id);
+  return result;
 }
 
 int32_t BoardItemRepository::getViaCount() {
