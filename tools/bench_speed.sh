@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Speed comparison after the GC removal (MEMORY_MODEL.md): gc-port-baseline (Boehm) vs main, both
-# release builds with identical flags (Release, -DJRT_CHECKED=0, LTO; ~/build/bench-base and
-# ~/build/bench-main), and Java through the same entry point as tools/bench.sh
-# (core.facade.FreeroutingHeadlessEngine via tools/parity/HeadlessRoute.java), with default
-# threads and with one thread; main runs with -mt 1 and with -mt 4 (optimizer threads). Runs one
+# Speed comparison: Java (core.facade.FreeroutingHeadlessEngine via tools/parity/HeadlessRoute.java,
+# the same entry point as tools/bench.sh) against release builds of the C++ port. Runs one
 # process at a time (needs an otherwise idle machine) and records wall time, peak RSS, the
-# router's result line and whether the SES equals Java's.
+# router's result line and whether the SES equals the reference (the first Java variant run).
 #
 # usage: tools/bench_speed.sh [outdir] [board...]
 #   board: bm01, bm02 or an upstream fixture name (default list below; bm02 is run 3 times)
-#   FR_TIMEOUT  per run, seconds (default 5400)
+#   FR_VARIANTS  variants in run order (default "java java-1t base main main-mt4"):
+#                java          Java with its default threads (cores - 1)
+#                java-<N>t     Java with N optimizer threads
+#                base          FR_BASE_BIN (gc-port-baseline build, no -mt option)
+#                main          FR_MAIN_BIN with -mt 1
+#                main-mt<N>    FR_MAIN_BIN with -mt N
+#   FR_TIMEOUT   per run, seconds (default 5400)
 # writes <outdir>/bench.txt (one line per run) and the logs / SES files of every run. Rerunning
 # into the same outdir skips the runs bench.txt already has (an interrupted run continues).
 set -u
@@ -17,6 +20,7 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 JAR="${FR_JAVA_JAR:-$HOME/freerouting-java/build/libs/freerouting-current-executable.jar}"
 BASE="${FR_BASE_BIN:-$HOME/build/bench-base/freerouting-cpp}"
 MAIN="${FR_MAIN_BIN:-$HOME/build/bench-main/freerouting-cpp}"
+read -r -a variants <<< "${FR_VARIANTS:-java java-1t base main main-mt4}"
 out="${1:-$HOME/frtest/bench-speed}"
 shift || true
 boards=("$@")
@@ -24,7 +28,14 @@ boards=("$@")
   Issue214-freerouting Issue110-RelayModule Issue178-KeebMaker_Sofle_Choc bm01)
 mkdir -p "$out"
 cd "$repo"
-for f in "$JAR" "$BASE" "$MAIN"; do [ -e "$f" ] || { echo "missing: $f" >&2; exit 1; }; done
+need=("$JAR")
+for v in "${variants[@]}"; do
+  case "$v" in base) need+=("$BASE") ;; main*) need+=("$MAIN") ;; esac
+done
+for f in "${need[@]}"; do [ -e "$f" ] || { echo "missing: $f" >&2; exit 1; }; done
+ref=""  # the reference variant: the first Java one
+for v in "${variants[@]}"; do case "$v" in java*) ref="$v"; break ;; esac; done
+ref="${ref:-java}"
 
 dsn_of() {
   case "$1" in
@@ -33,7 +44,7 @@ dsn_of() {
   esac
 }
 [ -s "$out/bench.txt" ] ||
-  printf '%-34s %-8s %3s %9s %8s %4s %-44s %s\n' board variant rep wall_s peak_MB rc result ses_vs_java | tee "$out/bench.txt"
+  printf '%-34s %-9s %3s %9s %8s %4s %-44s %s\n' board variant rep wall_s peak_MB rc result ses_vs_ref | tee "$out/bench.txt"
 run() {  # name variant rep cmd...
   local name="$1" variant="$2" rep="$3"; shift 3
   local tag="$name.$variant.$rep"
@@ -46,22 +57,28 @@ run() {  # name variant rep cmd...
   local line
   line=$(grep -oE '[0-9]+ unrouted, [0-9]+ clearance violations' "$out/$tag.log" | tail -1)
   local same=-
-  if [ "$variant" != java ] && [ -f "$out/$name.java.$rep.ses" ]; then
-    cmp -s <(tail -n +3 "$out/$tag.ses") <(tail -n +3 "$out/$name.java.$rep.ses") && same=SAME || same=DIFF
+  if [ "$variant" != "$ref" ] && [ -f "$out/$name.$ref.$rep.ses" ]; then
+    cmp -s <(tail -n +3 "$out/$tag.ses") <(tail -n +3 "$out/$name.$ref.$rep.ses") && same=SAME || same=DIFF
   fi
-  printf '%-34s %-8s %3s %9s %8s %4s %-44s %s\n' "$name" "$variant" "$rep" "$wall" "$((rss / 1024))" "$rc" \
+  printf '%-34s %-9s %3s %9s %8s %4s %-44s %s\n' "$name" "$variant" "$rep" "$wall" "$((rss / 1024))" "$rc" \
     "${line:-}" "$same" | tee -a "$out/bench.txt"
 }
 declare -A seen
 for name in "${boards[@]}"; do
   rep=$(( ${seen[$name]:-0} + 1 )); seen[$name]=$rep
   dsn=$(dsn_of "$name")
-  # Java first: the other variants are compared with its SES. Then the two C++ builds back to back.
-  run "$name" java "$rep" java -cp "$JAR" "$repo/tools/parity/HeadlessRoute.java" "$dsn" "$out/$name.java.$rep.ses"
-  run "$name" java-1t "$rep" java -cp "$JAR" "$repo/tools/parity/HeadlessRoute.java" "$dsn" "$out/$name.java-1t.$rep.ses" 1
-  run "$name" base "$rep" "$BASE" -q -de "$dsn" -do "$out/$name.base.$rep.ses"
-  # main: one optimizer thread (comparable with the baseline, which has no -mt); main-mt4: four
-  run "$name" main "$rep" "$MAIN" -q -mt 1 -de "$dsn" -do "$out/$name.main.$rep.ses"
-  run "$name" main-mt4 "$rep" "$MAIN" -q -mt 4 -de "$dsn" -do "$out/$name.main-mt4.$rep.ses"
+  for v in "${variants[@]}"; do
+    ses="$out/$name.$v.$rep.ses"
+    case "$v" in
+      java) run "$name" "$v" "$rep" java -cp "$JAR" "$repo/tools/parity/HeadlessRoute.java" "$dsn" "$ses" ;;
+      java-*t) n="${v#java-}"; n="${n%t}"
+        run "$name" "$v" "$rep" java -cp "$JAR" "$repo/tools/parity/HeadlessRoute.java" "$dsn" "$ses" "$n" ;;
+      base) run "$name" "$v" "$rep" "$BASE" -q -de "$dsn" -do "$ses" ;;
+      main) run "$name" "$v" "$rep" "$MAIN" -q -mt 1 -de "$dsn" -do "$ses" ;;
+      main-mt*) n="${v#main-mt}"
+        run "$name" "$v" "$rep" "$MAIN" -q -mt "$n" -de "$dsn" -do "$ses" ;;
+      *) echo "unknown variant: $v" >&2; exit 2 ;;
+    esac
+  done
 done
 echo "BENCH DONE: $out/bench.txt"

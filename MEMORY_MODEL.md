@@ -892,6 +892,33 @@ Results (release, SES identical to Java on all):
 
 bm01's peak is the optimizer's search-region spikes (E12 TODO), not the job heap.
 
+### Java vs C++ at 4 and 19 optimizer threads (2026-11-25, after E13)
+
+`FR_VARIANTS="java-4t java-19t main-mt4 main-mt19" tools/bench_speed.sh`: Java through
+`FreeroutingHeadlessEngine` with 4 / 19 optimizer threads, C++ ef26aa2 (release, LTO) with
+`-mt 4` / `-mt 19`; one process at a time on an idle machine (WSL, 20 cores). Wall seconds /
+peak RSS MB; the SES of every run equals Java's (4 threads). bm02 is the mean of three runs.
+
+| board | Java 4 thr. | Java 19 thr. | C++ 4 thr. | C++ 19 thr. |
+|---|---|---|---|---|
+| bm02 | 4.3 / 988 | 3.7 / 1202 | **1.5** / 177 | **1.4** / 329 |
+| Issue187-processor.Z80 | 26.9 / 1417 | 31.1 / 2531 | 35.3 / 1529 | 43.9 / 1874 |
+| Issue022-AutoRouter_interrupted | 26.1 / 1400 | 29.0 / 2585 | 31.5 / 1348 | 43.2 / 3041 |
+| Issue214-freerouting | 50.5 / 1336 | 49.6 / 2190 | 69.9 / 2050 | 69.5 / 2802 |
+| Issue110-RelayModule | 54.0 / 1691 | 46.1 / 2604 | 77.0 / 1267 | 69.8 / 2366 |
+| Issue178-KeebMaker_Sofle_Choc | 76.2 / 2855 | 60.0 / 3933 | 129.0 / 2081 | 123.2 / 3688 |
+| DAC2020 bm01 | 220.6 / 2394 | 169.6 / 4632 | 334.4 / 2545 | 349.2 / 5697 |
+
+* C++ is 2.7-2.9x faster than Java on bm02 and 1.2-1.4x slower on the middle boards at four
+  threads; on the large boards Java is 1.4-1.7x faster at four threads and up to 2x at 19.
+* Java gains from 4 to 19 threads on the large boards (bm01 -23%, Issue178 -21%); C++ does not,
+  and is slower with 19 than with 4 on Issue187, Issue022 and bm01: the optimizer threads
+  contend. Suspects: the job heap's global lock while workers run (`JobHeapSharedScope`: every
+  job-heap allocation and free), two malloc arenas (`M_ARENA_MAX`), `BasicBoard::copyLock`.
+* Memory: with four threads C++ needs less than Java on bm02, Issue110 and Issue178, about the
+  same on Issue187, Issue022 and bm01, more on Issue214 (job heap); with 19 threads more than
+  Java on Issue022, Issue214 and bm01 (search-region spikes of more concurrent candidates).
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at
@@ -908,9 +935,11 @@ bm01's peak is the optimizer's search-region spikes (E12 TODO), not the job heap
 * **Search-region spikes after E12**: the arenas still reach about 1 GB live at times in the
   optimizer on bm01 (`-mt 4`), less than before but more than Java's whole heap there; a profile
   of what the search region keeps (`FR_ARENA_WARN_MB=64`) is the next step.
-* **Performance after the migration** (measured, see "Speed after the migration"): faster than
-  `gc-port-baseline` everywhere but Issue178 (equal); the large boards are 1.7-3.5x slower than
-  Java with one thread, in geometry and tree search rather than in the memory model.
+* **Performance** (see "Java vs C++ at 4 and 19 optimizer threads"): the large boards are 1.4-2x
+  slower than Java, and C++ does not scale from 4 to 19 optimizer threads (contention: the job
+  heap's lock while workers run, `M_ARENA_MAX=2`, `copyLock`). Single-threaded, the time goes to
+  geometry and tree search (`MinAreaTree::collectOverlapsUnlocked`, `completeShape`,
+  `IntOctagon`), the memory model's share is small after E13.
 * Not freed yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with
   `strict_drc`), the `InteractiveSession`
   of the Lua engine, job-level objects of `route()` (job, pipeline, settings merger: freed with
