@@ -162,6 +162,14 @@ class UndoableObjects : public virtual jrt::Object {
   bool popSnapshot();
 
   /**
+   * PORT NOTE (stage E, board teardown): ends the life of the list. Calls `disposeObject` once
+   * for every distinct object of the list (current, deleted on an undo level, or only reachable
+   * through undo/redo links: all of them belong to the list's owner), then frees the nodes, the
+   * map with its entries and the delete lists. The list must not be used afterwards.
+   */
+  void disposeAll(const std::function<void(UndoableObjects_Storable*)>& disposeObject);
+
+  /**
    * Must be called before object will be modified after a snapshot for the first time, if it may
    * have existed before that snapshot.
    */

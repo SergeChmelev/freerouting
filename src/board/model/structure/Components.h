@@ -13,6 +13,10 @@ class Components : public virtual jrt::Object {
   Components* deepCopy();
   Components();
 
+  /** PORT NOTE (stage E, board teardown): frees the components (all versions in the undo
+   * history) and the lists. Only for the components of a board that is freed as a whole. */
+  void disposeAll();
+
   /**
    * Inserts a component into the list. The items of the component have to be inserted separately
    * into the board. If onFront is false, the component will be placed on the back side.

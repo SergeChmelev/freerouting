@@ -51,7 +51,7 @@ BoardOutline* BoardItemRepository::findOutline() {
 Item* BoardItemRepository::getItem(int32_t id) {
   int64_t stamp = board->itemList->getVersion();
   if (idMap == nullptr || stamp != idMapStamp) {
-    jrt::dispose(idMap);  // PORT NOTE (stage E): the stale id map is owned by this cache
+    jrt::disposeMapAndEntries(idMap);  // stale map: only read here
     idMap = new (jrt::kBoard) jrt::HashMap<int32_t, Item*>();
     auto iteratorScope = board->itemList->readScope();
     jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;

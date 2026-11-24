@@ -703,6 +703,16 @@ void RoutingBoard::discardAutorouteEngineWithBoard() {
   this->autorouteEngine = nullptr;
 }
 
+void RoutingBoard::releaseOwnedData() {
+  ShoveCheckCache::forThread()->forget(this);
+  // The engine's arena objects (rooms, drills) are referenced only by this board; the trees
+  // are freed below without reading their leaves' objects.
+  AutorouteEngine* engine = this->autorouteEngine;
+  discardAutorouteEngineWithBoard();
+  jrt::dispose(engine);
+  BasicBoard::releaseOwnedData();
+}
+
 void RoutingBoard::clearTransientAutorouteState() {
   finishAutoroute();
   clearAllItemTemporaryAutorouteData();
@@ -1497,12 +1507,14 @@ RoutingBoard* RoutingBoard::deepCopy() { return getUndoFacade()->deepCopy(); }
 
 BasicBoard* RoutingBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {
   RoutingBoard* copy = new (jrt::kBoard) RoutingBoard(BasicBoard_CopyTag{}, this);
-  if (itemMap == nullptr) itemMap = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
+  jrt::IdentityHashMap<Item*, Item*>* ownMap = nullptr;  // stage E: freed below if made here
+  if (itemMap == nullptr) itemMap = ownMap = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
   copy->copyItemListFrom(this, itemMap);
   // PORT NOTE: Java serialization makes the failure log's records point at the copied items;
   // re-copy it now that the old->new item map exists.
   if (this->failureLog != nullptr) copy->failureLog = this->failureLog->deepCopy(itemMap);
   copy->afterDeserialize();
+  jrt::disposeMapAndEntries(ownMap);
   return copy;
 }
 

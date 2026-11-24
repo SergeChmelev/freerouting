@@ -76,6 +76,15 @@ bool AutorouteBatchLoop::run() {
   router->lastStopReason = std::nullopt;
 
   BoardHistory* bh = new (jrt::kBoard) BoardHistory(job->routerSettings);
+  // PORT NOTE (stage E): the board the loop started on belongs to the job's caller; every other
+  // board router->board takes here is a copy restored from the history, freed when replaced.
+  RoutingBoard* const loopInputBoard = router->board;
+  auto dropReplacedBoard = [&](RoutingBoard* old) {
+    if (old != nullptr && old != loopInputBoard && old != router->board && old != job->board) {
+      router->forgetPassItems();  // they may hold items of `old`
+      BasicBoard::discard(old, "autoroute");
+    }
+  };
 
   // Record configuration for profiler
   if (router->settings->getLayerCount() > 0) {
@@ -374,8 +383,10 @@ bool AutorouteBatchLoop::run() {
             break;
           }
 
+          RoutingBoard* replacedBoard = router->board;
           router->board = boardToRestore;
           board = router->board;
+          dropReplacedBoard(replacedBoard);
           router->resetAntiOscillationState();
           BoardStatistics* boardStatistics = router->board->getStatistics();
           // Reset pass-local stagnation counter when restoring a previous board state
@@ -571,7 +582,9 @@ bool AutorouteBatchLoop::run() {
     RoutingBoard* bestBoard = bh->restoreBestBoard();
     if (bestBoard != nullptr) {
       BoardStatistics* currentStats = new (jrt::kOp) BoardStatistics(router->board);
+      RoutingBoard* replacedBoard = router->board;
       router->board = bestBoard;
+      dropReplacedBoard(replacedBoard);
       BoardStatistics* bestStats = new (jrt::kOp) BoardStatistics(router->board);
       job->logDebug(
           "The final board state (score " +

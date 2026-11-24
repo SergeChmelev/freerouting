@@ -279,6 +279,9 @@ class BatchAutorouter : public NamedAlgorithm {
   /** Auto-routes one ripup pass of all items of the board. Returns false if already complete. */
   virtual bool autoroutePass(int32_t passNo);
   virtual void resetAntiOscillationState();
+  /** PORT NOTE (stage E): empties the per-pass item collections (refilled at the start of every
+   * pass) before the board their items belong to is freed. */
+  void forgetPassItems();
 
   std::string getId() override;
   std::string getName() override;

@@ -1913,6 +1913,17 @@ inline void disposeWithElements(Collection<E*>* c) noexcept {
   dispose(c);
 }
 
+/** Disposes a map together with its entry objects (HashMap / TreeMap never free entries
+ * themselves, since entries can be handed out). Only for a map whose entries nobody holds. Keys
+ * and values are not touched. */
+template <class K, class V>
+inline void disposeMapAndEntries(Map<K, V>* m) noexcept {
+  if (m == nullptr) return;
+  for (auto* e : m->entryVector()) dispose(e);
+  m->clear();
+  dispose(m);
+}
+
 /** Scoped owner of a temporary collection and of its elements (e.g. the tree entries of a
  * search-tree query): disposes both when the scope ends. */
 template <class E>

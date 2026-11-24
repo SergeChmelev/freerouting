@@ -610,6 +610,30 @@ class BasicBoard : public virtual jrt::Object {
    */
   virtual BasicBoard* copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap);
 
+  /**
+   * PORT NOTE (stage E, board teardown): ends the life of a board that its only owner drops (a
+   * board copy: optimizer incumbent / worker / replaced boards, history snapshots). Frees what
+   * the board owns: the items (all versions in the undo history) with their search-tree info,
+   * the undo-list nodes, the search trees, the components, the contact cache, the autoroute
+   * engine (RoutingBoard) and the board object; forgets the caches keyed by board identity.
+   * Not freed: what a copy shares with its source (library, layer structure, bounding box,
+   * clearance baseline, item geometry and net-number arrays, padstacks) and parts not owned yet
+   * (rules, communication, item geometry caches). Nothing may use the board or its items
+   * afterwards; never call it for the job's input board (owned by the caller).
+   */
+  static void discard(BasicBoard* board, const char* site = "other");
+  /** False when FR_NO_BOARD_DISCARD switches the drop site `site` off (diagnostics). */
+  static bool discardEnabled(const char* site);
+  /** Diagnostics (FR_MEM_STATS): board copies made / freed by discard() so far. */
+  static int64_t copiesMade();
+  static int64_t copiesDiscarded();
+
+ protected:
+  /** The teardown steps of discard() before the board object itself is freed. */
+  virtual void releaseOwnedData();
+
+ public:
+
   /** Deletes all traces and vias from the board. */
   virtual void deleteAllTracksAndVias();
 

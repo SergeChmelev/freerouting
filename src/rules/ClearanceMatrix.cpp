@@ -315,9 +315,10 @@ ClearanceMatrix* ClearanceMatrix::deepCopy() {
   copy->layerStructure = this->layerStructure;  // shared (see RoutingBoardUndoFacade.h)
   copy->classCount = this->classCount;
   copy->maxValueOnLayer = this->maxValueOnLayer->clone();
-  auto* entryMap =
-      new (jrt::kOp) IdMap<ClearanceMatrix_MatrixEntry*, ClearanceMatrix_MatrixEntry*>();
-  auto* arrayMap = new (jrt::kOp) IdMap<jrt::Array<int32_t>*, jrt::Array<int32_t>*>();
+  IdMap<ClearanceMatrix_MatrixEntry*, ClearanceMatrix_MatrixEntry*> entryMapStore;  // local (stage E)
+  auto* entryMap = &entryMapStore;
+  IdMap<jrt::Array<int32_t>*, jrt::Array<int32_t>*> arrayMapStore;  // local (stage E)
+  auto* arrayMap = &arrayMapStore;
   auto mapArray = [arrayMap](jrt::Array<int32_t>* a) -> jrt::Array<int32_t>* {
     if (a == nullptr) {
       return nullptr;

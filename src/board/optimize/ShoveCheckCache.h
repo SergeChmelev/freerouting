@@ -114,6 +114,12 @@ class ShoveCheckCache final : public virtual jrt::Object {
   /** The index of obstacle in the board's obstacle table, adding it when new. */
   static int32_t obstacleIndex(RoutingBoard* board, Item* obstacle);
 
+  /** PORT NOTE (stage E): `board` is freed (Java: the weak owner reference is cleared), so a
+   * later board at the same address starts with an empty cache. */
+  void forget(RoutingBoard* board) {
+    if (owner == board) owner = nullptr;
+  }
+
  private:
   void reset(RoutingBoard* board, int64_t contentStamp);
 

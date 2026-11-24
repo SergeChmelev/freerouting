@@ -249,6 +249,7 @@ void BatchOptimizer::runBatchLoop() {
   if (this->job != nullptr && this->job->board != nullptr) {
     this->board = this->job->board;
   }
+  this->inputBoard_ = this->board;
   if (this->thread != nullptr) {
     this->thread->resetStopAutoRouterRequest();
   }
@@ -306,6 +307,7 @@ void BatchOptimizer::runBatchLoop() {
     return;
   }
 
+  BasicBoard::discard(this->bestBoard, "optimizer");  // (none: a new run)
   this->bestBoard = this->board->deepCopy();
   this->bestScore = initialOptimizerScore;
   this->bestIncompleteCount = initialIncomplete;
@@ -406,7 +408,9 @@ void BatchOptimizer::runBatchLoop() {
       this->bestScore = scoreAfterPass;
       this->bestIncompleteCount = passStats->connections->incompleteCount.value();
       this->bestClearanceViolationCount = passStats->clearanceViolations->totalCount.value();
+      RoutingBoard* oldBest = this->bestBoard;
       this->bestBoard = this->board->deepCopy();
+      BasicBoard::discard(oldBest, "optimizer");  // the incumbent snapshot is private to the optimizer
     } else {
       job->logInfo(
           jrt::format(
@@ -514,6 +518,7 @@ void BatchOptimizer::runBatchLoop() {
             finalViolations));
     restoreIncumbentBoard();
   }
+  BasicBoard::discard(this->bestBoard, "optimizer");
   this->bestBoard = nullptr;
 
   nudgeVias();
@@ -662,9 +667,19 @@ bool BatchOptimizer::slideSteps() {
 }
 
 void BatchOptimizer::restoreIncumbentBoard() {
+  RoutingBoard* old = this->board;
   this->board = this->bestBoard->deepCopy();
   this->job->board = this->board;
+  dropBoard(old);
   this->fireBoardUpdatedEvent(new (jrt::kOp) BoardStatistics(this->board), nullptr, this->board);
+}
+
+void BatchOptimizer::dropBoard(RoutingBoard* old) {
+  if (old == nullptr || old == this->inputBoard_ || old == this->board || old == this->bestBoard
+      || (this->job != nullptr && old == this->job->board)) {
+    return;
+  }
+  BasicBoard::discard(old, "optimizer");
 }
 
 std::optional<std::string> BatchOptimizer::optimizerCandidateRejectionReason(
@@ -917,8 +932,10 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
       && winningCandidate != nullptr
       && winningCandidate->result->improved()
       && winningCandidate->board != nullptr) {
+    RoutingBoard* old = this->board;
     this->board = winningCandidate->board;
     this->job->board = this->board;
+    dropBoard(old);  // the baseline of the pass, replaced by the winner's board
     this->minCumulativeTraceLength = this->board->getStatistics()->traces->totalWeightedLength.value();
 
     BoardStatistics* boardStatisticsAfter = this->board->getStatistics();
@@ -1130,6 +1147,7 @@ BatchOptimizer_CandidateResult* BatchOptimizer::replayWinner(
         "Optimizer: replaying the winning candidate (item "
         + jrt::str(winner->result->itemId())
         + ") did not give the same result; the pass keeps the current board.");
+    BasicBoard::discard(replay->board, "replay");  // a kept board nobody takes
     return nullptr;
   }
   return replay;
@@ -1240,9 +1258,13 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
       region.setTakesOps(true);  // stage E3: the candidate's temporaries die with it too
     }
     ~CandidateArena() {
-      if (board != nullptr) {
-        board->discardAutorouteEngineWithBoard();
+      // Stage E: the worker board is dropped as a whole: its arena data goes with the arena,
+      // its heap parts (board object, trees, item list map, search-tree info, engine) here,
+      // before the arena is released (the teardown still reads arena nodes).
+      if (board != nullptr && !BasicBoard::discardEnabled("candidate")) {
+        board->discardAutorouteEngineWithBoard();  // diagnostics: the pre-E7 teardown
       }
+      BasicBoard::discard(board, "candidate");
       static const bool stats = std::getenv("FR_MEM_STATS") != nullptr;
       static int64_t count = 0;
       if (stats && board != nullptr && ++count % 20 == 1) {
@@ -1274,6 +1296,15 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
   RoutingBoard* workerBoard = workerBoardState->acquire(baselineBoard);
   if (useCandidateArena) {
     candidateArena.board = workerBoard;
+  }
+  // A heap worker board (the winner replay) that is not handed to the caller is freed when the
+  // call ends, before its replay region is released.
+  struct DropUnreturnedBoard {
+    RoutingBoard* board = nullptr;
+    ~DropUnreturnedBoard() { BasicBoard::discard(board, "replay"); }
+  } dropUnreturned;
+  if (!useCandidateArena) {
+    dropUnreturned.board = workerBoard;
   }
   bool snapshotFinished = false;
   try {
@@ -1331,6 +1362,7 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
     jrt::HeapScope heap;  // the result outlives the candidate region
     result = new (jrt::kOp) ItemRouteResult(*result);
     if (improved) {
+      dropUnreturned.board = nullptr;  // the caller owns it now
       return new (jrt::kOp) BatchOptimizer_CandidateResult(result, workerBoard, position, cpuUsed, allocUsed);
     }
     return new (jrt::kOp) BatchOptimizer_CandidateResult(result, nullptr, position, cpuUsed, allocUsed);

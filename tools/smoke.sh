@@ -21,11 +21,11 @@ for b in $builds; do
   if cmp -s <(tail -n +3 "$out/bm02.ses") <(tail -n +3 "$bm02ref"); then v=SAME; else v=DIFF; status=1; fi
   leak=$(grep -o 'GC heap [0-9.]* MB' "$out/bm02.log" | tail -1)
   # the no-GC build leaks: keep each run below 3.5 GB of address space
-  if [ "$b" = "fr-nogc" ]; then lim=3500000; else lim=unlimited; fi
+  case "$b" in *nogc*) lim=3500000;; *) lim=unlimited;; esac
   (ulimit -v "$lim"; FR_CPP_BIN="$bin" FR_JOBS="${FR_JOBS:-8}" "$root/tools/parity_sample.sh" "$out/sample" 12 60 > /dev/null 2>&1)
   counts=$(tail -n +2 "$out/sample/results.tsv" | cut -f2 | sort | uniq -c | awk '{printf "%s %s, ", $1, $2}')
   echo "$b: bm02 $v ($leak); sample: ${counts%, }"
   # expected failures: Issue006 (RC 1), Issue179 (RC 139); no-GC: RC(134) = out of memory (leaks)
-  tail -n +2 "$out/sample/results.tsv" | awk -F'\t' -v b="$b" '$2 != "SAME" && $1 !~ /^Issue006-|^Issue179-/ && !(b == "fr-nogc" && $2 == "RC(134)") {print "  " $1 "\t" $2; bad=1} END {exit bad}' || status=1
+  tail -n +2 "$out/sample/results.tsv" | awk -F'\t' -v b="$b" '$2 != "SAME" && $1 !~ /^Issue006-|^Issue179-/ && !(b ~ /nogc/ && $2 == "RC(134)") {print "  " $1 "\t" $2; bad=1} END {exit bad}' || status=1
 done
 exit $status

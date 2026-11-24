@@ -121,6 +121,7 @@ void RoutingPipeline::runRoutingStage() {
     RoutingFallbackRunner* fallback = new (jrt::kOp) RoutingFallbackRunner(this->autorouter);
     if (input != nullptr) {
       this->autorouter = fallback->run(this->job, this->autorouter, strategies, input);
+      BasicBoard::discard(input, "fallback");  // stage E: run() only deserializes copies of the snapshot
     }
     if (RoutingSupervisor::explores(this->job->routerSettings)) {
       this->autorouter = fallback->explore(this->job, this->autorouter);

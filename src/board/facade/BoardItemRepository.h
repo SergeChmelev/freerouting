@@ -21,6 +21,10 @@ class BoardItemRepository final : public virtual jrt::Object {
 
  public:
   explicit BoardItemRepository(BasicBoard* board) : board(board) {}
+  // PORT NOTE (stage E): the repository owns its id map (dropped with the board).
+  ~BoardItemRepository() override { jrt::disposeMapAndEntries(idMap); }
+  BoardItemRepository(const BoardItemRepository&) = delete;
+  BoardItemRepository& operator=(const BoardItemRepository&) = delete;
 
   /** Returns the outline item, if one is present. */
   BoardOutline* getOutline();

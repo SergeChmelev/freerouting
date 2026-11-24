@@ -162,6 +162,17 @@ ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex
   return currentAutorouteTree;
 }
 
+void SearchTreeManager::disposeTrees() {
+  for (ShapeSearchTree* tree : *compensatedSearchTrees) {
+    tree->disposeNodes();
+    jrt::dispose(tree);
+  }
+  compensatedSearchTrees->clear();
+  jrt::dispose(compensatedSearchTrees);
+  compensatedSearchTrees = nullptr;
+  defaultTree = nullptr;
+}
+
 void SearchTreeManager::resetCompensatedTrees() {
   ShapeSearchTree* defTree = defaultTree;
   this->compensatedSearchTrees->removeIf([defTree](ShapeSearchTree* t) { return t != defTree; });

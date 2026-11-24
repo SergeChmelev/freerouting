@@ -438,6 +438,13 @@ bool BatchAutorouter::isPlaneItem(Item* item, RoutingBoard* board) {
 
 bool BatchAutorouter::autoroutePass(int32_t passNo) { return passRunner->runSingleThread(passNo); }
 
+void BatchAutorouter::forgetPassItems() {
+  reusableAutorouteItemList->clear();
+  reusablePlaneItemList->clear();
+  reusableSignalItemList->clear();
+  reusableHandledItems->clear();
+}
+
 void BatchAutorouter::resetAntiOscillationState() {
   if (this->passRunner != nullptr) {
     this->passRunner->resetAntiOscillationState();

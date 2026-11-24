@@ -115,6 +115,11 @@ class ShapeTree : public virtual jrt::Object {
   /** Outputs some statistic information about the tree. */
   virtual void statistics(const std::string& message);
 
+  /** PORT NOTE (stage E, board teardown): frees every node of the tree (inner nodes with their
+   * bounding shapes, leaves) and leaves it empty. The stored objects and their tree shapes are
+   * not touched; the caller drops the objects' leaf arrays (Item::clearSearchTreeEntries). */
+  void disposeNodes();
+
  protected:
   /** Creates a new instance of ShapeTree. */
   explicit ShapeTree(ShapeBoundingDirections* directions)
