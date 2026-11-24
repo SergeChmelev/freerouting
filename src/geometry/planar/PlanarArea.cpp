@@ -2,6 +2,7 @@
 
 #include <geos_c.h>
 
+#include <atomic>
 #include <vector>
 
 #include "geometry/planar/Area.h"
@@ -32,9 +33,21 @@ struct PlanarAreaGeometry {
 
 namespace {
 
+// A GEOS context handle must not be used by two threads at once: one per thread (optimizer
+// workers), finished when the thread ends. Geometries are not tied to the context that made them.
 GEOSContextHandle_t geosContext() {
-  static GEOSContextHandle_t ctx = GEOS_init_r();
-  return ctx;
+  // The first thread's context is never finished: static geometries may be destroyed after
+  // that thread's thread_local objects at exit.
+  static std::atomic<bool> firstTaken{false};
+  struct Ctx {
+    GEOSContextHandle_t h = GEOS_init_r();
+    bool keep = !firstTaken.exchange(true);
+    ~Ctx() {
+      if (!keep) GEOS_finish_r(h);
+    }
+  };
+  thread_local Ctx ctx;
+  return ctx.h;
 }
 
 class GeosException : public jrt::RuntimeException {

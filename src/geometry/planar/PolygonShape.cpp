@@ -22,8 +22,8 @@
 namespace fr {
 
 jrt::Random* PolygonShape::randomGenerator() {
-  static jrt::Random* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::Random(seed); });
-  return v;
+  // Java: ThreadLocal.withInitial(() -> new Random(seed)) - every thread starts at the seed.
+  return jrt::perThread<jrt::Random>([] { return new (jrt::kBoard) jrt::Random(seed); });
 }
 
 PolygonShape::PolygonShape(Polygon* polygon) {

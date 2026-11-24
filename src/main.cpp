@@ -3,11 +3,13 @@
 // usage: freerouting-cpp -de <input.dsn> -do <output.ses> [options]
 //   -dr <file.rules>   apply a rules file
 //   -mp <n>            maximum autorouter passes
-//   -mt <n>            maximum threads (accepted for compatibility; the port is single-threaded)
+//   -mt <n>            maximum threads of the optimizer (Java: router.max_threads; 1 = sequential)
 //   --timeout <dur>    job timeout (Java Duration syntax, e.g. PT10M)
 //   --no-optimizer     skip the optimization stage
 //   --no-drc           skip the final design rules check
 //   -q / -v / -vv      log level warn / debug / trace (default info)
+
+#include <malloc.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -166,6 +168,10 @@ int runMain(int argc, char** argv) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  // The optimizer's worker threads would each get a malloc arena of their own, which keeps the
+  // memory freed in it: on large boards that doubles the peak memory with many threads, while two
+  // arenas cost no measurable time (MALLOC_ARENA_MAX in the environment still wins).
+  if (std::getenv("MALLOC_ARENA_MAX") == nullptr) mallopt(M_ARENA_MAX, 2);
   int rc;
   {
     // Stage E: geometry and temporaries that no operation region takes and no owner holds

@@ -58,6 +58,14 @@ bool job_heap_owns(const void* p) noexcept;
 std::size_t job_heap_block_size(const void* p) noexcept;
 void job_heap_free(void* p) noexcept;
 void job_heap_release() noexcept;
+/** While one exists, the job heap is locked on every call: other threads (optimizer workers)
+ * may free job-heap blocks while the job's thread allocates. */
+struct JobHeapSharedScope {
+  JobHeapSharedScope();
+  ~JobHeapSharedScope();
+  JobHeapSharedScope(const JobHeapSharedScope&) = delete;
+  JobHeapSharedScope& operator=(const JobHeapSharedScope&) = delete;
+};
 std::size_t job_heap_live_bytes() noexcept;
 std::size_t job_heap_peak_bytes() noexcept;
 std::size_t job_heap_reserved_bytes() noexcept;
@@ -418,6 +426,22 @@ template <class F>
 auto onHeap(F f) {
   HeapScope heap;
   return f();
+}
+
+/**
+ * Java `ThreadLocal.withInitial(...)` for a heap object: one instance per thread (the
+ * optimizer's worker threads get their own), made on first use with `make` (on the heap, like
+ * onHeap) and deleted when the thread ends. Each call site (each `make` type) is its own slot.
+ */
+template <class T, class F>
+T* perThread(F make) {
+  struct Holder {
+    T* p = nullptr;
+    ~Holder() { delete p; }
+  };
+  thread_local Holder holder;
+  if (holder.p == nullptr) [[unlikely]] holder.p = onHeap(make);
+  return holder.p;
 }
 
 /** True if `p` lies in an active geometry region (diagnostics, copy-out decisions). */

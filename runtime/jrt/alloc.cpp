@@ -26,7 +26,9 @@ namespace {
 
 constexpr std::size_t kHeader = 16;
 constexpr std::size_t kChunkSize = std::size_t{1} << 20;   // usable bytes of a standard chunk
-constexpr std::size_t kPoolLimit = std::size_t{128} << 20;  // free bytes kept per thread
+constexpr std::size_t kPoolLimit = std::size_t{128} << 20;  // free bytes kept by the job's thread
+// Optimizer worker threads keep less: their pools add up (one per thread).
+constexpr std::size_t kWorkerPoolLimit = std::size_t{16} << 20;
 // Checked builds poison released memory so that a use after release (an escape from the arena)
 // crashes or shows up instead of silently reading the next operation's objects.
 constexpr unsigned char kPoison = 0xA5;
@@ -34,6 +36,7 @@ constexpr unsigned char kPoison = 0xA5;
 struct Pool {
   void* head;  // free standard chunks, linked through their first word
   std::size_t bytes;
+  std::size_t limit;  // the most free bytes kept
 };
 
 // dispose() must know arena memory by address: the live chunk ranges.
@@ -82,16 +85,35 @@ void drain_pool(Pool* pool) {
 
 Pool* g_mainPool = nullptr;
 
+std::mutex g_mainPoolMutex;
+
 Pool* thread_pool() {
-  thread_local Pool* pool = nullptr;
+  // The pool of another thread (an optimizer worker) is drained and freed when the thread ends.
+  struct Holder {
+    Pool* pool = nullptr;
+    ~Holder() {
+      if (pool == nullptr) return;
+      {
+        std::lock_guard<std::mutex> lock(g_mainPoolMutex);
+        if (pool == g_mainPool) return;  // drained at exit (below)
+      }
+      drain_pool(pool);
+      heap_free(pool);
+    }
+  };
+  thread_local Holder holder;
+  Pool*& pool = holder.pool;
   if (pool == nullptr) {
     pool = static_cast<Pool*>(heap_alloc(sizeof(Pool)));
     pool->head = nullptr;
     pool->bytes = 0;
+    pool->limit = kWorkerPoolLimit;
     // PORT NOTE (stage E): the first pool (the main thread's) is drained at exit, so that the
     // leak accounting and LeakSanitizer do not see the cached chunks.
+    std::lock_guard<std::mutex> lock(g_mainPoolMutex);
     if (g_mainPool == nullptr) {
       g_mainPool = pool;
+      pool->limit = kPoolLimit;
       std::atexit([] { drain_pool(g_mainPool); });
     }
   }
@@ -192,7 +214,7 @@ void Arena::release() {
     first = false;
     g_live.fetch_sub(size, std::memory_order_relaxed);
     JRT_ASAN_UNPOISON(data(c), size);  // the unused tails are still poisoned
-    if (size == kChunkSize && pool->bytes + kChunkSize <= kPoolLimit) {
+    if (size == kChunkSize && pool->bytes + kChunkSize <= pool->limit) {
 #if JRT_CHECKED
       std::memset(data(c), kPoison, used);
 #else

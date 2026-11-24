@@ -2,6 +2,7 @@
 // See PORTING.md for how Java constructs map onto these helpers.
 #pragma once
 
+#include <atomic>
 #include <cmath>
 #include <concepts>
 #include <cstdint>
@@ -46,7 +47,7 @@ class Object {
   int32_t identityHashCode();
 
  private:
-  int32_t identity_hash_ = 0;
+  alignas(4) int32_t identity_hash_ = 0;  // set once through std::atomic_ref (identityHashCode)
 };
 
 std::string className(Object* o);  // demangled dynamic class name, without namespaces
@@ -56,30 +57,58 @@ std::string className(Object* o);  // demangled dynamic class name, without name
 // libstdc++'s dynamic_cast is slow on the virtual-inheritance hierarchies of the port (DAG walk
 // plus strcmp of type names). For a given source vtable pointer the object layout is fixed
 // (construction vtables are distinct too), so the result offset is cached per vptr.
-// Single-threaded by design (like the rest of the port).
+// Thread-safe without locks: each cache entry packs the vptr and the offset into ONE 64-bit word
+// (vptr << 16 | offset as 16 bits), read and written with relaxed atomics, so a reader never sees
+// a vptr with another type's offset. Entries are deterministic (the same vptr always gives the
+// same offset), so racing writers store the same value. Offsets that do not fit in 16 bits are
+// not cached (dynamic_cast every time).
 // ---------------------------------------------------------------------------------------------
+namespace fast_cast_detail {
+constexpr int64_t kFail = -32768;  // packed "the cast fails"
+// vptr (user space, < 2^47) in the high 48 bits, offset (or kFail) in the low 16 bits.
+inline uint64_t pack(const void* vptr, int64_t off) {
+  return (reinterpret_cast<uint64_t>(vptr) << 16) | (static_cast<uint64_t>(off) & 0xffffu);
+}
+inline bool packable(const void* vptr, int64_t off) {
+  return (reinterpret_cast<uint64_t>(vptr) >> 47) == 0 && off >= -32767 && off <= 32767;
+}
+inline bool matches(uint64_t entry, const void* vptr) {
+  return entry != 0 && (entry >> 16) == reinterpret_cast<uint64_t>(vptr);
+}
+inline int64_t offset_of(uint64_t entry) { return static_cast<int16_t>(entry & 0xffffu); }
+}  // namespace fast_cast_detail
+
 template <class T, class U>
 struct FastCastCache {
   static constexpr int kSlots = 256;  // power of two
-  static constexpr ptrdiff_t kFail = PTRDIFF_MIN;
-  const void* keys[kSlots] = {};
-  ptrdiff_t offsets[kSlots] = {};
+  uint64_t entries[kSlots] = {};      // accessed through std::atomic_ref
 };
 
 template <class T, class U>
-inline T* fast_cast_slow(U* p, const void* vptr, FastCastCache<T, U>& cache) {
+inline T* fast_cast_apply(U* p, int64_t off) {
+  if (off == fast_cast_detail::kFail) return nullptr;
+  return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + off);
+}
+
+template <class T, class U>
+inline T* fast_cast_slow(U* p, const void* vptr, FastCastCache<T, U>& cache, uint64_t& packed) {
+  namespace d = fast_cast_detail;
   auto h = (reinterpret_cast<uintptr_t>(vptr) >> 4) & (FastCastCache<T, U>::kSlots - 1);
   for (int probe = 0; probe < 8; ++probe) {
     auto i = (h + probe) & (FastCastCache<T, U>::kSlots - 1);
-    if (cache.keys[i] == vptr) {
-      ptrdiff_t off = cache.offsets[i];
-      if (off == FastCastCache<T, U>::kFail) return nullptr;
-      return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + off);
+    std::atomic_ref<uint64_t> slot(cache.entries[i]);
+    uint64_t e = slot.load(std::memory_order_relaxed);
+    if (d::matches(e, vptr)) {
+      packed = e;
+      return fast_cast_apply<T>(p, d::offset_of(e));
     }
-    if (cache.keys[i] == nullptr) {
+    if (e == 0) {
       T* r = dynamic_cast<T*>(p);
-      cache.keys[i] = vptr;
-      cache.offsets[i] = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : FastCastCache<T, U>::kFail;
+      int64_t off = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : d::kFail;
+      if (!d::packable(vptr, off)) return r;
+      packed = d::pack(vptr, off);
+      uint64_t expected = 0;
+      slot.compare_exchange_strong(expected, packed, std::memory_order_relaxed);
       return r;
     }
   }
@@ -93,18 +122,17 @@ inline T* fast_cast(U* p) {
   if constexpr (std::is_base_of_v<T, U>) {
     return p;  // upcast: implicit conversion (also through virtual bases)
   } else {
+    namespace d = fast_cast_detail;
     static FastCastCache<T, U> cache;
     // Most call sites see the same dynamic type again and again: one-entry memo first.
-    static const void* lastVptr = nullptr;
-    static ptrdiff_t lastOff = 0;
+    alignas(8) static uint64_t last = 0;
+    std::atomic_ref<uint64_t> lastRef(last);
     const void* vptr = *reinterpret_cast<const void* const*>(p);
-    if (vptr == lastVptr) {
-      if (lastOff == FastCastCache<T, U>::kFail) return nullptr;
-      return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + lastOff);
-    }
-    T* r = fast_cast_slow<T, U>(p, vptr, cache);
-    lastVptr = vptr;
-    lastOff = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : FastCastCache<T, U>::kFail;
+    uint64_t l = lastRef.load(std::memory_order_relaxed);
+    if (d::matches(l, vptr)) return fast_cast_apply<T>(p, d::offset_of(l));
+    uint64_t packed = 0;
+    T* r = fast_cast_slow<T, U>(p, vptr, cache, packed);
+    if (packed != 0) lastRef.store(packed, std::memory_order_relaxed);
     return r;
   }
 }

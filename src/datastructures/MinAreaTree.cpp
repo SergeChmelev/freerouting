@@ -41,8 +41,9 @@ void MinAreaTree_ThreadScratchStacks::release(ArrayStack<ShapeTree_TreeNode*>* s
 // ---------------------------------------------------------------------------------------------
 
 MinAreaTree_ThreadScratchStacks* MinAreaTree::SCRATCH_STACKS() {
-  static MinAreaTree_ThreadScratchStacks* v = jrt::onHeap([&] { return new (jrt::kBoard) MinAreaTree_ThreadScratchStacks(); });
-  return v;
+  // Java: ThreadLocal.withInitial(ThreadScratchStacks::new).
+  return jrt::perThread<MinAreaTree_ThreadScratchStacks>(
+      [] { return new (jrt::kBoard) MinAreaTree_ThreadScratchStacks(); });
 }
 
 ArrayStack<ShapeTree_TreeNode*>* MinAreaTree::acquireScratchStack() {

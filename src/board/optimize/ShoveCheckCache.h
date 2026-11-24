@@ -81,7 +81,7 @@ class ShoveCheckCache final : public virtual jrt::Object {
 
  private:
   /** PORT NOTE: Java ThreadLocal -> single process-wide instance (single-threaded port). */
-  static ShoveCheckCache*& CURRENT();
+  static ShoveCheckCache* CURRENT();
 
   jrt::Map<ShoveCheckCache_Key*, ShoveCheckCache_Entry*>* entries =
       new (jrt::kBoard) jrt::HashMap<ShoveCheckCache_Key*, ShoveCheckCache_Entry*>();

@@ -226,12 +226,25 @@ the same checks Java uses).
 
 ## Threads
 
-The port is **single-threaded**. Remove `synchronized`, locks, `volatile`, atomics (use plain
-fields), `ConcurrentHashMap` → `jrt::ConcurrentHashMap` (= HashMap). Thread pools / executors /
-futures: run the tasks **sequentially, in submission order, on the calling thread**, keeping the
-exact same result-merging logic (the Java code is designed to be deterministic regardless of
-scheduling). `Thread.currentThread().isInterrupted()` → `false`. Keep `StoppableThread`-style
-stop/timeout checks (they only stop work).
+The port was translated **single-threaded**: `synchronized`, locks, `volatile` and atomics were
+removed (plain fields), `ConcurrentHashMap` → `jrt::ConcurrentHashMap` (= HashMap), thread pools /
+executors / futures run their tasks **sequentially, in submission order, on the calling thread**,
+keeping the exact same result-merging logic (the Java code is designed to be deterministic
+regardless of scheduling). `Thread.currentThread().isInterrupted()` → `false`. Keep
+`StoppableThread`-style stop/timeout checks (they only stop work).
+
+**Exception: the optimizer's candidate pool** (`BatchOptimizer::optRoutePass`, Java's
+`ExecutorService`) runs on real threads when `optimizer.max_threads` > 1 (CLI `-mt N`; the default
+is Java's: available processors − 1). Everything a candidate reaches on another thread was made
+thread-safe the way Java has it (`runtime/jrt/threads.h`): Java `ThreadLocal` → `jrt::perThread`
+(`ShoveCheckCache`, the search-tree query buffer, `MinAreaTree` scratch stacks, `PolygonShape`
+random, the profiler stack; GEOS contexts are per thread too), Java `synchronized` → a mutex where
+other threads reach the object (`BasicBoard::copyLock` for `deepCopy` of the shared baseline board,
+`FRLogger::mutex`, `BoardStatisticsBoundsCalculator`, `PerformanceProfiler`), atomics for
+`StoppableThread`, `Random`'s seed uniquifier and statistics counters. The result does not depend on
+the number of threads (results are read in candidate order); with one thread the old sequential
+path runs. New code reached by candidates must not add unguarded shared state: build with
+`-DFR_TSAN=ON` and run boards with `-mt 4` (ThreadSanitizer).
 
 ## Serialization
 

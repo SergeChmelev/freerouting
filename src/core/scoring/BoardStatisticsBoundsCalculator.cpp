@@ -1,6 +1,8 @@
 // Port of app.freerouting.core.scoring.BoardStatisticsBoundsCalculator.
 #include "core/scoring/BoardStatisticsBoundsCalculator.h"
 
+#include <mutex>
+
 #include "board/facade/BasicBoard.h"
 #include "board/model/items/ConductionArea.h"
 #include "board/model/items/Item.h"
@@ -125,6 +127,13 @@ void BoardStatisticsBoundsCalculator_LayerGroups::union_(int32_t firstLayer, int
 
 // ---- BoardStatisticsBoundsCalculator -------------------------------------------------------
 
+namespace {
+std::mutex& cacheMutex() {
+  static std::mutex m;
+  return m;
+}
+}  // namespace
+
 jrt::Map<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>*
 BoardStatisticsBoundsCalculator::CACHE() {
   static jrt::Map<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::HashMap<BasicBoard*, BoardStatisticsBoundsCalculator_CachedBounds*>(); });
@@ -133,16 +142,23 @@ BoardStatisticsBoundsCalculator::CACHE() {
 
 void BoardStatisticsBoundsCalculator::forget(BasicBoard* board) {
   // The value may live in an operation region (kOp): only the entry is dropped.
+  std::lock_guard<std::mutex> lock(cacheMutex());
   CACHE()->remove(board);
 }
 
 BoardStatisticsBounds* BoardStatisticsBoundsCalculator::calculate(BasicBoard* board) {
   AngleRestriction angleRestriction = board->rules->getTraceAngleRestriction();
-  BoardStatisticsBoundsCalculator_CachedBounds* cached = CACHE()->get(board);
-  if (cached != nullptr && cached->angleRestriction() == angleRestriction) {
-    return cached->bounds();
+  // Java: static synchronized. The cache is locked; the calculation runs outside the lock (a
+  // board is only calculated by the thread that works on it).
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex());
+    BoardStatisticsBoundsCalculator_CachedBounds* cached = CACHE()->get(board);
+    if (cached != nullptr && cached->angleRestriction() == angleRestriction) {
+      return cached->bounds();
+    }
   }
   BoardStatisticsBounds* result = calculateUncached(board, angleRestriction);
+  std::lock_guard<std::mutex> lock(cacheMutex());
   CACHE()->put(board, new (jrt::kOp) BoardStatisticsBoundsCalculator_CachedBounds(angleRestriction, result));
   return result;
 }

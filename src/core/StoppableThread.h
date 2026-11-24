@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "core/StopRequestState.h"
 #include "datastructures/Stoppable.h"
 #include "fwd.h"
@@ -33,9 +35,8 @@ class StoppableThread : public virtual Stoppable {
 
   /** Requests the Autorouter to stop while other tasks continue. */
   virtual void requestStopAutoRouter() {
-    if (this->stopRequestState == StopRequestState::NONE) {
-      this->stopRequestState = StopRequestState::AUTO_ROUTER_ONLY;
-    }
+    StopRequestState expected = StopRequestState::NONE;
+    this->stopRequestState.compare_exchange_strong(expected, StopRequestState::AUTO_ROUTER_ONLY);
   }
 
   /** Returns whether the Autorouter should stop. */
@@ -48,16 +49,16 @@ class StoppableThread : public virtual Stoppable {
    * left in place.
    */
   virtual void resetAutoRouterStopRequest() {
-    if (this->stopRequestState == StopRequestState::AUTO_ROUTER_ONLY) {
-      this->stopRequestState = StopRequestState::NONE;
-    }
+    StopRequestState expected = StopRequestState::AUTO_ROUTER_ONLY;
+    this->stopRequestState.compare_exchange_strong(expected, StopRequestState::NONE);
   }
 
   /** Resets an AUTO_ROUTER_ONLY stop request (alias of resetAutoRouterStopRequest()). */
   virtual void resetStopAutoRouterRequest() { resetAutoRouterStopRequest(); }
 
  private:
-  StopRequestState stopRequestState = StopRequestState::NONE;
+  // Atomic: polled by the optimizer's worker threads while another thread may request a stop.
+  std::atomic<StopRequestState> stopRequestState{StopRequestState::NONE};
 };
 
 }  // namespace fr

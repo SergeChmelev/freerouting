@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cstdio>
+#include <mutex>
 #include <ctime>
 
 #include "board/facade/BasicBoard.h"
@@ -59,6 +60,11 @@ FRLogger_DecimalFormat* FRLogger::defaultSignedFloatFormat() {
 jrt::HashMap<int32_t, int64_t>* FRLogger::perfData() {
   static jrt::HashMap<int32_t, int64_t>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::HashMap<int32_t, int64_t>(); });
   return v;
+}
+
+std::recursive_mutex& FRLogger::mutex() {
+  static std::recursive_mutex m;
+  return m;
 }
 
 LogEntries* FRLogger::logEntries() {
@@ -179,6 +185,7 @@ std::string FRLogger::formatNetLabel(BasicBoard* board, int32_t netNumber) {
 }
 
 void FRLogger::traceEntry(const std::string& perfId) {
+  std::lock_guard<std::recursive_mutex> lock(mutex());  // optimizer workers log too
   if (!enabled) {
     return;
   }
@@ -195,6 +202,7 @@ double FRLogger::traceExit(const std::string& perfId) {
 }
 
 double FRLogger::traceExit(const std::string& perfId, jrt::Object* result) {
+  std::lock_guard<std::recursive_mutex> lock(mutex());  // optimizer workers log too
   if (!enabled) {
     return 0.0;
   }
@@ -222,6 +230,7 @@ double FRLogger::traceExit(const std::string& perfId, jrt::Object* result) {
 }
 
 LogEntry* FRLogger::info(const std::string& msg, const std::optional<std::string>& topic) {
+  std::lock_guard<std::recursive_mutex> lock(mutex());  // optimizer workers log too
   if (!enabled) {
     return nullptr;
   }
@@ -232,6 +241,7 @@ LogEntry* FRLogger::info(const std::string& msg, const std::optional<std::string
 }
 
 LogEntry* FRLogger::warn(const std::string& msg, const std::optional<std::string>& topic) {
+  std::lock_guard<std::recursive_mutex> lock(mutex());  // optimizer workers log too
   if (!enabled) {
     return nullptr;
   }
@@ -242,6 +252,7 @@ LogEntry* FRLogger::warn(const std::string& msg, const std::optional<std::string
 }
 
 LogEntry* FRLogger::debug(const std::string& msg, const std::optional<std::string>& topic) {
+  std::lock_guard<std::recursive_mutex> lock(mutex());  // optimizer workers log too
   if (!enabled) {
     return nullptr;
   }
@@ -253,6 +264,7 @@ LogEntry* FRLogger::debug(const std::string& msg, const std::optional<std::strin
 
 LogEntry* FRLogger::error(const std::string& msg, const std::optional<std::string>& topic,
                           const std::exception* exception) {
+  std::lock_guard<std::recursive_mutex> lock(mutex());  // optimizer workers log too
   if (!enabled) {
     return nullptr;
   }
@@ -263,6 +275,7 @@ LogEntry* FRLogger::error(const std::string& msg, const std::optional<std::strin
 }
 
 LogEntry* FRLogger::trace(const std::string& msg) {
+  std::lock_guard<std::recursive_mutex> lock(mutex());  // optimizer workers log too
   if (!enabled) {
     return nullptr;
   }

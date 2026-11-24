@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 #include <new>
 #include <unordered_map>
 #include <vector>
@@ -95,6 +96,22 @@ JobHeap& heap() {
   return *h;
 }
 
+// While optimizer worker threads run (JobHeapSharedScope), the job heap is locked: a worker
+// may free a job-heap block (e.g. a cache of a shared object) while the job's thread allocates.
+// Single-threaded runs take no lock.
+std::atomic<int> g_sharedDepth{0};
+std::mutex g_lock;
+
+struct MaybeLock {
+  bool locked;
+  MaybeLock() : locked(g_sharedDepth.load(std::memory_order_acquire) > 0) {
+    if (locked) g_lock.lock();
+  }
+  ~MaybeLock() {
+    if (locked) g_lock.unlock();
+  }
+};
+
 inline void note(JobHeap& h, std::ptrdiff_t n) {
   h.live = static_cast<std::size_t>(static_cast<std::ptrdiff_t>(h.live) + n);
   if (h.live > h.peak) h.peak = h.live;
@@ -119,7 +136,11 @@ void job_heap_begin() {
   h.active = true;
 }
 
+JobHeapSharedScope::JobHeapSharedScope() { g_sharedDepth.fetch_add(1, std::memory_order_acq_rel); }
+JobHeapSharedScope::~JobHeapSharedScope() { g_sharedDepth.fetch_sub(1, std::memory_order_acq_rel); }
+
 void* job_heap_alloc(std::size_t n) {
+  MaybeLock lock;
   JobHeap& h = heap();
   if (n > kMaxSmall) {
     std::size_t size = (n + kPage - 1) & ~(kPage - 1);
@@ -161,6 +182,7 @@ std::size_t job_heap_block_size(const void* p) noexcept {
   std::uint8_t e = page_entry(p);
   if (e == 0) return 0;
   if (e != kLargePage) return g_classSize[e - 1];
+  MaybeLock lock;
   auto it = heap().large.find(const_cast<void*>(p));
   return it != heap().large.end() ? it->second : 0;
 }
@@ -168,6 +190,7 @@ std::size_t job_heap_block_size(const void* p) noexcept {
 void job_heap_free(void* p) noexcept {
   std::uint8_t e = page_entry(p);
   if (e == 0) return;
+  MaybeLock lock;
   JobHeap& h = heap();
   if (e == kLargePage) {
     auto it = h.large.find(p);

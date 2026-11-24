@@ -5,12 +5,14 @@
 #   Picks up to <count> boards (default 20) of the reference whose Java run took at most
 #   <max_java_seconds> (default 30), routes them with the C++ CLI and compares the SES.
 #   FR_JOBS=14  parallel runs;  FR_CPP_BIN  binary (default: release build)
+#   FR_CPP_ARGS extra CLI arguments (e.g. "-mt 4": optimizer threads)
 #   FR_JAVA_REF reference dir (default ~/frtest/java-reference/upstream-fixtures; made from a
 #               tools/parity_corpus.sh run: <name>.ses/.log/.rc of every successful Java run)
 set -uo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 out="$1"; max="${2:-30}"; count="${3:-20}"
 ref="${FR_JAVA_REF:-$HOME/frtest/java-reference/upstream-fixtures}"
+export FR_CPP_ARGS="${FR_CPP_ARGS:-}"
 export CPP="${FR_CPP_BIN:-$HOME/build/fr-release/freerouting-cpp}" REF="$ref" OUT="$out" ROOT="$root"
 mkdir -p "$out"
 pick() {
@@ -22,7 +24,7 @@ pick() {
 one() {
   name="$1"
   s=$(date +%s.%N)
-  timeout 900 "$CPP" -q -de "$ROOT/upstream/fixtures/$name.dsn" -do "$OUT/$name.ses" > "$OUT/$name.log" 2>&1
+  timeout 900 "$CPP" -q ${FR_CPP_ARGS:-} -de "$ROOT/upstream/fixtures/$name.dsn" -do "$OUT/$name.ses" > "$OUT/$name.log" 2>&1
   rc=$?
   t=$(echo "$(date +%s.%N) - $s" | bc)
   read -r jc jt < "$REF/$name.rc"

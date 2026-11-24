@@ -3,6 +3,7 @@
 
 #include <exception>
 #include <functional>
+#include <mutex>
 
 #include "fwd.h"
 #include "jrt/jrt.h"
@@ -107,6 +108,9 @@ class FRLogger final {
   static LogEntry* debug(const std::string& msg) { return debug(msg, std::nullopt); }
 
   /** Logs an ERROR message with an exception (nullptr for none). */
+  /** Held while a message is logged (the optimizer's worker threads log too). */
+  static std::recursive_mutex& mutex();
+
   static LogEntry* error(const std::string& msg, const std::optional<std::string>& topic,
                          const std::exception* exception);
 

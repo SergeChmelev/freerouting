@@ -2,6 +2,7 @@
 
 #include <cxxabi.h>
 
+#include <atomic>
 #include <charconv>
 #include <chrono>
 #include <cstdarg>
@@ -15,16 +16,20 @@ namespace jrt {
 // Object
 // ---------------------------------------------------------------------------------------------
 namespace {
-int32_t g_next_identity_hash = 0x1000;
+std::atomic<uint32_t> g_next_identity_hash{0x1000};
 }
 
 int32_t Object::identityHashCode() {
-  if (identity_hash_ == 0) {
-    // Deterministic, well-spread sequence (Weyl sequence with a golden-ratio step).
-    g_next_identity_hash = static_cast<int32_t>(static_cast<uint32_t>(g_next_identity_hash) + 0x61c88647u);
-    identity_hash_ = g_next_identity_hash == 0 ? 1 : g_next_identity_hash;
-  }
-  return identity_hash_;
+  // Optimizer worker threads hash shared objects too: the counter is atomic and the hash is set
+  // once (compare-exchange), so every thread sees the same value for an object. With one thread
+  // the sequence is the same as before (Weyl sequence with a golden-ratio step).
+  std::atomic_ref<int32_t> slot(identity_hash_);
+  int32_t h = slot.load(std::memory_order_relaxed);
+  if (h != 0) return h;
+  uint32_t next = g_next_identity_hash.fetch_add(0x61c88647u, std::memory_order_relaxed) + 0x61c88647u;
+  int32_t fresh = next == 0 ? 1 : static_cast<int32_t>(next);
+  if (slot.compare_exchange_strong(h, fresh, std::memory_order_relaxed)) return fresh;
+  return h;  // another thread set it first
 }
 
 std::string className(Object* o) {
@@ -365,9 +370,15 @@ void System::setProperty(const std::string& name, const std::string& value) { pr
 // Random
 // ---------------------------------------------------------------------------------------------
 Random::Random() {
-  static int64_t uniquifier = 8682522807148012LL;
-  uniquifier *= 1181783497276652981LL;
-  setSeed(uniquifier ^ System::nanoTime());
+  // Java: seedUniquifier() is an AtomicLong updated with compareAndSet (worker threads make
+  // Random objects too).
+  static std::atomic<uint64_t> uniquifier{8682522807148012ULL};
+  uint64_t current = uniquifier.load(std::memory_order_relaxed);
+  uint64_t next;
+  do {
+    next = current * 1181783497276652981ULL;
+  } while (!uniquifier.compare_exchange_weak(current, next, std::memory_order_relaxed));
+  setSeed(static_cast<int64_t>(next) ^ System::nanoTime());
 }
 int32_t Random::next(int bits) {
   seed_ = (seed_ * 0x5DEECE66DLL + 0xBLL) & ((1LL << 48) - 1);

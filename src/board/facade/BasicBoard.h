@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <optional>
 #include <string>
 
@@ -650,6 +651,8 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   static bool discardEnabled(const char* site);
   /** Diagnostics (FR_MEM_STATS): board copies made / freed by discard() so far. */
   static int64_t copiesMade();
+  /** Lock held while a copy reads this board (Java: synchronized (board) in deepCopy). */
+  static std::mutex& copyLock(const BasicBoard* board);
   static int64_t copiesDiscarded();
   /** Diagnostics (FR_MEM_STATS): deferred-disposal counters. */
   static std::string graveyardStats();

@@ -17,9 +17,9 @@
 
 namespace fr {
 
-ShoveCheckCache*& ShoveCheckCache::CURRENT() {
-  static ShoveCheckCache* v = jrt::onHeap([&] { return new (jrt::kBoard) ShoveCheckCache(); });
-  return v;
+// Java: ThreadLocal.withInitial(ShoveCheckCache::new) - one cache per thread (optimizer workers).
+ShoveCheckCache* ShoveCheckCache::CURRENT() {
+  return jrt::perThread<ShoveCheckCache>([] { return new (jrt::kBoard) ShoveCheckCache(); });
 }
 
 ShoveCheckCache* ShoveCheckCache::forThread() { return CURRENT(); }

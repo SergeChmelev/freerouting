@@ -1,4 +1,6 @@
 // Port of app.freerouting.board.facade.RoutingBoard
+#include <mutex>
+
 #include "board/facade/RoutingBoard.h"
 
 #include "autoroute/AutorouteAttemptResult.h"
@@ -1509,16 +1511,29 @@ bool RoutingBoard::redo(jrt::Set<int32_t>* changedNets) { return getUndoFacade()
 
 BoardStatistics* RoutingBoard::getStatistics() { return new (jrt::kOp) BoardStatistics(this); }
 
-RoutingBoard* RoutingBoard::deepCopy() { return getUndoFacade()->deepCopy(); }
+RoutingBoard* RoutingBoard::deepCopy() {
+  RoutingBoardUndoFacade* facade;
+  {
+    // Optimizer workers copy the same baseline board at once: the facade is made only once.
+    std::lock_guard<std::mutex> lock(copyLock(this));
+    facade = getUndoFacade();
+  }
+  return facade->deepCopy();
+}
 
 BasicBoard* RoutingBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {
-  RoutingBoard* copy = new (jrt::kBoard) RoutingBoard(BasicBoard_CopyTag{}, this);
+  RoutingBoard* copy;
   jrt::IdentityHashMap<Item*, Item*>* ownMap = nullptr;  // stage E: freed below if made here
-  if (itemMap == nullptr) itemMap = ownMap = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
-  copy->copyItemListFrom(this, itemMap);
-  // PORT NOTE: Java serialization makes the failure log's records point at the copied items;
-  // re-copy it now that the old->new item map exists.
-  if (this->failureLog != nullptr) copy->failureLog = this->failureLog->deepCopy(itemMap);
+  {
+    // Java writes the board under synchronized (board); reading it back runs in parallel.
+    std::lock_guard<std::mutex> lock(copyLock(this));
+    copy = new (jrt::kBoard) RoutingBoard(BasicBoard_CopyTag{}, this);
+    if (itemMap == nullptr) itemMap = ownMap = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
+    copy->copyItemListFrom(this, itemMap);
+    // PORT NOTE: Java serialization makes the failure log's records point at the copied items;
+    // re-copy it now that the old->new item map exists.
+    if (this->failureLog != nullptr) copy->failureLog = this->failureLog->deepCopy(itemMap);
+  }
   copy->afterDeserialize();
   jrt::disposeMapAndEntries(ownMap);
   return copy;

@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include "core/RoutingJob.h"
 
 #include <algorithm>
@@ -26,6 +28,8 @@ namespace {
 
 // PORT NOTE: UUID.randomUUID().toString(): a random version-4 UUID in canonical lower-case form.
 std::string randomUuid() {
+  static std::mutex m;  // candidate jobs are made on optimizer worker threads
+  std::lock_guard<std::mutex> lock(m);
   static std::random_device rd;
   static std::mt19937_64 gen((static_cast<uint64_t>(rd()) << 32) ^ rd());
   uint64_t hi = gen();
@@ -430,6 +434,7 @@ void RoutingJob::removeLogEntryAddedEventListener(
 }
 
 void RoutingJob::fireLogEntryAddedEvent(LogEntry* logEntry) {
+  std::lock_guard<std::recursive_mutex> lock(FRLogger::mutex());  // optimizer workers log too
   auto* event = new (jrt::kBoard) RoutingJobLogEntryAddedEvent(this, this, logEntry);
   for (RoutingJobLogEntryAddedEventListener* listener : *logEntryAddedEventListeners) {
     listener->onLogEntryAdded(event);

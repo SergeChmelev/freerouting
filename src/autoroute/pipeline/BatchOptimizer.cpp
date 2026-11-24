@@ -4,7 +4,14 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <condition_variable>
+#include <deque>
+#include <exception>
+#include <memory>
+#include <mutex>
 #include <optional>
+#include <thread>
+#include <vector>
 
 #include "autoroute/ItemRouteResult.h"
 #include "autoroute/ItemSelectionStrategy.h"
@@ -767,6 +774,117 @@ jrt::List<int32_t>* BatchOptimizer::prepareCandidateItems() {
   return itemIds;
 }
 
+namespace {
+
+/**
+ * The optimizer's thread pool (Java: Executors.newFixedThreadPool + FutureTask + the completion
+ * Semaphore of optRoutePass). Tasks run in submission order on the first free thread; each
+ * thread has its own WorkerBoardState (Java: ThreadLocal<WorkerBoardState>).
+ */
+class CandidatePool {
+ public:
+  struct Future {
+    BatchOptimizer_OptimizeCandidateTask* task;
+    BatchOptimizer_CandidateResult* result = nullptr;
+    std::exception_ptr error;
+    bool done = false;  // guarded by the pool's mutex
+
+    /** Java Future.get() of a finished task: the result, or what the task threw. */
+    BatchOptimizer_CandidateResult* get() {
+      if (error) std::rethrow_exception(error);
+      return result;
+    }
+  };
+
+  explicit CandidatePool(int32_t threads) {
+    workers_.reserve(static_cast<std::size_t>(threads));
+    for (int32_t i = 0; i < threads; ++i) {
+      workers_.emplace_back([this] { run(); });
+    }
+  }
+  ~CandidatePool() { shutdown(); }
+  CandidatePool(const CandidatePool&) = delete;
+  CandidatePool& operator=(const CandidatePool&) = delete;
+
+  Future* submit(BatchOptimizer_OptimizeCandidateTask* task) {
+    auto owned = std::make_unique<Future>();
+    owned->task = task;
+    Future* f = owned.get();
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      futures_.push_back(std::move(owned));
+      queue_.push_back(f);
+    }
+    workAvailable_.notify_one();
+    return f;
+  }
+
+  bool isDone(Future* f) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return f->done;
+  }
+
+  /** Waits until a task finished since the last call (Java: completions.acquire + drainPermits). */
+  void awaitCompletion() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    completed_.wait(lock, [this] { return completions_ != seenCompletions_; });
+    seenCompletions_ = completions_;
+  }
+
+  /** Drops the tasks that have not started and waits for the running ones. */
+  void shutdown() {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (stopping_) return;
+      stopping_ = true;
+      queue_.clear();
+    }
+    workAvailable_.notify_all();
+    for (std::thread& t : workers_) {
+      t.join();
+    }
+  }
+
+ private:
+  void run() {
+    BatchOptimizer_WorkerBoardState workerBoardState;  // this thread's (Java ThreadLocal)
+    for (;;) {
+      Future* f;
+      {
+        std::unique_lock<std::mutex> lock(mutex_);
+        workAvailable_.wait(lock, [this] { return stopping_ || !queue_.empty(); });
+        if (queue_.empty()) return;  // stopping
+        f = queue_.front();
+        queue_.pop_front();
+      }
+      try {
+        f->task->useWorkerBoardState(&workerBoardState);
+        f->result = f->task->call();
+      } catch (...) {
+        f->error = std::current_exception();
+      }
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        f->done = true;
+        ++completions_;
+      }
+      completed_.notify_all();
+    }
+  }
+
+  std::mutex mutex_;
+  std::condition_variable workAvailable_;
+  std::condition_variable completed_;
+  std::deque<Future*> queue_;                   // submitted, not started
+  std::vector<std::unique_ptr<Future>> futures_;  // every submitted task (owned)
+  std::vector<std::thread> workers_;
+  int64_t completions_ = 0;
+  int64_t seenCompletions_ = 0;
+  bool stopping_ = false;
+};
+
+}  // namespace
+
 float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections) {
   BoardStatistics* boardStatisticsBefore = board->getStatistics();
   RouterCounters* routerCounters = new (jrt::kBoard) RouterCounters();
@@ -819,9 +937,10 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
 
   FRLogger::traceEntry(optimizationPassId);
 
-  // PORT NOTE: no thread pool (see the SEQUENTIALISATION note in BatchOptimizer.h). The
+  // PORT NOTE: with one thread there is no pool (see the notes in BatchOptimizer.h): the
   // candidates are computed lazily, in candidate order, on the calling thread at the moment Java
-  // reads their future; the merge, winner selection and early stop logic are unchanged.
+  // reads their future. With more threads CandidatePool runs them like Java's pool. The merge,
+  // winner selection and early stop logic are the same in both.
 
   BatchOptimizer_CandidateResult* winningCandidate = nullptr;
   // A new candidate starts as soon as a thread is free, even while an older and slower
@@ -829,11 +948,8 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
   // results are still read in candidate order, so the winner and the early stop are the same.
   // A result keeps no board, so the results waiting to be read are small: the winner is
   // replayed on a copy of the baseline board at the end of the pass.
-  // PORT NOTE: maxRunning / maxUnread only bounded the Java pipeline; kept for reference.
   int32_t maxRunning = threadPoolSize * 2;
   int32_t maxUnread = jrt::Math::max(threadPoolSize * 64, 128);
-  (void)maxRunning;
-  (void)maxUnread;
   bool stoppedOrTimedOut = false;
   bool earlyStopDueToFailures = false;
   int32_t consecutiveFailures = 0;
@@ -851,76 +967,123 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
   // The baseline board does not change during the pass: the winner replaces it at the end.
   BoardStatistics_OptimizerMetrics* baselineMetrics =
       BoardStatistics_OptimizerMetrics::of(this->board);
-  {
-    int32_t nextCandidate = 0;
-    while (nextCandidate < candidateItemIds->size()) {
-      if (this->deadlineMs.has_value() && jrt::System::currentTimeMillis() >= this->deadlineMs.value()) {
-        job->logInfo("Optimizer stage timed out.");
-        this->isTimedOut_ = true;
-        stoppedOrTimedOut = true;
-        break;
-      }
-      if (this->thread != nullptr && this->thread->isStopRequested()) {
-        stoppedOrTimedOut = true;
-        break;
-      }
+  // The stop / deadline checks at the top of each iteration of the read loop.
+  auto stopOrDeadline = [&]() {
+    if (this->deadlineMs.has_value() && jrt::System::currentTimeMillis() >= this->deadlineMs.value()) {
+      job->logInfo("Optimizer stage timed out.");
+      this->isTimedOut_ = true;
+      stoppedOrTimedOut = true;
+      return true;
+    }
+    if (this->thread != nullptr && this->thread->isStopRequested()) {
+      stoppedOrTimedOut = true;
+      return true;
+    }
+    return false;
+  };
+  auto newTask = [&](int32_t itemId) {
+    return new (jrt::kOp) BatchOptimizer_OptimizeCandidateTask(
+        job,
+        this->board,
+        itemId,
+        this->minCumulativeTraceLength,
+        withPreferredDirections,
+        this->useIncreasedRipupCosts,
+        this->thread,
+        this->deadlineMs,
+        this->workerBoardStates,
+        baselineMetrics,
+        false);
+  };
+  // Reads the next result in candidate order (Java: the body after future.get()); returns true
+  // if the pass stops early. `get` returns the result or throws what the candidate threw.
+  auto readResult = [&](auto get) {
+    try {
+      BatchOptimizer_CandidateResult* res = get();
+      this->totalItemsOptimized++;
+      if (res != nullptr) {
+        this->workerCpuNanos += res->cpuUsedNanos;
+        this->workerAllocBytes += res->allocUsedBytes;
+        this->resultMap->put(res->result->itemId(), res->result);
 
-      BatchOptimizer_OptimizeCandidateTask* task =
-          new (jrt::kOp) BatchOptimizer_OptimizeCandidateTask(
-              job,
-              this->board,
-              candidateItemIds->get(nextCandidate++),
-              this->minCumulativeTraceLength,
-              withPreferredDirections,
-              this->useIncreasedRipupCosts,
-              this->thread,
-              this->deadlineMs,
-              this->workerBoardStates,
-              baselineMetrics,
-              false);
+        if (res->itemPosition != nullptr) {
+          this->currentPosition = res->itemPosition;
+        }
 
-      try {
-        BatchOptimizer_CandidateResult* res = task->call();
-        this->totalItemsOptimized++;
-        if (res != nullptr) {
-          this->workerCpuNanos += res->cpuUsedNanos;
-          this->workerAllocBytes += res->allocUsedBytes;
-          this->resultMap->put(res->result->itemId(), res->result);
-
-          if (res->itemPosition != nullptr) {
-            this->currentPosition = res->itemPosition;
+        if (res->result->improved()) {
+          consecutiveFailures = 0;
+          if (winningCandidate == nullptr || res->result->improvedOver(winningCandidate->result)) {
+            winningCandidate = res;
           }
-
-          if (res->result->improved()) {
-            consecutiveFailures = 0;
-            if (winningCandidate == nullptr || res->result->improvedOver(winningCandidate->result)) {
-              winningCandidate = res;
-            }
-          } else {
-            consecutiveFailures++;
-            if (consecutiveFailures >= maxConsecutiveFailures) {
-              job->logInfo(
-                  jrt::format(
-                      "Stopping optimization pass #%d early after %d consecutive items could "
-                      "not be improved.",
-                      passNo,
-                      consecutiveFailures));
-              earlyStopDueToFailures = true;
-              break;
-            }
+        } else {
+          consecutiveFailures++;
+          if (consecutiveFailures >= maxConsecutiveFailures) {
+            job->logInfo(
+                jrt::format(
+                    "Stopping optimization pass #%d early after %d consecutive items could "
+                    "not be improved.",
+                    passNo,
+                    consecutiveFailures));
+            earlyStopDueToFailures = true;
+            return true;
           }
         }
-      } catch (const jrt::Throwable& e) {
-        // Java: ExecutionException from future.get(); the cause is logged and the pass goes on.
-        // (VirtualMachineError is rethrown in Java; std::bad_alloc is not a jrt::Throwable and
-        // propagates here as well.)
-        job->logError("Error in candidate optimization task", &e);
       }
+    } catch (const jrt::Throwable& e) {
+      // Java: ExecutionException from future.get(); the cause is logged and the pass goes on.
+      // (VirtualMachineError is rethrown in Java; std::bad_alloc is not a jrt::Throwable and
+      // propagates here as well.)
+      job->logError("Error in candidate optimization task", &e);
+    }
+    return false;
+  };
 
-      if (stoppedOrTimedOut || earlyStopDueToFailures) {
+  if (threadPoolSize <= 1) {
+    int32_t nextCandidate = 0;
+    while (nextCandidate < candidateItemIds->size()) {
+      if (stopOrDeadline()) {
+        break;
+      }
+      BatchOptimizer_OptimizeCandidateTask* task = newTask(candidateItemIds->get(nextCandidate++));
+      if (readResult([task] { return task->call(); })) {
         break;
       }
     }
+  } else {
+    // Java: the ExecutorService loop. Candidates that were started but are not read when the
+    // pass stops early are waited for (Java leaves them running) and ignored.
+    jrt::JobHeapSharedScope sharedJobHeap;
+    CandidatePool pool(threadPoolSize);
+    std::deque<CandidatePool::Future*> futures;
+    int32_t nextCandidate = 0;
+    while (nextCandidate < candidateItemIds->size() || !futures.empty()) {
+      if (stopOrDeadline()) {
+        break;
+      }
+      int32_t running = 0;
+      for (CandidatePool::Future* f : futures) {
+        if (!pool.isDone(f)) {
+          running++;
+        }
+      }
+      while (running < maxRunning
+             && static_cast<int32_t>(futures.size()) < maxUnread
+             && nextCandidate < candidateItemIds->size()) {
+        futures.push_back(pool.submit(newTask(candidateItemIds->get(nextCandidate++))));
+        running++;
+      }
+      if (!pool.isDone(futures.front())) {
+        // Wait for any candidate to finish, then feed the free threads again.
+        pool.awaitCompletion();
+        continue;
+      }
+      CandidatePool::Future* future = futures.front();
+      futures.pop_front();
+      if (readResult([future] { return future->get(); })) {
+        break;
+      }
+    }
+    pool.shutdown();  // Java: pool.shutdownNow() (here: waits for the running candidates)
   }
 
   float routeImproved = 0.0f;
@@ -1267,7 +1430,7 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
       }
       BasicBoard::discard(board, "candidate");
       static const bool stats = std::getenv("FR_MEM_STATS") != nullptr;
-      static int64_t count = 0;
+      static std::atomic<int64_t> count{0};
       if (stats && board != nullptr && ++count % 20 == 1) {
         std::fprintf(stderr,
                      "candidate %lld: arena %.1f MB, arenas live %.1f MB, pool %.1f MB, heap %.1f MB, "

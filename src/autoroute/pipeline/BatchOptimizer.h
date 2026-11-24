@@ -18,7 +18,13 @@ namespace fr {
  * per thread in a ThreadLocal<WorkerBoardState>), so the result of a candidate does not depend
  * on scheduling.
  *
- * The C++ port is single-threaded (PORTING.md "Threads"):
+ * THREADS: with optimizer.max_threads > 1 the port runs the candidates on a thread pool like
+ * Java (BatchOptimizer.cpp, CandidatePool): a candidate starts as soon as a thread is free (at
+ * most maxRunning running, maxUnread unread), each worker thread has its own WorkerBoardState,
+ * and the results are read in candidate order with the same decisions as below, so the result
+ * does not depend on the number of threads. With one thread the sequential path below is used.
+ *
+ * The sequential path (max_threads = 1):
  *  - No pool, futures, semaphore or ThreadLocal. BatchOptimizer owns ONE
  *    BatchOptimizer_WorkerBoardState (field `workerBoardStates`), which plays the role of the
  *    single worker thread's ThreadLocal value; OptimizeCandidateTask receives that pointer and
@@ -136,6 +142,9 @@ class BatchOptimizer_OptimizeCandidateTask : public virtual jrt::Object {
             useIncreasedRipupCosts, thread, deadlineMs, workerBoardStates, nullptr, true) {}
 
   virtual BatchOptimizer_CandidateResult* call();
+
+  /** The worker board state of the thread that runs the task (Java: workerBoardStates.get()). */
+  void useWorkerBoardState(BatchOptimizer_WorkerBoardState* state) { workerBoardStates = state; }
 };
 
 /**

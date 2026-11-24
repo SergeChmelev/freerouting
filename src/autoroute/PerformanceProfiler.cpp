@@ -2,7 +2,16 @@
 
 #include "logger/FRLogger.h"
 
+#include <mutex>
+
 namespace fr {
+
+namespace {
+std::mutex& mapsMutex() {
+  static std::mutex m;
+  return m;
+}
+}  // namespace
 
 jrt::Map<std::string, int64_t>* PerformanceProfiler::timings() {
   static jrt::Map<std::string, int64_t>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ConcurrentHashMap<std::string, int64_t>(); });
@@ -15,8 +24,9 @@ jrt::Map<std::string, int64_t>* PerformanceProfiler::counts() {
 }
 
 jrt::Deque<PerformanceProfiler_Invocation*>* PerformanceProfiler::stack() {
-  static jrt::Deque<PerformanceProfiler_Invocation*>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ArrayDeque<PerformanceProfiler_Invocation*>(); });
-  return v;
+  // Java: ThreadLocal<Deque<Invocation>> (optimizer workers have their own stack).
+  return jrt::perThread<jrt::ArrayDeque<PerformanceProfiler_Invocation*>>(
+      [] { return new (jrt::kBoard) jrt::ArrayDeque<PerformanceProfiler_Invocation*>(); });
 }
 
 jrt::List<PerformanceProfiler_PassInfo*>* PerformanceProfiler::passHistory() {
@@ -25,7 +35,7 @@ jrt::List<PerformanceProfiler_PassInfo*>* PerformanceProfiler::passHistory() {
 }
 
 PerformanceProfiler_ConfigInfo*& PerformanceProfiler::configInfo() {
-  static PerformanceProfiler_ConfigInfo* v = jrt::onHeap([&] { return nullptr; });
+  static PerformanceProfiler_ConfigInfo* v = nullptr;
   return v;
 }
 
@@ -40,6 +50,7 @@ void PerformanceProfiler::end(const std::string& section) {
     if (inv->name == section) {
       int64_t duration = jrt::System::nanoTime() - inv->startTime;
       // AtomicLong computeIfAbsent(...).addAndGet / incrementAndGet
+      std::lock_guard<std::mutex> lock(mapsMutex());  // Java: ConcurrentHashMap + AtomicLong
       timings()->put(section, timings()->getOrDefault(section, 0) + duration);
       counts()->put(section, counts()->getOrDefault(section, 0) + 1);
     } else {
@@ -50,12 +61,14 @@ void PerformanceProfiler::end(const std::string& section) {
 
 void PerformanceProfiler::recordPass(int32_t passNo, int32_t unroutedItems, int64_t durationMs,
                                      int32_t ripupCost) {
+  std::lock_guard<std::mutex> lock(mapsMutex());
   passHistory()->add(new (jrt::kOp) PerformanceProfiler_PassInfo(passNo, unroutedItems, durationMs, ripupCost));
 }
 
 void PerformanceProfiler::recordConfiguration(int32_t viaCosts, int32_t planeViaCosts,
                                               jrt::Array<double>* preferredCosts,
                                               jrt::Array<double>* againstCosts) {
+  std::lock_guard<std::mutex> lock(mapsMutex());
   configInfo() = new (jrt::kOp) PerformanceProfiler_ConfigInfo(viaCosts, planeViaCosts, preferredCosts, againstCosts);
 }
 
@@ -107,6 +120,7 @@ void PerformanceProfiler::printResults() {
 }
 
 void PerformanceProfiler::reset() {
+  std::lock_guard<std::mutex> lock(mapsMutex());
   timings()->clear();
   counts()->clear();
 }

@@ -36,8 +36,18 @@ GeomRegion*& innermost_region() {
 // Value: complemented end, region id (also for the chunks of a region's companion arena).
 using ChunkMap = std::map<std::uintptr_t, std::pair<std::uintptr_t, std::uint32_t>>;
 ChunkMap& live_chunks() {
-  thread_local ChunkMap* m = new ChunkMap();
-  return *m;
+  // Heap-allocated and never destroyed for the first thread (regions may be released during
+  // exit); other threads (optimizer workers) free theirs when they end.
+  static std::atomic<bool> firstTaken{false};
+  struct Holder {
+    ChunkMap* m = new ChunkMap();
+    bool keep = !firstTaken.exchange(true);
+    ~Holder() {
+      if (!keep) delete m;
+    }
+  };
+  thread_local Holder holder;
+  return *holder.m;
 }
 
 void region_chunk_hook(std::uintptr_t tag, const char* begin, const char* end, bool added) {

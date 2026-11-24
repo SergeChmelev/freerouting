@@ -1,4 +1,6 @@
 // Port of app.freerouting.board.facade.RoutingBoardUndoFacade
+#include <mutex>
+
 #include "board/facade/RoutingBoardUndoFacade.h"
 
 #include "autoroute/plane/FastPlaneConnectivityGrid.h"
@@ -57,12 +59,16 @@ RoutingBoard* RoutingBoardUndoFacade::deepCopy() {
   }
   jrt::List<FastPlaneConnectivityGrid_FractureMemo*>* planeMemos =
       new (jrt::kOp) jrt::ArrayList<FastPlaneConnectivityGrid_FractureMemo*>();
-  for (ConductionArea* plane : *writtenPlanes) {
-    planeMemos->add(plane->fractureMemoForCopy());
+  {
+    // Reads the source board (Java: still inside synchronized (board)).
+    std::lock_guard<std::mutex> lock(BasicBoard::copyLock(board));
+    for (ConductionArea* plane : *writtenPlanes) {
+      planeMemos->add(plane->fractureMemoForCopy());
+    }
+    clearanceBaseline = board->clearanceBaseline;
+    // Taken with the board written: the copy has the same items, so the same counts.
+    ledgerCounts = board->routingLedger()->counts();
   }
-  clearanceBaseline = board->clearanceBaseline;
-  // Taken with the board written: the copy has the same items, so the same counts.
-  ledgerCounts = board->routingLedger()->counts();
 
   auto* boardCopy = jrt::fast_cast<RoutingBoard>(copied);
   for (int32_t i = 0; i < writtenPlanes->size(); i++) {

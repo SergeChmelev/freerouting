@@ -86,8 +86,9 @@ int32_t ShapeSearchTree_EntrySortedByClearance::compareTo(
 // ---------------------------------------------------------------------------------------------
 
 jrt::ArrayList<ShapeTree_Leaf*>* ShapeSearchTree::QUERY_LEAF_BUFFER() {
-  static jrt::ArrayList<ShapeTree_Leaf*>* v = jrt::onHeap([&] { return new (jrt::kBoard) jrt::ArrayList<ShapeTree_Leaf*>(128); });
-  return v;
+  // Java: ThreadLocal.withInitial(() -> new ArrayList<>(128)).
+  return jrt::perThread<jrt::ArrayList<ShapeTree_Leaf*>>(
+      [] { return new (jrt::kBoard) jrt::ArrayList<ShapeTree_Leaf*>(128); });
 }
 
 ShapeSearchTree::ShapeSearchTree(ShapeBoundingDirections* directions, BasicBoard* board,

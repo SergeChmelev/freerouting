@@ -1,6 +1,9 @@
 // Port of app.freerouting.board.facade.BasicBoard
 #include "board/facade/BasicBoard.h"
 
+#include <atomic>
+#include <mutex>
+
 #include <cstdlib>
 #include <string>
 #include "geometry/planar/GeomCopy.h"
@@ -64,8 +67,8 @@ namespace fr {
 
 namespace {
 // Diagnostics: board copies made / freed (BasicBoard::copiesMade / copiesDiscarded).
-int64_t gCopiesMade = 0;
-int64_t gCopiesDiscarded = 0;
+std::atomic<int64_t> gCopiesMade{0};
+std::atomic<int64_t> gCopiesDiscarded{0};
 }  // namespace
 
 BasicBoard::BasicBoard(IntBox* boundingBox, LayerStructure* layerStructure,
@@ -1415,19 +1418,26 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
   jrt::disposeMapAndEntries(memo);  // stage E: copy temporary (keys are the source's items)
 }
 
-int64_t BasicBoard::copiesMade() { return gCopiesMade; }
+int64_t BasicBoard::copiesMade() { return gCopiesMade.load(std::memory_order_relaxed); }
+
+std::mutex& BasicBoard::copyLock(const BasicBoard* board) {
+  // Java: synchronized (board) around writing the board in deepCopy. Striped by address: the
+  // board layout stays unchanged and only copies of the same board wait for each other.
+  static std::mutex locks[64];
+  return locks[(reinterpret_cast<std::uintptr_t>(board) >> 6) % 64];
+}
 
 namespace {
-int64_t gGraveyardFlushes = 0, gGraveyardSkips = 0, gDeadItemsFreed = 0, gDeadShapesFreed = 0;
-int64_t gDeadItemsNoted = 0;
+std::atomic<int64_t> gGraveyardFlushes{0}, gGraveyardSkips{0}, gDeadItemsFreed{0}, gDeadShapesFreed{0};
+std::atomic<int64_t> gDeadItemsNoted{0};
 }  // namespace
 
 std::string BasicBoard::graveyardStats() {
-  return "graveyard: " + jrt::str(gGraveyardFlushes) + " flushes, " + jrt::str(gGraveyardSkips) +
-         " skipped (live engine), items noted " + jrt::str(gDeadItemsNoted) + " / freed " +
-         jrt::str(gDeadItemsFreed) + ", tree shapes freed " + jrt::str(gDeadShapesFreed);
+  return "graveyard: " + jrt::str(gGraveyardFlushes.load()) + " flushes, " + jrt::str(gGraveyardSkips.load()) +
+         " skipped (live engine), items noted " + jrt::str(gDeadItemsNoted.load()) + " / freed " +
+         jrt::str(gDeadItemsFreed.load()) + ", tree shapes freed " + jrt::str(gDeadShapesFreed.load());
 }
-int64_t BasicBoard::copiesDiscarded() { return gCopiesDiscarded; }
+int64_t BasicBoard::copiesDiscarded() { return gCopiesDiscarded.load(); }
 
 bool BasicBoard::discardEnabled(const char* site) {
   // Diagnostics: FR_NO_BOARD_DISCARD=all, or a list of drop sites (optimizer, candidate, replay,

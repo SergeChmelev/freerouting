@@ -22,6 +22,12 @@ if(FR_SANITIZE)
   add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
   add_link_options(-fsanitize=address)
 endif()
+# ThreadSanitizer: data races of the optimizer's worker threads (run with -mt N).
+option(FR_TSAN "Build with ThreadSanitizer" OFF)
+if(FR_TSAN)
+  add_compile_options(-fsanitize=thread -fno-omit-frame-pointer -g)
+  add_link_options(-fsanitize=thread)
+endif()
 # Static GMP in executables by default; the Lua module links it shared.
 option(FR_STATIC_GMP "Link GMP statically into executables" ON)
 find_library(GMP_SHARED_LIB gmp REQUIRED)
