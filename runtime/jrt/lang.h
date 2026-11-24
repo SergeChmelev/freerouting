@@ -18,12 +18,12 @@
 
 namespace jrt {
 
-void* alloc_uncollectable(std::size_t n);
-void free_uncollectable(void* p);
-std::size_t gc_heap_size();
-std::size_t gc_free_bytes();
-std::size_t gc_count();
-void gc_collect();
+void* heap_alloc(std::size_t n);
+void heap_free(void* p);
+/** Heap bytes allocated and not freed yet / the most there ever were / allocations so far. */
+std::size_t heap_live_bytes();
+std::size_t heap_peak_bytes();
+std::size_t heap_alloc_count();
 
 // ---------------------------------------------------------------------------------------------
 // Object: root of every ported class and interface (always inherited `public virtual`).
@@ -120,8 +120,7 @@ inline T* as(U* p) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Exceptions. Message storage is uncollectable because the C++ runtime allocates exception
-// objects with malloc, which the collector does not scan.
+// Exceptions. Message storage is a plain heap block (jrt::heap_alloc), owned by the exception.
 // ---------------------------------------------------------------------------------------------
 class Throwable : public std::exception {
  public:
@@ -133,7 +132,7 @@ class Throwable : public std::exception {
     return *this;
   }
   ~Throwable() override {
-    if (msg_) free_uncollectable(msg_);
+    if (msg_) heap_free(msg_);
   }
   const char* what() const noexcept override { return msg_ ? msg_ : ""; }
   std::string getMessage() const { return msg_ ? std::string(msg_) : std::string(); }
@@ -141,8 +140,8 @@ class Throwable : public std::exception {
 
  private:
   void set(std::string_view m) {
-    if (msg_) free_uncollectable(msg_);
-    msg_ = static_cast<char*>(alloc_uncollectable(m.size() + 1));
+    if (msg_) heap_free(msg_);
+    msg_ = static_cast<char*>(heap_alloc(m.size() + 1));
     std::memcpy(msg_, m.data(), m.size());
     msg_[m.size()] = '\0';
   }

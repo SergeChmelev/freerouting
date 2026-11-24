@@ -8,13 +8,13 @@
 //   new (jrt::kGeom) IntPoint(x, y)  immutable geometry (stage D: value types / ref-counting)
 //   new (jrt::kSearch) ExpansionDoor connection-search arena (see jrt::Arena below)
 //   new (jrt::kBoardData) Via(...)    structural board data (items, undo nodes, search-tree nodes):
-//                                    the current board arena (optimizer worker board) or GC heap
+//                                    the current board arena (optimizer worker board) or the heap
 //
-// While the Boehm collector is in place kBoard / kOp / kGeom all forward to the global operator
-// new (GC heap), so the tags change nothing at run time; they document ownership for stage C and
-// let tools/mem/classify_allocs.py count the sites. kSearch allocates from the arena that is
-// current on this thread (jrt::ArenaScope), kBoardData from the current board arena
-// (jrt::BoardArenaScope); both fall back to the GC heap when no arena is current.
+// There is no garbage collector (MEMORY_MODEL.md stage E10). kBoard is a plain heap allocation
+// with an explicit owner (jrt::dispose). kGeom and kOp go to the current operation region
+// (jrt::GeomRegion), else to the job heap (jrt::JobRegion). kSearch allocates from the arena that
+// is current on this thread (jrt::ArenaScope), kBoardData from the current board arena
+// (jrt::BoardArenaScope); both fall back to the heap when no arena is current.
 #pragma once
 
 #include <cstddef>
@@ -51,7 +51,7 @@ inline constexpr GeomLifetime kGeom{};
 inline constexpr SearchLifetime kSearch{};
 inline constexpr BoardDataLifetime kBoardData{};
 
-// The job heap (jobheap.cpp; build without the collector only): memory of jrt::JobRegion.
+// The job heap (jobheap.cpp): memory of jrt::JobRegion.
 void job_heap_begin();
 void* job_heap_alloc(std::size_t n);  // zero-filled
 bool job_heap_owns(const void* p) noexcept;
@@ -66,11 +66,10 @@ std::size_t job_heap_reserved_bytes() noexcept;
  * Bump-pointer arena for per-operation object graphs (MEMORY_MODEL.md section 3).
  *
  * Objects allocated here are never destroyed individually: release() drops all of them at once
- * (destructors do not run, exactly like for collected objects). Chunks come from the GC heap and
- * are scanned conservatively, so arena objects keep their GC-allocated members (shapes,
- * collection buffers) alive and GC objects may point into the arena. release() wipes the used
- * memory (poison pattern in checked builds, zero otherwise, so stale data neither keeps garbage
- * alive nor hides a use-after-release) and returns the chunks to a per-thread pool.
+ * (destructors do not run). Chunks are heap blocks whose address ranges jrt::dispose knows (it
+ * leaves arena objects alone). release() wipes the used memory (poison pattern in checked builds,
+ * zero otherwise, so stale data neither hides a use-after-release nor keeps leaks reachable for
+ * LeakSanitizer) and returns the chunks to a per-thread pool (poisoned for AddressSanitizer).
  *
  * Escape rule: nothing allocated in an arena may still be referenced by the board (or anything
  * else that is used later) after release().
@@ -94,8 +93,8 @@ class Arena {
   /** Drops every object of the arena and returns its memory to the thread's chunk pool. */
   void release();
 
-  /** Forgets the chunks without wiping them; the collector reclaims them once unreachable.
-   * Used when objects may still be referenced (e.g. an exception left the operation midway). */
+  /** Forgets the chunks without wiping or reusing them (they leak). Used when objects may still
+   * be referenced (e.g. an exception left the operation midway). */
   void abandon();
 
   /** allocate() for container storage that may be given back (recycle): small blocks are
@@ -254,8 +253,8 @@ GeomRegion*& current_geom_region();
  * objects of an outer region or the heap either.
  *
  * Lazily filled caches of objects outside the region are filled in the domain of their holder
- * (jrt::DomainScope). Checked builds poison the memory on release; FR_REGION_CHECK=N (GC build)
- * scans the heap for pointers into every N-th released region and reports their holders.
+ * (jrt::DomainScope). Checked builds poison the memory on release and ASan builds mark it
+ * unaddressable, so a missed escape crashes or is reported as a use after release.
  */
 class GeomRegion {
  public:
@@ -286,8 +285,7 @@ class GeomRegion {
   const Arena& arena() const { return arena_; }
   Arena& arenaRef() { return arena_; }
 
-  /** Drops every object of the region (it must not be active). FR_REGION_CHECK scans for
-   * escapes first. */
+  /** Drops every object of the region (it must not be active). */
   void release();
   /** Forgets the memory without reusing it (an exception left the region's operation midway). */
   void abandon();
@@ -497,8 +495,7 @@ inline void* geom_alloc(std::size_t n) {
  * Line::ofInts, not static or stack memory). */
 bool is_heap_block(const void* mem) noexcept;
 
-/** Frees the block `mem` (destructor already run). Verification mode (env FR_DISPOSE_CHECK=1)
- * instead poisons it and reports at exit how many disposed objects were still reachable. */
+/** Frees the block `mem` (destructor already run; checked builds poison it first). */
 void dispose_block(void* mem, const char* type) noexcept;
 
 /** Disposed objects / bytes so far (diagnostics). */
@@ -510,7 +507,7 @@ std::size_t disposed_bytes() noexcept;
  * the memory to the heap. Objects that cannot be freed on their own (arena objects, parts of a
  * combined block, statics) are left alone, so callers need not know where `p` came from.
  *
- * Contract (checked by FR_DISPOSE_CHECK=1 runs): nothing reads `p` afterwards.
+ * Contract (checked by AddressSanitizer runs): nothing reads `p` afterwards.
  */
 template <class T>
 inline void dispose(T* p) noexcept {
@@ -571,8 +568,8 @@ inline void operator delete(void*, jrt::Like) noexcept {}
 inline void* operator new(std::size_t n, jrt::GeomLifetime) { return jrt::geom_alloc(n); }
 inline void* operator new(std::size_t n, jrt::SearchLifetime) { return jrt::search_alloc(n); }
 inline void* operator new(std::size_t n, jrt::BoardDataLifetime) { return jrt::board_data_alloc(n); }
-// Called only if a constructor throws. GC memory is reclaimed by the collector, arena memory by
-// the arena, so nothing to do here.
+// Called only if a constructor throws: the block is left to its region / arena / the job heap (a
+// kBoard block leaks; exceptions in constructors end the run anyway).
 inline void operator delete(void*, jrt::BoardLifetime) noexcept {}
 inline void operator delete(void*, jrt::OpLifetime) noexcept {}
 inline void operator delete(void*, jrt::GeomLifetime) noexcept {}

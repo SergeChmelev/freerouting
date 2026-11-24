@@ -1270,11 +1270,11 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
       static int64_t count = 0;
       if (stats && board != nullptr && ++count % 20 == 1) {
         std::fprintf(stderr,
-                     "candidate %lld: arena %.1f MB, arenas live %.1f MB, pool %.1f MB, GC heap %.1f MB, "
-                     "GC free %.1f MB, GCs %zu\n",
+                     "candidate %lld: arena %.1f MB, arenas live %.1f MB, pool %.1f MB, heap %.1f MB, "
+                     "job heap %.1f MB\n",
                      static_cast<long long>(count), arena.bytesAllocated() / 1048576.0,
                      jrt::Arena::liveBytes() / 1048576.0, jrt::Arena::poolBytes() / 1048576.0,
-                     jrt::gc_heap_size() / 1048576.0, jrt::gc_free_bytes() / 1048576.0, jrt::gc_count());
+                     jrt::heap_live_bytes() / 1048576.0, jrt::job_heap_live_bytes() / 1048576.0);
       }
       arena.release();
       region.release();  // after the arena: arena objects refer into the region

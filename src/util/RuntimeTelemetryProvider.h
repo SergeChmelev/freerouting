@@ -10,7 +10,7 @@ namespace fr {
  * Provides optional runtime telemetry (per-thread CPU time, per-thread allocation, heap usage).
  *
  * PORT NOTE: there is no ServiceLoader in C++. get() returns FALLBACK(), whose thread metrics are
- * -1 (unsupported) and whose heap usage is the Boehm GC heap size in MB (jrt::gc_heap_size()) in
+ * -1 (unsupported) and whose heap usage is the live heap size in MB (jrt::heap_live_bytes()) in
  * place of Runtime.totalMemory() - freeMemory().
  */
 class RuntimeTelemetryProvider : public virtual jrt::Object {

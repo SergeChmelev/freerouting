@@ -289,8 +289,17 @@ void Engine::setStatus(const std::function<void(Status&)>& update) {
   update(status_);
 }
 
+void Engine::dropBoard(fr::BasicBoard* next) {
+  // Stage E: the engine owns its current board; a replaced one is freed (published views are
+  // plain data, the edit session is recreated on the new board).
+  if (board_ != nullptr && board_ != next) fr::BasicBoard::discard(board_, "engine");
+  if (board_ != next) board_ = nullptr;
+}
+
 void Engine::threadMain() {
-  jrt::GcThreadScope gcScope;  // this thread runs core code: register it with the collector
+  // This thread runs core code: geometry and temporaries no owner holds belong to the engine's
+  // job region, freed when the engine stops (MEMORY_MODEL.md, E9).
+  jrt::JobRegion job;
   for (;;) {
     Command cmd;
     bool moreEdits = false;
@@ -301,7 +310,10 @@ void Engine::threadMain() {
       queue_.pop_front();
       moreEdits = !queue_.empty() && queue_.front().kind == Command::Edit;
     }
-    if (cmd.kind == Command::Quit) return;
+    if (cmd.kind == Command::Quit) {
+      dropBoard(nullptr);
+      return;
+    }
     int64_t start = jrt::System::currentTimeMillis();
     try {
       switch (cmd.kind) {
@@ -369,6 +381,7 @@ void Engine::doLoad(const std::string& path) {
     throw jrt::IOException("DSN parse error at '" + pe->location() + "': " + pe->detail());
   if (board == nullptr) throw jrt::IOException("DSN did not contain a valid board");
 
+  dropBoard(board);
   board_ = board;
   session_ = nullptr;
   dsnBytes_ = bytes;
@@ -442,7 +455,10 @@ void Engine::doRoute(const RouteOptions& o) {
           ->build();
 
   fr::HeadlessRoutingResult* result = fr::FreeroutingHeadlessEngine::route(request);
-  if (result->board() != nullptr) board_ = result->board();
+  if (result->board() != nullptr) {
+    dropBoard(result->board());  // the routed board replaces the input board (ours)
+    board_ = result->board();
+  }
   session_ = nullptr;  // recreated on the next edit event, on the routed board
   if (board_ != nullptr) publish(board_, true);
 

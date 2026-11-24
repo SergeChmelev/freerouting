@@ -43,9 +43,9 @@ struct MpzArg {
 }  // namespace
 
 BigInteger::Rep* BigInteger::newRep() {
-  // Never mpz_clear'ed: a rep is shared by every copy of the value and has no owner. Collected
-  // in the collector's build (limbs are GC memory, see gc.cpp); without it the rep and its limbs
-  // belong to the job (job heap, never an operation region: copies of the value outlive it).
+  // Never mpz_clear'ed: a rep is shared by every copy of the value and has no owner. The rep and
+  // its limbs belong to the job (job heap, never an operation region: copies of the value
+  // outlive it; GMP's memory functions are set in heap.cpp).
   void* mem = job_region() != nullptr ? job_heap_alloc(sizeof(Rep)) : ::operator new(sizeof(Rep));
   Rep* r = new (mem) Rep;
   mpz_init(r->v);

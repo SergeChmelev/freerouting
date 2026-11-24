@@ -1,13 +1,9 @@
-// Allocation backend without a garbage collector (MEMORY_MODEL.md stage E; build with
-// -DFR_NO_GC=ON, which defines JRT_NO_GC=1).
+// The allocator of the port (MEMORY_MODEL.md; there is no garbage collector since stage E10).
 //
-// operator new is calloc (zero-filled, like GC_MALLOC and Java objects), delete / jrt::dispose
-// is free. Nothing is collected: an object without an owner that frees it is leaked. The live
-// byte count (FR_MEM_STATS) is therefore the size of what still has no owner.
-#ifndef JRT_NO_GC
-#define JRT_NO_GC 0
-#endif
-#if JRT_NO_GC
+// operator new is calloc (zero-filled, like Java objects), delete / jrt::dispose is free; blocks
+// of the job heap (jobheap.cpp) are recognised and handed back to it. An object without an owner
+// that frees it (and outside every region and the job heap) is leaked: the live byte count
+// (FR_MEM_STATS, jrt::heap_live_bytes) after a run is what still has no owner.
 
 #include <gmp.h>
 #include <malloc.h>
@@ -218,12 +214,12 @@ void raw_free(void* p) noexcept {
 }  // namespace
 
 #if JRT_ALLOC_PROFILE
-#define JRT_NOGC_NEW __attribute__((noinline))
+#define JRT_HEAP_NEW __attribute__((noinline))
 #else
-#define JRT_NOGC_NEW
+#define JRT_HEAP_NEW
 #endif
-JRT_NOGC_NEW void* operator new(std::size_t n) { return raw_alloc(n); }
-JRT_NOGC_NEW void* operator new[](std::size_t n) { return raw_alloc(n); }
+JRT_HEAP_NEW void* operator new(std::size_t n) { return raw_alloc(n); }
+JRT_HEAP_NEW void* operator new[](std::size_t n) { return raw_alloc(n); }
 void* operator new(std::size_t n, const std::nothrow_t&) noexcept {
   try {
     return raw_alloc(n);
@@ -284,21 +280,14 @@ struct GmpInit {
 
 namespace jrt {
 
-void* alloc_uncollectable(std::size_t n) { return raw_alloc(n); }
-void free_uncollectable(void* p) { raw_free(p); }
-// Without a collector the "heap" is everything allocated and not yet freed.
-std::size_t gc_heap_size() { return g_liveBytes.load(std::memory_order_relaxed); }
-std::size_t gc_free_bytes() { return 0; }
-std::size_t gc_count() { return 0; }
-void gc_collect() {}
-
-std::size_t nogc_block_size(void* p) { return raw_size(p); }
-std::size_t nogc_peak_bytes() { return g_peakBytes.load(std::memory_order_relaxed); }
-std::size_t nogc_alloc_count() { return g_allocCount.load(std::memory_order_relaxed); }
-
-GcThreadScope::GcThreadScope() {}
-GcThreadScope::~GcThreadScope() {}
+void* heap_alloc(std::size_t n) { return raw_alloc(n); }
+void heap_free(void* p) { raw_free(p); }
+// Bytes allocated with operator new and not freed yet (job heap and arena chunks not counted
+// as such: arena chunks are heap blocks, job-heap pages are not).
+std::size_t heap_live_bytes() { return g_liveBytes.load(std::memory_order_relaxed); }
+std::size_t heap_peak_bytes() { return g_peakBytes.load(std::memory_order_relaxed); }
+std::size_t heap_alloc_count() { return g_allocCount.load(std::memory_order_relaxed); }
+std::size_t heap_block_size(void* p) { return raw_size(p); }
 
 }  // namespace jrt
 
-#endif  // JRT_NO_GC

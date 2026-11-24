@@ -13,7 +13,7 @@ class FallbackRuntimeTelemetryProvider : public RuntimeTelemetryProvider {
   float currentHeapUsageMb() override {
     // PORT NOTE: Runtime.totalMemory() - freeMemory() -> Boehm GC heap size.
     int64_t used = jrt::Math::max(static_cast<int64_t>(0),
-                                  static_cast<int64_t>(jrt::gc_heap_size()));
+                                  static_cast<int64_t>(jrt::heap_live_bytes()));
     return static_cast<float>(used) / (1024.0f * 1024.0f);
   }
 };

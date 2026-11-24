@@ -607,8 +607,8 @@ class ArrayList : public virtual List<T> {
   using Collection<T>::addAll;
 
   // PORT NOTE (stage C): removes [from, to). For pointer elements the vacated slots are nulled:
-  // a shrunk std::vector keeps the old pointers in its capacity, where the conservative collector
-  // (and FR_DISPOSE_CHECK) sees them as live references to removed objects.
+  // a shrunk std::vector keeps the old pointers in its capacity, where LeakSanitizer would see
+  // them as live references to removed objects.
   void eraseRange(std::size_t from, std::size_t to) {
     std::size_t oldSize = v_.size();
     v_.erase(v_.begin() + static_cast<std::ptrdiff_t>(from), v_.begin() + static_cast<std::ptrdiff_t>(to));

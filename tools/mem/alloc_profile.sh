@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# Allocation-site profile: which `new` sites allocate most (count and bytes).
-# Needs a build with -DJRT_ALLOC_PROFILE=1 (runtime/jrt/gc.cpp); for the calling function of
-# each site also -fno-omit-frame-pointer, e.g.
-#   cmake -S . -B ~/build/fr-prof -G Ninja -DCMAKE_BUILD_TYPE=Release \
-#     "-DCMAKE_CXX_FLAGS=-DJRT_CHECKED=0 -DJRT_ALLOC_PROFILE=1 -g -fno-omit-frame-pointer"
-# Live/leak profile instead (what is still allocated at exit in the collector-free build): build
-# with -DFR_NO_GC=ON as well and use tools/mem/live_profile.sh (same format, live blocks).
+# Allocation-site profile of heap blocks: resolves the dump a -DJRT_ALLOC_PROFILE=1 build
+# (runtime/jrt/heap.cpp, with -fno-omit-frame-pointer) writes at exit: the blocks still
+# allocated, by site. Normally run through tools/mem/live_profile.sh. Job-heap blocks are not
+# profiled: FR_NO_JOB_REGION=1 makes them heap blocks.
 # usage: tools/mem/alloc_profile.sh <binary> <out-prefix> <fixture.dsn> [top]
 # writes <out-prefix>.raw (offset count bytes caller) and <out-prefix>.txt (resolved).
 set -euo pipefail

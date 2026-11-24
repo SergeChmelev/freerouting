@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs a board with an AddressSanitizer build (cmake -DFR_NO_GC=ON -DFR_SANITIZE=ON) and
+# Runs a board with an AddressSanitizer build (cmake -DFR_SANITIZE=ON) and
 # summarises the LeakSanitizer report by allocation site (MEMORY_MODEL.md stage E).
 # usage: tools/mem/asan_run.sh <binary> <out-prefix> <fixture.dsn> [top]
 # writes <out-prefix>.ses, <out-prefix>.asan (raw report: memory errors first, then leaks) and

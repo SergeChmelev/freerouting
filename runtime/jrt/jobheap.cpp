@@ -1,5 +1,4 @@
-// The job heap (MEMORY_MODEL.md stage E, "job region"): the memory of jrt::JobRegion in the
-// build without the collector.
+// The job heap (MEMORY_MODEL.md stage E, "job region"): the memory of jrt::JobRegion.
 //
 // Geometry and per-operation temporaries that no operation region takes and no owner frees
 // belong to the routing job. They are allocated here instead of with operator new: a
@@ -10,9 +9,6 @@
 //
 // One job heap per process at a time, used by one thread (the routing core is single-threaded,
 // see threads.h); other threads only ask job_heap_owns() for their own blocks (false).
-#ifndef JRT_NO_GC
-#define JRT_NO_GC 0
-#endif
 
 #include <atomic>
 #include <cstdint>
@@ -26,8 +22,6 @@
 #include "jrt/alloc.h"
 
 namespace jrt {
-
-#if JRT_NO_GC
 
 namespace {
 
@@ -219,19 +213,5 @@ void job_heap_release() noexcept {
 std::size_t job_heap_live_bytes() noexcept { return heap().live; }
 std::size_t job_heap_peak_bytes() noexcept { return heap().peak; }
 std::size_t job_heap_reserved_bytes() noexcept { return heap().pageBytes + heap().largeBytes; }
-
-#else  // the collector's build has no job heap (JobRegion stays inactive)
-
-void job_heap_begin() {}
-void* job_heap_alloc(std::size_t) { std::abort(); }
-bool job_heap_owns(const void*) noexcept { return false; }
-std::size_t job_heap_block_size(const void*) noexcept { return 0; }
-void job_heap_free(void*) noexcept {}
-void job_heap_release() noexcept {}
-std::size_t job_heap_live_bytes() noexcept { return 0; }
-std::size_t job_heap_peak_bytes() noexcept { return 0; }
-std::size_t job_heap_reserved_bytes() noexcept { return 0; }
-
-#endif
 
 }  // namespace jrt

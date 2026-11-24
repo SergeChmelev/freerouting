@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Smoke test for the memory-model migration (~5 minutes): builds the checked and the no-GC
-# binaries, routes bm02 with both and the fast fixtures (Java <= 12 s, about 40 boards) against
-# the stored Java results. Prints only the verdict counts and the boards that are not SAME.
+# Smoke test (~5 minutes): builds the checked and the release binaries, routes bm02 with both and
+# the fast fixtures (Java <= 12 s, about 40 boards) against the stored Java results. Prints only
+# the verdict counts and the boards that are not SAME, and the heap still allocated after bm02
+# (memory nothing owns; MEMORY_MODEL.md).
 # usage: tools/smoke.sh [tag]
 #   FR_SMOKE_BUILDS  build dirs under ~/build (default "freerouting-cpp fr-nogc")
 #   FR_JOBS          parallel runs (default 8)
@@ -19,13 +20,14 @@ for b in $builds; do
   mkdir -p "$out"
   FR_MEM_STATS=1 "$bin" -q -de "$bm02" -do "$out/bm02.ses" > "$out/bm02.log" 2>&1
   if cmp -s <(tail -n +3 "$out/bm02.ses") <(tail -n +3 "$bm02ref"); then v=SAME; else v=DIFF; status=1; fi
-  leak=$(grep -o 'GC heap [0-9.]* MB' "$out/bm02.log" | tail -1)
-  # the no-GC build leaks: keep each run below 3.5 GB of address space
+  leak=$(grep -o 'still allocated after the run [0-9.]* MB' "$out/bm02.log" | tail -1)
+  # large boards still need a lot of memory (the job heap): keep the release runs below 3.5 GB
   case "$b" in *nogc*) lim=3500000;; *) lim=unlimited;; esac
   (ulimit -v "$lim"; FR_CPP_BIN="$bin" FR_JOBS="${FR_JOBS:-8}" "$root/tools/parity_sample.sh" "$out/sample" 12 60 > /dev/null 2>&1)
   counts=$(tail -n +2 "$out/sample/results.tsv" | cut -f2 | sort | uniq -c | awk '{printf "%s %s, ", $1, $2}')
   echo "$b: bm02 $v ($leak); sample: ${counts%, }"
-  # expected failures: Issue006 (RC 1), Issue179 (RC 139); no-GC: RC(134) = out of memory (leaks)
+  # expected failures: Issue006 (RC 1), Issue179 (RC 139); release (fr-nogc): RC(134) = out of
+  # memory under the 3.5 GB limit
   tail -n +2 "$out/sample/results.tsv" | awk -F'\t' -v b="$b" '$2 != "SAME" && $1 !~ /^Issue006-|^Issue179-/ && !(b ~ /nogc/ && $2 == "RC(134)") {print "  " $1 "\t" $2; bad=1} END {exit bad}' || status=1
 done
 exit $status

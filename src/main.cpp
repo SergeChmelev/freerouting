@@ -144,8 +144,8 @@ int runMain(int argc, char** argv) {
               output.c_str(), ses.size());
   if (std::getenv("FR_MEM_STATS") != nullptr) {
     jrt::drain_arena_pool();  // cached free chunks are not a leak
-    std::fprintf(stderr, "memory: arena peak %.1f MB, GC heap %.1f MB, disposed %zu objects / %.1f MB\n",
-                 jrt::Arena::peakBytes() / 1048576.0, jrt::gc_heap_size() / 1048576.0, jrt::disposed_count(),
+    std::fprintf(stderr, "memory: arena peak %.1f MB, heap %.1f MB, disposed %zu objects / %.1f MB\n",
+                 jrt::Arena::peakBytes() / 1048576.0, jrt::heap_live_bytes() / 1048576.0, jrt::disposed_count(),
                  jrt::disposed_bytes() / 1048576.0);
     std::fprintf(stderr, "memory: %s\n", fr::BasicBoard::graveyardStats().c_str());
     std::fprintf(stderr, "memory: board copies made %lld, freed %lld\n",
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
   }
   if (std::getenv("FR_MEM_STATS") != nullptr) {
     jrt::drain_arena_pool();
-    std::fprintf(stderr, "memory: still allocated after the run %.1f MB\n", jrt::gc_heap_size() / 1048576.0);
+    std::fprintf(stderr, "memory: still allocated after the run %.1f MB\n", jrt::heap_live_bytes() / 1048576.0);
   }
   return rc;
 }

@@ -678,6 +678,27 @@ objects that only unswept, unreachable undo nodes hold (the board dies); GMP mem
 `BigInteger` reps are job-heap blocks while a job runs (reps are shared by value copies, so never
 in an operation region). bm02: heap after the run 6.6 → 2.3 MB, LeakSanitizer 6.1 → 1.9 MB.
 
+### E10 — the collector is gone
+
+The Boehm backend is removed: `runtime/jrt/gc.cpp`, the bdw-gc dependency and the `FR_NO_GC` /
+`FR_STATIC_GC` options (CMake links GMP only: `FR_STATIC_GMP`), `JRT_NO_GC` (every
+`#if JRT_NO_GC` resolved to the collector-free side), `GcThreadScope`, `new_root` /
+`destroy_root`, `alloc_uncollectable` (now `jrt::heap_alloc` / `heap_free`), and the
+collector-based diagnostics (`FR_DISPOSE_CHECK` with `tests/dispose_check.cpp` and
+`tools/mem/dispose_referrers.sh`, `FR_REGION_CHECK`): AddressSanitizer builds (`FR_SANITIZE`,
+poisoned arena / region / job-heap memory) and LeakSanitizer replace them. `nogc.cpp` is
+`heap.cpp` (operator new = calloc, delete = free, job-heap blocks handed back to the job heap,
+GMP memory in the job heap during a job); the statistics are `jrt::heap_live_bytes` /
+`heap_peak_bytes` / `heap_alloc_count` (`FR_MEM_STATS` prints "heap" and "still allocated after
+the run"). Every build is collector-free: `~/build/freerouting-cpp` is the checked build,
+`~/build/fr-nogc` the release build (names kept for the tools).
+
+Lua module: the engine object is a plain `new` (no GC root needed), the engine thread owns a
+`jrt::JobRegion` for its lifetime (instead of registering with the collector) and frees a board
+the engine replaces (a new load, the routed board) and its board when it stops
+(`Engine::dropBoard`). `ui/test_engine.lua` (load, route, save, close) on Issue026: SES identical
+to Java.
+
 ## TODO (stage C/E)
 
 * kOp in main-board regions: done for the step slider, the insertion region of

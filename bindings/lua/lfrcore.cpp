@@ -59,9 +59,7 @@ int l_engine(lua_State* L) {
   luaL_setmetatable(L, kEngineMeta);
   std::string err;
   try {
-    // The engine lives in uncollectable memory: Lua's userdata (malloc) is not scanned by the
-    // collector, so the engine is a GC root of its own.
-    box->engine = jrt::new_root<frui::Engine>();
+    box->engine = new frui::Engine();
   } catch (const std::exception& e) {
     err = e.what();
   }
@@ -72,7 +70,7 @@ int l_engine(lua_State* L) {
 int l_close(lua_State* L) {
   auto* box = static_cast<EngineBox*>(luaL_checkudata(L, 1, kEngineMeta));
   if (box->engine != nullptr) {
-    jrt::destroy_root(box->engine);  // joins the engine thread
+    delete box->engine;  // joins the engine thread
     box->engine = nullptr;
   }
   return 0;
