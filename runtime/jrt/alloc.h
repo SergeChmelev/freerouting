@@ -468,17 +468,38 @@ inline void* op_alloc(std::size_t n) {
   return job != nullptr ? job->allocate(n) : ::operator new(n);
 }
 
-/** True if kOp would go to the job region now (no enclosing region takes it): a hot query may
- * then open a local operation region of its own so its temporaries do not pile up there. */
+/** True if kOp would go to the job region or the heap now (no enclosing operation region takes
+ * it): a hot query may then open a local operation region of its own so its temporaries do not
+ * pile up there. (The heap: HeapScope, or no job region at all (FR_NO_JOB_REGION diagnostics);
+ * nothing frees temporaries there either.) */
 inline bool ops_go_to_job() {
   GeomRegion* r = current_geom_region();
-  if (r == nullptr) return false;
+  if (r == nullptr) return true;
   GeomRegion* job = job_region();
   for (; r != nullptr; r = r->outer()) {
     if (r->takesOps()) return r == job;
   }
   return job != nullptr;  // an explicit target outside the active chain: op_alloc's fallback
 }
+
+/** A local operation region (taking kOp) opened only where the temporaries would otherwise go to
+ * the job region or the heap (ops_go_to_job): a query or walk that returns board objects or a
+ * value then frees its geometry at once. Inside an operation region nothing changes. What the
+ * caller keeps must be allocated before it (e.g. the result set: its nodes follow the set). */
+class OpRegionIfTopLevel {
+ public:
+  OpRegionIfTopLevel() {
+    if (ops_go_to_job()) {
+      work_.emplace();
+      work_->setTakesOps(true);
+    }
+  }
+  OpRegionIfTopLevel(const OpRegionIfTopLevel&) = delete;
+  OpRegionIfTopLevel& operator=(const OpRegionIfTopLevel&) = delete;
+
+ private:
+  std::optional<LocalGeomRegion> work_;
+};
 
 /** The arena (region, search or board arena) a just-constructed object `p` was allocated in, or
  * nullptr (heap, stack, static). Only valid in constructors: it checks the chunk the next

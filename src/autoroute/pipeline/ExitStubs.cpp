@@ -1507,6 +1507,7 @@ jrt::List<Point*>* ExitStubs::joints(Trace* trace) {
 int32_t ExitStubs::open(RoutingBoard* board, jrt::Collection<int32_t>* nets) {
   int32_t total = 0;
   for (int32_t net : *nets) {
+    jrt::OpRegionIfTopLevel work;  // Stage E (E13): a count: its temporaries die here
     total += (new (jrt::kOp) NetIncompletes(net, board->getConnectableItems(net), board))->count();
   }
   return total;

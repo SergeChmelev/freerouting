@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Allocation-site profile of heap blocks: resolves the dump a -DJRT_ALLOC_PROFILE=1 build
 # (runtime/jrt/heap.cpp, with -fno-omit-frame-pointer) writes at exit: the blocks still
-# allocated, by site. Normally run through tools/mem/live_profile.sh. Job-heap blocks are not
-# profiled: FR_NO_JOB_REGION=1 makes them heap blocks.
+# allocated, by site. Normally run through tools/mem/live_profile.sh (heap blocks) or
+# tools/mem/job_profile.sh (job-heap blocks, FR_JOB=1). FR_CPP_ARGS: extra router options.
 # usage: tools/mem/alloc_profile.sh <binary> <out-prefix> <fixture.dsn> [top]
 # writes <out-prefix>.raw (offset count bytes caller) and <out-prefix>.txt (resolved).
 set -euo pipefail
 bin="$1"; out="$2"; dsn="$3"; top="${4:-60}"
-FR_ALLOC_PROFILE="$out.raw" FR_ALLOC_PROFILE_FP="${FR_ALLOC_PROFILE_FP:-1}" "$bin" -q -de "$dsn" -do "$out.ses" > "$out.log" 2>&1
+# FR_JOB=1: the job heap's live blocks instead (sampled; runtime/jrt/jobheap.cpp, FR_JOB_PROFILE).
+dumpvar=FR_ALLOC_PROFILE; [ "${FR_JOB:-0}" = 1 ] && dumpvar=FR_JOB_PROFILE
+env "$dumpvar=$out.raw" FR_ALLOC_PROFILE_FP="${FR_ALLOC_PROFILE_FP:-1}" "$bin" -q ${FR_CPP_ARGS:-} -de "$dsn" -do "$out.ses" > "$out.log" 2>&1
 total=$(awk '{c+=$2; b+=$3} END {printf "%d allocations, %.1f MB", c, b/1048576}' "$out.raw")
 head -n 20000 "$out.raw" > "$out.top"
 { cut -d' ' -f1 "$out.top"; cut -d' ' -f4 "$out.top"; } | sort -u | grep -v '^0x0$' | addr2line -f -C -i -e "$bin" -a > "$out.sym"

@@ -257,6 +257,8 @@ bool ConductionArea::isDeadCopper() {
 }
 
 jrt::Set<Item*>* ConductionArea::getNormalContacts() {
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
+  jrt::OpRegionIfTopLevel work;  // Stage E (E13): the query geometry dies here, not in the job heap
   ShapeSearchTree* defaultTree = board->searchTreeManager->getDefaultTree();
   // A plane spans most of its layer, often in thousands of tiles: rather than one tree query per
   // tile, look up the tiles that contain the ends of the traces and the centres of the vias, and
@@ -264,7 +266,6 @@ jrt::Set<Item*>* ConductionArea::getNormalContacts() {
   jrt::DisposeOnExit overlaps(defaultTree->overlappingObjectsWithPointIn(
       this, getLayer(), [this](SearchTreeObject* object) { return this->contactPoints(object); },
       [this](SearchTreeObject* object) { return this->isPinCandidate(object); }));
-  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   if (overlaps.get() == nullptr) {
     // Not in the tree: query tile by tile.
     for (int32_t i = 0; i < tileShapeCount(); i++) {

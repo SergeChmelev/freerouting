@@ -10,6 +10,7 @@
 // One job heap per process at a time, used by one thread (the routing core is single-threaded,
 // see threads.h); other threads only ask job_heap_owns() for their own blocks (false).
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -140,8 +141,122 @@ void job_heap_begin() {
 JobHeapSharedScope::JobHeapSharedScope() { g_sharedDepth.fetch_add(1, std::memory_order_acq_rel); }
 JobHeapSharedScope::~JobHeapSharedScope() { g_sharedDepth.fetch_sub(1, std::memory_order_acq_rel); }
 
+#if JRT_ALLOC_PROFILE
+namespace {
+// Job-heap allocation profile (-DJRT_ALLOC_PROFILE=1, env FR_JOB_PROFILE=<file>): bytes allocated
+// in the job heap by site (the return address of job_heap_alloc: Arena::allocate and operator new
+// are inlined into the allocating function) and its caller FR_ALLOC_PROFILE_FP levels up. The job
+// heap blocks still live at exit, sampled (one block in 16 by address, scaled back).
+// Written at exit in the format of the heap's live dump (tools/mem/alloc_profile.sh resolves it).
+struct JobSite {
+  std::atomic<std::uintptr_t> addr{0};
+  std::atomic<std::uintptr_t> caller{0};
+  std::atomic<std::int64_t> count{0};
+  std::atomic<std::int64_t> bytes{0};
+};
+constexpr std::size_t kJobSites = 1u << 18;
+JobSite* job_sites() {
+  static JobSite* t = std::getenv("FR_JOB_PROFILE") != nullptr
+                          ? static_cast<JobSite*>(std::calloc(kJobSites, sizeof(JobSite)))
+                          : nullptr;
+  return t;
+}
+// Live bytes by site: one block in kSample (by address) is recorded with its site; its free
+// subtracts. The dump scales the sampled counts back.
+constexpr std::uintptr_t kSample = 16;
+inline bool sampled(const void* p) {
+  return ((reinterpret_cast<std::uintptr_t>(p) >> 4) * 0x9E3779B97F4A7C15ull >> 60) == 0;
+}
+std::unordered_map<const void*, std::uint32_t>& sampled_blocks() {
+  static auto* m = new std::unordered_map<const void*, std::uint32_t>();
+  return *m;
+}
+__attribute__((noinline)) std::uint32_t job_profile_slot(void* ra, void* frame) {
+  JobSite* t = job_sites();
+  if (t == nullptr || ra == nullptr) return 0;
+  static const int levels =
+      std::getenv("FR_ALLOC_PROFILE_FP") != nullptr ? std::atoi(std::getenv("FR_ALLOC_PROFILE_FP")) : 0;
+  std::uintptr_t c = 0;
+  if (levels > 0) {
+    void** fp = static_cast<void**>(frame);  // job_heap_alloc's frame: fp[1] is ra
+    for (int i = 0; i < levels && fp != nullptr; ++i) fp = static_cast<void**>(fp[0]);
+    c = fp != nullptr ? reinterpret_cast<std::uintptr_t>(fp[1]) : 0;
+  }
+  auto a = reinterpret_cast<std::uintptr_t>(ra) ^ (c << 1);
+  std::size_t h = (a * 0x9E3779B97F4A7C15ull) >> 46;
+  for (std::size_t i = 0; i < kJobSites; ++i) {
+    std::size_t k = (h + i) & (kJobSites - 1);
+    JobSite& s = t[k];
+    std::uintptr_t cur = s.addr.load(std::memory_order_relaxed);
+    if (cur == 0) {
+      std::uintptr_t expected = 0;
+      if (!s.addr.compare_exchange_strong(expected, a) && expected != a) continue;
+      cur = a;
+      s.caller.store(c, std::memory_order_relaxed);
+    }
+    if (cur == a) return static_cast<std::uint32_t>(k + 1);
+  }
+  return 0;
+}
+void job_profile_alloc(const void* p, std::uint32_t slot, std::size_t size) {  // under the heap lock
+  if (slot == 0 || !sampled(p)) return;
+  JobSite& s = job_sites()[slot - 1];
+  s.count.fetch_add(1, std::memory_order_relaxed);
+  s.bytes.fetch_add(static_cast<std::int64_t>(size), std::memory_order_relaxed);
+  sampled_blocks()[p] = slot;
+}
+void job_profile_free(const void* p, std::size_t size) {  // under the heap lock
+  if (job_sites() == nullptr || !sampled(p)) return;
+  auto& m = sampled_blocks();
+  auto it = m.find(p);
+  if (it == m.end()) return;
+  JobSite& s = job_sites()[it->second - 1];
+  s.count.fetch_sub(1, std::memory_order_relaxed);
+  s.bytes.fetch_sub(static_cast<std::int64_t>(size), std::memory_order_relaxed);
+  m.erase(it);
+}
+struct JobProfileDump {
+  ~JobProfileDump() {
+    JobSite* t = job_sites();
+    const char* path = std::getenv("FR_JOB_PROFILE");
+    if (t == nullptr || path == nullptr) return;
+    FILE* f = std::fopen(path, "w");
+    if (f == nullptr) return;
+    std::vector<std::size_t> idx;
+    for (std::size_t i = 0; i < kJobSites; ++i)
+      if (t[i].addr.load() != 0 && t[i].bytes.load() > 0) idx.push_back(i);
+    std::sort(idx.begin(), idx.end(), [t](std::size_t x, std::size_t y) { return t[x].bytes.load() > t[y].bytes.load(); });
+    for (std::size_t i : idx) {
+      auto c = t[i].caller.load();
+      auto a = t[i].addr.load() ^ (c << 1);
+      std::uintptr_t base = jrt::platform::module_base(reinterpret_cast<void*>(a));
+      std::fprintf(f, "%#lx %ld %ld %#lx\n", static_cast<unsigned long>(a - base - 1), static_cast<long>(t[i].count.load() * kSample),
+                   static_cast<long>(t[i].bytes.load() * kSample), static_cast<unsigned long>(c != 0 ? c - base - 1 : 0));
+    }
+    std::fclose(f);
+  }
+} job_profile_dump;
+}  // namespace
+#endif
+
+static void* job_heap_alloc_impl(std::size_t n, std::size_t& outSize);
+
 void* job_heap_alloc(std::size_t n) {
+#if JRT_ALLOC_PROFILE
+  std::uint32_t slot = job_profile_slot(__builtin_return_address(0), __builtin_frame_address(0));
+  std::size_t size = 0;
   MaybeLock lock;
+  void* p = job_heap_alloc_impl(n, size);
+  job_profile_alloc(p, slot, size);
+  return p;
+#else
+  std::size_t size = 0;
+  MaybeLock lock;
+  return job_heap_alloc_impl(n, size);
+#endif
+}
+
+static void* job_heap_alloc_impl(std::size_t n, std::size_t& outSize) {
   JobHeap& h = heap();
   if (n > kMaxSmall) {
     std::size_t size = (n + kPage - 1) & ~(kPage - 1);
@@ -152,6 +267,7 @@ void* job_heap_alloc(std::size_t n) {
     h.large.emplace(p, size);
     h.largeBytes += size;
     note(h, static_cast<std::ptrdiff_t>(size));
+    outSize = size;
     return p;
   }
   int c = class_of(n);
@@ -161,6 +277,7 @@ void* job_heap_alloc(std::size_t n) {
     h.freeList[c] = *static_cast<void**>(p);
     *static_cast<void**>(p) = nullptr;  // the rest was zeroed when it was freed
     note(h, static_cast<std::ptrdiff_t>(size));
+    outSize = size;
     return p;
   }
   if (static_cast<std::size_t>(h.bumpEnd[c] - h.bumpCur[c]) < size) {
@@ -174,6 +291,7 @@ void* job_heap_alloc(std::size_t n) {
   void* p = h.bumpCur[c];
   h.bumpCur[c] += size;
   note(h, static_cast<std::ptrdiff_t>(size));
+  outSize = size;
   return p;
 }
 
@@ -201,11 +319,17 @@ void job_heap_free(void* p) noexcept {
     h.large.erase(it);
     h.largeBytes -= size;
     note(h, -static_cast<std::ptrdiff_t>(size));
+#if JRT_ALLOC_PROFILE
+    job_profile_free(p, size);
+#endif
     jrt::platform::page_free(p);
     return;
   }
   int c = e - 1;
   std::size_t size = g_classSize[c];
+#if JRT_ALLOC_PROFILE
+  job_profile_free(p, size);
+#endif
   // Zeroed: allocations are zero-filled, and stale pointers must not keep anything reachable
   // for LeakSanitizer.
   std::memset(p, 0, size);

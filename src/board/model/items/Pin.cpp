@@ -701,6 +701,7 @@ jrt::Set<Item*>* Pin::getNormalContacts() {
   if (board == nullptr || getComponentId() == 0) {
     return result;
   }
+  jrt::OpRegionIfTopLevel work;  // Stage E (E13): the query geometry dies here, not in the job heap
   jrt::DisposeOnExit pins(copperOverlappingPins([this](Pin* o) { return o->sharesNet(this); }));
   for (Pin* other : *pins) {
     result->add(other);

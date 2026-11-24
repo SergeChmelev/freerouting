@@ -186,6 +186,8 @@ int32_t NetRoutingLedger::countNet(int32_t netNumber) {
   if (netNumber < 1 || netNumber >= itemsByNet->length) {
     return 0;
   }
+  // Stage E (E13): a count: the triangulation and the contact walks die here.
+  jrt::OpRegionIfTopLevel work;
   return (new (jrt::kOp) NetIncompletes(netNumber, new (jrt::kOp) jrt::ArrayList<Item*>((*itemsByNet)[netNumber]),
                              board))
       ->count();

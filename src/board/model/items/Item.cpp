@@ -290,6 +290,14 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
   if (this->board == nullptr) {
     return result;
   }
+  // Stage E (E13): outside an operation region the shape tests run in a local region; only the
+  // violations (with a copy of their shape) are made in the caller's domain (see the add below).
+  jrt::GeomRegion* callerDomain = jrt::current_geom_region();
+  std::optional<jrt::LocalGeomRegion> work;
+  if (jrt::ops_go_to_job()) {
+    work.emplace();
+    work->setTakesOps(true);
+  }
   // Both candidate selection and the narrow phase need physical shapes. Default-tree
   // shapes may already include compensation; expanding those again creates false DRC.
   ShapeSearchTree* drcTree = board->searchTreeManager->getUncompensatedTree();
@@ -539,8 +547,14 @@ jrt::Collection<ClearanceViolation*>* Item::clearanceViolations() {
               smallestClearance = actualClearance;
             }
 
+            TileShape* violationShape = intersection;
+            std::optional<jrt::GeomTarget> toCaller;
+            if (work.has_value()) {
+              toCaller.emplace(callerDomain);
+              violationShape = geomcopy::tileShape(intersection, *work);
+            }
             ClearanceViolation* currentViolation =
-                new (jrt::kOp) ClearanceViolation(this, currentItem, intersection, shapeLayer(i),
+                new (jrt::kOp) ClearanceViolation(this, currentItem, violationShape, shapeLayer(i),
                                        minimumClearance, actualClearance);
             result->add(currentViolation);
           }
@@ -662,6 +676,7 @@ jrt::Set<Item*>* Item::getConnectedSet(int32_t netNumber, bool stopAtPlane) {
     return result;
   }
   result->add(this);
+  jrt::OpRegionIfTopLevel work;  // Stage E (E13): the walk's temporaries die here
   getConnectedSetRecu(result, netNumber, stopAtPlane);
   ConductionArea::addLaterReachedIslands(result, netNumber, stopAtPlane);
   return result;

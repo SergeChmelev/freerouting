@@ -56,10 +56,10 @@ CompleteExpansionRoom* SortedRoomNeighbours::complete(ExpansionRoom* room, Autor
 }
 
 SortedRoomNeighbours_CalculationMode SortedRoomNeighbours::selectCalculationMode(ShapeSearchTree* searchTree) {
-  if (dynamic_cast<ShapeSearchTree90Degree*>(searchTree) != nullptr) {
+  if (jrt::fast_cast<ShapeSearchTree90Degree>(searchTree) != nullptr) {
     return SortedRoomNeighbours_CalculationMode::ORTHOGONAL;
   }
-  if (dynamic_cast<ShapeSearchTree45Degree*>(searchTree) != nullptr) {
+  if (jrt::fast_cast<ShapeSearchTree45Degree>(searchTree) != nullptr) {
     return SortedRoomNeighbours_CalculationMode::DEGREE_45;
   }
   return SortedRoomNeighbours_CalculationMode::ANY_ANGLE;

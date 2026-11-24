@@ -221,10 +221,11 @@ bool DrillItem::containsCopper(Point* point, int32_t layer) {
 }
 
 jrt::Set<Item*>* DrillItem::getNormalContacts() {
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
+  jrt::OpRegionIfTopLevel work;  // Stage E (E13): the query geometry dies here, not in the job heap
   Point* drillCenter = this->getCenter();
   TileShape* searchShape = TileShape::getInstance(drillCenter);
   jrt::DisposeOnExit overlaps(board->overlappingObjects(searchShape, -1));
-  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   // A plane is a contact where it overlaps the copper of a pin, its centre lying in the plane or
   // not: look up the planes on each layer by the shape of the pin there.
   for (int32_t layer = firstLayer(); jrt::fast_cast<Pin>(this) != nullptr && layer <= lastLayer();

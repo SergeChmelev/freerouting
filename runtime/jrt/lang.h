@@ -60,8 +60,8 @@ std::string className(Object* o);  // demangled dynamic class name, without name
 // Thread-safe without locks: each cache entry packs the vptr and the offset into ONE 64-bit word
 // (vptr << 16 | offset as 16 bits), read and written with relaxed atomics, so a reader never sees
 // a vptr with another type's offset. Entries are deterministic (the same vptr always gives the
-// same offset), so racing writers store the same value. Offsets that do not fit in 16 bits are
-// not cached (dynamic_cast every time).
+// same offset), so racing writers store the same value (failing casts too, as kFail). Offsets
+// that do not fit in 16 bits are not cached (dynamic_cast every time).
 // ---------------------------------------------------------------------------------------------
 namespace fast_cast_detail {
 constexpr int64_t kFail = -32768;  // packed "the cast fails"
@@ -69,8 +69,10 @@ constexpr int64_t kFail = -32768;  // packed "the cast fails"
 inline uint64_t pack(const void* vptr, int64_t off) {
   return (reinterpret_cast<uint64_t>(vptr) << 16) | (static_cast<uint64_t>(off) & 0xffffu);
 }
+// kFail packs too: a failing cast (an inner node tested for a leaf, an item for a trace) is as
+// common as a succeeding one and must not fall back to dynamic_cast every time.
 inline bool packable(const void* vptr, int64_t off) {
-  return (reinterpret_cast<uint64_t>(vptr) >> 47) == 0 && off >= -32767 && off <= 32767;
+  return (reinterpret_cast<uint64_t>(vptr) >> 47) == 0 && off >= kFail && off <= 32767;
 }
 inline bool matches(uint64_t entry, const void* vptr) {
   return entry != 0 && (entry >> 16) == reinterpret_cast<uint64_t>(vptr);
@@ -105,6 +107,7 @@ inline T* fast_cast_slow(U* p, const void* vptr, FastCastCache<T, U>& cache, uin
     if (e == 0) {
       T* r = dynamic_cast<T*>(p);
       int64_t off = r ? reinterpret_cast<char*>(r) - reinterpret_cast<char*>(p) : d::kFail;
+      if (r != nullptr && off == d::kFail) return r;  // a real offset that reads as "fails"
       if (!d::packable(vptr, off)) return r;
       packed = d::pack(vptr, off);
       uint64_t expected = 0;

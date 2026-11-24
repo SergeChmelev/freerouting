@@ -60,6 +60,7 @@ int32_t DanglingCopper::open(RoutingBoard* board, jrt::Array<int32_t>* nets) {
   int32_t count = 0;
   for (int32_t i = 0; i < nets->length; i++) {
     int32_t net = (*nets)[i];
+    jrt::OpRegionIfTopLevel work;  // Stage E (E13): a count: its temporaries die here
     count += (new (jrt::kOp) NetIncompletes(net, board->getConnectableItems(net), board))->count();
   }
   return count;

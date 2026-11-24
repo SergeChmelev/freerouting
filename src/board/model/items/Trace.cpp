@@ -169,6 +169,7 @@ Point* Trace::normalContactPoint(Trace* other) {
 
 jrt::Set<Item*>* Trace::getNormalContacts() {
   jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
+  jrt::OpRegionIfTopLevel work;  // Stage E (E13): the query geometry dies here, not in the job heap
   Point* startCorner = this->firstCorner();
   if (startCorner != nullptr) {
     jrt::DisposeOnExit contacts(getNormalContacts(startCorner, false));
@@ -220,9 +221,10 @@ jrt::Set<Item*>* Trace::getNormalContacts(Point* point, bool ignoreNet) {
       !(point->equals(this->firstCorner()) || point->equals(this->lastCorner()))) {
     return new (jrt::kOp) jrt::TreeSet<Item*>();
   }
+  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
+  jrt::OpRegionIfTopLevel work;  // Stage E (E13): the query geometry dies here, not in the job heap
   TileShape* searchShape = TileShape::getInstance(point);
   jrt::DisposeOnExit overlaps(board->overlappingObjects(searchShape, this->layer));
-  jrt::Set<Item*>* result = new (jrt::kOp) jrt::TreeSet<Item*>();
   for (SearchTreeObject* currentObject : *overlaps) {
     auto* currentItem = jrt::fast_cast<Item>(currentObject);
     if (currentItem == nullptr) {

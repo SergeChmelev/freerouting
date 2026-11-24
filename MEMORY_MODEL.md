@@ -841,14 +841,59 @@ Issue110 `-mt 4` (profiling build): heap after the run 204 -> 73 MB. ASan clean 
 Issue187 (19 threads), Issue690, Issue1161, Fanout-blind-via-plane-garland; LeakSanitizer
 bm02 1.1 -> 0.6 MB, Issue187 5.8 -> 3.4 MB.
 
+### E13 — the job heap's diffuse temporaries; failing fast_casts cached
+
+**Job-heap profile.** The heap's live profile cannot see job-heap blocks, and
+`FR_NO_JOB_REGION=1` distorts the picture (the local regions keyed on `ops_go_to_job` and the
+caches of `ItemCacheScope` then go elsewhere). A profiling build (`-DJRT_ALLOC_PROFILE=1`) now
+records the job heap itself: `FR_JOB_PROFILE=<file>` samples one block in 16 by address with its
+site (the return address of `job_heap_alloc`, into which `Arena::allocate` and operator new are
+inlined) and its caller `FR_ALLOC_PROFILE_FP` levels up; frees subtract, the dump at exit is the
+live job heap. `tools/mem/job_profile.sh` resolves it (FP=3-5 find the top-level operation).
+
+On Issue214 (job heap 2.7 GB at exit, peak RSS 4.0 GB) it showed temporaries of operations that
+run outside any operation region, mostly queries whose search shapes (and the lazily cached
+simplex of those octagons, in their domain) were made in the job heap:
+
+* **Contact queries** (`Trace` / `DrillItem` / `Pin` / `ConductionArea::getNormalContacts`, the
+  connected-set walk `Item::getConnectedSet`): the result set is made first, in the caller's
+  domain (its nodes follow it), then `jrt::OpRegionIfTopLevel` opens a local region taking kOp
+  where kOp would otherwise reach the job heap or the heap (inside an operation region nothing
+  changes).
+* **Incomplete counts** (`NetRoutingLedger::countNet`, `DanglingCopper::open`,
+  `ExitStubs::open`): the triangulation and its walks die in a local region (a count escapes).
+* **Clearance checks** (`Item::clearanceViolations`, from the DRC, the batch loop and the
+  fallback runner): the shape tests run in a local region; each violation is made in the
+  caller's domain with a copy of its shape (`geomcopy::tileShape`).
+* `ops_go_to_job` is also true without any current region (HeapScope, or no job region): nothing
+  frees temporaries on the heap either.
+
+**fast_cast.** A failing cast was never cached (`kFail` did not pass `packable`), so every
+`fast_cast` that returns nullptr (an inner tree node tested for a leaf, an item tested for a trace)
+ran libstdc++'s `dynamic_cast` on the virtual-inheritance hierarchy: about 8-10% of the time in
+the maze search. Failing casts are cached like the others now; the two direct `dynamic_cast`s in
+hot paths (`ShapeSearchTree::overlappingObjects`, `SortedRoomNeighbours`) became `fast_cast`s.
+
+Results (release, SES identical to Java on all):
+
+| | before (E12) | after (E13) |
+|---|---|---|
+| Issue214 `-mt 1`: peak RSS | 3957 MB | 1911 MB |
+| Issue214 `-mt 1`: job heap at exit | 2714 MB | 939 MB |
+| bm01 `-mt 4`: peak RSS / job heap at exit | 2699 / 424 MB | 2753 / 319 MB |
+| bm02 `-mt 1` (LTO build, idle machine, mean of 3) | 3.67 s | 2.87 s |
+| Issue187 `-mt 1` | 51.8 s | 37.4 s |
+| Issue110 `-mt 1` | 196 s | 152 s |
+
+bm01's peak is the optimizer's search-region spikes (E12 TODO), not the job heap.
+
 ## TODO (after E10)
 
-* **Peak memory of large boards** (after E11): the job heap still holds 0.5-2.7 GB on the large
-  boards at the end (Issue214 2.7 GB, Issue269 1.7 GB). The live profile there is diffuse:
-  pin / tree shapes of board copies (`PlacementTransform::shape` under `afterDeserialize`,
-  legitimately cached), contact walks (`Trace::getNormalContacts`, `cachedNormalContacts`,
-  `NetIncompletes`, `BoardStatistics`) whose own collections are not freed. Next levers: operation
-  regions around `NetIncompletes` and the contact walks of the DRC / statistics passes.
+* **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at
+  exit (`tools/mem/job_profile.sh`): tree-shape geometry of inserted items (`ShapeTree::insert`,
+  `calculateTreeShapes`, `Simplex::cornerApprox` caches), the board outline's slices, the
+  incompletes of the DRC (`DesignRulesChecker::calculateAllIncompletes` keeps them), airlines of
+  the batch loop.
 * **LeakSanitizer residue** (bm02, after E12: 0.6 MB unreachable): small job-level objects;
   `tools/mem/asan_run.sh` lists them by site and caller (`FR_ASAN_CTX=20` for deeper stacks).
   With optimizer threads (Issue110 `-mt 4`, 73 MB still allocated at exit): the worker threads'

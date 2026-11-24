@@ -366,7 +366,7 @@ void ShapeSearchTree::overlappingObjects(ConvexShape* shape, int32_t layer,
                                          jrt::Set<SearchTreeObject*>* obstacles) {
   // A naturally ordered set sorts the objects itself: the entries need not come in leaf order.
   // Java: `obstacles instanceof SortedSet && comparator() == null`.
-  auto* sortedObstacles = dynamic_cast<jrt::TreeSet<SearchTreeObject*>*>(obstacles);
+  auto* sortedObstacles = jrt::fast_cast<jrt::TreeSet<SearchTreeObject*>>(obstacles);
   bool inLeafOrder = !(sortedObstacles != nullptr && sortedObstacles->hasNaturalOrdering());
   // PORT NOTE: the kept leaves are added directly instead of through a temporary list of tree
   // entries (same objects, same order).
