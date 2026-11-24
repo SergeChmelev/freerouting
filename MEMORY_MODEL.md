@@ -760,6 +760,38 @@ Peak RSS (release build, `/usr/bin/time`, one board at a time; SES identical to 
 | Issue214-freerouting | crash (5.5 GB) | 3981 MB |
 | Issue269-z10_module | crash; out of memory at 6-7 GB | 2387 MB |
 
+### Speed after the migration (2026-11-24, `tools/bench_speed.sh`)
+
+Release builds with the same flags (Release, `-DJRT_CHECKED=0`, LTO): `gc-port-baseline` (Boehm,
+single-threaded optimizer) and main bbb4952 (no collector; `-mt 1` and `-mt 4` optimizer
+threads), Java through `FreeroutingHeadlessEngine` with its default threads (cores - 1 = 19) and
+with one optimizer thread. One process at a time on an otherwise idle machine (WSL, 20 cores);
+wall seconds / peak RSS MB; the SES of every C++ run and of Java 1T equals Java's. bm02 is the
+mean of three runs.
+
+| board | Java (19 thr.) | Java 1T | baseline | main 1T | main mt4 |
+|---|---|---|---|---|---|
+| bm02 | 7.2 / 1125 | 11.2 / 781 | 9.1 / 291 | **3.9** / 116 | **2.0** / 200 |
+| Issue187-processor.Z80 | 59 / 2943 | 56 / 796 | 254 / 295 | 56 / 1364 | 54 / 1542 |
+| Issue022-AutoRouter_interrupted | 49 / 2493 | 62 / 912 | 70 / 371 | 48 / 1470 | 45 / 2201 |
+| Issue214-freerouting | 54 / 2066 | 56 / 870 | 152 / 743 | 100 / 3976 | 97 / 4149 |
+| Issue110-RelayModule | 47 / 2536 | 116 / 1046 | 334 / 304 | 215 / 1278 | 113 / 2303 |
+| Issue178-KeebMaker_Sofle_Choc | 62 / 3862 | 196 / 1534 | 683 / 819 | 685 / 1986 | 275 / 3060 |
+| DAC2020 bm01 | 269 / 4678 | 652 / 1531 | 1837 / 370 | 1128 / 6266 | 529 / **14163** |
+
+* main is faster than the baseline on every board but Issue178 (equal). There the baseline spends
+  about 55% of its time in the collector (`GC_mark_from`, `GC_header_cache_miss`, ...; perf), and
+  main has no collector cost, yet takes as long: main's own code is slower on that board.
+  Its profile is geometry and tree search (`MinAreaTree::collectOverlapsUnlocked` 7%,
+  `BigIntAux::binaryGcd` 7%, `completeShape`, `Simplex`, `Line`); the memory model's own share
+  is small (`is_heap_block` 1.4%, `dynamic_cast` about 6%, malloc / rb-tree in libc and
+  libstdc++ about 18%).
+* Against Java with one optimizer thread, main is faster on the small and middle boards and
+  1.7-3.5x slower on the large ones (Issue214, Issue110, Issue178, bm01): single-threaded code,
+  not the thread count.
+* The peak memory of main is above the baseline's (the job heap, see E11) and was far above it
+  with optimizer threads: 14 GB on bm01 with four threads (see E12).
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E11): the job heap still holds 0.5-2.7 GB on the large
@@ -772,8 +804,9 @@ Peak RSS (release build, `/usr/bin/time`, one board at a time; SES identical to 
   temporary trace pieces get their `ItemSearchTreesInfo` on the heap (they should not get a
   keeper-tracked info at all), plus small job-level objects; `tools/mem/asan_run.sh` lists them
   by site and caller (`FR_ASAN_CTX=20` for deeper stacks).
-* **Performance after the migration:** compare with `gc-port-baseline` (domain lookups,
-  `DomainScope`, `keep`, chunk map, job-heap page lookups in `operator delete`).
+* **Performance after the migration** (measured, see "Speed after the migration"): faster than
+  `gc-port-baseline` everywhere but Issue178 (equal); the large boards are 1.7-3.5x slower than
+  Java with one thread, in geometry and tree search rather than in the memory model.
 * Not freed yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with
   `strict_drc`), the `InteractiveSession`
   of the Lua engine, job-level objects of `route()` (job, pipeline, settings merger: freed with
