@@ -874,6 +874,11 @@ ran libstdc++'s `dynamic_cast` on the virtual-inheritance hierarchy: about 8-10%
 the maze search. Failing casts are cached like the others now; the two direct `dynamic_cast`s in
 hot paths (`ShapeSearchTree::overlappingObjects`, `SortedRoomNeighbours`) became `fast_cast`s.
 
+**Arena lookup of dispose.** `is_heap_block` (every `jrt::dispose`) took a global mutex and
+searched a map of the live arena chunks. A table of 64 KB pages now answers lock-free for pages
+that lie wholly inside a chunk or touch none; only a chunk's two edge pages still need the map.
+bm02 `-mt 1` 2.84 -> 2.75 s, `-mt 4` 1.55 -> 1.40 s; Issue187 `-mt 4` 37.8 -> 36.0 s.
+
 Results (release, SES identical to Java on all):
 
 | | before (E12) | after (E13) |
