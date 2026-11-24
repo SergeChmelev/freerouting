@@ -468,6 +468,15 @@ collections on the main board (`TraceShover::springOver*`, `insertForcedTracePol
 `StepSlider`), board copies outside the candidate arena (`copyMapped`, `copyAsDeserialized`),
 item caches and query results.
 
+bm02 at bee104d: **113 MB** still allocated at exit (2.54 M blocks, 177 board copies made / 176
+freed, 42k tree shapes freed by the graveyard). No site above 5 MB any more: pin shapes of
+board copies (`PlacementTransform::shape/padPoint/direction`, item caches on copies), trace
+offset shapes (`Line::translate`, `IntOctagon::borderLine`, `offsetShapes`), and kOp/kGeom of
+operations that run outside any region (`BoardStatistics` fanout maps 3 MB,
+`NetRoutingLedger::buildItemLists` 3 MB, DRC, `ShoveCheckCache::put`). The final board and the
+DSN board are still alive at exit too (the result keeps the board). A LeakSanitizer-clean exit
+needs an owner for item geometry first (copies share it with their source; see C4 and E8).
+
 ### E6 — main-board operations in local regions; DSN scanners owned
 
 * Geometry-only local regions around `RoutingBoard::optChangedArea` (pull-tight), `fanout` and
