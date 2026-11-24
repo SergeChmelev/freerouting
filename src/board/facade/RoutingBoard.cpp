@@ -171,6 +171,7 @@ void RoutingBoard::optChangedArea(jrt::Array<int32_t>* onlyNetNoArr, IntOctagon*
   // PORT NOTE (stage E): temporary geometry of this operation lives in a local region (items
   // copy what they store out of it, caches use their holder's domain).
   jrt::LocalGeomRegion region;
+  region.setTakesOps(true);  // returns nothing: its temporaries die with it
   getOperations()->optChangedArea(onlyNetNoArr, clipShape, accuracy, traceCosts, stoppableThread,
                                   timeLimit, nullptr, 0);
 }
@@ -183,6 +184,7 @@ void RoutingBoard::optChangedArea(jrt::Array<int32_t>* onlyNetNoArr, IntOctagon*
   // PORT NOTE (stage E): temporary geometry of this operation lives in a local region (items
   // copy what they store out of it, caches use their holder's domain).
   jrt::LocalGeomRegion region;
+  region.setTakesOps(true);  // returns nothing: its temporaries die with it
   getOperations()->optChangedArea(onlyNetNoArr, clipShape, accuracy, traceCosts, stoppableThread,
                                   timeLimit, keepPoint, keepPointLayer);
 }

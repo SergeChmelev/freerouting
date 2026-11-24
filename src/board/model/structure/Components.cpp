@@ -73,7 +73,7 @@ Component* Components::addPrecise(const std::string& name, FloatPoint* exactLoca
                                   double rotationInDegree, bool onFront, Package* packageFront,
                                   Package* packageBack, bool positionFixed,
                                   const std::optional<std::string>& partNumber) {
-  auto* newComponent = new (jrt::kOp) Component(name, exactLocation, rotationInDegree, onFront, packageFront,
+  auto* newComponent = new (jrt::kBoard) Component(name, exactLocation, rotationInDegree, onFront, packageFront,
                                      packageBack, componentArr->size() + 1, positionFixed,
                                      partNumber);
   componentArr->add(newComponent);

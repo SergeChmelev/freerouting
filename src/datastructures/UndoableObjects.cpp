@@ -94,7 +94,7 @@ UndoableObjects* UndoableObjects::copyMapped(
     result->objects->put(mapObject(entry->getKey()), nodeCopy);
   }
   for (auto* deleteList : *this->deletedObjectsStack) {
-    jrt::Collection<UONode*>* listCopy = new (jrt::kOp) jrt::LinkedList<UONode*>();
+    jrt::Collection<UONode*>* listCopy = new (jrt::kBoard) jrt::LinkedList<UONode*>();
     for (auto it = deleteList->iterator(); it->hasNext();) {
       listCopy->add(getCopy(it->next()));
     }
@@ -301,7 +301,7 @@ bool UndoableObjects::delete_(UndoableObjects_Storable* object) {
 void UndoableObjects::generateSnapshot() {
   maybeSweepNodes();
   disableRedo();
-  jrt::Collection<UONode*>* currentDeletedObjectsList = new (jrt::kOp) jrt::LinkedList<UONode*>();
+  jrt::Collection<UONode*>* currentDeletedObjectsList = new (jrt::kBoard) jrt::LinkedList<UONode*>();  // board data (an insert region may be active)
   deletedObjectsStack->add(currentDeletedObjectsList);
   ++stackLevel;
   ++version;

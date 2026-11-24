@@ -252,6 +252,7 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   // Stage E: the geometry of ripping and inserting (pull-tight, shove, normalization) is
   // temporary; board items copy what they store out of this region (geomcopy::keep).
   jrt::LocalGeomRegion insertRegion;
+  insertRegion.setTakesOps(true);  // and its per-operation temporaries
   // Delete the ripped connections while observers see the insert that follows.
   bool observersActivated = !this->board->observersActive();
   if (observersActivated) {
@@ -264,6 +265,7 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   if (observersActivated) {
     this->board->endNotifyObservers();
   }
+  jrt::HeapScope resultOnHeap;  // the result outlives the insertion region
   if (insertFoundConnectionAlgo == nullptr) {
     return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::FAILED,

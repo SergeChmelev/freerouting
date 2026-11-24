@@ -88,8 +88,10 @@ class ShapeTraceEntries : public virtual jrt::Object {
   /**
    * Returns the next substitute trace piece (the pieces of the traces in the shape, to be shoved),
    * or null when there are no more.
+   * PORT NOTE (stage E): `forInsert` (the caller inserts the piece into the board) allocates it as
+   * board data; otherwise it is an operation temporary.
    */
-  virtual PolylineTrace* nextSubstituteTracePiece();
+  virtual PolylineTrace* nextSubstituteTracePiece(bool forInsert = false);
 
   virtual int32_t stackDepth();
 

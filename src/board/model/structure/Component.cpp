@@ -158,7 +158,7 @@ int32_t Component::compareTo(jrt::Object* other) {
 }
 
 Component* Component::clone() {
-  auto* result = new (jrt::kOp) Component(name, exactLocation, rotationInDegree, onFront, libPackageFront,
+  auto* result = new (jrt::kBoard) Component(name, exactLocation, rotationInDegree, onFront, libPackageFront,
                                libPackageBack, id, positionFixed, partNumber);
   result->logicalPart = this->logicalPart;
   return result;

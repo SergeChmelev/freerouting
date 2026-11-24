@@ -386,7 +386,7 @@ bool ForcedPadRouter::forcedPad(TileShape* padShape, ShapeEntrySide* fromSide, i
   bool isOrthogonalMode = jrt::fast_cast<IntBox>(padShape) != nullptr;
   TraceShover* shoveTraceAlgo = new (jrt::kOp) TraceShover(this->board);
   for (;;) {
-    PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
+    PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece(true);
     if (currentSubstituteTrace == nullptr) {
       break;
     }

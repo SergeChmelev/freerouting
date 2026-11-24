@@ -483,7 +483,7 @@ bool TraceShover::insert(TileShape* traceShape, ShapeEntrySide* fromSide, int32_
   shapeEntries->cutoutTraces(obstacles);
   bool isOrthogonalMode = jrt::fast_cast<IntBox>(traceShape) != nullptr;
   for (;;) {
-    PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece();
+    PolylineTrace* currentSubstituteTrace = shapeEntries->nextSubstituteTracePiece(true);
     if (currentSubstituteTrace == nullptr) {
       break;
     }

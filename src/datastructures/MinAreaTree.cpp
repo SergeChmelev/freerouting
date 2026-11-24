@@ -15,10 +15,13 @@ namespace fr {
 // ---------------------------------------------------------------------------------------------
 
 MinAreaTree_ThreadScratchStacks::MinAreaTree_ThreadScratchStacks()
-    : stacks(new (jrt::kOp) jrt::ArrayList<ArrayStack<ShapeTree_TreeNode*>*>(2)) {}
+    : stacks(new (jrt::Like{this}) jrt::ArrayList<ArrayStack<ShapeTree_TreeNode*>*>(2)) {}
 
 ArrayStack<ShapeTree_TreeNode*>* MinAreaTree_ThreadScratchStacks::acquire() {
   if (activeDepth == stacks->size()) {
+    // PORT NOTE (stage E): the scratch stacks are a process-wide cache: on the heap, not in the
+    // operation region that first needs one.
+    jrt::HeapScope heap;
     stacks->add(new (jrt::kOp) ArrayStack<ShapeTree_TreeNode*>(INITIAL_STACK_CAPACITY));
   }
   ArrayStack<ShapeTree_TreeNode*>* stack = stacks->get(activeDepth++);

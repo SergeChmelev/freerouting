@@ -214,7 +214,7 @@ bool ShapeTraceEntries::overlapsCopper(Pin* pin) {
   return false;
 }
 
-PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece() {
+PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece(bool forInsert) {
   jrt::Array<ShapeTraceEntries_EntryPoint*>* entries = popPiece();
   if (entries == nullptr) {
     return nullptr;
@@ -262,11 +262,16 @@ PolylineTrace* ShapeTraceEntries::nextSubstituteTracePiece() {
   Polyline* piecePolyline = new (jrt::kGeom) Polyline(pieceLines);
   if (piecePolyline->isEmpty()) {
     // no valid trace piece, return the next one
-    return nextSubstituteTracePiece();
+    return nextSubstituteTracePiece(forInsert);
   }
-  return new (jrt::kOp) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(),
-                           currentTrace->netNumbers, currentTrace->clearanceClassIndex(), 0, 0,
-                           FixedState::UNFIXED, this->board);
+  auto* netNos = currentTrace->netNumbers;
+  int32_t clClass = currentTrace->clearanceClassIndex();
+  if (forInsert) {
+    return new (jrt::kBoardData) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(), netNos,
+                                               clClass, 0, 0, FixedState::UNFIXED, this->board);
+  }
+  return new (jrt::kOp) PolylineTrace(piecePolyline, this->layer, currentTrace->getHalfWidth(), netNos, clClass, 0,
+                                      0, FixedState::UNFIXED, this->board);
 }
 
 int32_t ShapeTraceEntries::stackDepth() { return maxStackLevel; }

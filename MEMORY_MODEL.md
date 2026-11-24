@@ -614,16 +614,23 @@ make the board SAME again. The E2b sample (checked) still had it SAME, so it cam
   but only the shape *objects*: a `Simplex` does not own its line array and lines (offset shapes
   share lines), so most of a tree shape's memory is not freed yet. Next: tree shapes of a trace
   in a region of their own (released with the last array / leaf referring to it).
-* (b) dropped search trees: not done yet.
+* (b) dropped search trees: nothing to do in the headless port. `clearanceValueChanged`,
+  `clearanceClassRemoved`, `resetCompensatedTrees` and `setClearanceCompensationUsed` have no
+  callers (interactive rule editing only); the trees live until `disposeTrees`.
 
 ## TODO (stage C/E)
 
-* kOp in main-board regions: enabling it for the step slider broke 11/40 smoke boards. The
-  escape check cannot name the holders any more: dead intermediate rooms of `completeShape`
-  (kOp, now in the search region's chunks) keep pointers into released local regions, so every
-  local region shows escapes from live chunks (stale, never read). Needs a check that ignores
-  dead objects in live arena chunks, or reading the main-board stores (caches, ledgers, item
-  fields) one by one.
+* kOp in main-board regions: done for the step slider, the insertion region of
+  `autorouteConnection`, both `RoutingBoard::optChangedArea` regions and the profile dump
+  (bm02 no-GC leak 132 → 122 MB). The escape check cannot name the holders here (dead
+  intermediate rooms of `completeShape` in live search-region chunks point into every released
+  local region), so the escapes were found with the ASan build (poisoned region memory) and,
+  for the one that only showed as a corrupt tree leaf, a temporary trap in `ShapeTree::insert`
+  printing the stack when the inserted object lies in a local region. Board data that was
+  allocated as kOp: the substitute trace pieces the shove inserts
+  (`nextSubstituteTracePiece(forInsert)`), the delete lists of `UndoableObjects`
+  (`generateSnapshot`, `copyMapped`), `Component` versions (`clone`, `addPrecise`), the scratch
+  stacks of `MinAreaTree` and `ArrayStack` storage (owner's domain).
 
 * Items: deferred disposal of removed items and their geometry (callers keep using an item after
   `removeItem`; caches refer to items).
