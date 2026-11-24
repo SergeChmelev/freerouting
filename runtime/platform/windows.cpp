@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
 namespace jrt::platform {
 
@@ -58,6 +59,9 @@ std::size_t heap_usable_size(void* p) { return header_of(p)->size; }
 void* page_alloc(std::size_t align, std::size_t size) { return _aligned_malloc(size, align); }
 
 void page_free(void* p) { _aligned_free(p); }
+
+bool utc_time(std::time_t t, std::tm* out) { return gmtime_s(out, &t) == 0; }
+bool local_time(std::time_t t, std::tm* out) { return localtime_s(out, &t) == 0; }
 
 void limit_malloc_arenas(int) {}
 

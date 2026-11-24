@@ -19,11 +19,38 @@ namespace jrt {
 // ---------------------------------------------------------------------------------------------
 namespace {
 
+// PORT NOTE (Windows): GMP's *_si / *_ui functions take long, which has 32 bits on Windows (LLP64):
+// int64 values go through these helpers (limbs are 64 bits on every supported target).
+static_assert(GMP_LIMB_BITS == 64, "64-bit GMP limbs expected");
+
+void mpzSetI64(mpz_ptr z, int64_t v) {
+  uint64_t magnitude = v < 0 ? 0 - static_cast<uint64_t>(v) : static_cast<uint64_t>(v);
+  mpz_set_ui(z, 0);
+  if (magnitude != 0) mpz_import(z, 1, -1, sizeof magnitude, 0, 0, &magnitude);
+  if (v < 0) mpz_neg(z, z);
+}
+
+// The low 64 bits of |z| (mpz_get_ui on LP64).
+uint64_t mpzLowU64(mpz_srcptr z) { return static_cast<uint64_t>(mpz_getlimbn(z, 0)); }
+
+// z fits in int64: |z| < 2^63, or z == -2^63.
+bool mpzFitsI64(mpz_srcptr z) {
+  std::size_t bits = mpz_sizeinbase(z, 2);
+  if (mpz_sgn(z) == 0 || bits <= 63) return true;
+  return bits == 64 && mpz_sgn(z) < 0 && mpz_scan1(z, 0) == 63;
+}
+
+int64_t mpzGetI64(mpz_srcptr z) {
+  uint64_t magnitude = mpzLowU64(z);
+  return static_cast<int64_t>(mpz_sgn(z) < 0 ? 0 - magnitude : magnitude);
+}
+
 // Temporary mpz holding a BigInteger's value (rep_ shared or a copy of the inline value).
 struct MpzArg {
   explicit MpzArg(const BigInteger& b) {
     if (b.isSmall()) {
-      mpz_init_set_si(own, static_cast<long>(b.smallValue()));
+      mpz_init(own);
+      mpzSetI64(own, b.smallValue());
       p = own;
       owned = true;
     } else {
@@ -53,7 +80,7 @@ BigInteger::Rep* BigInteger::newRep() {
 }
 
 BigInteger BigInteger::fromRep(Rep* r) {
-  if (mpz_fits_slong_p(r->v)) return BigInteger(static_cast<int64_t>(mpz_get_si(r->v)));
+  if (mpzFitsI64(r->v)) return BigInteger(mpzGetI64(r->v));
   return BigInteger(r);
 }
 
@@ -75,8 +102,7 @@ const __mpz_struct* BigInteger::raw() const {
   if (rep_ == nullptr) {
     // GMP form of an inline value (not cached: rep_ == nullptr marks the inline form).
     Rep* r = newRep();
-    static_assert(sizeof(long) == 8, "LP64 expected");
-    mpz_set_si(r->v, static_cast<long>(small_));
+    mpzSetI64(r->v, small_);
     return r->v;
   }
   return rep_->v;
@@ -286,7 +312,7 @@ double BigInteger::doubleValue() const {
   std::size_t bits = mpz_sizeinbase(a, 2);
   double r;
   if (bits <= 63) {
-    r = static_cast<double>(static_cast<int64_t>(mpz_get_ui(a)));
+    r = static_cast<double>(static_cast<int64_t>(mpzLowU64(a)));
   } else {
     std::size_t shift = bits - 63;
     // sticky bit: any of the shifted-out bits set
@@ -294,7 +320,7 @@ double BigInteger::doubleValue() const {
     mpz_t top;
     mpz_init(top);
     mpz_fdiv_q_2exp(top, a, shift);
-    uint64_t t = mpz_get_ui(top);
+    uint64_t t = mpzLowU64(top);
     if (sticky) t |= 1;
     r = std::ldexp(static_cast<double>(static_cast<int64_t>(t)), static_cast<int>(shift));
   }
@@ -306,7 +332,7 @@ int64_t BigInteger::longValue() const {
   mpz_t t;
   mpz_init(t);
   mpz_fdiv_r_2exp(t, rep_->v, 64);  // t in [0, 2^64)
-  uint64_t u = mpz_get_ui(t);
+  uint64_t u = mpzLowU64(t);
   return static_cast<int64_t>(u);
 }
 int32_t BigInteger::intValue() const { return static_cast<int32_t>(static_cast<uint32_t>(static_cast<uint64_t>(longValue()))); }

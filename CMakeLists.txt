@@ -12,7 +12,8 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-find_package(PkgConfig REQUIRED)
+find_package(PkgConfig)
+find_package(Threads REQUIRED)
 # Memory (MEMORY_MODEL.md): explicit ownership, no garbage collector. operator new = calloc,
 # delete / jrt::dispose = free; unowned temporaries live in operation regions or the job heap.
 # AddressSanitizer + LeakSanitizer (tools/mem/asan_run.sh). Arena memory is poisoned while not
@@ -28,20 +29,42 @@ if(FR_TSAN)
   add_compile_options(-fsanitize=thread -fno-omit-frame-pointer -g)
   add_link_options(-fsanitize=thread)
 endif()
-# Static GMP in executables by default; the Lua module links it shared.
-option(FR_STATIC_GMP "Link GMP statically into executables" ON)
-find_library(GMP_SHARED_LIB gmp REQUIRED)
-add_library(fr_gmp_shared INTERFACE)
-target_link_libraries(fr_gmp_shared INTERFACE ${GMP_SHARED_LIB} pthread dl)
-add_library(fr_gmp_exe INTERFACE)
-if(FR_STATIC_GMP)
-  find_library(GMP_STATIC_LIB libgmp.a REQUIRED)
-  target_link_libraries(fr_gmp_exe INTERFACE ${GMP_STATIC_LIB} pthread dl)
+# Dependencies: GMP (big integers of the exact geometry) and GEOS (C++ port of JTS, used by
+# geometry/planar/PlanarArea like JTS in Java).
+#   FR_BUNDLED_DEPS=ON  downloads and builds static copies (cmake/BundledDeps.cmake); the default
+#                       when building for Windows, e.g. cross-compiling in WSL:
+#                         cmake -G Ninja -B build-win -DCMAKE_TOOLCHAIN_FILE=tools/windows/mingw-toolchain.cmake
+#                         cmake --build build-win --target freerouting-cpp
+#   FR_BUNDLED_DEPS=OFF uses the system libraries (Linux: apt install libgmp-dev libgeos-dev).
+if(WIN32)
+  option(FR_BUNDLED_DEPS "Download and build static GMP and GEOS" ON)
 else()
-  target_link_libraries(fr_gmp_exe INTERFACE fr_gmp_shared)
+  option(FR_BUNDLED_DEPS "Download and build static GMP and GEOS" OFF)
 endif()
-# GEOS = C++ port of JTS (used by geometry/planar/PlanarArea, like JTS in Java).
-find_library(GEOS_LIB geos_c REQUIRED)
+if(FR_BUNDLED_DEPS)
+  include(${CMAKE_SOURCE_DIR}/cmake/BundledDeps.cmake)
+else()
+  # Static GMP in executables by default; the Lua module links it shared.
+  option(FR_STATIC_GMP "Link GMP statically into executables" ON)
+  find_library(GMP_SHARED_LIB gmp REQUIRED)
+  add_library(fr_gmp_shared INTERFACE)
+  target_link_libraries(fr_gmp_shared INTERFACE ${GMP_SHARED_LIB} Threads::Threads ${CMAKE_DL_LIBS})
+  add_library(fr_gmp_exe INTERFACE)
+  if(FR_STATIC_GMP)
+    find_library(GMP_STATIC_LIB libgmp.a REQUIRED)
+    target_link_libraries(fr_gmp_exe INTERFACE ${GMP_STATIC_LIB} Threads::Threads ${CMAKE_DL_LIBS})
+  else()
+    target_link_libraries(fr_gmp_exe INTERFACE fr_gmp_shared)
+  endif()
+  add_library(fr_gmp_headers INTERFACE)  # system gmp.h: nothing to add
+  find_library(GEOS_LIB geos_c REQUIRED)
+  add_library(fr_geos INTERFACE)
+  target_link_libraries(fr_geos INTERFACE ${GEOS_LIB})
+endif()
+# Windows: one self-contained .exe (no libstdc++ / libgcc / winpthread DLLs next to it).
+if(WIN32)
+  add_link_options(-static)
+endif()
 
 # Java semantics: signed overflow wraps; no strict-aliasing surprises.
 set(FR_COMMON_FLAGS -fwrapv -fno-strict-aliasing -Wall -Wextra -Wno-unused-parameter
@@ -58,6 +81,8 @@ endif()
 add_library(jrt OBJECT ${JRT_SOURCES})
 target_include_directories(jrt PUBLIC ${CMAKE_SOURCE_DIR}/runtime)
 target_compile_options(jrt PRIVATE ${FR_COMMON_FLAGS})
+# gmp.h (bignum) and its build when bundled
+target_link_libraries(jrt PUBLIC fr_gmp_headers)
 
 # --- Ported freerouting core
 file(GLOB_RECURSE FR_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
@@ -66,7 +91,7 @@ if(FR_SOURCES)
   add_library(frcore STATIC ${FR_SOURCES})
   target_include_directories(frcore PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/runtime)
   target_compile_options(frcore PRIVATE ${FR_COMMON_FLAGS})
-  target_link_libraries(frcore PUBLIC jrt ${GEOS_LIB})
+  target_link_libraries(frcore PUBLIC jrt fr_geos)
   if(EXISTS ${CMAKE_SOURCE_DIR}/src/main.cpp)
     add_executable(freerouting-cpp ${CMAKE_SOURCE_DIR}/src/main.cpp)
     target_compile_options(freerouting-cpp PRIVATE ${FR_COMMON_FLAGS})
@@ -94,7 +119,9 @@ target_link_libraries(bigint_fuzz PRIVATE jrt fr_gmp_exe)
 add_test(NAME bigint_fuzz COMMAND bigint_fuzz)
 
 # --- Lua 5.3 module "frcore" for the Nuklear/MoonGL front end (ui/)
-pkg_check_modules(LUA53 IMPORTED_TARGET lua5.3)
+if(PkgConfig_FOUND AND NOT WIN32)
+  pkg_check_modules(LUA53 IMPORTED_TARGET lua5.3)
+endif()
 if(LUA53_FOUND AND TARGET frcore)
   add_library(frcore_lua MODULE
               ${CMAKE_SOURCE_DIR}/bindings/lua/lfrcore.cpp

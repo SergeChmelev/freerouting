@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 
 namespace jrt::platform {
 
@@ -24,6 +25,11 @@ std::size_t heap_usable_size(void* p);
  * memory. Freed with page_free. */
 void* page_alloc(std::size_t align, std::size_t size);
 void page_free(void* p);
+
+// ---- time --------------------------------------------------------------------------------------
+/** Thread-safe std::gmtime / std::localtime: fills `out` and returns true on success. */
+bool utc_time(std::time_t t, std::tm* out);
+bool local_time(std::time_t t, std::tm* out);
 
 // ---- process setup ---------------------------------------------------------------------------
 /** Limits the number of malloc arenas (glibc gives every thread one, which keeps freed memory:

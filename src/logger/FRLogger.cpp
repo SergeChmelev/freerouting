@@ -1,4 +1,5 @@
 // Port of app.freerouting.logger.FRLogger
+#include "platform/platform.h"
 #include "logger/FRLogger.h"
 
 #include <chrono>
@@ -97,7 +98,7 @@ void FRLogger::emit(int32_t level, const std::string& msg, const std::exception*
   int ms = static_cast<int>(
       std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() % 1000);
   std::tm tm{};
-  localtime_r(&t, &tm);
+  jrt::platform::local_time(t, &tm);
   char ts[64];
   std::snprintf(ts, sizeof ts, "%04d-%02d-%02d %02d:%02d:%02d.%03d", tm.tm_year + 1900,
                 tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, ms);

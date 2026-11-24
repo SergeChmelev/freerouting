@@ -1,4 +1,5 @@
 // Port of app.freerouting.util.TextManager
+#include "platform/platform.h"
 #include "util/TextManager.h"
 
 #include <cctype>
@@ -21,7 +22,7 @@ std::string TextManager::convertInstantToString(int64_t instant, const std::stri
   std::time_t secs = static_cast<std::time_t>(jrt::Math::floorDiv(instant, static_cast<int64_t>(1000)));
   int32_t millis = static_cast<int32_t>(jrt::Math::floorMod(instant, static_cast<int64_t>(1000)));
   std::tm tm{};
-  localtime_r(&secs, &tm);
+  jrt::platform::local_time(secs, &tm);
   std::string result;
   size_t i = 0;
   while (i < format.size()) {

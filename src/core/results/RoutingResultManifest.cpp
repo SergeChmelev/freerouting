@@ -1,3 +1,4 @@
+#include "platform/platform.h"
 #include "core/results/RoutingResultManifest.h"
 
 #include <chrono>
@@ -28,7 +29,7 @@ std::string instantNowString() {
   std::time_t secs = static_cast<std::time_t>(ms / 1000);
   int32_t millis = static_cast<int32_t>(ms % 1000);
   std::tm tm{};
-  gmtime_r(&secs, &tm);
+  jrt::platform::utc_time(secs, &tm);
   char buf[64];
   std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%S", &tm);
   std::string s(buf);

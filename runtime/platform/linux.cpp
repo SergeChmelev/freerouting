@@ -8,6 +8,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
 namespace jrt::platform {
 
@@ -27,6 +28,9 @@ std::size_t heap_usable_size(void* p) { return malloc_usable_size(p); }
 void* page_alloc(std::size_t align, std::size_t size) { return std::aligned_alloc(align, size); }
 
 void page_free(void* p) { std::free(p); }
+
+bool utc_time(std::time_t t, std::tm* out) { return gmtime_r(&t, out) != nullptr; }
+bool local_time(std::time_t t, std::tm* out) { return localtime_r(&t, out) != nullptr; }
 
 void limit_malloc_arenas(int arenas) {
   if (std::getenv("MALLOC_ARENA_MAX") == nullptr) mallopt(M_ARENA_MAX, arenas);
