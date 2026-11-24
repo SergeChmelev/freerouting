@@ -30,6 +30,23 @@ void NetRoutingLedger::clearItemNets() {
   itemNets->clear();
 }
 
+void NetRoutingLedger::disposeOwned() {
+  clearItemNets();
+  jrt::dispose(itemNets);
+  itemNets = nullptr;
+  jrt::dispose(conductionAreas);
+  conductionAreas = nullptr;
+  jrt::dispose(dirtyNets);
+  dirtyNets = nullptr;
+  jrt::dispose(incompleteByNet);
+  incompleteByNet = nullptr;
+  if (itemsByNet != nullptr) {
+    for (jrt::List<Item*>* list : *itemsByNet) jrt::dispose(list);
+    jrt::dispose(itemsByNet);
+    itemsByNet = nullptr;
+  }
+}
+
 void NetRoutingLedger::invalidate() {
   jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   built = false;

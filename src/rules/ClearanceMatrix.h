@@ -53,6 +53,8 @@ class ClearanceMatrix_Row final : public virtual ItemInfoPrinter_Printable {
  */
 class ClearanceMatrix : public virtual jrt::Object {
  public:
+  /** Stage E: frees a matrix made by deepCopy() that nobody refers to any more. */
+  static void disposeCopy(ClearanceMatrix* m);
   static constexpr int32_t clearance_safety_margin = 16;
 
   /**

@@ -9,6 +9,7 @@
 #endif
 #if JRT_NO_GC
 
+#include <gmp.h>
 #include <malloc.h>
 
 #include <algorithm>
@@ -250,6 +251,36 @@ void operator delete(void* p, std::align_val_t) noexcept { raw_free(p); }
 void operator delete[](void* p, std::align_val_t) noexcept { raw_free(p); }
 void operator delete(void* p, std::size_t, std::align_val_t) noexcept { raw_free(p); }
 void operator delete[](void* p, std::size_t, std::align_val_t) noexcept { raw_free(p); }
+
+namespace {
+
+// GMP's memory (BigInteger reps' limbs and GMP temporaries): job-heap blocks while a job heap
+// is active on this thread (big-number values have no owner: like other unowned memory they
+// belong to the job), malloc otherwise. Freeing accepts both.
+void* gmp_alloc(std::size_t n) {
+  return jrt::job_region() != nullptr ? jrt::job_heap_alloc(n) : std::malloc(n);
+}
+void gmp_free(void* p, std::size_t) {
+  if (p == nullptr) return;
+  if (jrt::job_heap_owns(p)) {
+    jrt::job_heap_free(p);
+  } else {
+    std::free(p);
+  }
+}
+void* gmp_realloc(void* p, std::size_t oldSize, std::size_t newSize) {
+  if (p == nullptr) return gmp_alloc(newSize);
+  if (!jrt::job_heap_owns(p) && jrt::job_region() == nullptr) return std::realloc(p, newSize);
+  void* q = gmp_alloc(newSize);
+  std::memcpy(q, p, oldSize < newSize ? oldSize : newSize);
+  gmp_free(p, oldSize);
+  return q;
+}
+struct GmpInit {
+  GmpInit() { mp_set_memory_functions(gmp_alloc, gmp_realloc, gmp_free); }
+} gmp_init_instance;
+
+}  // namespace
 
 namespace jrt {
 

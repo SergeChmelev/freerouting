@@ -1788,7 +1788,15 @@ class TreeMap : public virtual Map<K, V> {
   ~TreeMap() override {
     for (auto& kv : m_) dispose(kv.second);
     m_.clear();
+    freeRetired();
     dispose(cmp_);
+  }
+  /** PORT NOTE (stage E): entries of removed / cleared mappings are kept (an iterator may still
+   * hold one) until the owner calls freeRetired() at a point where none can. */
+  void setRetiresEntries(bool v) { retiresEntries_ = v; }
+  void freeRetired() {
+    for (Entry* e : retired_) dispose(e);
+    retired_.clear();
   }
 
   int32_t size() override { return static_cast<int32_t>(m_.size()); }
@@ -1811,11 +1819,15 @@ class TreeMap : public virtual Map<K, V> {
     auto it = m_.find(k);
     if (it == m_.end()) return std::nullopt;
     V v = it->second->value;
+    if (retiresEntries_) retired_.push_back(it->second);
     m_.erase(it);
     ++erases_;
     return v;
   }
   void clear() override {
+    if (retiresEntries_) {
+      for (auto& kv : m_) retired_.push_back(kv.second);
+    }
     m_.clear();
     ++erases_;
   }
@@ -1908,6 +1920,8 @@ class TreeMap : public virtual Map<K, V> {
   Comparator<K>* cmp_;
   MapT m_;
   uint64_t erases_ = 0;
+  bool retiresEntries_ = false;
+  std::vector<Entry*> retired_;
 };
 
 template <class K, class V>

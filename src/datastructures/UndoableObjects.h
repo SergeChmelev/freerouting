@@ -209,7 +209,9 @@ class UndoableObjects : public virtual jrt::Object {
   // reached from the map, the delete lists or the undo/redo links of reachable nodes.
   UndoableObjects_UndoableObjectNode* newNode(UndoableObjects_Storable* object, int32_t level);
   void maybeSweepNodes() {
-    if (liveIterators_ == 0 && ownedNodes_.size() >= sweepAt_) sweepNodes();
+    if (liveIterators_ != 0) return;
+    objects->freeRetired();
+    if (ownedNodes_.size() >= sweepAt_) sweepNodes();
   }
   void sweepNodes();
 

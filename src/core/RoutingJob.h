@@ -120,6 +120,9 @@ class RoutingJob : public virtual jrt::Object {
 
   /** Creates a job belonging to a session (shortName "SSSSSS\\XXXXXX"). */
   explicit RoutingJob(const std::string& sessionId);
+  /** Stage E: frees a job nobody else refers to (an optimizer candidate's) with the settings,
+   * DRC settings, resource usage and phase metrics it owns. */
+  static void disposePrivate(RoutingJob* job);
 
   /** Detects the file format from its binary content. */
   static io::FileFormat getFileFormat(jrt::Array<int8_t>* content);

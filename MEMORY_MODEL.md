@@ -665,6 +665,19 @@ bm02 (no-GC): job heap 102 MB at the end (peak 102 MB: it is the former leak), h
 run 122 → 6.6 MB, LeakSanitizer 24 MB → 6.1 MB unreachable; SES identical; smoke clean (checked
 GC build and no-GC build 38 SAME each, only the two old failures).
 
+More owners (second round): a board frees its `NetRoutingLedger` (now in the board's domain)
+with its collections; `BoardRules::disposeCopy` / `ClearanceMatrix::disposeCopy` free a board's
+own rules (deep copies, or the DSN board's) without what they share (layer structure, padstacks,
+constraint records, `ViaRule::EMPTY()`, foreign via infos); `deepCopy` frees the `NetClass`
+constructor's arrays it replaces; `DefaultItemClearanceClasses` owns its array; an optimizer
+candidate frees its private `RoutingJob` and settings copy (`RoutingJob::disposePrivate`,
+`RouterSettings::disposeTree`; `clone()` no longer leaks the constructor's defaults);
+`TreeMap::setRetiresEntries` keeps removed entries until the owner says no iterator can hold
+them (`UndoableObjects` frees them when no node iterator is live); `disposeAll` also frees the
+objects that only unswept, unreachable undo nodes hold (the board dies); GMP memory and
+`BigInteger` reps are job-heap blocks while a job runs (reps are shared by value copies, so never
+in an operation region). bm02: heap after the run 6.6 → 2.3 MB, LeakSanitizer 6.1 → 1.9 MB.
+
 ## TODO (stage C/E)
 
 * kOp in main-board regions: done for the step slider, the insertion region of

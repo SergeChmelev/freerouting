@@ -15,6 +15,9 @@ class BoardRules : public virtual jrt::Object {
   // Identity relations are preserved; LayerStructure, padstacks and the immutable constraint
   // records are shared (see BoardRules.cpp).
   BoardRules* deepCopy();
+  /** Stage E: frees rules nobody refers to any more (a board's own, made by deepCopy() or the
+   * DSN reader) without what they share with other rules. */
+  static void disposeCopy(BoardRules* r);
   /** Creates a new instance of this class. */
   BoardRules(LayerStructure* layerStructure, ClearanceMatrix* clearanceMatrix);
 

@@ -162,7 +162,10 @@ jrt::Set<Item*>* BasicBoard::cachedNormalContacts(Item* item) {
 
 NetRoutingLedger* BasicBoard::routingLedger() {
   if (routingLedger_ == nullptr) {
-    routingLedger_ = new (jrt::kBoard) NetRoutingLedger(this);
+    // PORT NOTE (stage E): a derived cache of the board, in its domain (its collections too);
+    // freed with the board (releaseOwnedData).
+    jrt::DomainScope domain(this);
+    routingLedger_ = new (jrt::kOp) NetRoutingLedger(this);
   }
   return routingLedger_;
 }
@@ -1527,6 +1530,11 @@ void BasicBoard::releaseGraveyardNow() {
 
 void BasicBoard::releaseOwnedData() {
   releaseGraveyardNow();  // the board dies: nothing outside it uses its removed items any more
+  if (routingLedger_ != nullptr) {
+    routingLedger_->disposeOwned();
+    jrt::dispose(routingLedger_);
+    routingLedger_ = nullptr;
+  }
   BoardStatisticsBoundsCalculator::forget(this);
   // The copy's rules are not freed yet: drop their back link to this board.
   if (rules != nullptr && rules->nets != nullptr && rules->nets->getBoard() == this) {
@@ -1564,6 +1572,9 @@ void BasicBoard::releaseOwnedData() {
     jrt::dispose(components);
     components = nullptr;
   }
+  // The board's own rules (copies deep copy them; shared parts are not freed).
+  BoardRules::disposeCopy(rules);
+  rules = nullptr;
 }
 
 BasicBoard* BasicBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {

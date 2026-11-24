@@ -1,5 +1,6 @@
 // Port of app.freerouting.rules.ClearanceMatrix
 #include "rules/ClearanceMatrix.h"
+#include <unordered_set>
 
 #include <unordered_map>
 
@@ -306,6 +307,27 @@ bool ClearanceMatrix::isEqual(int32_t first, int32_t second) {
     }
   }
   return true;
+}
+
+void ClearanceMatrix::disposeCopy(ClearanceMatrix* m) {
+  // Stage E: the parts deepCopy made (entries and int arrays may be shared between rows).
+  if (m == nullptr) return;
+  std::unordered_set<const void*> done;
+  auto once = [&done](const void* p) { return p != nullptr && done.insert(p).second; };
+  for (ClearanceMatrix_Row* r : *m->row) {
+    if (!once(r)) continue;
+    for (ClearanceMatrix_MatrixEntry* e : *r->column) {
+      if (!once(e)) continue;
+      if (once(e->layer)) jrt::dispose(e->layer);
+      jrt::dispose(e);
+    }
+    jrt::dispose(r->column);
+    if (once(r->maxValue)) jrt::dispose(r->maxValue);
+    jrt::dispose(r);
+  }
+  jrt::dispose(m->row);
+  jrt::dispose(m->maxValueOnLayer);
+  jrt::dispose(m);
 }
 
 ClearanceMatrix* ClearanceMatrix::deepCopy() {

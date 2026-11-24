@@ -504,6 +504,46 @@ void RouterSettings::setLayerCount(int32_t layerCount) {
   }
 }
 
+void RouterSettings::disposeLayers() {
+  if (layers == nullptr) return;
+  for (LayerSettings* l : *layers) jrt::dispose(l);
+  jrt::dispose(layers);
+  layers = nullptr;
+}
+
+void RouterSettings::disposeParts() {
+  jrt::dispose(optimizer);
+  optimizer = nullptr;
+  if (scoring != nullptr) {
+    jrt::dispose(scoring->preferredDirectionTraceCost);
+    jrt::dispose(scoring->undesiredDirectionTraceCost);
+    jrt::dispose(scoring);
+    scoring = nullptr;
+  }
+  jrt::dispose(routerScoring);
+  routerScoring = nullptr;
+  jrt::dispose(optimizerScoring);
+  optimizerScoring = nullptr;
+  jrt::dispose(fanout);
+  fanout = nullptr;
+  if (autorouter != nullptr) {
+    jrt::dispose(autorouter->ignoreNetClasses);
+    jrt::dispose(autorouter->priorityNetClasses);
+    jrt::dispose(autorouter);
+    autorouter = nullptr;
+  }
+}
+
+void RouterSettings::disposeTree(RouterSettings* s) {
+  if (s == nullptr) return;
+  s->disposeLayers();
+  s->disposeParts();
+  jrt::dispose(s->validationWarnings);
+  jrt::dispose(s->planeNets);
+  jrt::dispose(s->pcs);
+  jrt::dispose(s);
+}
+
 RouterSettings* RouterSettings::clone() {
   auto* result = new (jrt::kBoard) RouterSettings();
   int32_t layerCount = this->getLayerCount();
@@ -512,6 +552,7 @@ RouterSettings* RouterSettings::clone() {
   }
   result->jobTimeoutString = this->jobTimeoutString;
   if (this->layers != nullptr) {
+    result->disposeLayers();  // stage E: the defaults setLayerCount made
     result->layers = new (jrt::kOp) jrt::Array<LayerSettings*>(this->layers->length);
     for (int32_t i = 0; i < this->layers->length; i++) {
       if ((*this->layers)[i] != nullptr) {
@@ -545,6 +586,7 @@ RouterSettings* RouterSettings::clone() {
   result->maxThreads = this->maxThreads;
 
   // Use proper clone() methods for nested objects
+  result->disposeParts();  // stage E: the defaults of the constructor, replaced below
   result->optimizer =
       this->optimizer != nullptr ? this->optimizer->clone() : new (jrt::kBoard) OptimizerSettings();
   result->scoring = this->scoring != nullptr ? this->scoring->clone() : new (jrt::kBoard) RoutingCostSettings();

@@ -113,7 +113,10 @@ UndoableObjects* UndoableObjects::copyMapped(
 
 UndoableObjects::UndoableObjects() {
   stackLevel = 0;
-  objects = new (jrt::kBoard) jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UONode*>();
+  auto* map = new (jrt::kBoard) jrt::ConcurrentSkipListMap<UndoableObjects_Storable*, UONode*>();
+  // Stage E: removed entries are freed once no node iterator (which holds entries) is live.
+  map->setRetiresEntries(true);
+  objects = map;
   deletedObjectsStack = new (jrt::kBoard) jrt::ArrayList<jrt::Collection<UONode*>*>();
 }
 
@@ -189,8 +192,8 @@ void UndoableObjects::sweepNodes() {
 
 void UndoableObjects::disposeAll(const std::function<void(UndoableObjects_Storable*)>& disposeObject) {
   // The objects of every node the list can still reach (the map, the delete lists, undo/redo
-  // links). Objects only held by unreachable nodes that were not swept yet are not owned any
-  // more (Java: garbage) and are left alone; their nodes are freed below like all others.
+  // links), and those only unreachable nodes not swept yet hold (removed for good); all nodes
+  // are freed below.
   uint32_t epoch = ++markEpoch_;
   if (epoch == 0) {
     epoch = markEpoch_ = 1;
@@ -220,7 +223,16 @@ void UndoableObjects::disposeAll(const std::function<void(UndoableObjects_Storab
   for (UONode* n : nodes) {
     if (n->object != nullptr && seen.insert(n->object).second) objectsToDispose.push_back(n->object);
   }
+  // Objects only unreachable nodes (not swept yet) hold are removed for good; the list dies
+  // with its board, so nothing can use them any more either.
+  for (UONode* n : ownedNodes_) {
+    if (n != nullptr && n->mark != epoch && n->object != nullptr && seen.insert(n->object).second) {
+      objectsToDispose.push_back(n->object);
+    }
+  }
   for (UndoableObjects_Storable* object : objectsToDispose) disposeObject(object);
+  this->objects->freeRetired();
+  this->objects->setRetiresEntries(false);  // disposeMapAndEntries frees the live ones
   jrt::disposeMapAndEntries(this->objects);
   this->objects = nullptr;
   for (auto* deleteList : *this->deletedObjectsStack) jrt::dispose(deleteList);

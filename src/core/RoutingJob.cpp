@@ -85,6 +85,15 @@ RoutingJob::RoutingJob() : id(randomUuid()), createdAt(jrt::System::currentTimeM
   this->shortName = jrt::toUpperCase(jrt::substring(this->id, 0, 6));
 }
 
+void RoutingJob::disposePrivate(RoutingJob* job) {
+  if (job == nullptr) return;
+  RouterSettings::disposeTree(job->routerSettings);
+  jrt::dispose(job->drcSettings);
+  jrt::dispose(job->resourceUsage);
+  jrt::dispose(job->resultPhaseMetrics);
+  jrt::dispose(job);
+}
+
 RoutingJob::RoutingJob(const std::string& sessionId) : RoutingJob() {
   this->sessionId = sessionId;
   this->shortName = jrt::toUpperCase(jrt::substring(*this->sessionId, 0, 6)) + "\\" +

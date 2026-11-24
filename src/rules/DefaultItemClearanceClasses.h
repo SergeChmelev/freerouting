@@ -59,6 +59,8 @@ class DefaultItemClearanceClasses : public virtual jrt::Object {
   /** Creates a copy of the given default clearance classes. */
   explicit DefaultItemClearanceClasses(DefaultItemClearanceClasses* classes)
       : clearanceClasses(classes->clearanceClasses->clone()) {}
+  // Stage E: the array is its own (runs only when the object is disposed).
+  ~DefaultItemClearanceClasses() override { jrt::dispose(clearanceClasses); }
 
   /** Returns the number of the default clearance class for the input item class. */
   int32_t get(DefaultItemClearanceClasses_ItemClass itemClass) {

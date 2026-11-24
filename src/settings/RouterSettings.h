@@ -296,6 +296,15 @@ class RouterSettings : public virtual jrt::Object {
  private:
   // PropertyChangeSupport for bidirectional binding with GUI (created in the constructor).
   PropertyChangeSupport* pcs = nullptr;
+  /** Stage E: frees the layer settings / the nested settings objects this object owns. */
+  void disposeLayers();
+  void disposeParts();
+
+ public:
+  /** Stage E: frees a private settings object (a clone nobody else refers to) with its parts. */
+  static void disposeTree(RouterSettings* s);
+
+ private:
 };
 
 }  // namespace fr

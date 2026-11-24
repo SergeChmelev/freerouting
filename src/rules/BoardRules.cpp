@@ -2,6 +2,7 @@
 #include "rules/BoardRules.h"
 
 #include <unordered_map>
+#include <unordered_set>
 
 #include "board/model/items/Item.h"
 #include "board/model/structure/AngleRestriction.h"
@@ -384,6 +385,68 @@ double BoardRules::getDefaultViaDiameter() {
 // Java readObject leaves it: clearanceToleranceUm = 1.0, pinClearanceSources = null; exactCopper
 // null -> true.
 // -------------------------------------------------------------------------------------------------
+void BoardRules::disposeCopy(BoardRules* r) {
+  // Stage E: frees what deepCopy() made, nothing it shares with the source (layer structure,
+  // padstacks, constraint records, ViaRule::EMPTY(), foreign matrices / net lists / rules).
+  if (r == nullptr) return;
+  std::unordered_set<const void*> done;
+  auto once = [&done](const void* p) { return p != nullptr && done.insert(p).second; };
+  auto disposeViaInfo = [&](ViaInfo* v) {
+    // seen first (it may be freed already), then owned (a foreign rules' via info is kept)
+    if (v == nullptr || !once(v)) return;
+    if (v->boardRules == r) jrt::dispose(v);
+  };
+  if (r->viaInfos != nullptr) {
+    for (ViaInfo* v : *r->viaInfos->list) disposeViaInfo(v);
+    jrt::dispose(r->viaInfos->list);
+    jrt::dispose(r->viaInfos);
+  }
+  auto disposeViaRule = [&](ViaRule* vr) {
+    if (vr == nullptr || vr == ViaRule::EMPTY() || !once(vr)) return;
+    for (ViaInfo* v : *vr->list) disposeViaInfo(v);
+    jrt::dispose(vr->list);
+    jrt::dispose(vr);
+  };
+  if (r->viaRules != nullptr) {
+    for (ViaRule* vr : *r->viaRules) disposeViaRule(vr);
+    jrt::dispose(r->viaRules);
+  }
+  if (r->netClasses != nullptr) {
+    for (NetClass* nc : *r->netClasses->classArr) {
+      if (!once(nc)) continue;
+      disposeViaRule(nc->viaRule);
+      jrt::dispose(nc->traceHalfWidthArr);
+      jrt::dispose(nc->activeRoutingLayerArr);
+      if (once(nc->defaultItemClearanceClasses)) jrt::dispose(nc->defaultItemClearanceClasses);
+      jrt::dispose(nc);
+    }
+    jrt::dispose(r->netClasses->classArr);
+    jrt::dispose(r->netClasses);
+  }
+  if (r->nets != nullptr) {
+    for (Net* n : *r->nets->nets) {
+      if (n != nullptr && n->netList == r->nets && once(n)) jrt::dispose(n);
+    }
+    jrt::dispose(r->nets->nets);
+    jrt::dispose(r->nets);
+  }
+  if (r->differentialPairs != nullptr) {
+    for (auto* e : r->differentialPairs->pairsByName->entryVector()) {
+      if (once(e->getValue())) jrt::dispose(e->getValue());
+    }
+    for (auto* e : r->differentialPairs->pairsByNetNumber->entryVector()) {
+      if (once(e->getValue())) jrt::dispose(e->getValue());
+    }
+    jrt::disposeMapAndEntries(r->differentialPairs->pairsByName);
+    jrt::disposeMapAndEntries(r->differentialPairs->pairsByNetNumber);
+    jrt::dispose(r->differentialPairs);
+  }
+  jrt::dispose(r->defaultMeanderConstraints);  // its entries with it; the values are shared
+  jrt::dispose(r->explicitMeanderConstraints);
+  ClearanceMatrix::disposeCopy(r->clearanceMatrix);
+  jrt::dispose(r);
+}
+
 BoardRules* BoardRules::deepCopy() {
   BoardRules* copy = new (jrt::kBoard) BoardRules();
   copy->layerStructure = this->layerStructure;
@@ -458,6 +521,11 @@ BoardRules* BoardRules::deepCopy() {
       result = new (jrt::kBoard) NetClass(nc->name, nc->boardLayerStructure, mapMatrix(nc->clearanceMatrix),
                             nc->isIgnoredByAutorouter);
       netClassMap->put(nc, result);
+      // Stage E: the constructor's arrays and default classes are replaced right away.
+      jrt::dispose(result->traceHalfWidthArr);
+      jrt::dispose(result->activeRoutingLayerArr);
+      jrt::dispose(result->defaultItemClearanceClasses);
+      result->defaultItemClearanceClasses = nullptr;
       result->traceHalfWidthArr = nc->traceHalfWidthArr->clone();
       result->activeRoutingLayerArr = nc->activeRoutingLayerArr->clone();
       DefaultItemClearanceClasses* srcClasses = nc->defaultItemClearanceClasses;

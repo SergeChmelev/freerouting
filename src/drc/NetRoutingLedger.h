@@ -72,6 +72,9 @@ class NetRoutingLedger final : public virtual jrt::Object {
  public:
   explicit NetRoutingLedger(BasicBoard* board);
 
+  /** Stage E: frees the ledger's collections (its board is dropped); the ledger is unusable. */
+  void disposeOwned();
+
   /** Drops the cache. The next read rebuilds it from the current item list. */
   void invalidate();
 

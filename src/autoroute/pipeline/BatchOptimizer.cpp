@@ -1022,7 +1022,7 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
   double baseline =
       baselineTraceLength > 0 ? baselineTraceLength
                               : static_cast<double>(metricsBefore->totalWeightedLength());
-  RouterCounters* routerCountersBefore = new (jrt::kBoard) RouterCounters();
+  RouterCounters* routerCountersBefore = new (jrt::kOp) RouterCounters();
   if (item->hasIgnoredNets()) {
     return new (jrt::kOp) ItemRouteResult(item->getId());
   }
@@ -1085,7 +1085,7 @@ ItemRouteResult* BatchOptimizer::optRouteItemOnBoard(
       netsLeftUnroutedSet);
 
   BoardStatistics_OptimizerMetrics* metricsAfter = BoardStatistics_OptimizerMetrics::of(routingBoard);
-  RouterCounters* routerCountersAfter = new (jrt::kBoard) RouterCounters();
+  RouterCounters* routerCountersAfter = new (jrt::kOp) RouterCounters();
   routerCountersAfter->incompleteCount = calculateIncompleteCount(routingBoard);
 
   ItemRouteResult* result =
@@ -1323,8 +1323,14 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
     }
 
     RoutingJob* candidateJob = new (jrt::kBoard) RoutingJob();
+    // Stage E: the candidate's job and its settings copy are private: freed when it ends.
+    struct DropCandidateJob {
+      RoutingJob* job;
+      ~DropCandidateJob() { RoutingJob::disposePrivate(job); }
+    } dropCandidateJob{candidateJob};
     candidateJob->name = job->name;
     candidateJob->shortName = job->shortName;
+    RouterSettings::disposeTree(candidateJob->routerSettings);  // the constructor's defaults
     candidateJob->routerSettings = job->routerSettings->clone();
     candidateJob->thread = thread;
     candidateJob->board = workerBoard;
