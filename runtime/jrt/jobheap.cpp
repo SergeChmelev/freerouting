@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "jrt/alloc.h"
+#include "platform/platform.h"
 
 namespace jrt {
 
@@ -118,7 +119,7 @@ inline void note(JobHeap& h, std::ptrdiff_t n) {
 }
 
 void* alloc_page() {
-  void* p = std::aligned_alloc(kPage, kPage);
+  void* p = jrt::platform::page_alloc(kPage, kPage);
   if (p == nullptr) throw std::bad_alloc();
   std::memset(p, 0, kPage);
   return p;
@@ -144,7 +145,7 @@ void* job_heap_alloc(std::size_t n) {
   JobHeap& h = heap();
   if (n > kMaxSmall) {
     std::size_t size = (n + kPage - 1) & ~(kPage - 1);
-    void* p = std::aligned_alloc(kPage, size);
+    void* p = jrt::platform::page_alloc(kPage, size);
     if (p == nullptr) throw std::bad_alloc();
     std::memset(p, 0, size);
     for (std::size_t off = 0; off < size; off += kPage) set_page_entry(static_cast<char*>(p) + off, kLargePage);
@@ -200,7 +201,7 @@ void job_heap_free(void* p) noexcept {
     h.large.erase(it);
     h.largeBytes -= size;
     note(h, -static_cast<std::ptrdiff_t>(size));
-    std::free(p);
+    jrt::platform::page_free(p);
     return;
   }
   int c = e - 1;
@@ -219,13 +220,13 @@ void job_heap_release() noexcept {
   for (void* page : h.pages) {
     set_page_entry(page, 0);
     JRT_ASAN_UNPOISON(page, kPage);
-    std::free(page);
+    jrt::platform::page_free(page);
   }
   h.pages.clear();
   h.pages.shrink_to_fit();
   for (auto& [p, size] : h.large) {
     for (std::size_t off = 0; off < size; off += kPage) set_page_entry(static_cast<char*>(p) + off, 0);
-    std::free(p);
+    jrt::platform::page_free(p);
   }
   h.large.clear();
   for (int c = 0; c < 96; ++c) h.freeList[c] = h.bumpCur[c] = h.bumpEnd[c] = nullptr;

@@ -49,6 +49,12 @@ set(FR_COMMON_FLAGS -fwrapv -fno-strict-aliasing -Wall -Wextra -Wno-unused-param
 
 # --- Java runtime emulation (OBJECT library so the global operator new override always links)
 file(GLOB JRT_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/runtime/jrt/*.cpp)
+# Operating-system services (runtime/platform/platform.h): one implementation per target system.
+if(WIN32)
+  list(APPEND JRT_SOURCES ${CMAKE_SOURCE_DIR}/runtime/platform/windows.cpp)
+else()
+  list(APPEND JRT_SOURCES ${CMAKE_SOURCE_DIR}/runtime/platform/linux.cpp)
+endif()
 add_library(jrt OBJECT ${JRT_SOURCES})
 target_include_directories(jrt PUBLIC ${CMAKE_SOURCE_DIR}/runtime)
 target_compile_options(jrt PRIVATE ${FR_COMMON_FLAGS})

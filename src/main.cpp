@@ -11,8 +11,6 @@
 //                      --router.scoring.via_costs=200, --router.automatic_neckdown=false)
 //   -q / -v / -vv      log level warn / debug / trace (default info)
 
-#include <malloc.h>
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -33,6 +31,7 @@
 #include "board/facade/RoutingBoard.h"
 #include "core/scoring/BoardStatistics.h"
 #include "jrt/jrt.h"
+#include "platform/platform.h"
 #include "logger/FRLogger.h"
 #include "settings/RouterSettings.h"
 
@@ -315,7 +314,7 @@ int main(int argc, char** argv) {
   // The optimizer's worker threads would each get a malloc arena of their own, which keeps the
   // memory freed in it: on large boards that doubles the peak memory with many threads, while two
   // arenas cost no measurable time (MALLOC_ARENA_MAX in the environment still wins).
-  if (std::getenv("MALLOC_ARENA_MAX") == nullptr) mallopt(M_ARENA_MAX, 2);
+  jrt::platform::limit_malloc_arenas(2);
   int rc;
   {
     // Stage E: geometry and temporaries that no operation region takes and no owner holds

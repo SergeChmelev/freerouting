@@ -1,11 +1,9 @@
 // jrt::Arena and jrt::dispose (see alloc.h). Arena chunks are plain heap blocks registered by
 // address range (dispose leaves arena objects alone); a per-thread pool keeps free chunks.
 
-#include <execinfo.h>
-#include <malloc.h>
-
 #include "jrt/alloc.h"
 #include "jrt/threads.h"
+#include "platform/platform.h"
 
 #include <algorithm>
 #include <atomic>
@@ -145,10 +143,8 @@ void Arena::refill(std::size_t n) {
   }();
   if (warnAt != 0 && fullBytes_ / warnAt != warnedSteps_) {
     warnedSteps_ = fullBytes_ / warnAt;
-    void* frames[40];
-    int count = backtrace(frames, 40);
     std::fprintf(stderr, "jrt: arena %p holds %zu MB\n", static_cast<void*>(this), fullBytes_ >> 20);
-    backtrace_symbols_fd(frames, count, 2);
+    platform::print_stack_trace();
   }
   Chunk* c = nullptr;
   std::size_t size = std::max(n, kChunkSize);

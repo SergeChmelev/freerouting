@@ -6,20 +6,19 @@
 // (FR_MEM_STATS, jrt::heap_live_bytes) after a run is what still has no owner.
 
 #include <gmp.h>
-#include <malloc.h>
 
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <vector>
-#include <dlfcn.h>
 #include <cstdlib>
 #include <cstring>
 #include <new>
 
 #include "jrt/alloc.h"
 #include "jrt/threads.h"
+#include "platform/platform.h"
 
 namespace {
 
@@ -101,10 +100,9 @@ void write_live_dump();
 __attribute__((noinline)) void* raw_alloc_site(std::size_t n, std::size_t align, void* ra) {
   if (n == 0) n = 1;
   std::size_t off = align <= 16 ? kHeader : align;  // keeps the user pointer aligned
-  void* base = align <= 16 ? std::calloc(1, n + off)
-                           : std::aligned_alloc(align, (n + off + align - 1) / align * align);
+  void* base = align <= 16 ? jrt::platform::heap_zalloc(n + off)
+                           : jrt::platform::heap_aligned_zalloc(align, n + off);
   if (base == nullptr) throw std::bad_alloc();
-  if (align > 16) std::memset(base, 0, n + off);
   void* p = static_cast<char*>(base) + off;
   Header* h = header_of(p);
   h->base = base;
@@ -163,7 +161,7 @@ void raw_free(void* p) noexcept {
   }
   note_free(h->size);
   h->magic = 0;
-  std::free(h->base);
+  jrt::platform::heap_free(h->base);
 }
 
 void write_live_dump() {
@@ -179,10 +177,9 @@ void write_live_dump() {
     std::sort(idx.begin(), idx.end(),
               [t](std::size_t x, std::size_t y) { return t[x].bytes.load() > t[y].bytes.load(); });
     for (std::size_t i : idx) {
-      Dl_info info{};
       auto c = t[i].caller.load();
       auto a = t[i].addr.load() ^ (c << 1);
-      std::uintptr_t base = dladdr(reinterpret_cast<void*>(a), &info) ? reinterpret_cast<std::uintptr_t>(info.dli_fbase) : 0;
+      std::uintptr_t base = jrt::platform::module_base(reinterpret_cast<void*>(a));
       std::fprintf(f, "%#lx %ld %ld %#lx\n", static_cast<unsigned long>(a - base - 1),
                    static_cast<long>(t[i].count.load()), static_cast<long>(t[i].bytes.load()),
                    static_cast<unsigned long>(c != 0 ? c - base - 1 : 0));
@@ -196,25 +193,23 @@ struct LiveDump {
 } live_dump_instance;
 #else
 void* raw_alloc(std::size_t n) {
-  void* p = std::calloc(1, n == 0 ? 1 : n);
+  void* p = jrt::platform::heap_zalloc(n == 0 ? 1 : n);
   if (p == nullptr) throw std::bad_alloc();
-  note_alloc(malloc_usable_size(p));
+  note_alloc(jrt::platform::heap_usable_size(p));
   return p;
 }
 
 void* raw_alloc_aligned(std::size_t n, std::size_t align) {
   if (align <= alignof(std::max_align_t)) return raw_alloc(n);
-  std::size_t size = (n == 0 ? align : (n + align - 1) / align * align);
-  void* p = std::aligned_alloc(align, size);
+  void* p = jrt::platform::heap_aligned_zalloc(align, n == 0 ? align : n);
   if (p == nullptr) throw std::bad_alloc();
-  std::memset(p, 0, size);
-  note_alloc(malloc_usable_size(p));
+  note_alloc(jrt::platform::heap_usable_size(p));
   return p;
 }
 
 std::size_t raw_size(void* p) {
   if (jrt::job_heap_owns(p)) return jrt::job_heap_block_size(p);
-  return malloc_usable_size(p);
+  return jrt::platform::heap_usable_size(p);
 }
 
 void raw_free(void* p) noexcept {
@@ -223,8 +218,8 @@ void raw_free(void* p) noexcept {
     jrt::job_heap_free(p);
     return;
   }
-  note_free(malloc_usable_size(p));
-  std::free(p);
+  note_free(jrt::platform::heap_usable_size(p));
+  jrt::platform::heap_free(p);
 }
 #endif
 
