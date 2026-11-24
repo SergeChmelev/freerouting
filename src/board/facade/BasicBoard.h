@@ -5,6 +5,10 @@
 
 #include "fwd.h"
 #include "jrt/jrt.h"
+#include "board/actions/ItemSearchTreesInfo.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace fr {
 
@@ -55,7 +59,7 @@ struct BasicBoard_CopyTag {};
  * made "as if deserialized" (copyAsDeserialized) gets the Java DEFAULT value for them (0 / null /
  * false), not their field initializer, exactly like Java deserialization.
  */
-class BasicBoard : public virtual jrt::Object {
+class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
  private:
   /**
    * The maximum number of outer-loop iterations in normalizeTraces. Each legitimate split/combine
@@ -627,10 +631,41 @@ class BasicBoard : public virtual jrt::Object {
   /** Diagnostics (FR_MEM_STATS): board copies made / freed by discard() so far. */
   static int64_t copiesMade();
   static int64_t copiesDiscarded();
+  /** Diagnostics (FR_MEM_STATS): deferred-disposal counters. */
+  static std::string graveyardStats();
 
  protected:
   /** The teardown steps of discard() before the board object itself is freed. */
   virtual void releaseOwnedData();
+
+ public:
+  // PORT NOTE (stage E): deferred disposal ("graveyard"). Items removed for good (no undo can
+  // restore them: reported by the item list's sweep) and precalculated tree shapes of traces that
+  // no array refers to any more are kept until releaseGraveyard(): callers still use a removed
+  // item after removeItem (pass item lists, ripped-item lists), and the drill pages / obstacle
+  // rooms of a live autoroute engine refer to tree shapes.
+  void retainTreeShapes(jrt::Array<TileShape*>* shapes) override;
+  void releaseTreeShapes(jrt::Array<TileShape*>* shapes) override;
+  /** A leaf uses `shape` as its bounding shape: counted if it is a tracked tree shape. */
+  void retainLeafShape(RegularTileShape* shape);
+  void releaseLeafShape(RegularTileShape* shape);
+  /** Frees the graveyard if nothing outside the board can still hold its contents (no live
+   * autoroute engine); call only between top-level operations (pass / stage boundaries). */
+  void releaseGraveyard();
+
+ protected:
+  /** False while something outside the board may still refer to removed items or dropped tree
+   * shapes (RoutingBoard: a live autoroute engine). */
+  virtual bool graveyardSafe() { return true; }
+  void releaseGraveyardNow();
+
+ private:
+  void noteDeadObject(UndoableObjects_Storable* object);
+  void watchItemList();
+  std::unordered_map<TileShape*, int32_t> treeShapeRefs_;
+  std::vector<TileShape*> deadTreeShapes_;
+  std::vector<jrt::Array<TileShape*>*> deadShapeArrays_;
+  std::vector<Item*> deadItems_;
 
  public:
 

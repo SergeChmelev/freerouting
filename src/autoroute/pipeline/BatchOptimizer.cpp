@@ -389,6 +389,7 @@ void BatchOptimizer::runBatchLoop() {
 
     bool withPreferredDirections = currentPass % 2 != 0;  // to create more variations
     optRoutePass(currentPass, withPreferredDirections);
+    this->board->releaseGraveyard();  // PORT NOTE (stage E): pass boundary
     peakHeapMb = jrt::Math::max(peakHeapMb, AutorouteRuntimeMetrics::currentHeapUsageMb());
 
     if (this->isTimedOut_) {

@@ -128,6 +128,7 @@ StepSlider_Result* StepSlider::run() {
         board->clearTransientAutorouteState();
       }
     }
+    board->releaseGraveyard();  // PORT NOTE (stage E): pass boundary (traces are kept by id)
     if (acceptedInThisPass == 0) {
       break;
     }

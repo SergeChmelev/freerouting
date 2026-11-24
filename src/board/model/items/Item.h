@@ -425,6 +425,7 @@ class Item : public virtual SearchTreeObject,
   // PORT NOTE (stage C): the item owns its search-tree info; callers have removed the leaves
   // from the trees (or handed them to another trace) before.
   virtual void clearSearchTreeEntries();
+  ItemSearchTreesInfo* newSearchTreesInfo();
 
   /** Gets the information for the autoroute algorithm. Creates it, if it does not yet exist. */
   virtual ItemAutorouteInfo* getAutorouteInfo();

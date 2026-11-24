@@ -148,6 +148,7 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "memory: arena peak %.1f MB, GC heap %.1f MB, disposed %zu objects / %.1f MB\n",
                  jrt::Arena::peakBytes() / 1048576.0, jrt::gc_heap_size() / 1048576.0, jrt::disposed_count(),
                  jrt::disposed_bytes() / 1048576.0);
+    std::fprintf(stderr, "memory: %s\n", fr::BasicBoard::graveyardStats().c_str());
     std::fprintf(stderr, "memory: board copies made %lld, freed %lld\n",
                  static_cast<long long>(fr::BasicBoard::copiesMade()),
                  static_cast<long long>(fr::BasicBoard::copiesDiscarded()));

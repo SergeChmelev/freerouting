@@ -120,6 +120,7 @@ void MinAreaTree::insertUnlocked(ShapeTree_Leaf* leaf) {
   // PORT NOTE (stage E): inner-node bounding shapes belong to the tree, not to the operation
   // (a search region) that inserts a leaf.
   jrt::DomainScope domain(this);
+  leafInserted(leaf);
   ++this->leafCount;
 
   // Tree is empty - just insert the new leaf
@@ -226,6 +227,7 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
   // remove the leaf node
   ShapeTree_InnerNode* parent = leaf->parent;
   --this->leafCount;
+  leafRemoved(leaf);
   // PORT NOTE (stage C): the tree owns its leaves (the bounding shape is owned by the item's
   // precalculated tree shapes, not by the leaf). Experimental: freed when removed.
   jrt::dispose(leaf);

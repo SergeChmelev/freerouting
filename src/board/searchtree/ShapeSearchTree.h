@@ -64,6 +64,13 @@ class ShapeSearchTree : public MinAreaTree {
   BasicBoard* board;
 
  public:
+  // PORT NOTE (stage E): the board counts leaves that use a trace's tree shape directly.
+  void leafInserted(ShapeTree_Leaf* leaf) override;
+  void leafRemoved(ShapeTree_Leaf* leaf) override;
+
+ protected:
+
+ public:
   /**
    * Creates a new ShapeSearchTree. compensatedClearanceClassNo is the clearance class number for
    * which the shapes of this tree is compensated. If 0, the shapes are not compensated.

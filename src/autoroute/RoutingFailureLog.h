@@ -11,7 +11,8 @@ namespace fr {
 /** Information about routing failures for a specific item. */
 class RoutingFailureLog_ItemFailureInfo : public virtual jrt::Object {
  public:
-  Item* item;
+  Item* item;  // PORT NOTE (stage E): may be freed later (removed for good): never dereferenced
+  std::string itemClassName;  // for toString
   int32_t netNumber;
   int32_t failureCount;
   // PORT NOTE: nullable enum (initially null in Java) -> std::optional.

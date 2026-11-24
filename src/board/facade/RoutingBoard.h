@@ -355,6 +355,12 @@ class RoutingBoard : public BasicBoard {
    */
   virtual bool isMaintainingAutorouteDatabase() { return this->autorouteEngine != nullptr; }
 
+ protected:
+  // PORT NOTE (stage E): a live engine's drill pages and obstacle rooms refer to tree shapes.
+  bool graveyardSafe() override { return this->autorouteEngine == nullptr; }
+
+ public:
+
   /**
    * Sets, if the auto-route database has to be maintained outside the auto-route algorithm while
    * changing items on the board. (Java package-private; true is a no-op.)

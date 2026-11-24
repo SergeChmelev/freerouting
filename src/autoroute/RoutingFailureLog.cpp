@@ -84,6 +84,7 @@ void RoutingFailureLog::clear() { failures->clear(); }
 
 RoutingFailureLog_ItemFailureInfo::RoutingFailureLog_ItemFailureInfo(Item* item) {
   this->item = item;
+  this->itemClassName = jrt::className(item);
   this->netNumber = item->netCount() > 0 ? item->getNetNumber(0) : -1;
   this->failureCount = 0;
   this->lastFailureState = std::nullopt;
@@ -105,7 +106,7 @@ bool RoutingFailureLog_ItemFailureInfo::shouldGiveUp() {
 }
 
 std::string RoutingFailureLog_ItemFailureInfo::toString() {
-  return jrt::className(item) + " (net #" + jrt::str(netNumber) + ", " + jrt::str(failureCount) + " failures)";
+  return itemClassName + " (net #" + jrt::str(netNumber) + ", " + jrt::str(failureCount) + " failures)";
 }
 
 }  // namespace fr

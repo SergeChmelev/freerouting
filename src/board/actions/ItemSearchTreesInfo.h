@@ -5,7 +5,23 @@
 #include "fwd.h"
 #include "jrt/jrt.h"
 
+#include <vector>
+
 namespace fr {
+
+/**
+ * PORT NOTE (stage E): counts the references of the arrays of precalculated tree shapes to
+ * their shapes (BasicBoard); a shape no array refers to any more is freed later, at a point
+ * where nothing outside the board can still hold it (BasicBoard::releaseGraveyard).
+ */
+class TreeShapeKeeper {
+ public:
+  virtual void retainTreeShapes(jrt::Array<TileShape*>* shapes) = 0;
+  virtual void releaseTreeShapes(jrt::Array<TileShape*>* shapes) = 0;
+
+ protected:
+  ~TreeShapeKeeper() = default;
+};
 
 /** (private static nested class in Java) */
 class ItemSearchTreesInfo_SearchTreeInfo : public virtual jrt::Object {
@@ -31,6 +47,9 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
  public:
   /** Creates a new instance of ItemSearchTreeEntries. */
   ItemSearchTreesInfo() { this->treeList = new (jrt::kOp) jrt::LinkedList<ItemSearchTreesInfo_SearchTreeInfo*>(); }
+  /** PORT NOTE (stage E): with a keeper the precalculated tree shapes are owned (traces, whose
+   * tree shapes are computed for the item alone). */
+  explicit ItemSearchTreesInfo(TreeShapeKeeper* keeper) : ItemSearchTreesInfo() { this->keeper = keeper; }
 
   // PORT NOTE (stage C): owns its tree list, the per-tree records and the leaf arrays (the
   // leaves belong to the trees, the precalculated shapes are not owned). Destroyed through
@@ -38,6 +57,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
   ~ItemSearchTreesInfo() override {
     for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
       jrt::dispose(currentTreeInfo->entryArr);
+      release(currentTreeInfo->precalculatedTreeShapes);
       jrt::dispose(currentTreeInfo);
     }
     jrt::dispose(this->treeList);
@@ -89,11 +109,15 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
   void setPrecalculatedTreeShapes(jrt::Array<TileShape*>* tileShapes, ShapeTree* tree) {
     for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
       if (currentTreeInfo->tree == tree) {
+        if (currentTreeInfo->precalculatedTreeShapes == tileShapes) return;
+        retain(tileShapes);  // first: shapes reused from the old array stay counted
+        release(currentTreeInfo->precalculatedTreeShapes);
         currentTreeInfo->precalculatedTreeShapes = tileShapes;
         return;
       }
     }
     auto* newTreeInfo = new (jrt::kOp) ItemSearchTreesInfo_SearchTreeInfo(tree);
+    retain(tileShapes);
     newTreeInfo->precalculatedTreeShapes = tileShapes;
     this->treeList->add(newTreeInfo);
   }
@@ -101,8 +125,20 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
   /** Clears the stored information about the precalculated tree shapes for all search trees. */
   void clearPrecalculatedTreeShapes() {
     for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
+      // PORT NOTE (stage E): the item's leaves may still use some of these shapes (a leaf's
+      // bounding shape can be the tree shape itself): the board counts those leaves too.
+      release(currentTreeInfo->precalculatedTreeShapes);
       currentTreeInfo->precalculatedTreeShapes = nullptr;
     }
+  }
+
+ private:
+  TreeShapeKeeper* keeper = nullptr;
+  void retain(jrt::Array<TileShape*>* shapes) {
+    if (keeper != nullptr && shapes != nullptr) keeper->retainTreeShapes(shapes);
+  }
+  void release(jrt::Array<TileShape*>* shapes) {
+    if (keeper != nullptr && shapes != nullptr) keeper->releaseTreeShapes(shapes);
   }
 };
 

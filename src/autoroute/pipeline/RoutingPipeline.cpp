@@ -63,7 +63,9 @@ void RoutingPipeline::run() {
     }
   }
   runRoutingStage();
+  this->job->board->releaseGraveyard();  // PORT NOTE (stage E): stage boundary
   runOptimizationStage();
+  this->job->board->releaseGraveyard();
   releaseExitStubs();
   removeDanglingCopper();
   this->job->stage = RoutingStage::IDLE;

@@ -2,6 +2,7 @@
 #include "datastructures/UndoableObjects.h"
 
 #include <algorithm>
+#include <unordered_set>
 #include <cstdlib>
 #include <unordered_set>
 
@@ -155,6 +156,21 @@ void UndoableObjects::sweepNodes() {
     stack.pop_back();
     push(n->undoObject);
     push(n->redoObject);
+  }
+  // Objects that only unreachable nodes hold are dead: report them before the nodes go.
+  if (deadObjectListener_) {
+    std::unordered_set<UndoableObjects_Storable*> live;
+    for (auto* entry : *this->objects) live.insert(entry->getKey());
+    for (UONode* n : ownedNodes_) {
+      if (n->mark == epoch) live.insert(n->object);
+    }
+    std::unordered_set<UndoableObjects_Storable*> reported;
+    for (UONode* n : ownedNodes_) {
+      if (n->mark != epoch && n->object != nullptr && live.count(n->object) == 0 &&
+          reported.insert(n->object).second) {
+        deadObjectListener_(n->object);
+      }
+    }
   }
   // Free the others: nothing can reach them any more (no iteration is live).
   std::size_t kept = 0;

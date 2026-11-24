@@ -212,6 +212,17 @@ class UndoableObjects : public virtual jrt::Object {
     if (liveIterators_ == 0 && ownedNodes_.size() >= sweepAt_) sweepNodes();
   }
   void sweepNodes();
+
+ public:
+  /** PORT NOTE (stage E): called by sweepNodes for every object that only swept nodes held
+   * (no live node, no map key): removed for good, no undo can bring it back. The owner (the
+   * board) frees it later, when nothing outside can still use it. */
+  void setDeadObjectListener(std::function<void(UndoableObjects_Storable*)> listener) {
+    deadObjectListener_ = std::move(listener);
+  }
+
+ private:
+  std::function<void(UndoableObjects_Storable*)> deadObjectListener_;
   std::vector<UndoableObjects_UndoableObjectNode*> ownedNodes_;
   static std::size_t sweepMinimum();  // 4096, or env FR_UNDO_SWEEP_MIN (stress tests)
   std::size_t sweepAt_ = sweepMinimum();

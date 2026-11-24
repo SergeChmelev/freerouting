@@ -17,6 +17,7 @@
 #include "board/model/items/ObstacleArea.h"
 #include "board/model/items/Pin.h"
 #include "board/model/items/Trace.h"
+#include "board/trace/PolylineTrace.h"
 #include "board/model/items/Via.h"
 #include "board/model/items/ViaObstacleArea.h"
 #include "board/model/items/WireObstacleArea.h"
@@ -179,7 +180,7 @@ TileShape* Item::getTreeShape(ShapeTree* tree, int32_t index) {
 
 jrt::Array<TileShape*>* Item::getPrecalculatedTreeShapes(ShapeTree* tree) {
   if (this->searchTreesInfo == nullptr) {
-    this->searchTreesInfo = new (jrt::kBoard) ItemSearchTreesInfo();
+    this->searchTreesInfo = newSearchTreesInfo();
   }
   jrt::Array<TileShape*>* precalculatedTreeShapes =
       this->searchTreesInfo->getPrecalculatedTreeShapes(tree);
@@ -989,6 +990,13 @@ bool Item::isSelectedByFixedFilter(ItemSelectionFilter* filter) {
   return result;
 }
 
+ItemSearchTreesInfo* Item::newSearchTreesInfo() {
+  // PORT NOTE (stage E): a trace's tree shapes are computed for it alone (offset shapes of its
+  // polyline): its info owns them through the board's shape keeper.
+  TreeShapeKeeper* keeper = jrt::fast_cast<PolylineTrace>(this) != nullptr ? board : nullptr;
+  return new (jrt::kBoard) ItemSearchTreesInfo(keeper);
+}
+
 void Item::clearSearchTreeEntries() {
   jrt::dispose(this->searchTreesInfo);
   this->searchTreesInfo = nullptr;
@@ -999,7 +1007,7 @@ void Item::setSearchTreeEntries(jrt::Array<ShapeTree_Leaf*>* treeEntries, ShapeT
     return;
   }
   if (this->searchTreesInfo == nullptr) {
-    this->searchTreesInfo = new (jrt::kBoard) ItemSearchTreesInfo();
+    this->searchTreesInfo = newSearchTreesInfo();
   }
   this->searchTreesInfo->setTreeEntries(treeEntries, tree);
 }

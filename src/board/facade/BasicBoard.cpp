@@ -5,6 +5,8 @@
 #include <string>
 #include "geometry/planar/GeomCopy.h"
 
+#include <unordered_set>
+
 #include "autoroute/maze/AutorouteControl.h"
 #include "board/actions/ItemSelectionFilter.h"
 #include "board/facade/BoardConnectivityQueries.h"
@@ -74,6 +76,7 @@ BasicBoard::BasicBoard(IntBox* boundingBox, LayerStructure* layerStructure,
   this->rules = rules;
   library = new (jrt::kBoard) BoardLibrary();
   itemList = new (jrt::kBoard) UndoableObjects();
+  watchItemList();
   components = new (jrt::kBoard) Components();
   this->communication = communication;
   this->boundingBox = boundingBox;
@@ -1378,6 +1381,7 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
     return copiedItem;
   };
   this->itemList = source->itemList->copyMapped(mapObject);
+  watchItemList();
   // Second pass, now that this->itemList exists (setClearanceClassIndex notes a content change on
   // the board's item list): restore what copy(id) of some classes drops.
   for (auto* entry : *memo->entrySet()) {
@@ -1406,6 +1410,17 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
 }
 
 int64_t BasicBoard::copiesMade() { return gCopiesMade; }
+
+namespace {
+int64_t gGraveyardFlushes = 0, gGraveyardSkips = 0, gDeadItemsFreed = 0, gDeadShapesFreed = 0;
+int64_t gDeadItemsNoted = 0;
+}  // namespace
+
+std::string BasicBoard::graveyardStats() {
+  return "graveyard: " + jrt::str(gGraveyardFlushes) + " flushes, " + jrt::str(gGraveyardSkips) +
+         " skipped (live engine), items noted " + jrt::str(gDeadItemsNoted) + " / freed " +
+         jrt::str(gDeadItemsFreed) + ", tree shapes freed " + jrt::str(gDeadShapesFreed);
+}
 int64_t BasicBoard::copiesDiscarded() { return gCopiesDiscarded; }
 
 bool BasicBoard::discardEnabled(const char* site) {
@@ -1427,7 +1442,90 @@ void BasicBoard::discard(BasicBoard* board, const char* site) {
   jrt::dispose(board);
 }
 
+void BasicBoard::watchItemList() {
+  itemList->setDeadObjectListener([this](UndoableObjects_Storable* object) { noteDeadObject(object); });
+}
+
+void BasicBoard::noteDeadObject(UndoableObjects_Storable* object) {
+  if (auto* item = jrt::fast_cast<Item>(object)) {
+    deadItems_.push_back(item);
+    ++gDeadItemsNoted;
+  }
+}
+
+void BasicBoard::retainTreeShapes(jrt::Array<TileShape*>* shapes) {
+  for (TileShape* s : *shapes) {
+    if (s != nullptr) ++treeShapeRefs_[s];
+  }
+}
+
+void BasicBoard::releaseTreeShapes(jrt::Array<TileShape*>* shapes) {
+  for (TileShape* s : *shapes) {
+    if (s == nullptr) continue;
+    auto it = treeShapeRefs_.find(s);
+    if (it == treeShapeRefs_.end()) continue;
+    if (--it->second == 0) {
+      treeShapeRefs_.erase(it);
+      deadTreeShapes_.push_back(s);
+    }
+  }
+  deadShapeArrays_.push_back(shapes);
+}
+
+void BasicBoard::retainLeafShape(RegularTileShape* shape) {
+  auto it = treeShapeRefs_.find(static_cast<TileShape*>(shape));
+  if (it != treeShapeRefs_.end()) ++it->second;
+}
+
+void BasicBoard::releaseLeafShape(RegularTileShape* shape) {
+  auto* s = static_cast<TileShape*>(shape);
+  auto it = treeShapeRefs_.find(s);
+  if (it == treeShapeRefs_.end()) return;
+  if (--it->second == 0) {
+    treeShapeRefs_.erase(it);
+    deadTreeShapes_.push_back(s);
+  }
+}
+
+void BasicBoard::releaseGraveyard() {
+  if (graveyardSafe()) {
+    ++gGraveyardFlushes;
+    releaseGraveyardNow();
+  } else {
+    ++gGraveyardSkips;
+  }
+}
+
+void BasicBoard::releaseGraveyardNow() {
+  // Items first: leaving the trees releases their tree shapes into the graveyard too.
+  std::vector<Item*> items;
+  items.swap(deadItems_);
+  std::unordered_set<Item*> seenItems;
+  for (Item* item : items) {
+    if (!seenItems.insert(item).second) continue;
+    item->clearSearchTreeEntries();
+    jrt::dispose(item->netNumbers);  // every item (and undo version) has its own array
+    jrt::dispose(item);
+    ++gDeadItemsFreed;
+  }
+  std::unordered_set<TileShape*> seenShapes;
+  for (TileShape* s : deadTreeShapes_) {
+    // a shape that an array took again since it was dropped is still in use
+    if (treeShapeRefs_.count(s) == 0 && seenShapes.insert(s).second) {
+      jrt::dispose(s);
+      ++gDeadShapesFreed;
+    }
+  }
+  deadTreeShapes_.clear();
+  std::unordered_set<jrt::Array<TileShape*>*> seenArrays;
+  for (auto* a : deadShapeArrays_) {
+    if (seenArrays.insert(a).second) jrt::dispose(a);
+  }
+  deadShapeArrays_.clear();
+}
+
 void BasicBoard::releaseOwnedData() {
+  releaseGraveyardNow();  // the board dies: nothing outside it uses its removed items any more
   BoardStatisticsBoundsCalculator::forget(this);
   // The copy's rules are not freed yet: drop their back link to this board.
   if (rules != nullptr && rules->nets != nullptr && rules->nets->getBoard() == this) {
@@ -1459,6 +1557,7 @@ void BasicBoard::releaseOwnedData() {
     jrt::dispose(itemList);
     itemList = nullptr;
   }
+  releaseGraveyardNow();  // tree shapes and arrays the items' search-tree info released above
   if (components != nullptr) {
     components->disposeAll();
     jrt::dispose(components);

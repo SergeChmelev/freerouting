@@ -815,6 +815,14 @@ bool ShapeSearchTree::copperApart(ConvexShape* queryShape, bool queryIsCopper,
          jrt::Math::max(clearance, 1);
 }
 
+void ShapeSearchTree::leafInserted(ShapeTree_Leaf* leaf) {
+  if (board != nullptr) board->retainLeafShape(leaf->boundingShape);
+}
+
+void ShapeSearchTree::leafRemoved(ShapeTree_Leaf* leaf) {
+  if (board != nullptr) board->releaseLeafShape(leaf->boundingShape);
+}
+
 ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_t index) {
   auto* drillItem = jrt::fast_cast<DrillItem>(treeObject);
   if (drillItem == nullptr || this->board == nullptr || index < 0 ||

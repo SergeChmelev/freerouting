@@ -587,6 +587,30 @@ already zero-filled memory when its `details` are recorded in the failure log: i
 arena or region that was released and reused. `FR_NO_SEARCH_ARENA=1` or `FR_NO_GEOM_REGION=1`
 make the board SAME again. The E2b sample (checked) still had it SAME, so it came with E3–E6.
 
+### C4 — deferred disposal of removed items and of traces' tree shapes
+
+* `UndoableObjects::sweepNodes` reports every object that only swept nodes held (no live node,
+  no map key) to a listener: removed for good. `BasicBoard` keeps those items in a graveyard.
+* Traces' precalculated tree shapes are counted (`TreeShapeKeeper`, implemented by
+  `BasicBoard`): `ItemSearchTreesInfo` with a keeper (traces only — other items' tree shapes
+  may be shared, e.g. with pin shape caches) retains a new array before it releases the old one;
+  tree leaves whose bounding shape *is* a tracked tree shape count too (`ShapeTree::
+  leafInserted/leafRemoved`, `ShapeSearchTree` forwards to the board) — a cut-out trace's pieces
+  reuse its leaves, and a cleared cache leaves the old shapes in the leaves. A shape no array and
+  no leaf refers to goes to the graveyard.
+* `BasicBoard::releaseGraveyard()` frees the graveyard (items: tree info, net-number array,
+  object; then shapes no longer counted; then dropped arrays) only between top-level operations
+  — after the routing and the optimization stage, after each optimizer pass and each step-slider
+  pass — and only without a live autoroute engine (its drill pages / obstacle rooms refer to
+  tree shapes). Callers do keep removed items during a pass (pass item lists, ripped lists).
+  `discard` frees it unconditionally. `RoutingFailureLog` keeps the class name as a string
+  (its item pointer may be freed). `FR_MEM_STATS` prints the graveyard counters.
+* Effect: bm02 449 items (with forced sweeps) / 42k shapes; Issue187 21.5k items / 1.2M shapes —
+  but only the shape *objects*: a `Simplex` does not own its line array and lines (offset shapes
+  share lines), so most of a tree shape's memory is not freed yet. Next: tree shapes of a trace
+  in a region of their own (released with the last array / leaf referring to it).
+* (b) dropped search trees: not done yet.
+
 ## TODO (stage C/E)
 
 * kOp in main-board regions: enabling it for the step slider broke 11/40 smoke boards. The

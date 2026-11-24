@@ -103,6 +103,11 @@ class ShapeTree : public virtual jrt::Object {
 
   virtual void removeLeaf(ShapeTree_Leaf* leaf) = 0;
 
+  /** PORT NOTE (stage E): hooks for the owner of the leaves' bounding shapes (a leaf's bounding
+   * shape can be an item's tree shape itself: it must stay alive as long as the leaf). */
+  virtual void leafInserted(ShapeTree_Leaf* leaf) {}
+  virtual void leafRemoved(ShapeTree_Leaf* leaf) {}
+
   /** Inserts the leaves of this tree into an array. */
   virtual jrt::Array<ShapeTree_Leaf*>* toArray();
 
