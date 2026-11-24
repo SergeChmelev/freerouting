@@ -157,6 +157,9 @@ AutorouteAttemptResult* AutorouteEngine::autorouteConnection(jrt::Set<Item*>* st
   }
 
   if (mazeSearchAlgo == nullptr) {
+    // PORT NOTE (stage E): the search region (which takes kOp) is still active here; the result
+    // outlives the engine, so it goes to the heap.
+    jrt::HeapScope heap;
     return new (jrt::kOp) AutorouteAttemptResult(
         AutorouteAttemptState::FAILED,
         "Failed to route connection between " + describeConnection(startSet, destSet) +
