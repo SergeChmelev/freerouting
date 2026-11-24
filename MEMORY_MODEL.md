@@ -822,7 +822,22 @@ bm01 `-mt 4` (release, SES identical to Java):
 | peak RSS | 14.2 GB | 2.7 GB |
 | heap still allocated after the run | 2.2 GB | 46 MB |
 
-Issue110 `-mt 4`: peak 2.3 GB -> 1.5 GB, heap after the run 204 -> 73 MB. ASan clean on bm02,
+Peak RSS of every board of the speed comparison, MB (release, same flags; SES identical to Java
+on all; the times of this run are not comparable, another job shared the machine; bm01 `-mt 4`
+from the separate run above):
+
+| board | main 1T before | after | main mt4 before | after |
+|---|---|---|---|---|
+| bm02 | 116 | 115 | 200 | 171 |
+| Issue187-processor.Z80 | 1364 | 1358 | 1542 | 1609 |
+| Issue022-AutoRouter_interrupted | 1470 | 1184 | 2201 | 1615 |
+| Issue214-freerouting | 3976 | 4016 | 4149 | 4235 |
+| Issue110-RelayModule | 1278 | 954 | 2303 | 1354 |
+| Issue178-KeebMaker_Sofle_Choc | 1986 | 1523 | 3060 | 2388 |
+| DAC2020 bm01 | 6266 | 1250 | 14163 | 2699 |
+
+Issue214 is unchanged: its peak is the job heap (E11 TODO), not search regions.
+Issue110 `-mt 4` (profiling build): heap after the run 204 -> 73 MB. ASan clean on bm02,
 Issue187 (19 threads), Issue690, Issue1161, Fanout-blind-via-plane-garland; LeakSanitizer
 bm02 1.1 -> 0.6 MB, Issue187 5.8 -> 3.4 MB.
 
