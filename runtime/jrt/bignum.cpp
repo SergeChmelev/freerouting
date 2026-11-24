@@ -157,7 +157,7 @@ BigInteger BigInteger::mod(const BigInteger& m) const {
   return fromRep(rr);
 }
 Array<BigInteger>* BigInteger::divideAndRemainder(const BigInteger& o) const {
-  auto* a = new Array<BigInteger>(2);
+  auto* a = new (kOp) Array<BigInteger>(2);  // a temporary of the caller
   (*a)[0] = divide(o);
   (*a)[1] = remainder(o);
   return a;

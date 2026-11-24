@@ -163,7 +163,7 @@ class Engine {
 
   // Engine-thread-only state (core objects).
   fr::BasicBoard* board_ = nullptr;  // loaded or routed board
-  void dropBoard(fr::BasicBoard* next);  // frees board_ unless it is `next`
+  void dropBoard(fr::BasicBoard* next, bool lastOfFamily);  // frees board_ unless it is `next`
   jrt::Array<int8_t>* dsnBytes_ = nullptr;
   fr::InteractiveSession* session_ = nullptr;  // interactive editing of board_
   std::string designName_;

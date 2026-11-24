@@ -10,6 +10,8 @@ namespace fr {
 /** Describes padstack masks for pins or vias located at the origin. */
 class Padstack : public virtual ItemInfoPrinter_Printable {
  public:
+  // Stage E: owns its shape / oval arrays and ovals, not the shapes (runs only when the object is disposed).
+  ~Padstack() override;
   /** Creates a new Padstack with one shape per board layer. (package-private in Java) */
   Padstack(const std::string& name, int32_t id, jrt::Array<ConvexShape*>* shapes,
            bool isDrillable, bool placedAbsolute, Padstacks* padstackList)

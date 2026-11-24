@@ -116,8 +116,9 @@ fr::io::BoardReadResult* DsnReader::readBoard(jrt::Array<int8_t>* dsnBytes,
   }
   std::string text = arrayToString(dsnBytes);
   std::istringstream parseStream(text);
-  return readBoardFromStreams(parseStream, new (jrt::kOp) StringStreamOpener(text), observers, idGenerator,
-                              designName, options);
+  // Stage E: a local (it holds a copy of the text; the read does not keep it).
+  StringStreamOpener opener(text);
+  return readBoardFromStreams(parseStream, &opener, observers, idGenerator, designName, options);
 }
 
 fr::io::BoardReadResult* DsnReader::readBoardFromStreams(

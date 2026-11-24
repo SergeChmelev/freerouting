@@ -109,4 +109,9 @@ std::string RoutingFailureLog_ItemFailureInfo::toString() {
   return itemClassName + " (net #" + jrt::str(netNumber) + ", " + jrt::str(failureCount) + " failures)";
 }
 
+RoutingFailureLog::~RoutingFailureLog() {
+  for (auto* e : failures->entryVector()) jrt::dispose(e->getValue());
+  jrt::disposeMapAndEntries(failures);
+}
+
 }  // namespace fr

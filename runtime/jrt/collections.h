@@ -213,20 +213,35 @@ class Array : public virtual Object {
  private:
   T* allocData(int32_t n) {
     if (n <= 0) return nullptr;
-    if constexpr (std::is_trivially_default_constructible_v<T> && std::is_trivially_destructible_v<T>) {
-      // `this` was allocated just before, so it is in the head chunk of its arena. Arena memory
-      // is zero-filled: value-initialised trivial elements. Arena objects are never destroyed,
-      // so heap storage of an array in an arena would leak.
-      std::size_t bytes = sizeof(T) * static_cast<std::size_t>(n);
-      for (GeomRegion* r = current_geom_region(); r != nullptr; r = r->outer()) {
-        if (r->inHeadChunk(this)) return static_cast<T*>(r->allocate(bytes));
+    if constexpr (std::is_trivially_destructible_v<T>) {
+      // `this` was allocated just before, so it is in the head chunk of its arena. Arena objects
+      // are never destroyed, so heap storage of an array in an arena would leak: elements that
+      // need no destructor (pointers, numbers, BigInteger values) are stored in the same arena.
+      // Arena memory is zero-filled (value-initialised trivial elements); others are constructed.
+      T* p = arenaData(sizeof(T) * static_cast<std::size_t>(n));
+      if (p != nullptr) {
+        if constexpr (!std::is_trivially_default_constructible_v<T>) {
+          for (int32_t i = 0; i < n; ++i) new (p + i) T();
+        }
+        return p;
       }
-      Arena* a = current_search_arena();
-      if (a != nullptr && a->inHeadChunk(this)) return static_cast<T*>(a->allocate(bytes));
-      a = current_board_arena();
-      if (a != nullptr && a->inHeadChunk(this)) return static_cast<T*>(a->allocate(bytes));
     }
     return new T[n]();
+  }
+  T* arenaData(std::size_t bytes) {
+    for (GeomRegion* r = current_geom_region(); r != nullptr; r = r->outer()) {
+      if (r->inHeadChunk(this)) return static_cast<T*>(r->allocate(bytes));
+    }
+    Arena* a = current_search_arena();
+    if (a != nullptr && a->inHeadChunk(this)) return static_cast<T*>(a->allocate(bytes));
+    a = current_board_arena();
+    if (a != nullptr && a->inHeadChunk(this)) return static_cast<T*>(a->allocate(bytes));
+    // An array object made while another target was current: storage in its own domain too.
+    if (job_heap_owns(this)) return static_cast<T*>(job_heap_alloc(bytes));
+    if (GeomRegion* r = active_geom_region(geom_domain_of(this))) {
+      return static_cast<T*>(r->allocate(bytes));
+    }
+    return nullptr;
   }
   T* data_;
 };

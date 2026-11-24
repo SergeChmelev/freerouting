@@ -9,6 +9,8 @@ namespace fr {
 /** Describes a board library of packages and padstacks. */
 class BoardLibrary : public virtual jrt::Object {
  public:
+  // Stage E: owns padstacks, packages and logical parts (runs only when the object is disposed).
+  ~BoardLibrary() override;
   /** Creates a new instance of BoardLibrary. */
   BoardLibrary(Padstacks* padstacks, Packages* packages);
 

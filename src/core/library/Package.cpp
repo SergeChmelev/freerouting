@@ -95,4 +95,19 @@ void Package::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
   printer->newline();
 }
 
+Package::~Package() {
+  auto disposeAll = [](auto* array) {
+    if (array == nullptr) return;
+    for (auto* e : *array) jrt::dispose(e);
+    jrt::dispose(array);
+  };
+  disposeAll(pins);
+  disposeAll(keepouts);
+  disposeAll(viaKeepouts);
+  disposeAll(placeKeepoutArr);
+  jrt::dispose(outline);
+  jrt::dispose(outlineWidths);
+  jrt::dispose(outlineIsClosed);
+}
+
 }  // namespace fr

@@ -154,7 +154,7 @@ int runMain(int argc, char** argv) {
   }
   int rc = result->isSuccess() ? 0 : 1;
   // Stage E: the run is over. The routed board is the last board of the run.
-  fr::BasicBoard::discard(result->board(), "result");
+  fr::BasicBoard::discardLast(result->board());
   jrt::dispose(result);
   return rc;
 }

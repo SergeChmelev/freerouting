@@ -121,4 +121,9 @@ Package* Packages::add(jrt::Array<Package_Pin*>* pins) {
              new (jrt::kOp) jrt::Array<Package_Keepout*>(0), new (jrt::kOp) jrt::Array<Package_Keepout*>(0), true);
 }
 
+Packages::~Packages() {
+  for (Package* p : *packages) jrt::dispose(p);
+  jrt::dispose(packages);
+}
+
 }  // namespace fr

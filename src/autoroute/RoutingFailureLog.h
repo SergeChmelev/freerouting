@@ -39,6 +39,8 @@ class RoutingFailureLog_ItemFailureInfo : public virtual jrt::Object {
  */
 class RoutingFailureLog : public virtual jrt::Object {
  public:
+  // Stage E: owns its failure records and map (runs only when the object is disposed).
+  ~RoutingFailureLog() override;
   // PORT NOTE (board deepCopy hook): independent deep copy. The ItemFailureInfo objects are copied;
   // their `item` references are mapped through itemMap when given (Java serialization would
   // point them at the copied board's items), else kept (shared with the source).

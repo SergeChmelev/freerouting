@@ -9,6 +9,8 @@ namespace fr {
 /** Describes a library of padstacks for pins or vias. */
 class Padstacks : public virtual jrt::Object {
  public:
+  // Stage E: owns its padstacks (runs only when the object is disposed).
+  ~Padstacks() override;
   /** Creates a new instance of Padstacks. */
   explicit Padstacks(LayerStructure* layerStructure);
 

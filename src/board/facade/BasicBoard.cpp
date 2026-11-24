@@ -36,6 +36,8 @@
 #include "board/state/BoardObservers.h"
 #include "board/state/ChangedArea.h"
 #include "board/state/Communication.h"
+#include "datastructures/IdGenerator.h"
+#include "io/CoordinateTransform.h"
 #include "board/trace/PolylineTrace.h"
 #include "core/library/BoardLibrary.h"
 #include "core/library/Padstack.h"
@@ -1575,6 +1577,31 @@ void BasicBoard::releaseOwnedData() {
   // The board's own rules (copies deep copy them; shared parts are not freed).
   BoardRules::disposeCopy(rules);
   rules = nullptr;
+  // Its communication object (copyForBoard: own id generator and observers; the parser info and
+  // coordinate transform are shared and freed by discardLast).
+  if (communication != nullptr) {
+    jrt::dispose(communication->idGenerator);
+    jrt::dispose(communication->observers);
+    jrt::dispose(communication);
+    communication = nullptr;
+  }
+}
+
+void BasicBoard::discardLast(BasicBoard* board) {
+  if (board == nullptr || !discardEnabled("last")) {
+    return;
+  }
+  BoardLibrary* sharedLibrary = board->library;
+  LayerStructure* sharedLayers = board->layerStructure;
+  Communication_SpecctraParserInfo* sharedParserInfo =
+      board->communication != nullptr ? board->communication->specctraParserInfo : nullptr;
+  io::CoordinateTransform* sharedTransform =
+      board->communication != nullptr ? board->communication->coordinateTransform : nullptr;
+  discard(board, "last");
+  jrt::dispose(sharedLibrary);
+  jrt::dispose(sharedLayers);
+  jrt::dispose(sharedParserInfo);
+  jrt::dispose(sharedTransform);
 }
 
 BasicBoard* BasicBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {

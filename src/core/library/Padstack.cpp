@@ -222,4 +222,16 @@ void Padstack::printInfo(ItemInfoPrinter* printer, const std::string& locale) {
   printer->newline();
 }
 
+Padstack::~Padstack() {
+  jrt::dispose(shapes);
+  if (auxiliaryShapes != nullptr) {
+    for (jrt::Array<ConvexShape*>* a : *auxiliaryShapes) jrt::dispose(a);
+    jrt::dispose(auxiliaryShapes);
+  }
+  if (ovals != nullptr) {
+    for (PadOval* o : *ovals) jrt::dispose(o);
+    jrt::dispose(ovals);
+  }
+}
+
 }  // namespace fr

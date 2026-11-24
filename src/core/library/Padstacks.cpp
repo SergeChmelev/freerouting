@@ -87,4 +87,9 @@ Padstack* Padstacks::add(ConvexShape* shape, int32_t fromLayer, int32_t toLayer)
   return add(shapes);
 }
 
+Padstacks::~Padstacks() {
+  for (Padstack* p : *padstacks) jrt::dispose(p);
+  jrt::dispose(padstacks);
+}
+
 }  // namespace fr

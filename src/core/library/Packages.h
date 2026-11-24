@@ -9,6 +9,8 @@ namespace fr {
 /** Describes a library of component packages. */
 class Packages : public virtual jrt::Object {
  public:
+  // Stage E: owns its packages (not the padstacks) (runs only when the object is disposed).
+  ~Packages() override;
   /**
    * Creates a new instance of Packages. padstackList is the list of padstacks used for the pins of
    * the packages in this data structure.

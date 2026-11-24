@@ -9,6 +9,8 @@ namespace fr {
 /** The logical parts contain information for gate swap and pin swap. */
 class LogicalParts : public virtual jrt::Object {
  public:
+  // Stage E: owns its parts (runs only when the object is disposed).
+  ~LogicalParts() override;
   LogicalParts();
 
   /** Adds a logical part to the database (sorts partPinArr by pin index first). */

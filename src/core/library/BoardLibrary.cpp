@@ -127,4 +127,11 @@ bool BoardLibrary::isUsed(Padstack* padstack, BasicBoard* board) {
   return false;
 }
 
+BoardLibrary::~BoardLibrary() {
+  jrt::dispose(viaPadstacks);  // its padstacks belong to `padstacks`
+  jrt::dispose(packages);
+  jrt::dispose(padstacks);
+  jrt::dispose(logicalParts);
+}
+
 }  // namespace fr

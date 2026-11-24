@@ -1,6 +1,6 @@
 # Memory model: from Boehm GC to explicit ownership
 
-Status: stages **A and B done**, **C and D in progress** (C1, D1–D3, 2026-11-23), E open; plan agreed 2026-11-23. Baseline: tag `gc-port-baseline` (backup in WSL
+Status (2026-11-24): **the collector is removed** (E10); explicit owners, operation regions and the job region (E9) hold all memory; remaining work in the TODO list. Plan agreed 2026-11-23. Baseline: tag `gc-port-baseline` (backup in WSL
 `~/_backup_before_kill_gc`). The GC port is the reference implementation: every step below must
 keep the routing output byte-identical to Java (and to `gc-port-baseline`).
 
@@ -699,30 +699,47 @@ the engine replaces (a new load, the routed board) and its board when it stops
 (`Engine::dropBoard`). `ui/test_engine.lua` (load, route, save, close) on Issue026: SES identical
 to Java.
 
-## TODO (stage C/E)
+Owners added after the removal: the last board of a family frees what the family shared
+(`BasicBoard::discardLast`: library with padstacks, packages and logical parts, layer structure,
+the DSN parser info and coordinate transform; the CLI and the Lua engine call it for the last
+board, `discard` stays for copies); every board frees its `Communication` copy (id generator,
+observers) and its `RoutingFailureLog`; the DSN reader keeps its text copy on the stack;
+`jrt::Array` storage of trivially destructible elements (also `BigInteger`) lives in the array's
+own region / job heap, and an array object made while another target was current finds its
+domain by address. Tried and reverted: moving `ItemSearchTreesInfo` into the item's domain (even
+only for region items) - its destructor (shape release through the keeper) then never runs and
+the graveyard frees far fewer tree shapes (bm02 heap after the run 1.8 → 6 MB).
 
-* kOp in main-board regions: done for the step slider, the insertion region of
-  `autorouteConnection`, both `RoutingBoard::optChangedArea` regions and the profile dump
-  (bm02 no-GC leak 132 → 122 MB). The escape check cannot name the holders here (dead
-  intermediate rooms of `completeShape` in live search-region chunks point into every released
-  local region), so the escapes were found with the ASan build (poisoned region memory) and,
-  for the one that only showed as a corrupt tree leaf, a temporary trap in `ShapeTree::insert`
-  printing the stack when the inserted object lies in a local region. Board data that was
-  allocated as kOp: the substitute trace pieces the shove inserts
-  (`nextSubstituteTracePiece(forInsert)`), the delete lists of `UndoableObjects`
-  (`generateSnapshot`, `copyMapped`), `Component` versions (`clone`, `addPrecise`), the scratch
-  stacks of `MinAreaTree` and `ArrayStack` storage (owner's domain).
+bm02 after this: heap still allocated after the run 1.5 MB (was 122 MB before E9), job heap
+100 MB at the end, SES identical; ASan: no memory errors; LeakSanitizer 1.1 MB unreachable at
+exit (direct 0.5 MB; was 24 MB before E9). What is left: the `ItemSearchTreesInfo` of the
+temporary trace pieces a shove check measures (~0.5 MB with their lists and shape arrays; see
+the reverted attempt above), job-level objects of a run (the optimizer's per-candidate
+`RouterSettings` defaults and phase metrics, pass counters, a few lazily made board facades /
+snapshot managers of copies), and small collections of board copies (`UndoableObjects` maps,
+`HashSet` iterators' snapshots).
 
-* Items: deferred disposal of removed items and their geometry (callers keep using an item after
-  `removeItem`; caches refer to items).
-* Performance after the migration: domain lookups (`DomainScope`, `keep`, chunk map) slowed long
-  boards down (Issue110-RelayModule 583 s, Issue178 > 900 s under load); compare with
-  `gc-port-baseline` once the migration is done.
-* Long-lived objects (rules, library, settings, DSN parse structures). Board teardown (E7) still
-  leaves a copy's `BoardRules`, `Communication`, failure log and item geometry caches; the
-  strict-DRC snapshots, losing fallback attempts and the candidate `RoutingJob` are not freed.
+## TODO (after E10)
+
+* **Peak memory of large boards.** The job heap holds what used to be collected: geometry and
+  temporaries of operations outside regions, caches of heap items (pin shapes, outline areas,
+  tree shapes of non-trace items), item geometry shared by board copies. It is freed at the end
+  of the run, not earlier, so the peak is the former no-GC leak (bm02: 100 MB in the job heap at
+  the end; large boards several GB). Levers, by size (live profile with `FR_NO_JOB_REGION=1`):
+  item caches of freed board copies in a per-board region, tree shapes of a trace in a region of
+  their own (a `Simplex` does not own its lines), more operation regions around the remaining
+  main-board operations (statistics, DRC, ledger counting).
+* **LeakSanitizer residue** (bm02, after E10: 1.1 MB unreachable, see E10): the shove check's
+  temporary trace pieces get their `ItemSearchTreesInfo` on the heap (they should not get a
+  keeper-tracked info at all), plus small job-level objects; `tools/mem/asan_run.sh` lists them
+  by site and caller (`FR_ASAN_CTX=20` for deeper stacks).
+* **Performance after the migration:** compare with `gc-port-baseline` (domain lookups,
+  `DomainScope`, `keep`, chunk map, job-heap page lookups in `operator delete`).
+* Not freed yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with
+  `strict_drc`), the attempt boards of the fallback runner that lose, the `InteractiveSession`
+  of the Lua engine, job-level objects of `route()` (job, pipeline, settings merger: freed with
+  the process).
 * The arena/region escape behind the Issue110-Pajalnaja_stancija crash (see E7).
-* Remove the collector: drop `GcThreadScope`, `new_root`, the Boehm backend; LeakSanitizer clean.
 
 ### E3 — operation regions take kOp too
 

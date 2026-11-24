@@ -12,6 +12,11 @@ class LayerStructure : public virtual jrt::Object {
  public:
   /** Creates a new instance of LayerStructure. */
   explicit LayerStructure(jrt::Array<Layer*>* layers) : layers(layers) {}
+  // Stage E: owns its layers (runs only when the object is disposed).
+  ~LayerStructure() override {
+    for (Layer* l : *layers) jrt::dispose(l);
+    jrt::dispose(layers);
+  }
 
   /** Returns the index of the layer with the name name in the layer array, or -1. */
   int32_t getNo(const std::string& name) {

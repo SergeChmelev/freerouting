@@ -711,6 +711,8 @@ void RoutingBoard::discardAutorouteEngineWithBoard() {
 
 void RoutingBoard::releaseOwnedData() {
   ShoveCheckCache::forThread()->forget(this);
+  jrt::dispose(failureLog);  // the board's own (copies deep copy it)
+  failureLog = nullptr;
   // The engine's arena objects (rooms, drills) are referenced only by this board; the trees
   // are freed below without reading their leaves' objects.
   discardAutorouteEngineWithBoard();  // frees the engine too

@@ -46,6 +46,8 @@ class LogicalPart_PartPin : public virtual jrt::Object {
 /** Contains information for gate swap and pin swap for a single component. */
 class LogicalPart : public virtual ItemInfoPrinter_Printable {
  public:
+  // Stage E: owns its part pins (runs only when the object is disposed).
+  ~LogicalPart() override;
   /**
    * Creates a new instance of LogicalPart. The part pins are sorted by pinIndex. The pinIndex's of
    * the part pins must be the same index as in the components' library package.

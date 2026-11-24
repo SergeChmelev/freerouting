@@ -40,4 +40,11 @@ void LogicalPart::printInfo(ItemInfoPrinter* printer, const std::string& locale)
   printer->newline();
 }
 
+LogicalPart::~LogicalPart() {
+  if (partPinArr != nullptr) {
+    for (LogicalPart_PartPin* p : *partPinArr) jrt::dispose(p);
+    jrt::dispose(partPinArr);
+  }
+}
+
 }  // namespace fr

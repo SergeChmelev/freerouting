@@ -289,10 +289,16 @@ void Engine::setStatus(const std::function<void(Status&)>& update) {
   update(status_);
 }
 
-void Engine::dropBoard(fr::BasicBoard* next) {
+void Engine::dropBoard(fr::BasicBoard* next, bool lastOfFamily) {
   // Stage E: the engine owns its current board; a replaced one is freed (published views are
   // plain data, the edit session is recreated on the new board).
-  if (board_ != nullptr && board_ != next) fr::BasicBoard::discard(board_, "engine");
+  if (board_ != nullptr && board_ != next) {
+    if (lastOfFamily) {
+      fr::BasicBoard::discardLast(board_);
+    } else {
+      fr::BasicBoard::discard(board_, "engine");
+    }
+  }
   if (board_ != next) board_ = nullptr;
 }
 
@@ -311,7 +317,7 @@ void Engine::threadMain() {
       moreEdits = !queue_.empty() && queue_.front().kind == Command::Edit;
     }
     if (cmd.kind == Command::Quit) {
-      dropBoard(nullptr);
+      dropBoard(nullptr, true);
       return;
     }
     int64_t start = jrt::System::currentTimeMillis();
@@ -381,7 +387,7 @@ void Engine::doLoad(const std::string& path) {
     throw jrt::IOException("DSN parse error at '" + pe->location() + "': " + pe->detail());
   if (board == nullptr) throw jrt::IOException("DSN did not contain a valid board");
 
-  dropBoard(board);
+  dropBoard(board, true);  // a new board family (the old one is gone with its last board)
   board_ = board;
   session_ = nullptr;
   dsnBytes_ = bytes;
@@ -456,7 +462,7 @@ void Engine::doRoute(const RouteOptions& o) {
 
   fr::HeadlessRoutingResult* result = fr::FreeroutingHeadlessEngine::route(request);
   if (result->board() != nullptr) {
-    dropBoard(result->board());  // the routed board replaces the input board (ours)
+    dropBoard(result->board(), false);  // the routed board replaces the input board (ours)
     board_ = result->board();
   }
   session_ = nullptr;  // recreated on the next edit event, on the routed board

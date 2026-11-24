@@ -44,4 +44,9 @@ LogicalPart* LogicalParts::get(int32_t partId) {
 
 int32_t LogicalParts::count() { return partArr->size(); }
 
+LogicalParts::~LogicalParts() {
+  for (LogicalPart* p : *partArr) jrt::dispose(p);
+  jrt::dispose(partArr);
+}
+
 }  // namespace fr

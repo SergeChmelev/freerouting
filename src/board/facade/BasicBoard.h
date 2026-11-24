@@ -626,6 +626,10 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
    * afterwards; never call it for the job's input board (owned by the caller).
    */
   static void discard(BasicBoard* board, const char* site = "other");
+  /** Stage E: discard() for the last board of a family (the input board and all its copies are
+   * gone): also frees what they shared - library, layer structure, the DSN parser info and
+   * coordinate transform. */
+  static void discardLast(BasicBoard* board);
   /** False when FR_NO_BOARD_DISCARD switches the drop site `site` off (diagnostics). */
   static bool discardEnabled(const char* site);
   /** Diagnostics (FR_MEM_STATS): board copies made / freed by discard() so far. */

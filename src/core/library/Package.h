@@ -56,6 +56,8 @@ class Package_Keepout : public virtual jrt::Object {
  */
 class Package : public virtual ItemInfoPrinter_Printable {
  public:
+  // Stage E: owns its pins, keepouts and outline arrays, not the shapes (runs only when the object is disposed).
+  ~Package() override;
   /** Creates a new instance of Package. The package list contains this package. */
   Package(const std::string& name, int32_t id, jrt::Array<Package_Pin*>* pins,
           jrt::Array<Shape*>* outline, jrt::Array<double>* outlineWidths,
