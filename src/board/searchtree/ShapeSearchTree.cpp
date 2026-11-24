@@ -375,8 +375,18 @@ void ShapeSearchTree::overlappingObjects(ConvexShape* shape, int32_t layer,
   jrt::ArrayList<ShapeTree_Leaf*>* leaves = QUERY_LEAF_BUFFER();
   leaves->clear();
   ClearListOnExit guard{leaves};
-  int32_t keptCount = overlappingLeavesUnlocked(shape, layer, ignoreNetNos,
-                                                static_cast<Item*>(nullptr), inLeafOrder, leaves);
+  int32_t keptCount;
+  {
+    // PORT NOTE (stage E): the shape tests make geometry temporaries; outside an operation region
+    // they die here instead of piling up in the job region (the kept leaves are the tree's).
+    std::optional<jrt::LocalGeomRegion> work;
+    if (jrt::ops_go_to_job()) {
+      work.emplace();
+      work->setTakesOps(true);
+    }
+    keptCount = overlappingLeavesUnlocked(shape, layer, ignoreNetNos, static_cast<Item*>(nullptr), inLeafOrder,
+                                          leaves);
+  }
   if (obstacles != nullptr) {
     for (int32_t i = 0; i < keptCount; i++) {
       obstacles->add(jrt::fast_cast<SearchTreeObject>(leaves->get(i)->object));
@@ -836,7 +846,7 @@ ExactCopper* ShapeSearchTree::exactCopperOf(SearchTreeObject* treeObject, int32_
     return (*cache)[index]->copper;
   }
   // PORT NOTE (stage E): the result is cached in the item: compute it in the item's domain.
-  jrt::DomainScope domain(drillItem);
+  ItemCacheScope cacheScope(drillItem);  // freed with the board
   Shape* shape = drillItem->getShape(index);
   if (shape == nullptr) {
     shape = drillHoleObstacle(drillItem);

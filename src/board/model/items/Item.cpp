@@ -185,13 +185,29 @@ jrt::Array<TileShape*>* Item::getPrecalculatedTreeShapes(ShapeTree* tree) {
   jrt::Array<TileShape*>* precalculatedTreeShapes =
       this->searchTreesInfo->getPrecalculatedTreeShapes(tree);
   if (precalculatedTreeShapes == nullptr) {
-    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
+    // PORT NOTE (stage E): cache in the holder's domain; other items than traces: in the board's
+    // cache region (a trace's tree shapes are freed one by one through its board's keeper).
+    std::optional<jrt::DomainScope> domain;
+    std::optional<ItemCacheScope> cacheScope;
+    if (jrt::fast_cast<PolylineTrace>(this) != nullptr) {
+      domain.emplace(this);
+    } else {
+      cacheScope.emplace(this);
+    }
     // Java: (ShapeSearchTree) tree -- ClassCastException if it is not one.
     auto* searchTree = jrt::fast_cast<ShapeSearchTree>(tree);
     if (searchTree == nullptr && tree != nullptr) {
       throw jrt::ClassCastException("Item.getPrecalculatedTreeShapes: not a ShapeSearchTree");
     }
-    precalculatedTreeShapes = this->calculateTreeShapes(searchTree);
+    if (domain.has_value()) {
+      // A trace's offset shapes need many temporaries (offset and cut lines, bounding shapes,
+      // intersections): computed in a region of their own, only the shapes are kept.
+      jrt::LocalGeomRegion work;
+      work.setTakesOps(true);
+      precalculatedTreeShapes = geomcopy::keep(this->calculateTreeShapes(searchTree), this);
+    } else {
+      precalculatedTreeShapes = this->calculateTreeShapes(searchTree);
+    }
     this->searchTreesInfo->setPrecalculatedTreeShapes(precalculatedTreeShapes, tree);
   }
   return precalculatedTreeShapes;

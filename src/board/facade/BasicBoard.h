@@ -59,6 +59,22 @@ struct BasicBoard_CopyTag {};
  * made "as if deserialized" (copyAsDeserialized) gets the Java DEFAULT value for them (0 / null /
  * false), not their field initializer, exactly like Java deserialization.
  */
+/**
+ * Stage E: allocates the derived caches an item computes in its board's cache region
+ * (BasicBoard::cacheRegion), so that they are freed with the board; for a worker board's item the
+ * item's own domain (jrt::DomainScope). Not for what a trace's tree-shape keeper frees itself.
+ */
+class ItemCacheScope {
+ public:
+  explicit ItemCacheScope(Item* item);
+  ItemCacheScope(const ItemCacheScope&) = delete;
+  ItemCacheScope& operator=(const ItemCacheScope&) = delete;
+
+ private:
+  std::optional<jrt::DomainScope> domain_;
+  std::optional<jrt::GeomTarget> target_;
+};
+
 class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
  private:
   /**
@@ -641,6 +657,16 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
  protected:
   /** The teardown steps of discard() before the board object itself is freed. */
   virtual void releaseOwnedData();
+
+ public:
+  /** Stage E: the region that holds the derived caches of this board's items (shapes of pins and
+   * vias, areas of outlines and obstacles, tree shapes of items other than traces, exact copper,
+   * autoroute info): freed with the board. Created on first use; only for boards whose items
+   * live on the heap (a worker board's items keep their caches in its candidate region). */
+  jrt::GeomRegion* cacheRegion();
+
+ private:
+  jrt::GeomRegion* cacheRegion_ = nullptr;
 
  public:
   // PORT NOTE (stage E): deferred disposal ("graveyard"). Items removed for good (no undo can

@@ -205,6 +205,15 @@ class FastPlaneConnectivityGrid : public virtual jrt::Object {
       BasicBoard* board,
       jrt::Collection<Item*>* sameNetItems,
       FastPlaneConnectivityGrid_FractureMemo* memo);
+  /**
+   * PORT NOTE (stage E): copy-out of an evaluation run in the operation region `work`. Copies the
+   * parts of `result` and of what `memo` stored that lie in `work` into the current domain (maps
+   * keep their layout, so they iterate as before) and returns the result to keep.
+   */
+  static FastPlaneConnectivityGrid_PlaneFractureResult* keepOutside(
+      const jrt::GeomRegion& work,
+      FastPlaneConnectivityGrid_PlaneFractureResult* result,
+      FastPlaneConnectivityGrid_FractureMemo* memo);
 
  private:
   /**

@@ -12,6 +12,15 @@ namespace fr {
 jrt::Map<int32_t, jrt::List<Item*>*>* BoardConnectivityQueries::getConnectableIndex() {
   int64_t currentStamp = board->itemList->getVersion() + board->getNetAssignmentChangeCount();
   if (connectableItemsByNet == nullptr || connectableItemsStamp != currentStamp) {
+    // PORT NOTE (stage E): a board cache that outlives the operation that asks first (it may run
+    // in an operation region): in the domain of this board-owned object. The stale index is
+    // freed (only this class reads it).
+    jrt::DomainScope domain(this);
+    if (connectableItemsByNet != nullptr) {
+      for (auto* e : connectableItemsByNet->entryVector()) jrt::dispose(e->getValue());
+      jrt::disposeMapAndEntries(connectableItemsByNet);
+      connectableItemsByNet = nullptr;
+    }
     jrt::Map<int32_t, jrt::List<Item*>*>* map = new (jrt::kOp) jrt::HashMap<int32_t, jrt::List<Item*>*>();
     auto iteratorScope = board->itemList->readScope();
     jrt::Iterator<UndoableObjects_UndoableObjectNode*>* iterator = &iteratorScope;

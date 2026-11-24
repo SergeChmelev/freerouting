@@ -17,6 +17,10 @@ class RoutingFallbackRunner_Attempt : public virtual jrt::Object {
   RoutingBoard* board_;
   BatchAutorouter* router_;
   ClearanceBaseline* baseline_;
+  // Stage E: the board the attempt started on (its batch loop may have installed another one)
+  // and whether the runner made it (then the runner frees it when the attempt loses).
+  RoutingBoard* startBoard_ = nullptr;
+  bool owned_ = false;
 
  public:
   RoutingFallbackRunner_Attempt(
@@ -72,6 +76,9 @@ class RoutingFallbackRunner : public virtual jrt::Object {
       RoutingFallback_Strategy* strategy,
       bool keepFanoutVias,
       ClearanceBaseline* inputBaseline);
+  /** Stage E: frees the boards of an attempt the runner made and no longer uses (never the
+   * current job board or the boards of `keep`). */
+  void dropAttempt(RoutingJob* job, RoutingFallbackRunner_Attempt* attempt, RoutingFallbackRunner_Attempt* keep);
   RoutingFallbackRunner_Attempt* runPrepared(
       RoutingJob* job,
       RoutingBoard* board,

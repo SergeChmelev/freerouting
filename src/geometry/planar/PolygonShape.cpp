@@ -33,6 +33,9 @@ PolygonShape::PolygonShape(Polygon* polygon) {
     currentPolygon = polygon->revertCorners();
   }
   jrt::Array<Point*>* currentCorners = currentPolygon->cornerArray();
+  if (currentPolygon != polygon) {
+    jrt::dispose(currentPolygon);  // PORT NOTE (stage E): the reverted copy was a temporary
+  }
   int32_t lastCornerNo = currentCorners->length - 1;
 
   if (lastCornerNo > 0) {
@@ -92,7 +95,9 @@ PolygonShape::PolygonShape(Polygon* polygon) {
   corners = result;
 }
 
-PolygonShape::PolygonShape(jrt::Array<Point*>* corners) : PolygonShape(new (jrt::kOp) Polygon(corners)) {}
+// PORT NOTE (stage E): the temporary polygon is freed when the delegated constructor returns.
+PolygonShape::PolygonShape(jrt::Array<Point*>* corners)
+    : PolygonShape(jrt::DisposeOnExit<Polygon>(new (jrt::kOp) Polygon(corners)).get()) {}
 
 Point* PolygonShape::corner(int32_t no) {
   if (no < 0 || no >= corners->length) {

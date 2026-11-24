@@ -82,6 +82,8 @@ GeomRegionScope::~GeomRegionScope() {
   region_->outer_ = nullptr;
 }
 
+void GeomRegion::registerChunks() { arena_.setChunkHook(region_chunk_hook, id_); }
+
 void GeomRegion::release() {
   arena_.release();
 }

@@ -564,8 +564,7 @@ TileShape* TileShape::rotateApprox(double angle, FloatPoint* pole) {
   for (int32_t i = 0; i < newCorners->length; i++) {
     (*newCorners)[i] = this->cornerApprox(i)->rotate(angle, pole)->round();
   }
-  Polygon* cornerPolygon = new (jrt::kOp) Polygon(newCorners);
-  jrt::Array<Point*>* polygonCorners = cornerPolygon->cornerArray();
+  jrt::Array<Point*>* polygonCorners = jrt::DisposeOnExit<Polygon>(new (jrt::kOp) Polygon(newCorners))->cornerArray();
   TileShape* result;
   if (polygonCorners->length >= 3) {
     result = getInstance(polygonCorners);

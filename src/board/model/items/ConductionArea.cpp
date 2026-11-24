@@ -64,7 +64,7 @@ Area* ConductionArea::getFillOutline() {
     return area;
   }
   if (this->smoothedArea == nullptr) {
-    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
+    ItemCacheScope cacheScope(this);  // PORT NOTE (stage E): cached in this item, freed with the board
     this->smoothedArea = PlaneOutlineSmoothing::smooth(area, this->cornerFillets, this->cornerSmoothing);
   }
   return this->smoothedArea;
@@ -127,7 +127,7 @@ void ConductionArea::ensureDetailedFillCache(double maxClearanceLookupBoard, int
   if (cachedBoardFillArea != nullptr && !boardChanged) {
     return;
   }
-  jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
+  ItemCacheScope cacheScope(this);  // PORT NOTE (stage E): cached in this item, freed with the board
 
   PlanarArea* fillArea = PlanarArea::fromArea(this->getArea());
   if (fillArea == nullptr) {
@@ -400,7 +400,7 @@ bool ConductionArea::hasPinOnAnyIsland(int32_t netNo) {
   if (res == nullptr || !res->isFractured) {
     return false;
   }
-  for (jrt::List<Item*>* island : *res->islandItems->values()) {
+  for (jrt::List<Item*>* island : res->islandItems->valueVector()) {
     for (Item* item : *island) {
       if (jrt::fast_cast<Pin>(item) != nullptr && (netNo <= 0 || item->containsNet(netNo))) {
         return true;
@@ -415,7 +415,7 @@ bool ConductionArea::hasUnreachedPinIsland(jrt::Collection<Item*>* connectedSet)
   if (res == nullptr || !res->isFractured) {
     return false;
   }
-  for (jrt::List<Item*>* island : *res->islandItems->values()) {
+  for (jrt::List<Item*>* island : res->islandItems->valueVector()) {
     for (Item* item : *island) {
       if (jrt::fast_cast<Pin>(item) != nullptr && !connectedSet->contains(item)) {
         return true;
@@ -440,7 +440,7 @@ void ConductionArea::collectPinsOnFracturedIslands(jrt::Collection<Pin*>* out) {
   if (res == nullptr || !res->isFractured) {
     return;
   }
-  for (jrt::List<Item*>* island : *res->islandItems->values()) {
+  for (jrt::List<Item*>* island : res->islandItems->valueVector()) {
     for (Item* item : *island) {
       if (auto* pin = jrt::fast_cast<Pin>(item)) {
         out->add(pin);
@@ -468,7 +468,7 @@ void ConductionArea::adoptFractureMemo(FastPlaneConnectivityGrid_FractureMemo* d
     return;
   }
   BasicBoard* copyBoard = this->board;
-  jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
+  ItemCacheScope cacheScope(this);  // PORT NOTE (stage E): cached in this item, freed with the board
   this->fractureMemo =
       detached->attach(getArea(), [copyBoard](int32_t id) { return copyBoard->getItem(id); });
 }
@@ -492,15 +492,25 @@ FastPlaneConnectivityGrid_PlaneFractureResult* ConductionArea::getFractureResult
       return this->cachedFractureResult;
     }
   }
-  jrt::DomainScope domain(this);  // PORT NOTE (stage E): cached in this item
+  ItemCacheScope cacheScope(this);  // PORT NOTE (stage E): cached in this item, freed with the board
   FastPlaneConnectivityGrid_FractureMemo* memo = this->fractureMemo;
   if (memo == nullptr) {
     memo = new (jrt::kOp) FastPlaneConnectivityGrid_FractureMemo();
     this->fractureMemo = memo;
   }
-  FastPlaneConnectivityGrid* connectivityGrid = new (jrt::kOp) FastPlaneConnectivityGrid();
-  jrt::Collection<Item*>* contacts = getNormalContacts();
-  this->cachedFractureResult = connectivityGrid->evaluateFracture(this, this->board, contacts, memo);
+  {
+    // PORT NOTE (stage E): the evaluation's temporaries (the rasters, the enlarged obstacle
+    // shapes, the overlap query) die with this region; the result and what the memo stored this
+    // time are copied out to the item's cache domain.
+    jrt::LocalGeomRegion work;
+    work.setTakesOps(true);
+    FastPlaneConnectivityGrid* connectivityGrid = new (jrt::kOp) FastPlaneConnectivityGrid();
+    jrt::Collection<Item*>* contacts = getNormalContacts();
+    FastPlaneConnectivityGrid_PlaneFractureResult* result =
+        connectivityGrid->evaluateFracture(this, this->board, contacts, memo);
+    ItemCacheScope keepScope(this);
+    this->cachedFractureResult = FastPlaneConnectivityGrid::keepOutside(work, result, memo);
+  }
   this->cachedFractureRevision = currentRevision;
   this->cachedNetAssignmentStamp = currentNetAssignmentStamp;
   return this->cachedFractureResult;
@@ -521,10 +531,12 @@ void ConductionArea::getConnectedSetRecu(jrt::Set<Item*>* result, int32_t netNum
 
   // Determine which islands have already been contacted by items in result. A trace whose ends
   // touch two islands is in both.
-  jrt::Set<int32_t>* reachedIslands = new (jrt::kOp) jrt::HashSet<int32_t>();
+  // PORT NOTE (stage E): a temporary of every visit of a fractured plane (freed on exit).
+  jrt::DisposeOnExit<jrt::Set<int32_t>> reachedIslandsOwner(new (jrt::kOp) jrt::HashSet<int32_t>());
+  jrt::Set<int32_t>* reachedIslands = reachedIslandsOwner.get();
   for (Item* resItem : *result) {
     if (resItem != this && resItem->sharesNet(this) && resItem->sharesLayer(this)) {
-      for (auto* entry : *fractureResult->islandItems->entrySet()) {
+      for (auto* entry : fractureResult->islandItems->entryVector()) {
         if (entry->getValue()->contains(resItem)) {
           reachedIslands->add(entry->getKey());
         }
@@ -594,7 +606,7 @@ void ConductionArea::addLaterReachedIslands(jrt::Set<Item*>* result, int32_t net
       }
     }
     for (ConductionArea* ca : *fractured) {
-      for (jrt::List<Item*>* island : *ca->getFractureResult()->islandItems->values()) {
+      for (jrt::List<Item*>* island : ca->getFractureResult()->islandItems->valueVector()) {
         bool reached = false;
         for (Item* item : *island) {
           if (item != ca && result->contains(item)) {
@@ -648,7 +660,7 @@ bool ConductionArea::isCycleRecu(jrt::Set<Item*>* visitedItems, Item* searchItem
         }
       }
     } else {
-      for (auto* entry : *fractureResult->islandItems->entrySet()) {
+      for (auto* entry : fractureResult->islandItems->entryVector()) {
         if (entry->getValue()->contains(comeFromItem)) {
           if (fromIslands == nullptr) {
             fromIslands = new (jrt::kOp) jrt::HashSet<int32_t>();

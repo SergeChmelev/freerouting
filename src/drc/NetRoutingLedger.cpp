@@ -258,6 +258,9 @@ void NetRoutingLedger::markNets(Item* item) {
       dirtyNets->add(netNumber);
     }
   }
+  // PORT NOTE (stage E): the boxes below are temporaries (only net numbers are stored).
+  jrt::LocalGeomRegion work;
+  work.setTakesOps(true);
   IntBox* itemBox = item->boundingBox();
   for (ConductionArea* ca : *conductionAreas) {
     if (ca->getLayer() >= item->firstLayer() && ca->getLayer() <= item->lastLayer()) {

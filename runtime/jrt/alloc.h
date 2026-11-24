@@ -172,6 +172,7 @@ class Arena {
   char* end_ = nullptr;
   std::size_t fullBytes_ = 0;  // used bytes in chunks other than head_
   bool jobHeap_ = false;
+  std::size_t warnedSteps_ = 0;  // diagnostics (FR_ARENA_WARN_MB)
   static constexpr std::size_t kFreeClasses = 64;  // 16 .. 1024 bytes
   void* free_[kFreeClasses] = {};
   // Chunk data ranges sorted by address, for contains() in O(log n).
@@ -267,6 +268,10 @@ class GeomRegion {
   /** Objects in `arena` belong to this region's domain too (their lazy caches and the geometry
    * they store are allocated here): e.g. the search arena of an autoroute engine. */
   void setCompanion(Arena* arena);
+  /** Registers the region's chunks by address (as activation does) for a region that is only
+   * ever used as an explicit target (jrt::GeomTarget): copy-out (geomcopy::keep) then sees its
+   * objects as foreign to other domains. */
+  void registerChunks();
   /** Unique id of this region (never 0). */
   std::uint32_t id() const { return id_; }
   bool owns(const void* p) const { return contains(p) || (companion_ != nullptr && companion_->contains(p)); }
@@ -429,10 +434,26 @@ GeomRegion* active_geom_region(std::uint32_t id);
 /** kOp: the nearest region (from the current kGeom target outwards) that takes kOp, else the
  * heap. HeapScope / DomainScope(heap owner) therefore send kOp to the heap as well. */
 inline void* op_alloc(std::size_t n) {
-  for (GeomRegion* r = current_geom_region(); r != nullptr; r = r->outer()) {
+  GeomRegion* r = current_geom_region();
+  if (r == nullptr) return ::operator new(n);  // HeapScope / no job: the heap
+  for (; r != nullptr; r = r->outer()) {
     if (r->takesOps()) return r->allocate(n);
   }
-  return ::operator new(n);
+  // An explicit target outside the active chain (a board's cache region): the job's.
+  GeomRegion* job = job_region();
+  return job != nullptr ? job->allocate(n) : ::operator new(n);
+}
+
+/** True if kOp would go to the job region now (no enclosing region takes it): a hot query may
+ * then open a local operation region of its own so its temporaries do not pile up there. */
+inline bool ops_go_to_job() {
+  GeomRegion* r = current_geom_region();
+  if (r == nullptr) return false;
+  GeomRegion* job = job_region();
+  for (; r != nullptr; r = r->outer()) {
+    if (r->takesOps()) return r == job;
+  }
+  return job != nullptr;  // an explicit target outside the active chain: op_alloc's fallback
 }
 
 /** The arena (region, search or board arena) a just-constructed object `p` was allocated in, or

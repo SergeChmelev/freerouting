@@ -17,6 +17,9 @@ namespace fr {
 
 void RoutingBoardOperations::startMarkingChangedArea() {
   if (board->changedArea == nullptr) {
+    // PORT NOTE (stage E): board state that may outlive the operation region it is started in
+    // (optChangedArea consumes it later): in the board's domain.
+    jrt::DomainScope domain(board);
     board->changedArea = new (jrt::kOp) ChangedArea(board->getLayerCount());
   }
 }

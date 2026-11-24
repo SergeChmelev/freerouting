@@ -36,7 +36,9 @@ Polyline::Polyline(Polygon* polygon) {
       endpointCap((*lines)[points->length - 1]->opposite(), (*points)[points->length - 1]);
 }
 
-Polyline::Polyline(jrt::Array<Point*>* points) : Polyline(new (jrt::kOp) Polygon(points)) {}
+// PORT NOTE (stage E): the temporary polygon is freed when the delegated constructor returns.
+Polyline::Polyline(jrt::Array<Point*>* points)
+    : Polyline(jrt::DisposeOnExit<Polygon>(new (jrt::kOp) Polygon(points)).get()) {}
 
 Polyline::Polyline(Point* fromCorner, Point* toCorner) {
   if (fromCorner->equals(toCorner)) {

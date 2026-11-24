@@ -17,6 +17,10 @@ class Polygon : public virtual jrt::Object {
   /** Creates a polygon from points. Multiple points and points, which are collinear with its
    * previous and next point will be removed. */
   explicit Polygon(jrt::Array<Point*>* points);
+  // PORT NOTE (stage E): the polygon owns its corner list (cornerArray() hands out copies).
+  ~Polygon() override { jrt::dispose(corners); }
+  Polygon(const Polygon&) = delete;
+  Polygon& operator=(const Polygon&) = delete;
 
   /** Returns corners, the corners of a closed border, without the corners at which the border
    * turns back on itself (spikes). */

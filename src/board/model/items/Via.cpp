@@ -113,7 +113,7 @@ Shape* Via::getShape(int32_t index) {
     return nullptr;
   }
   if (this->precalculatedShapes == nullptr) {
-    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
+    ItemCacheScope cacheScope(this);  // PORT NOTE (stage E): freed with the board
     int32_t shapeCount = jrt::Math::max(0, padstack->toLayer() - padstack->fromLayer() + 1);
     this->precalculatedShapes = new (jrt::kGeom) jrt::Array<Shape*>(shapeCount);
     for (int32_t i = 0; i < this->precalculatedShapes->length; i++) {

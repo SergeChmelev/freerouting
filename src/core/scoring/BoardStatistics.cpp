@@ -555,11 +555,15 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
   }
 
   // Calculate fanout statistics
-  jrt::DisposeOnExit<jrt::Collection<Pin*>> smdPinsOwner(board->getSmdPins());
-  jrt::Collection<Pin*>* smdPins = smdPinsOwner.get();
   int32_t total = 0;
   int32_t escaped = 0;
   int32_t alreadyConnected = 0;
+  {
+  // PORT NOTE (stage E): the contact maps and query results are temporaries (only counts are kept).
+  jrt::LocalGeomRegion fanoutRegion;
+  fanoutRegion.setTakesOps(true);
+  jrt::DisposeOnExit<jrt::Collection<Pin*>> smdPinsOwner(board->getSmdPins());
+  jrt::Collection<Pin*>* smdPins = smdPinsOwner.get();
   // The pins of a net walk the same items: query the contacts of each item, and the connectable
   // items of each net, once for all pins.
   jrt::Map<Item*, jrt::Collection<Item*>*>* contacts =
@@ -580,6 +584,7 @@ BoardStatistics::BoardStatistics(BasicBoard* board, std::optional<Unit> unit,
         escaped++;
       }
     }
+  }
   }
   this->fanout->totalSmdPins = total;
   this->fanout->pinsToEscape = total - alreadyConnected;

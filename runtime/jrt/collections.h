@@ -1195,6 +1195,12 @@ class Map : public virtual Object {
   // Snapshots (Java returns live views; mutate the map itself instead of these).
   ArrayList<Entry*>* entrySet() { return new (kOp) ArrayList<Entry*>(entryVector()); }
   LinkedHashSet<K>* keySet();
+  /** PORT NOTE (stage E): the values without a collection object (iteration in hot paths). */
+  std::vector<V> valueVector() {
+    std::vector<V> r;
+    for (Entry* e : entryVector()) r.push_back(e->value);
+    return r;
+  }
   ArrayList<V>* values() {
     auto* r = new (kOp) ArrayList<V>();
     for (Entry* e : entryVector()) r->add(e->value);
@@ -1261,6 +1267,16 @@ class HashMap : public virtual Map<K, V> {
   /** PORT NOTE (stage E): the map frees the entry objects of removed / cleared mappings too.
    * Only for a map that never hands out its entries (no entrySet() holders across a removal). */
   void setFreesNodes(bool v) { freesNodes_ = v; }
+  /** PORT NOTE (stage E): a copy (kOp, current domain) with the same mode, table size and
+   * order, so that it iterates exactly like this map (copy-out of a region); values mapped by f. */
+  template <class F>
+  HashMap* copyLayout(F f) {
+    auto* c = new (kOp) HashMap(mode_);
+    c->load_factor_ = load_factor_;
+    c->threshold_ = table_.empty() ? threshold_ : static_cast<int32_t>(table_.size());
+    for (Entry* e : entryVector()) c->put(e->key, f(e->value));
+    return c;
+  }
 
   int32_t size() override { return size_; }
   Entry* getEntry(const K& k) override { return findNode(k); }

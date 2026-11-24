@@ -91,6 +91,7 @@ BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* de
   RoutingFallbackRunner_Attempt* bestAttempt =
       new (jrt::kOp) RoutingFallbackRunner_Attempt(best, job->board, defaultRouter, defaultClearance);
   RoutingBoard* continuedFrom = nullptr;
+  std::vector<RoutingFallbackRunner_Attempt*> repeatedAttempts;
   if (residual && !alternatives->isEmpty()) {
     bestAttempt = runContinuations(job, bestAttempt, automaticContinuations(job));
     continuedFrom = bestAttempt->board_;
@@ -108,6 +109,7 @@ BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* de
       job->logInfo("Routing fallback '" + strategy->name +
                    "': its fanout left the board an earlier pass loop started on; stopped after the fanout (" +
                    jrt::str(repeated != nullptr ? repeated : attempt->outcome_) + ").");
+      repeatedAttempts.push_back(attempt);  // freed at the end: job->board still refers to it
       if (stopAlternatives(bestAttempt->outcome_, attempt->router_->lastStopReason)) {
         break;
       }
@@ -120,9 +122,12 @@ BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* de
     job->logInfo("Routing fallback '" + strategy->name + "': " + jrt::str(attempt->outcome_) + " after " +
                  RoutingFallback::describe(attempt->router_->lastStopReason) + ".");
     if (replaces(attempt, bestAttempt)) {
+      RoutingFallbackRunner_Attempt* replaced = bestAttempt;
       bestAttempt = attempt;
+      if (replaced->board_ != continuedFrom) dropAttempt(job, replaced, bestAttempt);
     } else {
       job->board = bestAttempt->board_;
+      dropAttempt(job, attempt, bestAttempt);
     }
     if (stopAlternatives(bestAttempt->outcome_, attempt->router_->lastStopReason)) {
       break;
@@ -141,6 +146,7 @@ BatchAutorouter* RoutingFallbackRunner::run(RoutingJob* job, BatchAutorouter* de
     bestAttempt = runContinuations(job, bestAttempt, after);
   }
   job->board = bestAttempt->board_;
+  for (RoutingFallbackRunner_Attempt* a : repeatedAttempts) dropAttempt(job, a, bestAttempt);
   job->logInfo("Routing fallback chose '" + bestAttempt->outcome_->strategy + "': " + jrt::str(bestAttempt->outcome_) +
                ".");
   warnIfAutoNeckFallbackUsed(job, bestAttempt->outcome_->strategy);
@@ -224,14 +230,18 @@ RoutingFallbackRunner_Attempt* RoutingFallbackRunner::runContinuations(
     job->logInfo("Routing fallback continuation '" + strategy->name + "': " + jrt::str(attempt->outcome_) +
                  " after " + RoutingFallback::describe(attempt->router_->lastStopReason) + ".");
     if (replaces(attempt, bestAttempt)) {
+      RoutingFallbackRunner_Attempt* replaced = bestAttempt;
       bestAttempt = attempt;
+      dropAttempt(job, replaced, bestAttempt);
     } else if (!strategy->continueBest) {
       job->board = bestAttempt->board_;
+      dropAttempt(job, attempt, bestAttempt);
       job->logInfo("Routing fallback: stopping residual continuations after '" + strategy->name +
                    "' did not improve the incumbent.");
       break;
     } else {
       job->board = bestAttempt->board_;
+      dropAttempt(job, attempt, bestAttempt);
     }
   }
   return bestAttempt;
@@ -252,13 +262,29 @@ RoutingFallbackRunner_Attempt* RoutingFallbackRunner::runAttempt(RoutingJob* job
       attempt->router_->lastStopReason == BatchAutorouter_StopReason::REPEATED) {
     RoutingFallback_Outcome* repeated = getByHash(this->passLoopStarts, attempt->router_->passLoopStartHash);
     if (repeated != nullptr) {
-      return new (jrt::kOp) RoutingFallbackRunner_Attempt(
+      auto* repeatedAttempt = new (jrt::kOp) RoutingFallbackRunner_Attempt(
           new (jrt::kOp) RoutingFallback_Outcome(strategy->name, repeated->unrouted, repeated->newOrChanged, repeated->violations,
                                       repeated->score, repeated->designBlocked),
           job->board, attempt->router_, attempt->baseline_);
+      repeatedAttempt->startBoard_ = attempt->startBoard_;
+      repeatedAttempt->owned_ = attempt->owned_;
+      return repeatedAttempt;
     }
   }
   return attempt;
+}
+
+void RoutingFallbackRunner::dropAttempt(RoutingJob* job, RoutingFallbackRunner_Attempt* attempt,
+                                        RoutingFallbackRunner_Attempt* keep) {
+  if (attempt == nullptr || !attempt->owned_ || attempt == keep) return;
+  RoutingBoard* boards[2] = {attempt->board_, attempt->startBoard_};
+  for (int i = 0; i < 2; ++i) {
+    RoutingBoard* b = boards[i];
+    if (b == nullptr || (i == 1 && b == boards[0]) || b == job->board) continue;
+    if (keep != nullptr && (b == keep->board_ || b == keep->startBoard_)) continue;
+    BasicBoard::discard(b, "fallback");
+  }
+  attempt->owned_ = false;
 }
 
 RoutingFallbackRunner_Attempt* RoutingFallbackRunner::runPrepared(RoutingJob* job, RoutingBoard* board,
@@ -285,6 +311,8 @@ RoutingFallbackRunner_Attempt* RoutingFallbackRunner::runPrepared(RoutingJob* jo
     RoutingFallback_Outcome* outcome = RoutingFallback_Outcome::of(strategyName, job->board, savedSettings);
     ClearanceBaseline* baseline = RoutingFallback::captureClearance(job->board, outcome->violations);
     result = new (jrt::kOp) RoutingFallbackRunner_Attempt(outcome, job->board, router, baseline);
+    result->startBoard_ = board;
+    result->owned_ = true;
   } catch (const jrt::RuntimeException& e) {
     job->board = savedBoard;
     job->logError("Routing fallback attempt '" + strategyName + "' failed and was discarded.", &e);

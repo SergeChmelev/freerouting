@@ -63,7 +63,7 @@ Item* ObstacleArea::copy(int32_t id) {
 
 Area* ObstacleArea::getArea() {
   if (this->precalculatedAbsoluteArea == nullptr) {
-    jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
+    ItemCacheScope cacheScope(this);  // PORT NOTE (stage E): freed with the board
     if (this->relativeArea == nullptr) {
       FRLogger::warn("ObstacleArea.get_area: area is null");
       return nullptr;

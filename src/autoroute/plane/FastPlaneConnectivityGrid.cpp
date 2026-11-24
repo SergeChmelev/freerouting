@@ -1,6 +1,8 @@
 #include "autoroute/plane/FastPlaneConnectivityGrid.h"
 
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 #include "board/facade/BasicBoard.h"
 #include "board/model/items/ConductionArea.h"
@@ -18,6 +20,7 @@
 #include "board/state/Communication.h"
 #include "board/trace/PolylineTrace.h"
 #include "geometry/planar/Area.h"
+#include "geometry/planar/GeomCopy.h"
 #include "geometry/planar/Circle.h"
 #include "geometry/planar/FloatPoint.h"
 #include "geometry/planar/IntBox.h"
@@ -327,6 +330,98 @@ void FastPlaneConnectivityGrid_FractureMemo::storePartition(
   partitionItems = items;
   partitionLocations = locations;
   partitionResult = result;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Copy-out of an evaluation region (stage E)
+// ---------------------------------------------------------------------------------------------
+
+namespace {
+
+template <class T>
+jrt::Array<T>* keepArray(const jrt::GeomRegion& work, jrt::Array<T>* a) {
+  return a != nullptr && work.contains(a) ? a->clone() : a;
+}
+
+template <class M>
+M* keepMap(const jrt::GeomRegion& work, M* m, const char* what) {
+  if (m == nullptr || !work.contains(m)) {
+    return m;
+  }
+  std::fprintf(stderr, "jrt: fracture %s map of an unexpected type in the evaluation region\n", what);
+  std::abort();
+}
+
+FastPlaneConnectivityGrid_PlaneFractureResult* keepResult(
+    const jrt::GeomRegion& work, FastPlaneConnectivityGrid_PlaneFractureResult* r) {
+  if (r == nullptr || !work.contains(r)) {
+    return r;
+  }
+  IslandMap* islands = r->islandItems;
+  if (auto* hm = dynamic_cast<jrt::HashMap<int32_t, jrt::List<Item*>*>*>(islands); hm != nullptr && work.contains(hm)) {
+    islands = hm->copyLayout([&work](jrt::List<Item*>* l) -> jrt::List<Item*>* {
+      return l != nullptr && work.contains(l) ? new (jrt::kOp) jrt::ArrayList<Item*>(l) : l;
+    });
+  } else {
+    islands = keepMap(work, islands, "island");
+  }
+  TraceEndMap* ends = r->traceEndIslands;
+  if (auto* hm = dynamic_cast<jrt::HashMap<Item*, jrt::Array<jrt::Array<int32_t>*>*>*>(ends);
+      hm != nullptr && work.contains(hm)) {
+    ends = hm->copyLayout([&work](jrt::Array<jrt::Array<int32_t>*>* e) -> jrt::Array<jrt::Array<int32_t>*>* {
+      jrt::Array<jrt::Array<int32_t>*>* c = keepArray(work, e);
+      if (c != nullptr) {
+        for (int32_t i = 0; i < c->length; i++) (*c)[i] = keepArray(work, (*c)[i]);
+      }
+      return c;
+    });
+  } else {
+    ends = keepMap(work, ends, "trace end");
+  }
+  IntBox* box = r->dependencyBox;
+  if (box != nullptr && work.contains(box)) {
+    box = new (jrt::kGeom) IntBox(new (jrt::kGeom) IntPoint(box->ll->x, box->ll->y),
+                                  new (jrt::kGeom) IntPoint(box->ur->x, box->ur->y));
+  }
+  return new (jrt::kOp) FastPlaneConnectivityGrid_PlaneFractureResult(islands, box, ends);
+}
+
+}  // namespace
+
+FastPlaneConnectivityGrid_PlaneFractureResult* FastPlaneConnectivityGrid::keepOutside(
+    const jrt::GeomRegion& work,
+    FastPlaneConnectivityGrid_PlaneFractureResult* result,
+    FastPlaneConnectivityGrid_FractureMemo* memo) {
+  FastPlaneConnectivityGrid_PlaneFractureResult* kept = keepResult(work, result);
+  if (memo == nullptr) {
+    return kept;
+  }
+  memo->copperWords = keepArray(work, memo->copperWords);
+  memo->areasItems = keepArray(work, memo->areasItems);
+  memo->areasShapeIndices = keepArray(work, memo->areasShapeIndices);
+  memo->areasClearances = keepArray(work, memo->areasClearances);
+  memo->areasWords = keepArray(work, memo->areasWords);
+  if (memo->areasShapes != nullptr && work.contains(memo->areasShapes)) {
+    auto* shapes = new (jrt::kGeom) jrt::Array<TileShape*>(memo->areasShapes->length);
+    for (int32_t i = 0; i < shapes->length; i++) {
+      TileShape* s = (*memo->areasShapes)[i];
+      // the items' own shapes (compared by reference): a shape made in the region is copied
+      (*shapes)[i] = s != nullptr && work.contains(s) ? geomcopy::keep(s, shapes) : s;
+    }
+    memo->areasShapes = shapes;
+  }
+  memo->partitionObstacleWords = keepArray(work, memo->partitionObstacleWords);
+  memo->partitionItems = keepArray(work, memo->partitionItems);
+  if (memo->partitionLocations != nullptr && work.contains(memo->partitionLocations)) {
+    auto* locations = new (jrt::kGeom) jrt::Array<IntPoint*>(memo->partitionLocations->length);
+    for (int32_t i = 0; i < locations->length; i++) {
+      IntPoint* p = (*memo->partitionLocations)[i];
+      (*locations)[i] = p != nullptr && work.contains(p) ? new (jrt::kGeom) IntPoint(p->x, p->y) : p;
+    }
+    memo->partitionLocations = locations;
+  }
+  memo->partitionResult = memo->partitionResult == result ? kept : keepResult(work, memo->partitionResult);
+  return kept;
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -96,6 +96,7 @@ __attribute__((noinline)) std::uint32_t site_slot(void* ra) {
 }
 
 inline Header* header_of(void* p) { return reinterpret_cast<Header*>(static_cast<char*>(p) - kHeader); }
+void write_live_dump();
 
 __attribute__((noinline)) void* raw_alloc_site(std::size_t n, std::size_t align, void* ra) {
   if (n == 0) n = 1;
@@ -116,6 +117,18 @@ __attribute__((noinline)) void* raw_alloc_site(std::size_t n, std::size_t align,
     s.bytes.fetch_add(static_cast<std::int64_t>(n), std::memory_order_relaxed);
   }
   note_alloc(n);
+  // FR_ALLOC_PROFILE_AT_MB=N: dump the live blocks once N MB are allocated and stop (a run that
+  // would end with out of memory leaves no dump at exit).
+  static const std::size_t dumpAt = [] {
+    const char* v = std::getenv("FR_ALLOC_PROFILE_AT_MB");
+    return v != nullptr ? static_cast<std::size_t>(std::atol(v)) << 20 : std::size_t{0};
+  }();
+  static bool dumping = false;  // the dump allocates too (its index vector)
+  if (dumpAt != 0 && !dumping && g_liveBytes.load(std::memory_order_relaxed) >= dumpAt) {
+    dumping = true;
+    write_live_dump();
+    std::_Exit(3);
+  }
   return p;
 }
 
@@ -153,8 +166,8 @@ void raw_free(void* p) noexcept {
   std::free(h->base);
 }
 
-struct LiveDump {
-  ~LiveDump() {
+void write_live_dump() {
+  {
     const char* path = std::getenv("FR_ALLOC_PROFILE");
     if (path == nullptr) return;
     FILE* f = std::fopen(path, "w");
@@ -176,6 +189,10 @@ struct LiveDump {
     }
     std::fclose(f);
   }
+}
+
+struct LiveDump {
+  ~LiveDump() { write_live_dump(); }
 } live_dump_instance;
 #else
 void* raw_alloc(std::size_t n) {

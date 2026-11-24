@@ -1,6 +1,7 @@
 // jrt::Arena and jrt::dispose (see alloc.h). Arena chunks are plain heap blocks registered by
 // address range (dispose leaves arena objects alone); a per-thread pool keeps free chunks.
 
+#include <execinfo.h>
 #include <malloc.h>
 
 #include "jrt/alloc.h"
@@ -114,6 +115,19 @@ Arena*& current_search_arena() {
 
 void Arena::refill(std::size_t n) {
   if (head_ != nullptr) fullBytes_ += static_cast<std::size_t>(cur_ - data(head_));
+  // Diagnostics: FR_ARENA_WARN_MB=N prints the stack (addresses; addr2line) the first time one
+  // arena grows past N MB, and every further N MB.
+  static const std::size_t warnAt = [] {
+    const char* v = std::getenv("FR_ARENA_WARN_MB");
+    return v != nullptr ? static_cast<std::size_t>(std::atol(v)) << 20 : std::size_t{0};
+  }();
+  if (warnAt != 0 && fullBytes_ / warnAt != warnedSteps_) {
+    warnedSteps_ = fullBytes_ / warnAt;
+    void* frames[40];
+    int count = backtrace(frames, 40);
+    std::fprintf(stderr, "jrt: arena %p holds %zu MB\n", static_cast<void*>(this), fullBytes_ >> 20);
+    backtrace_symbols_fd(frames, count, 2);
+  }
   Chunk* c = nullptr;
   std::size_t size = std::max(n, kChunkSize);
   Pool* pool = thread_pool();

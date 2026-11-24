@@ -719,16 +719,55 @@ the reverted attempt above), job-level objects of a run (the optimizer's per-can
 snapshot managers of copies), and small collections of board copies (`UndoableObjects` maps,
 `HashSet` iterators' snapshots).
 
+### E11 — peak memory of large boards
+
+The job heap only frees at the end of the run, so whatever an operation outside a region leaves
+behind is the peak. Found with the live profile (`FR_NO_JOB_REGION=1`, `FR_ALLOC_PROFILE_AT_MB=N`
+dumps the live blocks by site once N MB are live; `FR_ALLOC_PROFILE_FP=N` attributes them to the
+caller N levels up) and `FR_ARENA_WARN_MB=N` (stack of an arena each time it grows by N MB):
+
+* **Item caches of board copies** (pin shapes, outline areas, drill shapes, tree shapes of
+  non-trace items) go to a per-board cache region (`BasicBoard::cacheRegion`, kGeom only;
+  `ItemCacheScope`), released with the board. A region that also took kOp grew without bound
+  (disposed temporaries are not reused in an arena): kOp under an explicit target outside the
+  active chain goes to the job heap (`op_alloc`).
+* **Tree shapes of a trace** are computed in a local operation region and copied out
+  (`geomcopy::keep`): only the shapes stay, not the simplex arithmetic.
+* **Plane fracture** (`ConductionArea::getFractureResult`): the evaluation (rasters, enlarged
+  obstacle shapes, the overlap query) runs in a local operation region; the result and what the
+  memo stored are copied out (`FastPlaneConnectivityGrid::keepOutside`; maps keep their table
+  size and order through `HashMap::copyLayout`, so they iterate exactly as before). The island
+  set of every connected-set visit of a fractured plane is freed on exit, and the island maps
+  are iterated without snapshot collections (`Map::valueVector`, `entryVector`).
+* **Overlap queries outside operation regions** (`ShapeSearchTree::overlappingObjects`): the
+  shape tests run in a local operation region when kOp would otherwise go to the job region
+  (`jrt::ops_go_to_job`); inside candidate / insertion regions nothing changes.
+* Operation regions around board statistics' fanout count and the ledger's net marking; the
+  connectable index is rebuilt in the board's domain and frees the stale one.
+* Losing fallback attempts free their boards (`RoutingFallbackRunner::dropAttempt`).
+* `ChangedArea` of a board is made in the board's domain (it outlived the operation region it
+  was started in: the crash of Issue214 / Issue269).
+* A `Polygon` owns its corner list; the temporary polygons of `PolygonShape` / `Polyline` /
+  `TileShape` are freed.
+
+Peak RSS (release build, `/usr/bin/time`, one board at a time; SES identical to Java on all):
+
+| board | E10 | E11 |
+|---|---|---|
+| bm02 | 192 MB (job heap 100 MB) | 122 MB (job heap 31 MB) |
+| Issue187-processor.Z80 | 4442 MB | 1425 MB |
+| Issue022-AutoRouter_interrupted | 6402 MB | 1492 MB |
+| Issue214-freerouting | crash (5.5 GB) | 3981 MB |
+| Issue269-z10_module | crash; out of memory at 6-7 GB | 2387 MB |
+
 ## TODO (after E10)
 
-* **Peak memory of large boards.** The job heap holds what used to be collected: geometry and
-  temporaries of operations outside regions, caches of heap items (pin shapes, outline areas,
-  tree shapes of non-trace items), item geometry shared by board copies. It is freed at the end
-  of the run, not earlier, so the peak is the former no-GC leak (bm02: 100 MB in the job heap at
-  the end; large boards several GB). Levers, by size (live profile with `FR_NO_JOB_REGION=1`):
-  item caches of freed board copies in a per-board region, tree shapes of a trace in a region of
-  their own (a `Simplex` does not own its lines), more operation regions around the remaining
-  main-board operations (statistics, DRC, ledger counting).
+* **Peak memory of large boards** (after E11): the job heap still holds 0.5-2.7 GB on the large
+  boards at the end (Issue214 2.7 GB, Issue269 1.7 GB). The live profile there is diffuse:
+  pin / tree shapes of board copies (`PlacementTransform::shape` under `afterDeserialize`,
+  legitimately cached), contact walks (`Trace::getNormalContacts`, `cachedNormalContacts`,
+  `NetIncompletes`, `BoardStatistics`) whose own collections are not freed. Next levers: operation
+  regions around `NetIncompletes` and the contact walks of the DRC / statistics passes.
 * **LeakSanitizer residue** (bm02, after E10: 1.1 MB unreachable, see E10): the shove check's
   temporary trace pieces get their `ItemSearchTreesInfo` on the heap (they should not get a
   keeper-tracked info at all), plus small job-level objects; `tools/mem/asan_run.sh` lists them
@@ -736,7 +775,7 @@ snapshot managers of copies), and small collections of board copies (`UndoableOb
 * **Performance after the migration:** compare with `gc-port-baseline` (domain lookups,
   `DomainScope`, `keep`, chunk map, job-heap page lookups in `operator delete`).
 * Not freed yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with
-  `strict_drc`), the attempt boards of the fallback runner that lose, the `InteractiveSession`
+  `strict_drc`), the `InteractiveSession`
   of the Lua engine, job-level objects of `route()` (job, pipeline, settings merger: freed with
   the process).
 * The arena/region escape behind the Issue110-Pajalnaja_stancija crash (see E7).

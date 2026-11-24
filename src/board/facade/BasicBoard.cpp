@@ -1585,6 +1585,34 @@ void BasicBoard::releaseOwnedData() {
     jrt::dispose(communication);
     communication = nullptr;
   }
+  // Last: the items' caches (the items and trees that referred to them are gone).
+  if (cacheRegion_ != nullptr) {
+    cacheRegion_->release();
+    jrt::dispose(cacheRegion_);
+    cacheRegion_ = nullptr;
+  }
+}
+
+jrt::GeomRegion* BasicBoard::cacheRegion() {
+  if (cacheRegion_ == nullptr) {
+    jrt::HeapScope heap;
+    cacheRegion_ = new (jrt::kBoard) jrt::GeomRegion();
+    // kGeom only: the temporaries of a cache computation (kOp) go to the job heap, where the
+    // ones the computation disposes are freed at once.
+    cacheRegion_->registerChunks();
+  }
+  return cacheRegion_;
+}
+
+ItemCacheScope::ItemCacheScope(Item* item) {
+  BasicBoard* b = item->board;
+  // A worker board's item (in its candidate arena) or an item without a board: its domain, as
+  // before. Without a job region (diagnostics) the caches stay in the job's / heap domain too.
+  if (b == nullptr || jrt::geom_domain_of(item) != 0 || jrt::job_region() == nullptr) {
+    domain_.emplace(item);
+    return;
+  }
+  target_.emplace(b->cacheRegion());
 }
 
 void BasicBoard::discardLast(BasicBoard* board) {
