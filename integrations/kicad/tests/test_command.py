@@ -39,7 +39,7 @@ def main():
         ses = os.path.join(tmp, "b.ses")
         exe = os.path.join(tmp, "freerouting-cpp.exe")
 
-        # defaults: board rules on, project files off, LUT off
+        # defaults: board rules on, project files on (none passed here), LUT off
         cmd = runner.build_command(base(), dsn, ses, mode="native", exe=exe, rules=RULES)
         check("native defaults", cmd, [exe, "-de", dsn, "-do", ses] + RULE_ARGS + ["-mt", "4"])
 
@@ -79,7 +79,7 @@ def main():
 
         cmd = runner.build_command(base(project_files=True), dsn, ses, mode="native", exe=exe, extra_files=files)
         check("native -de with project files", cmd[1:3], ["-de", "+".join([dsn] + files)])
-        cmd = runner.build_command(base(), dsn, ses, mode="native", exe=exe, extra_files=files)
+        cmd = runner.build_command(base(project_files=False), dsn, ses, mode="native", exe=exe, extra_files=files)
         check("project files flag off", cmd[1:3], ["-de", dsn])
 
         check("'+' in a path", runner.de_value(dsn, [os.path.join(tmp, "a+b.kicad_pro")]), dsn)

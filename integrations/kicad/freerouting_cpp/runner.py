@@ -32,7 +32,7 @@ DEFAULT_SETTINGS = {
     "no_fanout": False,  # --router.fanout.enabled=false
     "extra_args": "",  # more arguments, e.g. --router.automatic_neckdown=false
     "board_rules": True,  # pass the board's design rules as --router.* keys (see board_rule_args)
-    "project_files": False,  # -de board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb
+    "project_files": True,  # -de board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb
     "lut": False,  # "LUT / single-layer" profile (see LUT_ARGS)
     "lut_via_costs": 1000,  # --router.scoring.via_costs of the LUT profile
     "mode": "auto",  # auto, native, wsl (see the top of this file)

@@ -52,7 +52,7 @@ terminates the process. The settings dialog shows which router the chosen mode w
 | Skip the SMD fanout stage | `--router.fanout.enabled=false` | off |
 | Extra arguments | appended as they are: any `--router.<json path>=<value>`, e.g. `--router.automatic_neckdown=false` | empty |
 | Pass the board's design rules | the `--router.*` keys below | on |
-| Give the router the project files too | `-de board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb` | off |
+| Give the router the project files too | `-de board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb` | on |
 | LUT / single-layer profile | see below | off |
 | Via cost in this profile | `--router.scoring.via_costs=N` while the LUT profile is on | 1000 |
 | Run | Auto / Native (.exe) / WSL, see above | Auto |
@@ -99,9 +99,10 @@ Taken from the board (Board Setup -> Constraints):
 With "Give the router the project files too" on, `-de` becomes
 `board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb`, with those of the three project
 files that exist next to the open `.kicad_pcb` (in this order). The `.kicad_pcb` is the one on
-disk, so save the board first. If a path contains `+`, only the DSN is passed. **Off by
-default:** the router does not read these files yet; until it does, switching this on makes
-the run fail.
+disk, so save the board first. If a path contains `+`, only the DSN is passed. On by default:
+the router reads them like Java freerouting (the clearance rules of the `.kicad_dru`, the
+minimum track width of the `.kicad_pro`, the zone clearances and pad connections of the
+`.kicad_pcb`).
 
 ### LUT / single-layer profile
 

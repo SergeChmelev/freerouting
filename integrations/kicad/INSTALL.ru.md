@@ -93,7 +93,7 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
    | Skip the SMD fanout stage | без этапа fanout (`--router.fanout.enabled=false`) | выкл. |
    | Extra arguments | любые другие настройки роутера в виде `--router.<путь>=<значение>`, например `--router.automatic_neckdown=false`; идут последними и перекрывают всё остальное | пусто |
    | Pass the board's design rules | передать ограничения платы ключами `--router.*` (раздел 5) | вкл. |
-   | Give the router the project files too | передать роутеру ещё `.kicad_pro`, `.kicad_dru`, `.kicad_pcb` (раздел 5) | выкл. |
+   | Give the router the project files too | передать роутеру ещё `.kicad_pro`, `.kicad_dru`, `.kicad_pcb` (раздел 5) | вкл. |
    | LUT / single-layer profile | профиль для ЛУТ и однослойных плат (раздел 5) | выкл. |
    | Via cost in this profile | стоимость перехода в профиле ЛУТ | 1000 |
    | Run | Auto — exe, если найден, иначе WSL; Native (.exe) — только exe; WSL — только WSL | Auto |
@@ -131,10 +131,11 @@ Design Rules → Constraints):
 DSN. `neck_width_um` включает сужение: связь, которая не разводится шириной своего класса,
 пробуется ещё раз этой шириной.
 
-**Файлы проекта** (галочка «Give the router the project files too», выключена). Роутер получит
+**Файлы проекта** (галочка «Give the router the project files too», включена). Роутер получит
 `-de плата.dsn+плата.kicad_pro+плата.kicad_dru+плата.kicad_pcb` — из файлов, которые есть рядом
-с платой. `.kicad_pcb` берётся с диска, поэтому плату надо сохранить. **Пока не включайте:**
-роутер ещё не умеет читать эти файлы, и запуск закончится ошибкой.
+с платой. `.kicad_pcb` берётся с диска, поэтому плату надо сохранить. Роутер читает их так же,
+как Java freerouting: правила зазоров из `.kicad_dru`, минимальную ширину дорожки из
+`.kicad_pro`, зазоры зон и подключение площадок из `.kicad_pcb`.
 
 **Профиль «ЛУТ / однослойная»** (галочка «LUT / single-layer profile»). Для самодельных плат:
 лазерно-утюжная технология, один слой меди, верхний слой — только перемычки. Одна галочка
