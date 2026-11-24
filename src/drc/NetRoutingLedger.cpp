@@ -21,6 +21,7 @@ NetRoutingLedger::NetRoutingLedger(BasicBoard* board)
       itemNets(new (jrt::kOp) jrt::IdentityHashMap<Item*, jrt::Array<int32_t>*>()) {}
 
 void NetRoutingLedger::invalidate() {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   built = false;
   conductionAreas->clear();
   dirtyNets->clear();
@@ -32,6 +33,7 @@ void NetRoutingLedger::invalidate() {
 }
 
 void NetRoutingLedger::noteInserted(Item* item) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   if (!built || jrt::fast_cast<Connectable>(item) == nullptr) {
     return;
   }
@@ -40,6 +42,7 @@ void NetRoutingLedger::noteInserted(Item* item) {
 }
 
 void NetRoutingLedger::noteRemoved(Item* item) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   if (!built || jrt::fast_cast<Connectable>(item) == nullptr) {
     return;
   }
@@ -73,6 +76,7 @@ NetRoutingLedger_Counts* NetRoutingLedger::counts() {
 }
 
 void NetRoutingLedger::seed(NetRoutingLedger_Counts* counts) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   if (counts == nullptr ||
       counts->incompleteByNet()->length != board->rules->nets->maxNetNumber() + 1) {
     return;
@@ -97,6 +101,7 @@ jrt::Set<int32_t>* NetRoutingLedger::incompleteNetNumbers() {
 }
 
 void NetRoutingLedger::ensureBuilt() {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   if (built) {
     return;
   }
@@ -114,6 +119,7 @@ void NetRoutingLedger::ensureBuilt() {
 }
 
 int32_t NetRoutingLedger::buildItemLists() {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   int32_t maxNet = board->rules->nets->maxNetNumber();
   auto* lists = new (jrt::kOp) jrt::Array<jrt::List<Item*>*>(maxNet + 1);
   itemsByNet = lists;
@@ -173,6 +179,7 @@ int32_t NetRoutingLedger::countMaximumConnections() {
 }
 
 void NetRoutingLedger::addItem(Item* item) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   addItemToLists(item);
   auto* ca = jrt::fast_cast<ConductionArea>(item);
   if (ca != nullptr && !conductionAreas->contains(ca)) {
@@ -182,6 +189,7 @@ void NetRoutingLedger::addItem(Item* item) {
 }
 
 void NetRoutingLedger::removeItem(Item* item) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   jrt::Array<int32_t>* registeredNets = itemNets->remove(item);
   if (registeredNets != nullptr) {
     for (int32_t netNumber : *registeredNets) {
@@ -204,6 +212,7 @@ void NetRoutingLedger::removeItem(Item* item) {
 }
 
 void NetRoutingLedger::addItemToLists(Item* item) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   for (int32_t index = 0; index < item->netCount(); index++) {
     int32_t netNumber = item->getNetNumber(index);
     if (netNumber >= 1 && netNumber < itemsByNet->length &&
@@ -214,6 +223,7 @@ void NetRoutingLedger::addItemToLists(Item* item) {
 }
 
 void NetRoutingLedger::markNets(Item* item) {
+  jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
   for (int32_t index = 0; index < item->netCount(); index++) {
     int32_t netNumber = item->getNetNumber(index);
     if (netNumber >= 1 && netNumber < itemsByNet->length) {

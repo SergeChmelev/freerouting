@@ -484,7 +484,12 @@ item caches and query results.
 `insertForcedTracePolyline` / `TraceShover`) runs each trace's move trials in a geometry-only
 local region. bm02 no-GC leak 317 → 246 MB; smoke clean. Letting this region also take `kOp`
 broke 11 of 40 smoke boards (main-board structures keep per-operation objects), so main-board
-regions stay geometry-only until those stores are known.
+regions stay geometry-only until those stores are known. **Done since:** ASan (arena poisoning) named
+the stores: `ItemSearchTreesInfo`'s tree list and records were kOp (now in the info's domain,
+`jrt::Like{this}`), and `NetRoutingLedger` stored per-item net arrays / lists built in the
+operation (its storing methods now run in its own domain; the counting ones stay in the
+operation's domain). The step-slider region takes kOp now: Issue187 (no-GC) 5.3 → 2.66 GB still
+allocated at exit, peak RSS 6.5 → 3.4 GB; bm02 137.6 → 132.4 MB; smoke clean.
 
 ### Status 2026-11-24 (main 82d9aaa)
 

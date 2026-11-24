@@ -74,6 +74,7 @@ StepSlider_Result* StepSlider::run() {
       // PORT NOTE (stage E): the geometry of trying the moves of one trace (candidate polylines,
       // shoving) lives in a local region; board items copy out what they keep.
       jrt::LocalGeomRegion traceRegion;
+      traceRegion.setTakesOps(true);  // per-operation temporaries of the trials too
       if (isStopRequested()) {
         break;
       }

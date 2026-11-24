@@ -46,7 +46,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
 
  public:
   /** Creates a new instance of ItemSearchTreeEntries. */
-  ItemSearchTreesInfo() { this->treeList = new (jrt::kOp) jrt::LinkedList<ItemSearchTreesInfo_SearchTreeInfo*>(); }
+  ItemSearchTreesInfo() { this->treeList = new (jrt::Like{this}) jrt::LinkedList<ItemSearchTreesInfo_SearchTreeInfo*>(); }
   /** PORT NOTE (stage E): with a keeper the precalculated tree shapes are owned (traces, whose
    * tree shapes are computed for the item alone). */
   explicit ItemSearchTreesInfo(TreeShapeKeeper* keeper) : ItemSearchTreesInfo() { this->keeper = keeper; }
@@ -87,7 +87,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
         return;
       }
     }
-    auto* newTreeInfo = new (jrt::kOp) ItemSearchTreesInfo_SearchTreeInfo(tree);
+    auto* newTreeInfo = new (jrt::Like{this}) ItemSearchTreesInfo_SearchTreeInfo(tree);
     newTreeInfo->entryArr = treeEntries;
     this->treeList->add(newTreeInfo);
   }
@@ -116,7 +116,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
         return;
       }
     }
-    auto* newTreeInfo = new (jrt::kOp) ItemSearchTreesInfo_SearchTreeInfo(tree);
+    auto* newTreeInfo = new (jrt::Like{this}) ItemSearchTreesInfo_SearchTreeInfo(tree);
     retain(tileShapes);
     newTreeInfo->precalculatedTreeShapes = tileShapes;
     this->treeList->add(newTreeInfo);
