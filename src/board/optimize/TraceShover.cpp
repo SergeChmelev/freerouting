@@ -48,6 +48,9 @@ double TraceShover::check(RoutingBoard* board, LineSegment* lineSegment, bool sh
                           int32_t layer, jrt::Array<int32_t>* netNumbers, int32_t traceHalfWidth,
                           int32_t clearanceClassIndex, int32_t maxRecursionDepth,
                           int32_t maxViaRecursionDepth) {
+  // Stage E (E12): returns a width only; the check's temporaries die here (see check below).
+  jrt::LocalGeomRegion work;
+  work.setTakesOps(true);
   ShapeSearchTree* searchTree = board->searchTreeManager->getDefaultTree();
   if (searchTree->isClearanceCompensationUsed()) {
     traceHalfWidth += searchTree->clearanceCompensationValue(clearanceClassIndex, layer);
@@ -192,6 +195,12 @@ bool TraceShover::check(TileShape* traceShape, ShapeEntrySide* fromSide, Directi
                         int32_t clearanceClassIndex, int32_t maxRecursionDepth,
                         int32_t maxViaRecursionDepth, int32_t maxSpringOverRecursionDepth,
                         TimeLimit* timeLimit) {
+  // Stage E (MEMORY_MODEL.md, E12): a check returns a bool and records only ids, the failing
+  // obstacle and layer on the board (the cache stores heap copies), so its geometry and
+  // substitute trace pieces die here instead of piling up in the caller's region: the maze
+  // search asks this for every shoved door, which grew one search region past 1 GB on bm01.
+  jrt::LocalGeomRegion work;
+  work.setTakesOps(true);
   ShoveCheckCache* cache = board->getShoveChecks();
   if (cache == nullptr || timeLimit != nullptr ||
       !ShoveCheckCache::supported(traceShape, dir, netNumbers) || traceShape->isEmpty()) {

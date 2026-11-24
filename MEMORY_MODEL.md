@@ -792,6 +792,40 @@ mean of three runs.
 * The peak memory of main is above the baseline's (the job heap, see E11) and was far above it
   with optimizer threads: 14 GB on bm01 with four threads (see E12).
 
+### E12 — shove checks in their own regions; temporary items' tree info
+
+Found on bm01 (`-mt 4`: 14 GB) with an RSS timeline plus `FR_MEM_STATS` (arenas live, heap,
+job heap every 20 optimizer candidates) and `FR_ARENA_WARN_MB` stacks (a RelWithDebInfo build;
+`addr2line`), then the live profile at exit:
+
+* **One connection search grew past 1-2 GB** (the engine's search region takes kOp, and the
+  search runs a via check for every drill and layer and a shove check for every shoved door),
+  in the autorouter and inside optimizer candidates: arenas live jumped from 0.2 to 6.2 GB within
+  20 candidates, and the freed memory stayed in malloc (RSS 10-14 GB). Java's collector frees
+  these temporaries during the search. `ForcedViaInserter::checkLayer` and both
+  `TraceShover::check` overloads return a value only (the shove cache stores heap copies, the
+  board records ids, the failing obstacle and layer), so each now runs in a local region taking
+  kOp: their geometry and substitute trace pieces die with the check.
+* **Temporary items leaked their tree info**: a substitute trace piece of a shove check lives in
+  an operation region and is never disposed, but `Item::newSearchTreesInfo` put its
+  `ItemSearchTreesInfo` (and the keeper's count of its tree shapes) on the heap: 130 MB still
+  allocated at exit on Issue110 (`-mt 4`), 2.1 GB on bm01. An item that lies in a live region now
+  gets its info in that region, without a keeper (its tree shapes are already computed in its
+  domain).
+
+bm01 `-mt 4` (release, SES identical to Java):
+
+| | before | after |
+|---|---|---|
+| RSS during the autorouter (at 330 s) | 3.4 GB | 1.1 GB |
+| arenas live, optimizer (max of the samples) | 6.2 GB | 1.1 GB |
+| peak RSS | 14.2 GB | 2.7 GB |
+| heap still allocated after the run | 2.2 GB | 46 MB |
+
+Issue110 `-mt 4`: peak 2.3 GB -> 1.5 GB, heap after the run 204 -> 73 MB. ASan clean on bm02,
+Issue187 (19 threads), Issue690, Issue1161, Fanout-blind-via-plane-garland; LeakSanitizer
+bm02 1.1 -> 0.6 MB, Issue187 5.8 -> 3.4 MB.
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E11): the job heap still holds 0.5-2.7 GB on the large
@@ -800,10 +834,15 @@ mean of three runs.
   legitimately cached), contact walks (`Trace::getNormalContacts`, `cachedNormalContacts`,
   `NetIncompletes`, `BoardStatistics`) whose own collections are not freed. Next levers: operation
   regions around `NetIncompletes` and the contact walks of the DRC / statistics passes.
-* **LeakSanitizer residue** (bm02, after E10: 1.1 MB unreachable, see E10): the shove check's
-  temporary trace pieces get their `ItemSearchTreesInfo` on the heap (they should not get a
-  keeper-tracked info at all), plus small job-level objects; `tools/mem/asan_run.sh` lists them
-  by site and caller (`FR_ASAN_CTX=20` for deeper stacks).
+* **LeakSanitizer residue** (bm02, after E12: 0.6 MB unreachable): small job-level objects;
+  `tools/mem/asan_run.sh` lists them by site and caller (`FR_ASAN_CTX=20` for deeper stacks).
+  With optimizer threads (Issue110 `-mt 4`, 73 MB still allocated at exit): the worker threads'
+  shove caches (`ShoveCheckCache::put`, about 14 MB), the connectable index
+  (`BoardConnectivityQueries::getConnectableIndex`, 9 MB), two board copies of the worker
+  state / undo facade (13 MB).
+* **Search-region spikes after E12**: the arenas still reach about 1 GB live at times in the
+  optimizer on bm01 (`-mt 4`), less than before but more than Java's whole heap there; a profile
+  of what the search region keeps (`FR_ARENA_WARN_MB=64`) is the next step.
 * **Performance after the migration** (measured, see "Speed after the migration"): faster than
   `gc-port-baseline` everywhere but Issue178 (equal); the large boards are 1.7-3.5x slower than
   Java with one thread, in geometry and tree search rather than in the memory model.

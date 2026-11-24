@@ -45,6 +45,11 @@ ForcedPadRouter_CheckDrillResult ForcedViaInserter::checkLayer(
     Point* location, int32_t layer, jrt::Array<int32_t>* netNumbers, int32_t maxRecursionDepth,
     int32_t maxViaRecursionDepth, RoutingBoard* board, int32_t traceHalfWidth,
     int32_t traceClearanceClass, bool circularCopper) {
+  // Stage E (MEMORY_MODEL.md, E12): a check that returns a value only; its geometry and shove
+  // temporaries die here instead of piling up in the caller's region (the maze search runs it for
+  // every drill and layer, which grew one search region past 1 GB on bm01).
+  jrt::LocalGeomRegion work;
+  work.setTakesOps(true);
   if (viaRadius <= 0) {
     return ForcedPadRouter_CheckDrillResult::DRILLABLE;
   }

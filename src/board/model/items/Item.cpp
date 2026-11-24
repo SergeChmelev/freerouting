@@ -1019,6 +1019,14 @@ bool Item::isSelectedByFixedFilter(ItemSelectionFilter* filter) {
 }
 
 ItemSearchTreesInfo* Item::newSearchTreesInfo() {
+  // PORT NOTE (stage E, E12): a temporary item of an operation region (the substitute trace
+  // pieces of a shove check) is never on a board and is never disposed: its info and tree shapes
+  // live in its region, with no keeper. (On the heap they leaked: 130 MB on Issue110, about 2 GB
+  // on bm01 with four optimizer threads.)
+  if (jrt::in_live_geom_region(this)) {
+    jrt::DomainScope domain(this);
+    return new (jrt::kGeom) ItemSearchTreesInfo();
+  }
   // PORT NOTE (stage E): a trace's tree shapes are computed for it alone (offset shapes of its
   // polyline): its info owns them through the board's shape keeper.
   TreeShapeKeeper* keeper = jrt::fast_cast<PolylineTrace>(this) != nullptr ? board : nullptr;
