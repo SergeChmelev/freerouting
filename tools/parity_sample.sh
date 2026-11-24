@@ -26,6 +26,8 @@ one() {
   rc=$?
   t=$(echo "$(date +%s.%N) - $s" | bc)
   read -r jc jt < "$REF/$name.rc"
+  # A failed Java run ("-1 unrouted", empty SES) is matched by a failed C++ run (rc 1, empty SES).
+  if [ $rc = 1 ] && grep -aq -- '-1 unrouted' "$REF/$name.log"; then rc=0; fi
   if [ $rc != 0 ]; then v="RC($rc)"; elif cmp -s "$OUT/$name.ses" "$REF/$name.ses"; then v=SAME; else v=DIFF; fi
   printf '%s\t%s\t%.1f\t%.1f\n' "$name" "$v" "$jt" "$t"
 }

@@ -32,8 +32,10 @@ one() {
   timeout "$TMO" "$CPP" -q -de "$dsn" -do "$c.ses" > "$c.log" 2>&1
   echo "$? $(echo "$(date +%s.%N) - $s" | bc)" > "$c.rc"
   read -r jrc jt < "$j.rc"; read -r crc ct < "$c.rc"
-  ju=$(grep -oE '[0-9]+ unrouted, [0-9]+ clearance' "$j.log" | tail -1)
-  cu=$(grep -oE '[0-9]+ unrouted, [0-9]+ clearance' "$c.log" | tail -1)
+  ju=$(grep -aoE -- '-?[0-9]+ unrouted, [0-9]+ clearance' "$j.log" | tail -1)
+  cu=$(grep -aoE -- '-?[0-9]+ unrouted, [0-9]+ clearance' "$c.log" | tail -1)
+  # A failed Java run ("-1 unrouted", empty SES) is matched by a failed C++ run (rc 1, empty SES).
+  if [ "$crc" = 1 ] && [[ "$ju" == -1\ * ]]; then crc=0; cu="failed"; fi
   if [ "$jrc" != 0 ] || [ "$crc" != 0 ]; then verdict="RC(java=$jrc,cpp=$crc)"
   elif cmp -s "$j.ses" "$c.ses"; then verdict=SAME
   else verdict=DIFF; fi

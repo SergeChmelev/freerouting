@@ -96,6 +96,12 @@ bool PlanarDelaunayTriangulation::split(PDT_Triangle* triangle, PDT_Corner* corn
   // check, if corner is in the interior of this triangle or
   // if corner is contained in an edge line.
 
+  // PORT NOTE: positionLocate returns null when it finds no containing triangle (it warns
+  // "containing triangle not found"); Java then throws a NullPointerException here, which the
+  // headless engine reports as a pipeline failure (Issue179 fixture).
+  if (triangle == nullptr) {
+    throw jrt::NullPointerException("Cannot read field \"edgeLines\" because \"triangle\" is null");
+  }
   PDT_Edge* containingEdge = nullptr;
   for (int32_t i = 0; i < 3; i++) {
     PDT_Edge* currentEdge = (*triangle->edgeLines)[i];

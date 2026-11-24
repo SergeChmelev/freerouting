@@ -126,6 +126,10 @@ int runMain(int argc, char** argv) {
   double seconds = (jrt::System::currentTimeMillis() - start) / 1000.0;
 
   if (result->errorMessage()) {
+    // Like the Java reference harness (tools/parity/HeadlessRoute.java), the SES of a failed
+    // run is still written: it is empty, so the output matches Java's byte for byte.
+    std::ofstream out(output, std::ios::binary);
+    out << result->sesContent();
     std::fprintf(stderr, "routing failed: %s\n", result->errorMessage()->c_str());
     return 1;
   }
