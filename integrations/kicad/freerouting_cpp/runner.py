@@ -31,6 +31,10 @@ DEFAULT_SETTINGS = {
     "no_optimizer": False,  # --no-optimizer
     "no_fanout": False,  # --router.fanout.enabled=false
     "extra_args": "",  # more arguments, e.g. --router.automatic_neckdown=false
+    "board_rules": True,  # pass the board's design rules as --router.* keys (see board_rule_args)
+    "project_files": False,  # -de board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb
+    "lut": False,  # "LUT / single-layer" profile (see LUT_ARGS)
+    "lut_via_costs": 1000,  # --router.scoring.via_costs of the LUT profile
     "mode": "auto",  # auto, native, wsl (see the top of this file)
     "native_path": "",  # router executable for native mode; empty = the one next to the plugin
     "wsl_distro": "Ubuntu",
@@ -96,9 +100,71 @@ def to_wsl_path(path):
     return "/mnt/%s/%s" % (m.group(1).lower(), m.group(2).replace("\\", "/"))
 
 
-def router_args(settings, dsn, ses, path_conv=lambda p: p):
-    """Arguments after the binary name."""
-    args = ["-de", path_conv(dsn), "-do", path_conv(ses)]
+# Board design rules (KiCad: Board Setup -> Design Rules -> Constraints) -> router keys, in
+# micrometres. Only rules with a matching router setting are passed: the router has no key for
+# KiCad's minimum clearance (net-class clearances reach it through the DSN), and
+# clearance_tolerance_um is a rounding tolerance, not a clearance.
+BOARD_RULE_KEYS = (
+    ("neck_width_um", "neck_width_um"),  # max(min track width, min connection width)
+    ("copper_to_edge_um", "copper_to_edge_clearance_um"),
+    ("hole_clearance_um", "hole_clearance_um"),
+    ("hole_to_hole_um", "hole_to_hole_um"),
+)
+
+# The "LUT / single-layer" profile (toner transfer, home-made boards): no SMD fanout, no
+# automatic neckdown, no fallback strategies, and vias made expensive (setting lut_via_costs).
+# Trace width and clearance come from KiCad's net classes through the DSN.
+LUT_ARGS = (
+    "--router.fanout.enabled=false",
+    "--router.automatic_neckdown=false",
+    "--router.autorouter.fallback_strategies=none",
+)
+LUT_MIN_WIDTH_MM = 0.5  # narrower net-class tracks get a warning in LUT mode
+
+
+def _um(v):
+    return ("%.3f" % v).rstrip("0").rstrip(".")
+
+
+def board_rule_args(rules):
+    """--router.* keys of the board rules {name: micrometres} (see BOARD_RULE_KEYS);
+    rules that are 0 or missing are left to the router."""
+    args = []
+    for name, key in BOARD_RULE_KEYS:
+        v = rules.get(name) if rules else None
+        if v and v > 0:
+            args.append("--router.%s=%s" % (key, _um(v)))
+    return args
+
+
+def project_files(board_file):
+    """board.kicad_pro, board.kicad_dru, board.kicad_pcb next to the board file, those that exist."""
+    if not board_file:
+        return []
+    base = os.path.splitext(board_file)[0]
+    return [base + ext for ext in (".kicad_pro", ".kicad_dru", ".kicad_pcb") if os.path.isfile(base + ext)]
+
+
+def de_value(dsn, extra_files, path_conv=lambda p: p):
+    """Value of -de: the DSN alone, or dsn+pro+dru+pcb. A '+' inside a path would split it,
+    so then the project files are left out."""
+    paths = [path_conv(dsn)] + [path_conv(p) for p in extra_files or []]
+    if len(paths) > 1 and any("+" in p for p in paths):
+        return paths[0]
+    return "+".join(paths)
+
+
+def router_args(settings, dsn, ses, path_conv=lambda p: p, rules=None, extra_files=None):
+    """Arguments after the binary name. rules: board design rules (see board_rule_args), used
+    when settings["board_rules"]; extra_files: project files for -de, used when
+    settings["project_files"]. Later arguments win, so the order is: board rules, LUT
+    profile, dialog fields, extra arguments."""
+    files = extra_files if settings.get("project_files") else None
+    args = ["-de", de_value(dsn, files, path_conv), "-do", path_conv(ses)]
+    if settings.get("board_rules"):
+        args += board_rule_args(rules)
+    if settings.get("lut"):
+        args += list(LUT_ARGS)
     if settings.get("threads", 0) > 0:
         args += ["-mt", str(settings["threads"])]
     if settings.get("max_passes", 0) > 0:
@@ -107,22 +173,23 @@ def router_args(settings, dsn, ses, path_conv=lambda p: p):
         args += ["--timeout", "PT%dM" % settings["timeout_minutes"]]
     if settings.get("no_optimizer"):
         args.append("--no-optimizer")
-    if settings.get("no_fanout"):
+    if settings.get("no_fanout") and not settings.get("lut"):
         args.append("--router.fanout.enabled=false")
-    if settings.get("via_costs", 0) > 0:
-        args.append("--router.scoring.via_costs=%d" % settings["via_costs"])
+    via_costs = settings.get("lut_via_costs", 0) if settings.get("lut") else settings.get("via_costs", 0)
+    if via_costs > 0:
+        args.append("--router.scoring.via_costs=%d" % via_costs)
     extra = settings.get("extra_args", "").strip()
     if extra:
         args += extra.split()
     return args
 
 
-def build_command(settings, dsn, ses, pidfile=None, mode=None, exe=None):
+def build_command(settings, dsn, ses, pidfile=None, mode=None, exe=None, rules=None, extra_files=None):
     """Full command line (list) for subprocess; mode and exe as returned by resolve()."""
     if mode is None:
         mode, exe = resolve(settings)
     if mode == "wsl":
-        args = router_args(settings, dsn, ses, to_wsl_path)
+        args = router_args(settings, dsn, ses, to_wsl_path, rules, extra_files)
         cmd = ["wsl"]
         if settings.get("wsl_distro"):
             cmd += ["-d", settings["wsl_distro"]]
@@ -131,7 +198,7 @@ def build_command(settings, dsn, ses, pidfile=None, mode=None, exe=None):
         else:
             cmd += ["-e"]
         return cmd + [settings["router_path"]] + args
-    return [exe or EXE_NAME] + router_args(settings, dsn, ses)
+    return [exe or EXE_NAME] + router_args(settings, dsn, ses, rules=rules, extra_files=extra_files)
 
 
 # --- log parsing -------------------------------------------------------------------
@@ -169,6 +236,19 @@ class Progress(object):
 
     def feed(self, line):
         """Updates the state from one log line; returns True when the status changed."""
+        final = self.summary
+        changed = self._feed(line)
+        if final is not None:
+            # The summary goes to stdout and the log to stderr; a native router's stdout is
+            # buffered, so the summary can arrive before the last log lines. It stays final.
+            self.stage = "done"
+            self.summary = final
+            self.unrouted, self.violations = final[0], final[1]
+            self.status = "Done: %d unrouted, %d clearance violations, %.1f s" % final
+            return False
+        return changed
+
+    def _feed(self, line):
         m = _RE_START.search(line)
         if m:
             self.stage = "routing"
@@ -223,7 +303,8 @@ class RouterRun(object):
     """One router run. start() returns at once; on_line(line) and on_exit(code) are
     called from a reader thread (the GUI must hand them over to its own thread)."""
 
-    def __init__(self, settings, dsn, ses, work_dir, on_line=None, on_exit=None):
+    def __init__(self, settings, dsn, ses, work_dir, on_line=None, on_exit=None, rules=None,
+                 extra_files=None, notes=None):
         self.settings = settings
         self.dsn = dsn
         self.ses = ses
@@ -237,7 +318,8 @@ class RouterRun(object):
         self.mode, self.exe = resolve(settings)
         self.pidfile = os.path.join(work_dir, "router.pid") if self.mode == "wsl" else None
         self.log_path = os.path.join(work_dir, "router.log")
-        self.command = build_command(settings, dsn, ses, self.pidfile, self.mode, self.exe)
+        self.command = build_command(settings, dsn, ses, self.pidfile, self.mode, self.exe, rules, extra_files)
+        self.notes = list(notes or [])  # lines for the log before the router output (what came from the board)
         self._thread = None
 
     def start(self):
@@ -261,6 +343,8 @@ class RouterRun(object):
 
     def _read(self):
         with open(self.log_path, "w", encoding="utf-8") as log:
+            for note in self.notes:
+                log.write(note + "\n")
             log.write("command: %s\n" % subprocess.list2cmdline(self.command))
             for raw in iter(self.proc.stdout.readline, b""):
                 line = raw.decode("utf-8", "replace").rstrip("\r\n")

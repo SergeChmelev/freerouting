@@ -5,7 +5,7 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
 разводит её, результат (SES) загружается обратно в плату.
 
 Основной вариант — **нативный Windows-роутер** `freerouting-cpp.exe` рядом с плагином:
-ни WSL, ни Linux не нужны. Запасной вариант — роутер внутри WSL (раздел 7).
+ни WSL, ни Linux не нужны. Запасной вариант — роутер внутри WSL (раздел 8).
 
 Инструкция для Windows и KiCad 10. Плагин работает и в KiCad 6–9: отличается только номер
 версии в пути к каталогу плагинов.
@@ -26,15 +26,12 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
 **Инструменты → Внешние плагины → Открыть каталог плагинов**
 (Tools → External Plugins → Open Plugin Directory).
 
-1. Скопируйте папку плагина **целиком** (не её содержимое) в каталог плагинов:
+1. Скопируйте папку плагина **целиком** (не её содержимое) в каталог плагинов. Команда
+   выполняется из корня репозитория:
 
    ```powershell
-   Copy-Item -Recurse -Force C:\Users\HP\VibeCodes\freerouting\integrations\kicad\freerouting_cpp "$env:USERPROFILE\Documents\KiCad\10.0\scripting\plugins\"
+   Copy-Item -Recurse -Force integrations\kicad\freerouting_cpp "$env:USERPROFILE\Documents\KiCad\10.0\scripting\plugins\"
    ```
-
-   Пока ветка с плагином не слита в main, папка есть только в её worktree:
-   `C:\Users\HP\VibeCodes\freerouting\.claude\worktrees\keen-chatterjee-c56a3f\integrations\kicad\freerouting_cpp`
-   — подставьте этот путь.
 
 2. Создайте в ней подпапку `bin`:
 
@@ -66,7 +63,7 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
 2. `freerouting_cpp\bin\freerouting-cpp.exe`;
 3. `freerouting_cpp\freerouting-cpp.exe`.
 
-Если exe не найден, плагин в режиме Auto запускает роутер через WSL (раздел 7).
+Если exe не найден, плагин в режиме Auto запускает роутер через WSL (раздел 8).
 
 ## 3. Включение в KiCad
 
@@ -94,10 +91,14 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
    | Timeout, min | ограничение времени (`--timeout PT<N>M`) | 0 = без ограничения |
    | Skip the optimizer | без оптимизации: быстрее, но дорожки длиннее | выкл. |
    | Skip the SMD fanout stage | без этапа fanout (`--router.fanout.enabled=false`) | выкл. |
-   | Extra arguments | любые другие настройки роутера в виде `--router.<путь>=<значение>`, например `--router.automatic_neckdown=false` | пусто |
+   | Extra arguments | любые другие настройки роутера в виде `--router.<путь>=<значение>`, например `--router.automatic_neckdown=false`; идут последними и перекрывают всё остальное | пусто |
+   | Pass the board's design rules | передать ограничения платы ключами `--router.*` (раздел 5) | вкл. |
+   | Give the router the project files too | передать роутеру ещё `.kicad_pro`, `.kicad_dru`, `.kicad_pcb` (раздел 5) | выкл. |
+   | LUT / single-layer profile | профиль для ЛУТ и однослойных плат (раздел 5) | выкл. |
+   | Via cost in this profile | стоимость перехода в профиле ЛУТ | 1000 |
    | Run | Auto — exe, если найден, иначе WSL; Native (.exe) — только exe; WSL — только WSL | Auto |
    | Native executable | путь к `freerouting-cpp.exe`, если он не рядом с плагином | пусто |
-   | WSL distribution, Router in WSL | только для режима WSL (раздел 7) | `Ubuntu`, `/usr/local/bin/freerouting-cpp` |
+   | WSL distribution, Router in WSL | только для режима WSL (раздел 8) | `Ubuntu`, `/usr/local/bin/freerouting-cpp` |
 
    Значения запоминаются в `freerouting_cpp\settings.json` рядом с плагином.
 3. Нажмите **Route**. В окне хода работы видны этап (проход трассировки, сколько связей ещё
@@ -108,7 +109,49 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
    Если остались неразведённые связи или нарушения зазоров, плагин об этом скажет —
    запустите DRC, чтобы их увидеть.
 
-## 5. Обновление и удаление
+## 5. Что плагин берёт из проекта
+
+Плагин ничего не дописывает в DSN: всё, что он берёт из проекта сверх DSN, передаётся
+роутеру ключами командной строки. В начале окна хода работы и в `router.log` перечислено,
+что именно взято.
+
+**Ограничения платы** (галочка «Pass the board's design rules», включена по умолчанию).
+Берутся из **Параметры платы → Правила проектирования → Ограничения** (Board Setup →
+Design Rules → Constraints):
+
+| Ограничение KiCad | Ключ роутера |
+|---|---|
+| Минимальная ширина дорожки и минимальная ширина соединения (большая из двух) | `--router.neck_width_um` |
+| Зазор от меди до края платы | `--router.copper_to_edge_clearance_um` |
+| Зазор от меди до отверстия | `--router.hole_clearance_um` |
+| Зазор между отверстиями | `--router.hole_to_hole_um` |
+
+Значения в микрометрах; ограничение, равное 0, не передаётся. **Минимальный зазор** не
+передаётся: такого ключа у роутера нет, а зазоры классов цепей и так попадают к нему через
+DSN. `neck_width_um` включает сужение: связь, которая не разводится шириной своего класса,
+пробуется ещё раз этой шириной.
+
+**Файлы проекта** (галочка «Give the router the project files too», выключена). Роутер получит
+`-de плата.dsn+плата.kicad_pro+плата.kicad_dru+плата.kicad_pcb` — из файлов, которые есть рядом
+с платой. `.kicad_pcb` берётся с диска, поэтому плату надо сохранить. **Пока не включайте:**
+роутер ещё не умеет читать эти файлы, и запуск закончится ошибкой.
+
+**Профиль «ЛУТ / однослойная»** (галочка «LUT / single-layer profile»). Для самодельных плат:
+лазерно-утюжная технология, один слой меди, верхний слой — только перемычки. Одна галочка
+добавляет
+
+```
+--router.fanout.enabled=false --router.automatic_neckdown=false
+--router.autorouter.fallback_strategies=none --router.scoring.via_costs=1000
+```
+
+Стоимость перехода задаётся полем «Via cost in this profile». Каждый переход — это перемычка,
+поэтому высокая стоимость делает их как можно меньше. Полноценный режим «верхний слой =
+перемычки» будет позже. Ширина дорожек и зазоры берутся из классов цепей KiCad
+(**Параметры платы → Классы цепей**). Если у какого-то класса дорожки уже 0,5 мм, плагин
+перед разводкой спросит, продолжать ли: для ЛУТ это тонко.
+
+## 6. Обновление и удаление
 
 - **Обновить плагин:** повторите шаг 1 раздела 2 (файлы перезапишутся, `bin\` и
   `settings.json` сохранятся), затем Refresh Plugins или перезапуск KiCad.
@@ -117,7 +160,7 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
 - **Удалить:** удалите папку
   `Документы\KiCad\10.0\scripting\plugins\freerouting_cpp` и обновите плагины.
 
-## 6. Неполадки
+## 7. Неполадки
 
 **Кнопки нет и пункта в меню нет.** Проверьте, что `__init__.py` лежит именно в
 `plugins\freerouting_cpp\`. Ошибки загрузки Python-плагинов KiCad показывает в
@@ -146,7 +189,7 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
 `<плата>.dsn`, результат `<плата>.ses` и `router.log`. Они перезаписываются при следующем
 запуске для той же платы.
 
-## 7. Запасной вариант: роутер в WSL
+## 8. Запасной вариант: роутер в WSL
 
 Если exe нет, в режиме Auto (или WSL) плагин запускает Linux-сборку роутера:
 `wsl -d Ubuntu -e /usr/local/bin/freerouting-cpp ...`, пути переводятся
@@ -168,7 +211,7 @@ C++-портом freerouting. Плата выгружается в Specctra DSN,
 
   (так пакет называется в Ubuntu 24.04 и новее; в более старых — `libgeos-c1v5`).
 
-## 8. Совместимость
+## 9. Совместимость
 
 Плагин использует SWIG-API `pcbnew` (`ExportSpecctraDSN` / `ImportSpecctraSES`), как и режим
 DSN upstream-плагина freerouting. Этот API есть в KiCad 6–10. Разработчики KiCad планируют

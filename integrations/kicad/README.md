@@ -51,14 +51,73 @@ terminates the process. The settings dialog shows which router the chosen mode w
 | Skip the optimizer | `--no-optimizer` | off |
 | Skip the SMD fanout stage | `--router.fanout.enabled=false` | off |
 | Extra arguments | appended as they are: any `--router.<json path>=<value>`, e.g. `--router.automatic_neckdown=false` | empty |
+| Pass the board's design rules | the `--router.*` keys below | on |
+| Give the router the project files too | `-de board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb` | off |
+| LUT / single-layer profile | see below | off |
+| Via cost in this profile | `--router.scoring.via_costs=N` while the LUT profile is on | 1000 |
 | Run | Auto / Native (.exe) / WSL, see above | Auto |
 | Native executable | path of `freerouting-cpp.exe` | empty = next to the plugin |
 | WSL distribution | `wsl -d <distribution>` | `Ubuntu` |
 | Router in WSL | Linux path of the router | `/usr/local/bin/freerouting-cpp` |
 
 The values are kept in `freerouting_cpp/settings.json` next to the plugin.
-The plugin passes no rules file (`-dr`): the DSN that KiCad writes already carries the board's
-rules.
+The plugin passes no rules file (`-dr`) and adds nothing to the DSN; everything else goes as
+command-line keys. Order on the command line: board rules, LUT profile, dialog fields, extra
+arguments; a later key wins, so extra arguments override everything.
+
+### Taken from the board
+
+With "Pass the board's design rules" on, the plugin reads **Board Setup → Design Rules →
+Constraints** through `pcbnew` (`board.GetDesignSettings()`) and passes:
+
+| KiCad constraint | Router key |
+|---|---|
+| max(Minimum track width `m_TrackMinWidth`, Minimum connection width `m_MinConn`) | `--router.neck_width_um` |
+| Copper to board edge clearance `m_CopperEdgeClearance` | `--router.copper_to_edge_clearance_um` |
+| Copper to hole clearance `m_HoleClearance` | `--router.hole_clearance_um` |
+| Hole to hole clearance `m_HoleToHoleMin` | `--router.hole_to_hole_um` |
+
+Values are in micrometres; a constraint that is 0 in KiCad is not passed (the router keeps its
+default). **Minimum clearance** (`m_MinClearance`) is not passed: the router has no key for it
+(the clearances of the net classes reach it through the DSN), and `clearance_tolerance_um` is
+a rounding tolerance, not a clearance. `neck_width_um` switches on the router's opt-in necking:
+a connection that fails at its net-class width is retried once at this width.
+
+The progress dialog and `router.log` start with what was taken, e.g.
+
+```
+Taken from the board (Board Setup -> Constraints):
+  min track width 0.2 mm, min connection width 0 mm -> --router.neck_width_um=200
+  copper to board edge 0.5 mm -> --router.copper_to_edge_clearance_um=500
+  copper to hole 0.25 mm -> --router.hole_clearance_um=250
+  hole to hole 0.25 mm -> --router.hole_to_hole_um=250
+  min clearance 0 mm: not passed (the router has no such key; net-class clearances are in the DSN)
+```
+
+### Project files
+
+With "Give the router the project files too" on, `-de` becomes
+`board.dsn+board.kicad_pro+board.kicad_dru+board.kicad_pcb`, with those of the three project
+files that exist next to the open `.kicad_pcb` (in this order). The `.kicad_pcb` is the one on
+disk, so save the board first. If a path contains `+`, only the DSN is passed. **Off by
+default:** the router does not read these files yet; until it does, switching this on makes
+the run fail.
+
+### LUT / single-layer profile
+
+For home-made boards (toner transfer, one copper layer, the top layer at most as jumpers).
+One checkbox adds
+
+```
+--router.fanout.enabled=false --router.automatic_neckdown=false
+--router.autorouter.fallback_strategies=none --router.scoring.via_costs=<Via cost in this profile>
+```
+
+and greys out the plain "Via cost" and "Skip the SMD fanout stage" fields (the profile sets
+both). Track widths and clearances come from KiCad's net classes through the DSN, as always;
+the plugin lists the net classes in the log and asks before routing when a class has tracks
+narrower than 0.5 mm. "Top layer = jumpers" is for now only the high via cost: every via is a
+jumper wire, so expensive vias keep their number low.
 
 ## Installation (KiCad 10 on Windows)
 
@@ -107,8 +166,24 @@ wsl -d Ubuntu -e /usr/local/bin/freerouting-cpp --help
 ## Tests (without the KiCad GUI)
 
 Run with KiCad's Python from `integrations\kicad`; the work folder may be any empty folder.
-`upstream` is the Java checkout next to the repository
-(`C:\Users\HP\VibeCodes\freerouting\upstream`); in a worktree give its full path.
+`..\..\upstream` is a checkout of the Java freerouting next to this repository (for its
+`fixtures`); give its full path if it is elsewhere.
+
+```powershell
+& "C:\Program Files\KiCad\10.0\bin\python.exe" tests\test_command.py
+```
+
+builds the command line for each mode and option (native and WSL paths, board rules, project
+files, the LUT profile, argument order, the settings file) without running anything.
+
+```powershell
+& "C:\Program Files\KiCad\10.0\bin\python.exe" tests\test_board_rules.py ..\..\upstream\fixtures\Issue508-DAC2020\DAC2020_bm08\bm8.unrouted.kicad_pcb $env:TEMP\fr-test <path to freerouting-cpp.exe>
+```
+
+reads a board's design rules and net classes with `pcbnew` (what the plugin would pass and
+log, the narrow-track warning), then routes it with the board rules and the LUT profile and
+checks that the router accepts the keys. Without the exe argument the router is chosen as in
+the plugin.
 
 ```powershell
 & "C:\Program Files\KiCad\10.0\bin\python.exe" tests\test_runner.py ..\..\upstream\fixtures $env:TEMP\fr-test

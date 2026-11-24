@@ -1,6 +1,7 @@
 # plugin.py -- KiCad Action Plugin: route the open board with freerouting-cpp.
 #
-# Export Specctra DSN -> run freerouting-cpp (in WSL on Windows) -> import Specctra SES.
+# Export Specctra DSN -> run freerouting-cpp (native exe, or in WSL) -> import Specctra SES.
+# Board design rules and the LUT profile go to the router as --router.* keys (runner.py).
 # Uses the SWIG pcbnew API (pcbnew.ExportSpecctraDSN / ImportSpecctraSES), present in
 # KiCad 6 to 10.
 
@@ -44,6 +45,101 @@ def import_ses(board, path):
         except Exception as e:  # noqa: BLE001
             errors.append(str(e))
     return False, "; ".join(errors)
+
+
+def _mm(nm):
+    return ("%.4f" % (nm / 1e6)).rstrip("0").rstrip(".")
+
+
+def board_rules(board):
+    """Design rules of the board in micrometres, for runner.board_rule_args, and log lines
+    saying what was taken."""
+    ds = board.GetDesignSettings()
+
+    def get(attr):
+        try:
+            return int(getattr(ds, attr))
+        except (AttributeError, TypeError, ValueError):
+            return 0
+
+    track, conn = get("m_TrackMinWidth"), get("m_MinConn")
+    rules = {
+        "neck_width_um": max(track, conn) / 1000.0,
+        "copper_to_edge_um": get("m_CopperEdgeClearance") / 1000.0,
+        "hole_clearance_um": get("m_HoleClearance") / 1000.0,
+        "hole_to_hole_um": get("m_HoleToHoleMin") / 1000.0,
+    }
+    keys = {}
+    for name, key in runner.BOARD_RULE_KEYS:
+        arg = runner.board_rule_args({name: rules[name]})
+        keys[name] = arg[0] if arg else "not set, left to the router"
+
+    notes = ["Taken from the board (Board Setup -> Constraints):",
+             "  min track width %s mm, min connection width %s mm -> %s"
+             % (_mm(track), _mm(conn), keys["neck_width_um"]),
+             "  copper to board edge %s mm -> %s" % (_mm(get("m_CopperEdgeClearance")), keys["copper_to_edge_um"]),
+             "  copper to hole %s mm -> %s" % (_mm(get("m_HoleClearance")), keys["hole_clearance_um"]),
+             "  hole to hole %s mm -> %s" % (_mm(get("m_HoleToHoleMin")), keys["hole_to_hole_um"]),
+             "  min clearance %s mm: not passed (the router has no such key; net-class clearances"
+             " are in the DSN)" % _mm(get("m_MinClearance"))]
+    return rules, notes
+
+
+def net_classes(board):
+    """[(name, track width nm, clearance nm)] of the board's net classes, Default first."""
+    out = []
+    try:
+        ns = board.GetDesignSettings().m_NetSettings
+        nc = ns.GetDefaultNetclass()
+        out.append((nc.GetName(), nc.GetTrackWidth(), nc.GetClearance()))
+        for name, nc in ns.GetNetclasses().items():
+            out.append((str(name), nc.GetTrackWidth(), nc.GetClearance()))
+    except Exception:  # noqa: BLE001 -- the API differs between KiCad versions
+        pass
+    return out
+
+
+def narrow_classes(classes, min_mm=runner.LUT_MIN_WIDTH_MM):
+    return [c for c in classes if c[1] and c[1] < min_mm * 1e6]
+
+
+def prepare(board, s):
+    """What the run takes from the board: (rules, project files, log notes, LUT warning or "")."""
+    notes = []
+    rules = None
+    if s.get("board_rules"):
+        rules, notes = board_rules(board)
+    else:
+        notes.append("Board design rules: not passed (switched off in the settings).")
+
+    files = []
+    if s.get("project_files"):
+        files = runner.project_files(board.GetFileName())
+        if not files:
+            notes.append("Project files: none found next to the board.")
+        elif runner.de_value("x.dsn", files) == "x.dsn":
+            notes.append("Project files: not passed, a path contains '+'.")
+            files = []
+        else:
+            notes.append("Project files: " + ", ".join(os.path.basename(f) for f in files)
+                         + " (the .kicad_pcb on disk: save the board first)")
+
+    warning = ""
+    if s.get("lut"):
+        notes.append("LUT / single-layer profile: " + " ".join(runner.LUT_ARGS)
+                     + " --router.scoring.via_costs=%d" % s.get("lut_via_costs", 0))
+        classes = net_classes(board)
+        for name, width, clearance in classes:
+            notes.append("  net class %s: track %s mm, clearance %s mm" % (name, _mm(width), _mm(clearance)))
+        narrow = narrow_classes(classes)
+        if narrow:
+            warning = ("These net classes have tracks narrower than %.1f mm, thin for toner transfer:\n%s\n\n"
+                       "Widen them in Board Setup -> Net Classes, or route anyway?"
+                       % (runner.LUT_MIN_WIDTH_MM,
+                          "\n".join("  %s: %s mm" % (n, _mm(w)) for n, w, _ in narrow)))
+            notes.append("  warning: narrower than %.1f mm: %s"
+                         % (runner.LUT_MIN_WIDTH_MM, ", ".join(n for n, _, _ in narrow)))
+    return rules, files, notes, warning
 
 
 def refill_zones(board):
@@ -91,6 +187,34 @@ class SettingsDialog(wx.Dialog):
         self.extra = text("Extra arguments:", "extra_args")
         grid.Add((0, 0))
         grid.Add(wx.StaticText(self, label="e.g. --router.automatic_neckdown=false --router.optimizer.max_passes=10"))
+        grid.Add((0, 0))
+        self.board_rules = wx.CheckBox(self, label="Pass the board's design rules (min track width, edge, "
+                                                   "hole clearances) as --router.* keys")
+        self.board_rules.SetValue(self.s["board_rules"])
+        grid.Add(self.board_rules)
+        grid.Add((0, 0))
+        self.project_files = wx.CheckBox(self, label="Give the router the project files too "
+                                                     "(-de board.dsn+.kicad_pro+.kicad_dru+.kicad_pcb)")
+        self.project_files.SetValue(self.s["project_files"])
+        grid.Add(self.project_files)
+
+        lut = wx.StaticBoxSizer(wx.VERTICAL, self, "LUT / single-layer")
+        lbox = lut.GetStaticBox()
+        self.lut = wx.CheckBox(lbox, label="LUT / single-layer profile: no fanout, no neckdown, "
+                                           "no fallback strategies, expensive vias")
+        self.lut.SetValue(self.s["lut"])
+        lut.Add(self.lut, 0, wx.ALL, 6)
+        lrow = wx.BoxSizer(wx.HORIZONTAL)
+        lrow.Add(wx.StaticText(lbox, label="Via cost in this profile:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.lut_via_costs = wx.SpinCtrl(lbox, min=1, max=100000, initial=self.s["lut_via_costs"], size=(90, -1))
+        lrow.Add(self.lut_via_costs, 0, wx.LEFT, 8)
+        lrow.Add(wx.StaticText(lbox, label="(the top layer as jumpers: only as a high via cost for now)"),
+                 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 8)
+        lut.Add(lrow, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
+        lut.Add(wx.StaticText(lbox, label="Track width and clearance come from the net classes; classes "
+                                          "narrower than %.1f mm get a warning." % runner.LUT_MIN_WIDTH_MM),
+                0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
+        self.lut.Bind(wx.EVT_CHECKBOX, self.on_lut)
 
         adv = wx.StaticBoxSizer(wx.VERTICAL, self, "Router")
         box = adv.GetStaticBox()
@@ -121,14 +245,23 @@ class SettingsDialog(wx.Dialog):
                                          "Save the board first: the import may not be undoable.")
         top = wx.BoxSizer(wx.VERTICAL)
         top.Add(grid, 0, wx.EXPAND | wx.ALL, 10)
+        top.Add(lut, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         top.Add(adv, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
         top.Add(note, 0, wx.ALL, 10)
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
         self.FindWindowById(wx.ID_OK).SetLabel("Route")
         top.Add(buttons, 0, wx.EXPAND | wx.ALL, 10)
         self.show_resolved()
+        self.on_lut()
         self.SetSizerAndFit(top)
         self.CentreOnParent()
+
+    def on_lut(self, _evt=None):
+        """The LUT profile sets fanout off and its own via cost: grey out the plain fields."""
+        on = self.lut.GetValue()
+        self.via_costs.Enable(not on)
+        self.no_fanout.Enable(not on)
+        self.lut_via_costs.Enable(on)
 
     def show_resolved(self, _evt=None):
         """Says which router the current choice will run."""
@@ -150,6 +283,10 @@ class SettingsDialog(wx.Dialog):
         s["no_optimizer"] = self.no_optimizer.GetValue()
         s["extra_args"] = self.extra.GetValue().strip()
         s["no_fanout"] = self.no_fanout.GetValue()
+        s["board_rules"] = self.board_rules.GetValue()
+        s["project_files"] = self.project_files.GetValue()
+        s["lut"] = self.lut.GetValue()
+        s["lut_via_costs"] = self.lut_via_costs.GetValue()
         s["mode"] = runner.MODES[self.mode.GetSelection()]
         s["native_path"] = self.native.GetValue().strip()
         s["wsl_distro"] = self.distro.GetValue().strip()
@@ -197,6 +334,8 @@ class ProgressDialog(wx.Dialog):
 
         run.on_line = lambda line: later(self.add_line, line)
         run.on_exit = lambda code: later(self.on_exit, code)
+        for note in run.notes:
+            self.add_line(note)
         self.add_line("work directory: " + run.work_dir)
         self.add_line("command: " + " ".join(run.command))
         try:
@@ -291,12 +430,17 @@ class FreeroutingCppPlugin(pcbnew.ActionPlugin):
             if os.path.exists(f):
                 os.remove(f)
 
+        rules, files, notes, warning = prepare(board, s)
+        if warning and wx.MessageBox(warning, "freerouting-cpp: LUT profile",
+                                     wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, parent) != wx.YES:
+            return
+
         ok, err = export_dsn(board, dsn)
         if not ok or not os.path.exists(dsn):
             wx.MessageBox("Specctra DSN export failed.\n%s" % err, "freerouting-cpp", wx.OK | wx.ICON_ERROR, parent)
             return
 
-        run = runner.RouterRun(s, dsn, ses, work)
+        run = runner.RouterRun(s, dsn, ses, work, rules=rules, extra_files=files, notes=notes)
         pdlg = ProgressDialog(parent, run)
         try:
             result = pdlg.ShowModal()
