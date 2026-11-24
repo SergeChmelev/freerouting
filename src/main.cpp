@@ -450,6 +450,7 @@ int runMain(int argc, char** argv) {
   std::printf("%s: %d unrouted, %d clearance violations, %.1f s%s -> %s (%zu bytes)\n", baseName(input).c_str(),
               result->unroutedConnections(), violations, seconds, result->isCancelled() ? " (cancelled)" : "",
               output.c_str(), ses.size());
+  std::fflush(stdout);  // the summary reaches a pipe reader (the KiCad plugin) before the exit
   if (std::getenv("FR_MEM_STATS") != nullptr) {
     jrt::drain_arena_pool();  // cached free chunks are not a leak
     std::fprintf(stderr, "memory: arena peak %.1f MB, heap %.1f MB, disposed %zu objects / %.1f MB\n",

@@ -106,6 +106,9 @@ void FRLogger::emit(int32_t level, const std::string& msg, const std::exception*
   if (exception != nullptr) {
     std::fprintf(stderr, "    exception: %s\n", exception->what());
   }
+  // A caller reading the log through a pipe (the KiCad plugin's progress window) sees each line
+  // at once: the Windows C runtime buffers stderr when it is not a console.
+  std::fflush(stderr);
 }
 
 // ---------------------------------------------------------------------------------------------
