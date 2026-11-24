@@ -254,6 +254,11 @@ app.freerouting.io.BoardReadResult
 app.freerouting.io.CoordinateTransform
 app.freerouting.io.FileFormat
 app.freerouting.io.KiCadNetClassNames
+app.freerouting.io.kicad.KiCadBoardZones
+app.freerouting.io.kicad.KiCadDesignRules
+app.freerouting.io.kicad.KiCadDesignRulesTranslator
+app.freerouting.io.kicad.KiCadProject
+app.freerouting.io.kicad.KiCadRuleCondition
 app.freerouting.io.specctra.DsnReadOptions
 app.freerouting.io.specctra.DsnReader
 app.freerouting.io.specctra.RulesReader
@@ -343,6 +348,7 @@ app.freerouting.settings.SettingsSource
 app.freerouting.settings.sources.ApiSettings
 app.freerouting.settings.sources.DefaultSettings
 app.freerouting.settings.sources.DsnFileSettings
+app.freerouting.settings.sources.KiCadProjectSettings
 app.freerouting.settings.sources.RulesFileSettings
 app.freerouting.util.ReflectionUtil
 app.freerouting.util.RuntimeTelemetryProvider
