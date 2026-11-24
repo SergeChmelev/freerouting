@@ -36,9 +36,15 @@ def export_dsn(board, path):
 
 
 def import_ses(board, path):
-    """Reads the Specctra session into the board; True on success."""
+    """Reads the Specctra session into the board; True on success.
+
+    The board variant comes first: the frame variant (ImportSpecctraSES(path), i.e.
+    PCB_EDIT_FRAME::ImportSpecctraSession) clears the undo / redo lists, and KiCad's
+    RunActionPlugin then finds no undo entry of its own after the plugin ran and fails with
+    'assert "oldBuffer" failed'. With the board variant the import becomes one undoable step.
+    The frame variant stays as the fallback for KiCad versions without the board variant."""
     errors = []
-    for args in ((path,), (board, path)):
+    for args in ((board, path), (path,)):
         try:
             if pcbnew.ImportSpecctraSES(*args):
                 return True, ""
