@@ -33,6 +33,7 @@
 #include "jrt/jrt.h"
 #include "platform/platform.h"
 #include "logger/FRLogger.h"
+#include "settings/FanoutSettings.h"
 #include "settings/RouterSettings.h"
 
 namespace {
@@ -142,6 +143,24 @@ const std::map<std::string, Setter>& routerSetters() {
     add({"autorouter.fanout_via_pad_gap"}, [](S s, V v) { s->autorouter->fanoutViaPadGap = parseDouble(v); });
     add({"autorouter.ball_escape_order"}, [](S s, V v) { s->autorouter->ballEscapeOrder = v; });
     add({"autorouter.exit_stubs"}, [](S s, V v) { s->autorouter->exitStubs = parseBool(v); });
+    // fanout (FanoutSettings)
+    add({"fanout.enabled"}, [](S s, V v) { s->fanout->enabled = parseBool(v); });
+    add({"fanout.max_passes"}, [](S s, V v) { s->fanout->maxPasses = parseInt(v); });
+    add({"fanout.max_items"}, [](S s, V v) { s->fanout->maxItems = parseInt(v); });
+    add({"fanout.max_milliseconds_per_pin"}, [](S s, V v) { s->fanout->maxMillisecondsPerPin = std::stoll(v, nullptr, 0); });
+    add({"fanout.ripup_allowed", "fanout.ripupAllowed"}, [](S s, V v) { s->fanout->ripupAllowed = parseBool(v); });
+    add({"fanout.min_escape_length_mm"}, [](S s, V v) { s->fanout->minEscapeLengthMm = parseDouble(v); });
+    add({"fanout.max_escape_length_mm"}, [](S s, V v) { s->fanout->maxEscapeLengthMm = parseDouble(v); });
+    add({"fanout.start_via_diameter_mm"}, [](S s, V v) { s->fanout->startViaDiameterMm = parseDouble(v); });
+    add({"fanout.end_via_diameter_mm"}, [](S s, V v) { s->fanout->endViaDiameterMm = parseDouble(v); });
+    add({"fanout.pin_sorting_order"}, [](S s, V v) { s->fanout->pinSortingOrder = v; });
+    add({"fanout.fallback_to_board_vias"}, [](S s, V v) { s->fanout->fallbackToBoardVias = parseBool(v); });
+    add({"fanout.retry_without_escape_window"}, [](S s, V v) { s->fanout->retryWithoutEscapeWindow = parseBool(v); });
+    add({"fanout.strategy"}, [](S s, V v) { s->fanout->strategy = v; });
+    add({"fanout.two_layer_bga"}, [](S s, V v) { s->fanout->twoLayerBga = v; });
+    add({"fanout.timeout"}, [](S s, V v) { s->fanout->timeoutString = v; });
+    add({"fanout.bga_escape_enabled"}, [](S s, V v) { s->fanout->bgaEscapeEnabled = parseBool(v); });
+    add({"fanout.bga_escape_min_pins"}, [](S s, V v) { s->fanout->bgaEscapeMinPins = parseInt(v); });
     // optimizer
     add({"optimizer.enabled"}, [](S s, V v) { s->optimizer->enabled = parseBool(v); });
     add({"optimizer.algorithm"}, [](S s, V v) { s->optimizer->algorithm = v; });
@@ -251,7 +270,9 @@ int runMain(int argc, char** argv) {
       std::fprintf(stderr, "cannot read rules file '%s'\n", rules.c_str());
       return 1;
     }
-    builder->rulesBytes(rulesBytes)->rulesName(baseName(rules));
+    // The rules header names the design (the .rules file of board.dsn is "(rules PCB board ...)"):
+    // the name to check is the file name without its extension.
+    builder->rulesBytes(rulesBytes)->rulesName(designName(rules));
   }
   if (maxPasses || maxThreads || timeout || !optimizer || !routerArgs.empty()) {
     // Same role as Java's CLI/API settings source: only the given values override.
