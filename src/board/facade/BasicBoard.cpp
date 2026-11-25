@@ -1339,10 +1339,42 @@ void BasicBoard::afterDeserialize() {
   itemRepository = nullptr;
   connectivityQueries = nullptr;
   snapshotManager = nullptr;
+  if (borrowShapesSource_ != nullptr && borrowShapesMap_ != nullptr) {
+    // C++ only: the copied items other than traces take the source items' tree shapes of the
+    // default tree (both trees have the same type and clearance compensation).
+    ShapeSearchTree* sourceTree = borrowShapesSource_->searchTreeManager->getDefaultTree();
+    ShapeSearchTree* copyTree = searchTreeManager->getDefaultTree();
+    if (sourceTree != nullptr && copyTree != nullptr && typeid(*sourceTree) == typeid(*copyTree) &&
+        sourceTree->compensatedClearanceClassNo == copyTree->compensatedClearanceClassNo) {
+      for (auto* entry : *borrowShapesMap_->entrySet()) {
+        Item* original = entry->getKey();
+        Item* copied = entry->getValue();
+        if (original == nullptr || copied == nullptr ||
+            jrt::fast_cast<PolylineTrace>(copied) != nullptr) {
+          continue;
+        }
+        jrt::Array<TileShape*>* shapes = original->peekTreeShapes(sourceTree);
+        if (shapes != nullptr) {
+          copied->board = this;
+          copied->borrowTreeShapes(shapes, copyTree);
+        }
+      }
+    }
+    borrowShapesSource_ = nullptr;
+    borrowShapesMap_ = nullptr;
+  }
   jrt::DisposeOnExit loopSource2(this->getItems());
   for (Item* currentItem : *loopSource2) {
     currentItem->board = this;
     searchTreeManager->insert(currentItem);
+  }
+}
+
+void BasicBoard::prepareTreeShapeBorrowing(BasicBoard* copy,
+                                           jrt::IdentityHashMap<Item*, Item*>* itemMap) {
+  if (BorrowTreeShapesScope::active() && itemMap != nullptr) {
+    copy->borrowShapesSource_ = this;
+    copy->borrowShapesMap_ = itemMap;
   }
 }
 
@@ -1649,6 +1681,7 @@ void BasicBoard::discardLast(BasicBoard* board) {
 BasicBoard* BasicBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {
   BasicBoard* copy = new (jrt::kBoard) BasicBoard(BasicBoard_CopyTag{}, this);
   copy->copyItemListFrom(this, itemMap);
+  prepareTreeShapeBorrowing(copy, itemMap);
   copy->afterDeserialize();
   return copy;
 }

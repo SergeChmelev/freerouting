@@ -1540,6 +1540,7 @@ BasicBoard* RoutingBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>*
     // re-copy it now that the old->new item map exists.
     if (this->failureLog != nullptr) copy->failureLog = this->failureLog->deepCopy(itemMap);
   }
+  prepareTreeShapeBorrowing(copy, itemMap);
   copy->afterDeserialize();
   jrt::disposeMapAndEntries(ownMap);
   return copy;

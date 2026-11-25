@@ -631,6 +631,37 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   void afterDeserialize();
 
   /**
+   * PORT NOTE (C++ only): set by copyAsDeserialized inside a BorrowTreeShapesScope: the board
+   * copied and the item map; afterDeserialize then gives the copied items other than traces the
+   * source items' default-tree shapes instead of computing them again (the same shapes: same
+   * geometry and rules). Only for copies that die before their source (optimizer candidates).
+   */
+  BasicBoard* borrowShapesSource_ = nullptr;
+  jrt::IdentityHashMap<Item*, Item*>* borrowShapesMap_ = nullptr;
+
+ public:
+  /**
+   * PORT NOTE (C++ only): while one is alive on this thread, board copies borrow the tree shapes
+   * of the source's items other than traces (see borrowShapesSource_). The copy must be dropped
+   * before the source.
+   */
+  class BorrowTreeShapesScope {
+   public:
+    explicit BorrowTreeShapesScope(bool on) : previous_(active()) { active() = on; }
+    ~BorrowTreeShapesScope() { active() = previous_; }
+    static bool& active() {
+      static thread_local bool v = false;
+      return v;
+    }
+
+   private:
+    bool previous_;
+  };
+
+ protected:
+  void prepareTreeShapeBorrowing(BasicBoard* copy, jrt::IdentityHashMap<Item*, Item*>* itemMap);
+
+  /**
    * PORT NOTE: copies the item list of source into this board (fresh copy of the
    * UndoableObjects state, every Storable mapped through Item::copy(sameId) with board = this,
    * preserving ids, item-list order, snapshot levels and the undo stacks). Fills itemMap
