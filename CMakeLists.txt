@@ -12,6 +12,26 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
+# Link-time optimization: the compiler sees the whole program when linking and can inline the
+# port's many small methods across .cpp files (getters, shape double dispatch); 1-2 % faster on
+# Linux. Off for Debug and sanitizer builds and for MinGW (its GCC 13 linker reports multiple
+# definitions of the collections' template vtables under LTO).
+option(FR_LTO "Build with link-time optimization (except Debug, sanitizer and MinGW builds)" ON)
+if(FR_LTO AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT FR_SANITIZE AND NOT FR_TSAN AND NOT MINGW)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT FR_IPO_SUPPORTED OUTPUT FR_IPO_ERROR LANGUAGES CXX)
+  if(FR_IPO_SUPPORTED)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Parallel LTO with as many jobs as there are cores (GCC's default is serial).
+      add_link_options(-flto=auto)
+    endif()
+    message(STATUS "Link-time optimization: on")
+  else()
+    message(STATUS "Link-time optimization: not supported (${FR_IPO_ERROR})")
+  endif()
+endif()
+
 find_package(PkgConfig)
 find_package(Threads REQUIRED)
 # Memory (MEMORY_MODEL.md): explicit ownership, no garbage collector. operator new = calloc,
