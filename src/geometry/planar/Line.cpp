@@ -264,12 +264,23 @@ bool Line::directionInts(int32_t& x, int32_t& y) {
     y = d->y;
     return true;
   }
+  if (dirIntsState != 0) {
+    x = dirX;
+    y = dirY;
+    return dirIntsState > 0;
+  }
   auto* ia = jrt::fast_cast<IntPoint>(a);
   auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(b) : nullptr;
-  if (ib == nullptr) return false;
+  if (ib == nullptr) {
+    dirIntsState = -1;
+    return false;
+  }
   x = ib->x - ia->x;
   y = ib->y - ia->y;
   IntVector::normalizeDirectionCoordinates(x, y);
+  dirX = x;
+  dirY = y;
+  dirIntsState = 1;
   return true;
 }
 

@@ -31,6 +31,11 @@ void NetRoutingLedger::clearItemNets() {
 }
 
 void NetRoutingLedger::disposeOwned() {
+  for (SavedCounts& saved : saved_) {
+    jrt::dispose(saved.incompleteByNet);
+    saved.incompleteByNet = nullptr;
+  }
+  savedCount_ = 0;
   clearItemNets();
   jrt::dispose(itemNets);
   itemNets = nullptr;
@@ -125,6 +130,56 @@ jrt::Set<int32_t>* NetRoutingLedger::incompleteNetNumbers() {
     }
   }
   return result;
+}
+
+void NetRoutingLedger::noteSnapshot(int32_t level) {
+  dropSnapshotsAbove(level - 1);
+  if (!built || !dirtyNets->isEmpty()) {
+    return;
+  }
+  if (savedCount_ == kSavedSnapshots) {
+    // the oldest goes; its array is reused for the new one
+    SavedCounts oldest = saved_[0];
+    for (int32_t i = 1; i < kSavedSnapshots; i++) {
+      saved_[i - 1] = saved_[i];
+    }
+    saved_[kSavedSnapshots - 1] = oldest;
+    --savedCount_;
+  }
+  SavedCounts& saved = saved_[savedCount_];
+  if (saved.incompleteByNet == nullptr || saved.incompleteByNet->length != incompleteByNet->length) {
+    jrt::DomainScope domain(this);  // PORT NOTE (stage E): the ledger is board-owned
+    jrt::dispose(saved.incompleteByNet);
+    saved.incompleteByNet = new (jrt::kOp) jrt::Array<int32_t>(incompleteByNet->length);
+  }
+  jrt::arraycopy(incompleteByNet, 0, saved.incompleteByNet, 0, incompleteByNet->length);
+  saved.level = level;
+  saved.netAssignmentChanges = board->getNetAssignmentChangeCount();
+  saved.incompleteTotal = incompleteTotal;
+  saved.maximumConnections = maximumConnections_;
+  ++savedCount_;
+}
+
+void NetRoutingLedger::noteUndone(int32_t level) {
+  dropSnapshotsAbove(level + 1);
+  if (savedCount_ == 0 || saved_[savedCount_ - 1].level != level + 1) {
+    return;
+  }
+  SavedCounts& saved = saved_[--savedCount_];
+  if (!built || saved.netAssignmentChanges != board->getNetAssignmentChangeCount() ||
+      saved.incompleteByNet->length != incompleteByNet->length) {
+    return;
+  }
+  jrt::arraycopy(saved.incompleteByNet, 0, incompleteByNet, 0, incompleteByNet->length);
+  incompleteTotal = saved.incompleteTotal;
+  maximumConnections_ = saved.maximumConnections;
+  dirtyNets->clear();
+}
+
+void NetRoutingLedger::dropSnapshotsAbove(int32_t level) {
+  while (savedCount_ > 0 && saved_[savedCount_ - 1].level > level) {
+    --savedCount_;
+  }
 }
 
 void NetRoutingLedger::ensureBuilt() {

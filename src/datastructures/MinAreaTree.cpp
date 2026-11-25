@@ -10,6 +10,21 @@
 
 namespace fr {
 
+namespace {
+
+// PORT NOTE: area() and unionArea() of octagons given by ShapeTree_TreeNode::oct coordinates.
+double octArea(const int32_t* o) {
+  return IntOctagon::areaOf(o[0], o[2], o[1], o[3], o[6], o[7], o[4], o[5]);
+}
+
+double octUnionArea(const int32_t* a, const int32_t* o) {
+  return IntOctagon::areaOf(std::min(a[0], o[0]), std::min(a[2], o[2]), std::max(a[1], o[1]),
+                            std::max(a[3], o[3]), std::min(a[6], o[6]), std::max(a[7], o[7]),
+                            std::min(a[4], o[4]), std::max(a[5], o[5]));
+}
+
+}  // namespace
+
 // ---------------------------------------------------------------------------------------------
 // MinAreaTree_ThreadScratchStacks
 // ---------------------------------------------------------------------------------------------
@@ -96,17 +111,28 @@ void MinAreaTree::collectOverlapsUnlocked(RegularTileShape* shape,
     return;
   }
   ArrayStack<ShapeTree_TreeNode*>* stack = acquireScratchStack();
+  // PORT NOTE: octagon nodes are tested on their coordinates (ShapeTree_TreeNode::oct), the
+  // children of a node on the copies the node keeps (childOct) before they are pushed: a child
+  // that does not intersect is not loaded (it was dropped after the pop before; the order of the
+  // others on the stack is the same).
+  const ShapeTree_OctagonQuery query(shape);
   try {
-    stack->push(this->root);
+    if (this->root->intersects(query, static_cast<Shape*>(shape))) {
+      stack->push(this->root);
+    }
     ShapeTree_TreeNode* currentNode;
     while ((currentNode = stack->pop()) != nullptr) {
       onNodeVisited();
-      if (currentNode->boundingShape->intersects(static_cast<Shape*>(shape))) {
-        if (auto* leaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
-          result->add(leaf);
-        } else {
-          auto* inner = static_cast<ShapeTree_InnerNode*>(currentNode);
+      if (currentNode->isLeaf) {
+        result->add(static_cast<ShapeTree_Leaf*>(currentNode));
+      } else {
+        auto* inner = static_cast<ShapeTree_InnerNode*>(currentNode);
+        if (inner->childIntersects(0, query, static_cast<Shape*>(shape))) {
+          prefetchTreeNode(inner->firstChild);
           stack->push(inner->firstChild);
+        }
+        if (inner->childIntersects(1, query, static_cast<Shape*>(shape))) {
+          prefetchTreeNode(inner->secondChild);
           stack->push(inner->secondChild);
         }
       }
@@ -160,24 +186,33 @@ void MinAreaTree::insertUnlocked(ShapeTree_Leaf* leaf) {
   if (root == leafToReplace) {
     root = newNode;
   }
+  newNode->refreshChildBounds();  // PORT NOTE: ShapeTree_InnerNode::childOct
+  if (currentParent != nullptr) {
+    currentParent->refreshChildBounds();
+  }
 }
 
 ShapeTree_Leaf* MinAreaTree::positionLocate(ShapeTree_TreeNode* currentNode,
                                             ShapeTree_Leaf* leafToInsert) {
   ShapeTree_TreeNode* node = currentNode;
+  // PORT NOTE: octagons are read from the coordinates kept in the nodes (ShapeTree_TreeNode::oct).
+  const bool leafIsOctagon = leafToInsert->octValid;
+  const int32_t* l = leafToInsert->oct;
 
-  while (jrt::fast_cast<ShapeTree_Leaf>(node) == nullptr) {
+  while (!node->isLeaf) {
     auto* currentInnerNode = static_cast<ShapeTree_InnerNode*>(node);
     // PORT NOTE: an octagon bounding shape that already contains the leaf's is kept instead of
     // being replaced by an equal union (bounding shapes are immutable and compared by value).
-    auto* innerOctagon = jrt::fast_cast<IntOctagon>(currentInnerNode->boundingShape);
-    auto* insertOctagon =
-        innerOctagon != nullptr ? jrt::fast_cast<IntOctagon>(leafToInsert->boundingShape) : nullptr;
-    if (insertOctagon == nullptr || !insertOctagon->unionEquals(innerOctagon)) {
+    // (IntOctagon::unionEquals)
+    const int32_t* b = currentInnerNode->oct;
+    bool containsLeaf = leafIsOctagon && currentInnerNode->octValid && l[0] >= b[0] &&
+                        l[2] >= b[2] && l[1] <= b[1] && l[3] <= b[3] && l[6] >= b[6] &&
+                        l[7] <= b[7] && l[4] >= b[4] && l[5] <= b[5];
+    if (!containsLeaf) {
       // PORT NOTE (stage C): an inner node owns its bounding shape (always a fresh union, never
       // shared: board copies rebuild their trees by insertion), so the replaced one is freed.
       RegularTileShape* oldBounds = currentInnerNode->boundingShape;
-      currentInnerNode->boundingShape = leafToInsert->boundingShape->union_(oldBounds);
+      currentInnerNode->setBoundingShape(leafToInsert->boundingShape->union_(oldBounds));
       jrt::dispose(oldBounds);
     }
 
@@ -186,23 +221,22 @@ ShapeTree_Leaf* MinAreaTree::positionLocate(ShapeTree_TreeNode* currentNode,
 
     // PORT NOTE: for octagons the area of the union is computed without creating it (same
     // value; the union shapes were only used for their area).
-    auto* leafOctagon = jrt::fast_cast<IntOctagon>(leafToInsert->boundingShape);
-    RegularTileShape* firstChildShape = currentInnerNode->firstChild->boundingShape;
-    auto* firstOctagon = leafOctagon != nullptr ? jrt::fast_cast<IntOctagon>(firstChildShape) : nullptr;
+    ShapeTree_TreeNode* firstChild = currentInnerNode->firstChild;
+    RegularTileShape* firstChildShape = firstChild->boundingShape;
     double firstAreaIncrease;
-    if (firstOctagon != nullptr) {
-      firstAreaIncrease = leafOctagon->unionArea(firstOctagon) - firstChildShape->area();
+    if (leafIsOctagon && firstChild->octValid) {
+      firstAreaIncrease = octUnionArea(l, firstChild->oct) - octArea(firstChild->oct);
     } else {
       RegularTileShape* tmpUnion = leafToInsert->boundingShape->union_(firstChildShape);
       firstAreaIncrease = tmpUnion->area() - firstChildShape->area();
       jrt::dispose(tmpUnion);
     }
 
-    RegularTileShape* secondChildShape = currentInnerNode->secondChild->boundingShape;
-    auto* secondOctagon = leafOctagon != nullptr ? jrt::fast_cast<IntOctagon>(secondChildShape) : nullptr;
+    ShapeTree_TreeNode* secondChild = currentInnerNode->secondChild;
+    RegularTileShape* secondChildShape = secondChild->boundingShape;
     double secondAreaIncrease;
-    if (secondOctagon != nullptr) {
-      secondAreaIncrease = leafOctagon->unionArea(secondOctagon) - secondChildShape->area();
+    if (leafIsOctagon && secondChild->octValid) {
+      secondAreaIncrease = octUnionArea(l, secondChild->oct) - octArea(secondChild->oct);
     } else {
       RegularTileShape* tmpUnion = leafToInsert->boundingShape->union_(secondChildShape);
       secondAreaIncrease = tmpUnion->area() - secondChildShape->area();
@@ -267,6 +301,7 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
     } else {
       FRLogger::warn("MinAreaTree.remove_leaf: grandParent inconsistent");
     }
+    grandParent->refreshChildBounds();  // PORT NOTE: ShapeTree_InnerNode::childOct
   }
   // PORT NOTE (stage C): the removed inner node and its bounding shape are owned by the tree.
   // The node is cleared first: in a board arena (optimizer worker board) dispose() leaves it in
@@ -275,7 +310,7 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
   parent->parent = nullptr;
   parent->firstChild = nullptr;
   parent->secondChild = nullptr;
-  parent->boundingShape = nullptr;
+  parent->setBoundingShape(nullptr);
   jrt::dispose(parentBounds);
   jrt::dispose(parent);
 
@@ -291,7 +326,7 @@ void MinAreaTree::removeLeafUnlocked(ShapeTree_Leaf* leaf) {
       break;
     }
     jrt::dispose(nodeToRecalculate->boundingShape);
-    nodeToRecalculate->boundingShape = newBounds;
+    nodeToRecalculate->setBoundingShape(newBounds);
     nodeToRecalculate = nodeToRecalculate->parent;
   }
 }

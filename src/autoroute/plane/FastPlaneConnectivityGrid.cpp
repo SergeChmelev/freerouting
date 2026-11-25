@@ -1,5 +1,6 @@
 #include "autoroute/plane/FastPlaneConnectivityGrid.h"
 
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -72,6 +73,8 @@ FastPlaneConnectivityGrid_PlaneFractureResult::FastPlaneConnectivityGrid_PlaneFr
   this->islandCount = this->islandItems->size();
   this->isFractured = this->islandCount > 1;
   this->dependencyBox = dependencyBox;
+  static std::atomic<int64_t> nextSerial{0};
+  this->serial = nextSerial.fetch_add(1, std::memory_order_relaxed);
 }
 
 jrt::Array<int32_t>* FastPlaneConnectivityGrid_PlaneFractureResult::endIslands(Item* trace, bool first) {

@@ -202,14 +202,23 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
     ReleaseStackOnExit45 guard{stack, &MinAreaTree::releaseScratchStack};
     stack->push(this->root);
     ShapeTree_TreeNode* currentNode;
+    // PORT NOTE: boundingShape's coordinates for the node tests (ShapeTree_TreeNode::oct).
+    ShapeTree_OctagonQuery query(boundingShape);
 
     for (;;) {
       currentNode = stack->pop();
       if (currentNode == nullptr) {
         break;
       }
-      if (currentNode->boundingShape->intersects(boundingShape)) {
-        if (auto* currentLeaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
+      if (currentNode->intersects(query, boundingShape)) {
+        if (currentNode->isLeaf) {
+          auto* currentLeaf = static_cast<ShapeTree_Leaf*>(currentNode);
+          // PORT NOTE: a leaf of another layer is no obstacle here (sameLayer below): passed over
+          // on the layer kept in the leaf, without loading its object.
+          if (!debugAnchor && currentLeaf->layer != ShapeTree_Leaf::kNoLayer &&
+              currentLeaf->layer != roomLayer) {
+            continue;
+          }
           SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
           int32_t shapeIndex = currentLeaf->shapeIndexInObject;
           int32_t objectLayer = currentObject->shapeLayer(shapeIndex);
@@ -307,6 +316,7 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
               break;
             }
             boundingShape = newBoundingShape.get();
+            query.set(boundingShape);
           }
           if (debugAnchor) {
             debugStep++;
@@ -314,10 +324,14 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree45Degree::com
         } else {
           ShapeTree_TreeNode* first = static_cast<ShapeTree_InnerNode*>(currentNode)->firstChild;
           ShapeTree_TreeNode* second = static_cast<ShapeTree_InnerNode*>(currentNode)->secondChild;
-          if (first != nullptr && first->boundingShape->intersects(boundingShape)) {
+          auto* inner = static_cast<ShapeTree_InnerNode*>(currentNode);
+          // PORT NOTE: on the copies of the children's coordinates (ShapeTree_InnerNode::childOct)
+          if (first != nullptr && inner->childIntersects(0, query, boundingShape)) {
+            prefetchTreeNode(first);
             stack->push(first);
           }
-          if (second != nullptr && second->boundingShape->intersects(boundingShape)) {
+          if (second != nullptr && inner->childIntersects(1, query, boundingShape)) {
+            prefetchTreeNode(second);
             stack->push(second);
           }
         }

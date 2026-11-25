@@ -102,7 +102,20 @@ class Item : public virtual SearchTreeObject,
        int32_t componentId, FixedState fixedState, BasicBoard* board);
 
   /** Implements the comparable interface. */
-  int32_t compareTo(jrt::Object* other) override;
+  int32_t compareTo(jrt::Object* other) final;
+
+  /**
+   * PORT NOTE: not in Java. a->compareTo(b) for two items (compareTo is final): jrt::compareOf
+   * calls it for item pointers, without the dynamic type test of b.
+   */
+  static int32_t jrtCompareSame(Item* a, Item* b) { return b->id - a->id; }
+
+  /**
+   * PORT NOTE: Java's Item does not override equals: Object identity, made final here so that
+   * jrt collections compare item pointers directly (jrt::equalsOf, jrt_identity_equals).
+   */
+  bool equals(jrt::Object* other) final { return this == other; }
+  using jrt_identity_equals = void;
 
   /** Returns the unique identification number of this item. */
   int32_t getId() override { return id; }
@@ -435,6 +448,9 @@ class Item : public virtual SearchTreeObject,
 
   /** Clears the data allocated for the autoroute algorithm. */
   virtual void clearAutorouteInfo() { autorouteInfo = nullptr; }
+
+  /** PORT NOTE: not in Java. Whether clearAutorouteInfo would clear anything. */
+  virtual bool holdsAutorouteInfo() { return autorouteInfo != nullptr; }
 
   /** Clear all cached or derived data, so that they have to be recalculated. */
   virtual void clearDerivedData();

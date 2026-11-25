@@ -1138,6 +1138,11 @@ bool RoutingBoard::removeTraceTails(int32_t netNumber,
 }
 
 void RoutingBoard::clearAllItemTemporaryAutorouteData() {
+  // PORT NOTE: nothing to clear while no visible item can hold autoroute data (see
+  // BasicBoard::autorouteInfoMayExist).
+  if (!autorouteInfoMayExist.load(std::memory_order_relaxed)) {
+    return;
+  }
   auto itScope = this->itemList->readScope();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
   for (;;) {
@@ -1147,6 +1152,7 @@ void RoutingBoard::clearAllItemTemporaryAutorouteData() {
     }
     currentItem->clearAutorouteInfo();
   }
+  autorouteInfoMayExist.store(false, std::memory_order_relaxed);
 }
 
 void RoutingBoard::changePlaneAsObstacle(bool value) {

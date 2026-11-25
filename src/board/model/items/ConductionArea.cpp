@@ -1,6 +1,9 @@
 // Port of app.freerouting.board.model.items.ConductionArea.
 #include "board/model/items/ConductionArea.h"
 
+#include <unordered_map>
+#include <vector>
+
 #include "autoroute/plane/FastPlaneConnectivityGrid.h"
 #include "autoroute/plane/PlaneOutlineSmoothing.h"
 #include "board/actions/ItemInfoPrinter.h"
@@ -31,6 +34,48 @@
 #include "util/TextManager.h"
 
 namespace fr {
+
+namespace {
+
+/** The keys of the island lists that hold an item, in entry order. */
+using IslandsOfItem = std::unordered_map<Item*, std::vector<int32_t>>;
+
+/**
+ * PORT NOTE: not in Java. The islands of each item of a fracture result's island lists, for the
+ * last few results a thread used (by result serial: the lists of a result never change).
+ */
+const IslandsOfItem& islandsOfItem(
+    FastPlaneConnectivityGrid_PlaneFractureResult* result,
+    const std::vector<jrt::MapEntry<int32_t, jrt::List<Item*>*>*>& entries) {
+  struct Cached {
+    int64_t serial = -1;
+    IslandsOfItem islands;
+  };
+  constexpr int32_t kCached = 4;
+  thread_local Cached cache[kCached];
+  thread_local int32_t nextSlot = 0;
+  for (Cached& cached : cache) {
+    if (cached.serial == result->serial) {
+      return cached.islands;
+    }
+  }
+  Cached& cached = cache[nextSlot];
+  nextSlot = (nextSlot + 1) % kCached;
+  cached.serial = result->serial;
+  cached.islands.clear();
+  for (auto* entry : entries) {
+    int32_t key = entry->getKey();
+    for (Item* item : *entry->getValue()) {
+      std::vector<int32_t>& keys = cached.islands[item];
+      if (keys.empty() || keys.back() != key) {
+        keys.push_back(key);
+      }
+    }
+  }
+  return cached.islands;
+}
+
+}  // namespace
 
 void ConductionArea::setFillRules(int32_t clearance, int32_t minWidth) {
   this->fillClearance = jrt::Math::max(0, clearance);
@@ -535,11 +580,19 @@ void ConductionArea::getConnectedSetRecu(jrt::Set<Item*>* result, int32_t netNum
   // PORT NOTE (stage E): a temporary of every visit of a fractured plane (freed on exit).
   jrt::DisposeOnExit<jrt::Set<int32_t>> reachedIslandsOwner(new (jrt::kOp) jrt::HashSet<int32_t>());
   jrt::Set<int32_t>* reachedIslands = reachedIslandsOwner.get();
+  // PORT NOTE: Java searches every island list for every item of result; the islands of each
+  // item are looked up in an index of the result's lists instead (islandsOfItem: the keys of the
+  // lists that contain the item, in entry order), so the same keys are added in the same order.
+  const IslandsOfItem* islands = nullptr;
   for (Item* resItem : *result) {
     if (resItem != this && resItem->sharesNet(this) && resItem->sharesLayer(this)) {
-      for (auto* entry : fractureResult->islandItems->entryVector()) {
-        if (entry->getValue()->contains(resItem)) {
-          reachedIslands->add(entry->getKey());
+      if (islands == nullptr) {
+        islands = &islandsOfItem(fractureResult, fractureResult->islandItems->entryVector());
+      }
+      auto found = islands->find(resItem);
+      if (found != islands->end()) {
+        for (int32_t key : found->second) {
+          reachedIslands->add(key);
         }
       }
     }

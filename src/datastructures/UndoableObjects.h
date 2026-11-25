@@ -100,6 +100,9 @@ class UndoableObjects : public virtual jrt::Object {
   /** Returns the content change stamp. */
   int64_t getContentVersion() { return contentVersion; }
 
+  /** PORT NOTE: not in Java. The current undo level (snapshots taken and not undone or popped). */
+  int32_t getStackLevel() { return stackLevel; }
+
   /** Records an in-place change made without saveForUndo. */
   void noteContentChange() { ++contentVersion; }
 

@@ -17,6 +17,13 @@ class Line : public virtual jrt::Object {
 
  private:
   Direction* dir;  // should only be accessed from direction() (lazily cached).
+  /**
+   * PORT NOTE: not in Java. directionInts() of a line without dir, once computed (dirIntsState 1:
+   * dirX / dirY hold it, -1: not integer, 0: not computed); a and b never change.
+   */
+  int32_t dirX = 0;
+  int32_t dirY = 0;
+  int8_t dirIntsState = 0;
 
  public:
   /** Creates a directed Line from two points. */

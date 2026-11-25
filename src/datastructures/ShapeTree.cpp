@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "geometry/planar/IntOctagon.h"
 #include "geometry/planar/RegularTileShape.h"
 #include "geometry/planar/Shape.h"
 #include "geometry/planar/ShapeBoundingDirections.h"
@@ -10,6 +11,49 @@
 #include "logger/FRLogger.h"
 
 namespace fr {
+
+namespace {
+/** Fills c (ShapeTree_TreeNode::oct order) from shape if it is an octagon. */
+bool octagonCoordinates(RegularTileShape* shape, int32_t* c) {
+  auto* octagon = shape != nullptr ? jrt::fast_cast<IntOctagon>(shape) : nullptr;
+  if (octagon == nullptr) {
+    return false;
+  }
+  c[0] = octagon->leftX;
+  c[1] = octagon->rightX;
+  c[2] = octagon->bottomY;
+  c[3] = octagon->topY;
+  c[4] = octagon->lowerLeftDiagonalX;
+  c[5] = octagon->upperRightDiagonalX;
+  c[6] = octagon->upperLeftDiagonalX;
+  c[7] = octagon->lowerRightDiagonalX;
+  return true;
+}
+}  // namespace
+
+void ShapeTree_OctagonQuery::set(RegularTileShape* shape) { valid = octagonCoordinates(shape, q); }
+
+void ShapeTree_TreeNode::setBoundingShape(RegularTileShape* shape) {
+  boundingShape = shape;
+  octValid = octagonCoordinates(shape, oct);
+  if (parent != nullptr) {
+    parent->refreshChildBounds();
+  }
+}
+
+void ShapeTree_InnerNode::refreshChildBounds() {
+  ShapeTree_TreeNode* children[2] = {firstChild, secondChild};
+  for (int32_t i = 0; i < 2; i++) {
+    childOctValid[i] = children[i] != nullptr && children[i]->octValid;
+    if (childOctValid[i]) {
+      for (int32_t k = 0; k < 8; k++) {
+        childOct[i][k] = children[i]->oct[k];
+      }
+    }
+  }
+}
+
+bool ShapeTree_TreeNode::intersectsShape(Shape* shape) { return boundingShape->intersects(shape); }
 
 int32_t ShapeTree_Leaf::distanceToRoot() {
   int32_t result = 1;

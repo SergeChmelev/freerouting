@@ -1162,6 +1162,9 @@ bool BasicBoard::undo(jrt::Set<int32_t>* changedNets) {
       new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   bool result = itemList->undo(cancelledObjects, restoredObjects);
   applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
+  if (result) {
+    routingLedger()->noteUndone(itemList->getStackLevel());
+  }
   return result;
 }
 
@@ -1173,6 +1176,7 @@ bool BasicBoard::redo(jrt::Set<int32_t>* changedNets) {
       new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   bool result = itemList->redo(cancelledObjects, restoredObjects);
   applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
+  routingLedger()->dropSnapshotsAbove(itemList->getStackLevel() - 1);
   return result;
 }
 

@@ -45,6 +45,23 @@
 namespace fr {
 
 namespace {
+/** PORT NOTE: ShapeTree_Leaf::layer after the leaf's object or shape index changed. */
+void refreshLeafLayer(ShapeTree_Leaf* leaf) {
+  auto* object = jrt::fast_cast<SearchTreeObject>(leaf->object);
+  leaf->layer = object != nullptr ? object->shapeLayer(leaf->shapeIndexInObject)
+                                  : ShapeTree_Leaf::kNoLayer;
+}
+
+/**
+ * PORT NOTE: whether a leaf is known to be on another layer than layer (>= 0), from the layer
+ * kept in the leaf: the leaf is then passed over without loading its object.
+ */
+inline bool leafOnOtherLayer(ShapeTree_Leaf* leaf, int32_t layer) {
+  return layer >= 0 && leaf->layer != ShapeTree_Leaf::kNoLayer && leaf->layer != layer;
+}
+}  // namespace
+
+namespace {
 
 /** Java `try { ... } finally { list.clear(); }` for the shared query leaf buffer. */
 struct ClearListOnExit {
@@ -163,6 +180,7 @@ void ShapeSearchTree::changeEntriesUnlocked(PolylineTrace* obj, Polyline* newPol
 
     (*newLeafArr)[newIndex] = (*oldEntries)[oldIndex];
     (*newLeafArr)[newIndex]->shapeIndexInObject = newIndex;
+    refreshLeafLayer((*newLeafArr)[newIndex]);
     (*newPrecalculatedTreeShapes)[newIndex] = obj->getTreeShape(this, oldIndex);
   }
 
@@ -226,12 +244,14 @@ void ShapeSearchTree::mergeEntriesInFrontUnlocked(PolylineTrace* fromTrace,
     (*newLeafArr)[i] = (*fromTraceEntries)[fromNo];
     (*newLeafArr)[i]->object = toTrace;
     (*newLeafArr)[i]->shapeIndexInObject = i;
+    refreshLeafLayer((*newLeafArr)[i]);
   }
   for (int32_t i = 1; i < oldToShapeCount; i++) {
     int32_t currentInd = fromShapeCountMinus1 + linkShapes->length + i - 1;
     (*newPrecalculatedTreeShapes)[currentInd] = toTrace->getTreeShape(this, i);
     (*newLeafArr)[currentInd] = (*toTraceEntries)[i];
     (*newLeafArr)[currentInd]->shapeIndexInObject = currentInd;
+    refreshLeafLayer((*newLeafArr)[currentInd]);
   }
 
   // correct the precalculated tree shapes first, because it is used in
@@ -303,6 +323,7 @@ void ShapeSearchTree::mergeEntriesAtEndUnlocked(PolylineTrace* fromTrace, Polyli
     (*newLeafArr)[currentInd] = (*fromTraceEntries)[fromNo];
     (*newLeafArr)[currentInd]->object = toTrace;
     (*newLeafArr)[currentInd]->shapeIndexInObject = currentInd;
+    refreshLeafLayer((*newLeafArr)[currentInd]);
   }
 
   // correct the precalculated tree shapes first, because it is used in
@@ -337,6 +358,7 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
     (*startPieceLeafArr)[i] = (*fromTraceEntries)[i];
     (*startPieceLeafArr)[i]->object = startPiece;
     (*startPieceLeafArr)[i]->shapeIndexInObject = i;
+    refreshLeafLayer((*startPieceLeafArr)[i]);
     (*fromTraceEntries)[i] = nullptr;
   }
   (*startPieceLeafArr)[startPieceLeafArr->length - 1] =
@@ -354,6 +376,7 @@ void ShapeSearchTree::reuseEntriesAfterCutoutUnlocked(PolylineTrace* fromTrace,
     (*endPieceLeafArr)[i] = (*fromTraceEntries)[fromIndex];
     (*endPieceLeafArr)[i]->object = endPiece;
     (*endPieceLeafArr)[i]->shapeIndexInObject = i;
+    refreshLeafLayer((*endPieceLeafArr)[i]);
     (*fromTraceEntries)[fromIndex] = nullptr;
   }
 
@@ -410,6 +433,9 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjects(
     leaves->clear();
     this->collectOverlapsUnlocked(bounds, leaves);
     for (ShapeTree_Leaf* currentLeaf : *leaves) {
+      if (leafOnOtherLayer(currentLeaf, layer)) {
+        continue;
+      }
       SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
       int32_t shapeIndex = currentLeaf->shapeIndexInObject;
       if ((layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer) ||
@@ -463,6 +489,9 @@ jrt::Set<SearchTreeObject*>* ShapeSearchTree::overlappingObjectsWithPointIn(
 
   this->collectOverlapsUnlocked(areaBounds, leaves);
   for (ShapeTree_Leaf* currentLeaf : *leaves) {
+    if (leafOnOtherLayer(currentLeaf, layer)) {
+      continue;
+    }
     SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
     int32_t shapeIndex = currentLeaf->shapeIndexInObject;
     if ((layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer) ||
@@ -591,6 +620,9 @@ int32_t ShapeSearchTree::overlappingLeavesUnlocked(ConvexShape* shape, int32_t l
     int32_t keptCount = 0;
     for (int32_t leafIndex = 0; leafIndex < tmpList->size(); leafIndex++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(leafIndex);
+      if (leafOnOtherLayer(currentLeaf, layer)) {
+        continue;  // ignored (not kept)
+      }
       SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
       int32_t shapeIndex = currentLeaf->shapeIndexInObject;
       bool ignoreObject = layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer;
@@ -725,6 +757,9 @@ void ShapeSearchTree::overlappingTreeEntriesWithClearanceUnlocked(
     int32_t keptCount = 0;
     for (int32_t leafIndex = 0; leafIndex < tmpList->size(); leafIndex++) {
       ShapeTree_Leaf* currentLeaf = tmpList->get(leafIndex);
+      if (leafOnOtherLayer(currentLeaf, layer)) {
+        continue;  // ignored (not kept)
+      }
       SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
       int32_t shapeIndex = currentLeaf->shapeIndexInObject;
       bool ignoreItem = layer >= 0 && currentObject->shapeLayer(shapeIndex) != layer;
@@ -828,6 +863,7 @@ bool ShapeSearchTree::copperApart(ConvexShape* queryShape, bool queryIsCopper,
 
 void ShapeSearchTree::leafInserted(ShapeTree_Leaf* leaf) {
   if (board != nullptr) board->retainLeafShape(leaf->boundingShape);
+  refreshLeafLayer(leaf);
 }
 
 void ShapeSearchTree::leafRemoved(ShapeTree_Leaf* leaf) {
@@ -1020,16 +1056,25 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
   ArrayStack<ShapeTree_TreeNode*>* stack = acquireScratchStack();
   {
     ReleaseStackOnExit guard{stack, &MinAreaTree::releaseScratchStack};
-    stack->push(this->root);
+    // PORT NOTE: children are tested before they are pushed, on the copies of their coordinates
+    // in the parent (see MinAreaTree::collectOverlapsUnlocked).
+    const ShapeTree_OctagonQuery query(boundingShape);
+    if (this->root->intersects(query, static_cast<Shape*>(boundingShape))) {
+      stack->push(this->root);
+    }
     ShapeTree_TreeNode* currentNode;
-
     while ((currentNode = stack->pop()) != nullptr) {
-      if (currentNode->boundingShape->intersects(static_cast<Shape*>(boundingShape))) {
-        if (auto* leaf = jrt::fast_cast<ShapeTree_Leaf>(currentNode)) {
-          overlappingLeaves->add(leaf);
-        } else {
-          stack->push(static_cast<ShapeTree_InnerNode*>(currentNode)->firstChild);
-          stack->push(static_cast<ShapeTree_InnerNode*>(currentNode)->secondChild);
+      if (currentNode->isLeaf) {
+        overlappingLeaves->add(static_cast<ShapeTree_Leaf*>(currentNode));
+      } else {
+        auto* inner = static_cast<ShapeTree_InnerNode*>(currentNode);
+        if (inner->childIntersects(0, query, static_cast<Shape*>(boundingShape))) {
+          prefetchTreeNode(inner->firstChild);
+          stack->push(inner->firstChild);
+        }
+        if (inner->childIntersects(1, query, static_cast<Shape*>(boundingShape))) {
+          prefetchTreeNode(inner->secondChild);
+          stack->push(inner->secondChild);
         }
       }
     }
@@ -1042,6 +1087,9 @@ jrt::Collection<IncompleteFreeSpaceExpansionRoom*>* ShapeSearchTree::completeSha
   jrt::Collections::sort<ShapeTree_Leaf*>(overlappingLeaves);
 
   for (ShapeTree_Leaf* currentLeaf : *overlappingLeaves) {
+    if (leafOnOtherLayer(currentLeaf, roomLayer)) {
+      continue;  // no obstacle on the room's layer (isTraceObstacle only memoizes)
+    }
     SearchTreeObject* currentObject = jrt::fast_cast<SearchTreeObject>(currentLeaf->object);
     int32_t shapeIndex = currentLeaf->shapeIndexInObject;
     if (currentObject->isTraceObstacle(netNumber, shapeIndex) &&

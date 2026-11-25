@@ -87,6 +87,9 @@ class Via : public DrillItem {
   void clearDerivedData() override;
 
   void clearAutorouteInfo() override;
+  bool holdsAutorouteInfo() override {
+    return DrillItem::holdsAutorouteInfo() || autorouteDrillInfo != nullptr;
+  }
 
   bool isSelectedByFilter(ItemSelectionFilter* filter) override;
 

@@ -204,6 +204,9 @@ void BoardItemRepository::insertItem(Item* item) {
     item->setClearanceClassIndex(0);
   }
   item->board = board;
+  if (item->holdsAutorouteInfo()) {
+    board->noteAutorouteInfo();
+  }
   board->itemList->insert(item);
   board->searchTreeManager->insert(item);
   if (board->communication != nullptr && board->communication->observers != nullptr) {

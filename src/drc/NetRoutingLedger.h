@@ -69,6 +69,18 @@ class NetRoutingLedger final : public virtual jrt::Object {
   jrt::Map<Item*, jrt::Array<int32_t>*>* itemNets;
   void clearItemNets();
 
+  /** PORT NOTE: not in Java. The counts kept at snapshots (noteSnapshot), lowest level first. */
+  static constexpr int32_t kSavedSnapshots = 4;
+  struct SavedCounts {
+    int32_t level = 0;
+    int64_t netAssignmentChanges = 0;
+    jrt::Array<int32_t>* incompleteByNet = nullptr;  // owned, reused
+    int32_t incompleteTotal = 0;
+    int32_t maximumConnections = 0;
+  };
+  SavedCounts saved_[kSavedSnapshots];
+  int32_t savedCount_ = 0;
+
  public:
   explicit NetRoutingLedger(BasicBoard* board);
 
@@ -104,6 +116,20 @@ class NetRoutingLedger final : public virtual jrt::Object {
 
   /** Returns every net that still has at least one incomplete connection. */
   jrt::Set<int32_t>* incompleteNetNumbers();
+
+  /**
+   * PORT NOTE: not in Java. An undo puts the items of the board back as they were when the
+   * snapshot it undoes was taken, so the counts of that moment are the counts after the undo:
+   * the ledger keeps them (for the last few snapshots taken with every count up to date) and
+   * takes them back instead of counting the touched nets again. Counts depend only on the items
+   * of each net (the number of airlines joins the connected sets, whatever the item order); an
+   * in-place net change (BasicBoard::noteNetAssignmentChanged), which no undo reverts, voids them.
+   * noteSnapshot: after a snapshot, with the new undo level; noteUndone: after an undo and its
+   * side effects, with the undo level it left; dropSnapshotsAbove: after a popSnapshot or a redo.
+   */
+  void noteSnapshot(int32_t level);
+  void noteUndone(int32_t level);
+  void dropSnapshotsAbove(int32_t level);
 
  private:
   void ensureBuilt();

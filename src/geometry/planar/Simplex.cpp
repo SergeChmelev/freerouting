@@ -23,7 +23,23 @@ namespace fr {
 namespace {
 // Java Arrays.sort(Line[]) uses the natural order Line.compareTo (stable).
 void sortLines(jrt::Array<Line*>* lines) {
-  jrt::Arrays::sort<Line*>(lines, [](Line* a, Line* b) { return a->compareTo(b); });
+  // PORT NOTE: a simplex has a few lines: a stable insertion sort (the result of every stable
+  // sort is the same) without the std::function comparator and the merge buffer.
+  int32_t n = lines->length;
+  if (n > 32) {
+    jrt::Arrays::sort<Line*>(lines, [](Line* a, Line* b) { return a->compareTo(b); });
+    return;
+  }
+  Line** v = lines->begin();
+  for (int32_t i = 1; i < n; i++) {
+    Line* x = v[i];
+    int32_t j = i;
+    while (j > 0 && v[j - 1]->compareTo(x) > 0) {
+      v[j] = v[j - 1];
+      --j;
+    }
+    v[j] = x;
+  }
 }
 }  // namespace
 

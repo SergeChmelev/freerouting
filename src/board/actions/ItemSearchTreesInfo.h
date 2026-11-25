@@ -68,24 +68,18 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
    * tree no entries of this item are inserted.
    */
   jrt::Array<ShapeTree_Leaf*>* getTreeEntries(ShapeTree* tree) {
-    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
-      if (currentTreeInfo->tree == tree) {
-        return currentTreeInfo->entryArr;
-      }
-    }
-    return nullptr;
+    ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo = infoOf(tree);
+    return currentTreeInfo != nullptr ? currentTreeInfo->entryArr : nullptr;
   }
 
   /** Sets the item tree entries for the tree with identification number treeNo. */
   void setTreeEntries(jrt::Array<ShapeTree_Leaf*>* treeEntries, ShapeTree* tree) {
-    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
-      if (currentTreeInfo->tree == tree) {
-        if (currentTreeInfo->entryArr != treeEntries) {
-          jrt::dispose(currentTreeInfo->entryArr);  // replaced: owned (stage C)
-        }
-        currentTreeInfo->entryArr = treeEntries;
-        return;
+    if (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo = infoOf(tree)) {
+      if (currentTreeInfo->entryArr != treeEntries) {
+        jrt::dispose(currentTreeInfo->entryArr);  // replaced: owned (stage C)
       }
+      currentTreeInfo->entryArr = treeEntries;
+      return;
     }
     auto* newTreeInfo = new (jrt::Like{this}) ItemSearchTreesInfo_SearchTreeInfo(tree);
     newTreeInfo->entryArr = treeEntries;
@@ -97,24 +91,18 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
    * null, if the tile shapes of this tree are not yet precalculated.
    */
   jrt::Array<TileShape*>* getPrecalculatedTreeShapes(ShapeTree* tree) {
-    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
-      if (currentTreeInfo->tree == tree) {
-        return currentTreeInfo->precalculatedTreeShapes;
-      }
-    }
-    return nullptr;
+    ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo = infoOf(tree);
+    return currentTreeInfo != nullptr ? currentTreeInfo->precalculatedTreeShapes : nullptr;
   }
 
   /** Sets the item tree entries for the tree with identification number treeNo. */
   void setPrecalculatedTreeShapes(jrt::Array<TileShape*>* tileShapes, ShapeTree* tree) {
-    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
-      if (currentTreeInfo->tree == tree) {
-        if (currentTreeInfo->precalculatedTreeShapes == tileShapes) return;
-        retain(tileShapes);  // first: shapes reused from the old array stay counted
-        release(currentTreeInfo->precalculatedTreeShapes);
-        currentTreeInfo->precalculatedTreeShapes = tileShapes;
-        return;
-      }
+    if (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo = infoOf(tree)) {
+      if (currentTreeInfo->precalculatedTreeShapes == tileShapes) return;
+      retain(tileShapes);  // first: shapes reused from the old array stay counted
+      release(currentTreeInfo->precalculatedTreeShapes);
+      currentTreeInfo->precalculatedTreeShapes = tileShapes;
+      return;
     }
     auto* newTreeInfo = new (jrt::Like{this}) ItemSearchTreesInfo_SearchTreeInfo(tree);
     retain(tileShapes);
@@ -134,6 +122,30 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
 
  private:
   TreeShapeKeeper* keeper = nullptr;
+
+  /**
+   * PORT NOTE: not in Java. The records of the last two trees looked up (the list only grows and
+   * holds one record per tree, so a remembered record is the one the list walk would find).
+   */
+  ItemSearchTreesInfo_SearchTreeInfo* recent_[2] = {nullptr, nullptr};
+
+  /** The record of tree in treeList, or nullptr. */
+  ItemSearchTreesInfo_SearchTreeInfo* infoOf(ShapeTree* tree) {
+    if (recent_[0] != nullptr && recent_[0]->tree == tree) {
+      return recent_[0];
+    }
+    if (recent_[1] != nullptr && recent_[1]->tree == tree) {
+      return recent_[1];
+    }
+    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
+      if (currentTreeInfo->tree == tree) {
+        recent_[1] = recent_[0];
+        recent_[0] = currentTreeInfo;
+        return currentTreeInfo;
+      }
+    }
+    return nullptr;
+  }
   void retain(jrt::Array<TileShape*>* shapes) {
     if (keeper != nullptr && shapes != nullptr) keeper->retainTreeShapes(shapes);
   }

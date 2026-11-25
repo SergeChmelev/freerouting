@@ -1087,6 +1087,9 @@ ItemAutorouteInfo* Item::getAutorouteInfo() {
     // in the item's domain, like its other caches.
     jrt::DomainScope domain(this);
     autorouteInfo = new (jrt::kOp) ItemAutorouteInfo(this);
+    if (board != nullptr) {
+      board->noteAutorouteInfo();
+    }
   }
   return autorouteInfo;
 }

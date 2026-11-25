@@ -40,8 +40,8 @@ class ArrayStack : public virtual jrt::Object {
     if (level < 0) {
       return T{};
     }
+    // PORT NOTE: Java clears the slot for its collector; no slot above level is ever read.
     T result = (*nodeArr)[level];
-    (*nodeArr)[level] = T{};
     --level;
     return result;
   }

@@ -313,7 +313,12 @@ double Polyline::lengthApprox(int32_t requestedFromCorner, int32_t requestedToCo
   return result;
 }
 
-double Polyline::lengthApprox() { return lengthApprox(0, lines->length - 2); }
+double Polyline::lengthApprox() {
+  if (precalculatedLength < 0) {
+    precalculatedLength = lengthApprox(0, lines->length - 2);
+  }
+  return precalculatedLength;
+}
 
 jrt::Array<TileShape*>* Polyline::offsetShapes(int32_t halfWidth) {
   return offsetShapes(halfWidth, 0, lines->length - 1);

@@ -982,6 +982,93 @@ of `Line::intersection` together take 0.2-0.7 % (Issue110 0.7 %, Issue178 0.25 %
 176 million). The machine-precision side tests take 3-6.5 %. A floating-point filter in front of
 the exact predicates would save well under 1 %.
 
+### E15 — single-threaded speed: step slider, tree search, connected sets
+
+Profiles (perf, frame pointers, no LTO) of the phases that are single-threaded in both ports.
+Issue187 spends three quarters of its CPU time in the step slider, Issue214 more than half in the
+connected sets of a fractured plane (`BoardStatistics::isConnectedToWholeNet` and the batch loop
+call `Item::getConnectedSet` after every autorouter pass). What changed (all exact: the SES stays
+the same):
+
+* **`clearAllItemTemporaryAutorouteData`** walked the whole item list after every tried move of
+  the step slider (17 % of it), clearing nothing: the slider creates no autoroute data. The board
+  keeps `autorouteInfoMayExist`, set where such data is created (`Item::getAutorouteInfo`,
+  `Via::getAutorouteDrillInfo`) or comes with an inserted item, cleared by the walk; undo / redo
+  already clear the data of the items they restore. The walk is skipped while the flag is clear.
+* **Incomplete counts after an undo.** An undo puts the board back as it was at its snapshot, so
+  `NetRoutingLedger` keeps the counts of the last four snapshots taken with all counts up to date
+  and takes them back instead of counting the touched nets again (9 % of the slider). The count of
+  a net is its number of airlines, which does not depend on the order of its items; an in-place
+  net change (`noteNetAssignmentChanged`), which no undo reverts, voids the kept counts.
+* **`Polyline::lengthApprox()`** is computed once per polyline (`StepSlider::cost` sums the
+  length of every trace per tried move).
+* **Tree search.** `MinAreaTree::collectOverlapsUnlocked` was the largest self time of every board
+  (14-17 %), with `IntOctagon::intersects` and the leaf cast behind it: each visited node loaded
+  its bounding shape through a pointer and dispatched twice. A tree node now keeps the eight
+  coordinates of an octagon bounding shape (`ShapeTree_TreeNode::oct`, written by
+  `setBoundingShape`) and whether it is a leaf; the searches (`collectOverlapsUnlocked`, the room
+  completion of `ShapeSearchTree` / `ShapeSearchTree45Degree`) and the insertion
+  (`positionLocate`) compare the coordinates as `IntOctagon::intersects` / `unionArea` /
+  `unionEquals` do. A node is 36 bytes larger.
+* **Item comparisons in collections.** `jrt::equalsOf` called `element->equals(probe)` (Java calls
+  `probe.equals(element)`): a virtual call and a load of every element. Java's `Item` does not
+  override `equals`; the port declares `Item::equals` final (identity) with the marker
+  `jrt_identity_equals`, and `equalsOf` compares item pointers directly. `Item::compareTo` is final
+  too, and `jrt::compareOf` on item pointers compares the ids without the dynamic cast.
+* **The islands of a fractured plane** (`ConductionArea::getConnectedSetRecu`): for every item of
+  the connected set Java searches every island list (`List.contains`). The port looks the items up
+  in an index of the result's island lists (item -> island keys, in entry order, so the same keys
+  are added in the same order), cached per thread for the last four results by a serial number of
+  the result (`FastPlaneConnectivityGrid_PlaneFractureResult::serial`; the lists of a result never
+  change).
+
+* **More tree search** (after Issue022 at one thread lost to Java, 34.4 s vs 30.4): an inner
+  node keeps copies of its children's octagon coordinates (`childOct`, refreshed by
+  `setBoundingShape` and where children are linked), so a search tests a child before pushing it
+  and never loads one that does not intersect (the others are pushed in the same order); the
+  pushed children are prefetched; a leaf keeps its object's `shapeLayer` (`ShapeTree_Leaf::layer`,
+  set by `ShapeSearchTree::leafInserted` and where a leaf is handed to another trace; an item's
+  layer never changes in a tree), and the room completion and the overlap filters pass over a
+  leaf of another layer without loading its object; `ArrayStack::pop` no longer clears the slot.
+* **`Line::directionInts`** keeps the normalized direction of a line without `dir` (the gcd was
+  computed on every call, 3 % of Issue022).
+* **`ItemSearchTreesInfo`** remembers the records of the last two trees looked up (the walk of its
+  `LinkedList` through the virtual iterator was 4-5 % of Issue110).
+* **`Simplex` sorts its few lines** by a stable insertion sort (no `std::function` comparator, no
+  merge buffer; every stable sort gives the same order).
+
+A Java profile (JFR, `-XX:FlightRecorderOptions=stackdepth=2048`, `jfr print --stack-depth 2048`)
+has nearly the same shares per phase as the C++ profile; the tree search takes Java twice the
+time it takes C++ now (Issue022 26 % vs 13 %), the rest of the geometry is 15-25 % slower in C++,
+spread over many functions (Issue110: the maze search 99 s vs 80, `expandToOtherLayers` 36 s vs
+26).
+
+Not done: the clearance-violation count of the step slider (a full DRC of the board per accepted
+move, 8 % of the slider) could check only the changed items, but that holds only on boards
+without conduction areas; the connected sets of fractured planes are still revisited for every
+contact (Java's algorithm).
+
+`FR_VARIANTS="java-1t main-mt1 java-4t main-mt4 java-10t main-mt10" tools/bench_speed.sh`
+(2026-11-25, E15 release build with LTO, interleaved per board; the machine was running another
+job at the same time: compare the ratios, not the seconds). Wall seconds Java / C++ and C++/Java;
+all 54 SES equal Java's; bm02 the mean of three runs. Peak RSS: C++ below Java on bm02 (116-261 MB
+vs 0.8-1.2 GB), Issue110 and Issue178 at 4 and 10 threads; above it on Issue214 (2.0-2.4 GB vs
+0.8-2.1) and Issue187 at one thread.
+
+| board | 1 thread | 4 threads | 10 threads |
+|---|---|---|---|
+| bm02 | 6.67 / 2.53 = **0.38** | 5.02 / 1.24 = **0.25** | 4.76 / 1.13 = **0.24** |
+| Issue187-processor.Z80 | 31.9 / 26.3 = **0.82** | 27.8 / 26.4 = **0.95** | 30.6 / 24.6 = **0.80** |
+| Issue022-AutoRouter_interrupted | 31.5 / 31.0 = **0.98** | 29.5 / 27.8 = **0.94** | 32.3 / 31.1 = **0.96** |
+| Issue214-freerouting | 56.0 / 43.2 = **0.77** | 51.5 / 40.2 = **0.78** | 51.3 / 41.2 = **0.80** |
+| Issue110-RelayModule | 132.3 / 164.2 = **1.24** | 105.2 / 129.4 = **1.23** | 103.2 / 70.9 = **0.69** |
+| Issue178-KeebMaker_Sofle_Choc | 219.3 / 328.7 = **1.50** | 79.4 / 107.6 = **1.36** | 68.8 / 80.2 = **1.17** |
+| DAC2020 bm01 | 509.9 / 640.6 = **1.26** | 240.6 / 291.2 = **1.21** | 193.3 / 295.5 = **1.53** |
+
+C++ is faster on the boards where the step slider, the connected sets or the autorouter
+dominate (bm02, Issue187, Issue022, Issue214); the large boards, whose time is the optimizer's
+candidates (the maze search on board copies), are still 1.2-1.5x slower.
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at
@@ -998,11 +1085,11 @@ the exact predicates would save well under 1 %.
 * **Search-region spikes after E12**: the arenas still reach about 1 GB live at times in the
   optimizer on bm01 (`-mt 4`), less than before but more than Java's whole heap there; a profile
   of what the search region keeps (`FR_ARENA_WARN_MB=64`) is the next step.
-* **Performance** (see E14): the optimizer threads scale since E14; the large boards are still
-  1.4-1.5x slower than Java, and that is single-threaded speed: the autorouter (1.2-1.55x Java),
-  the candidates (geometry and tree search: `MinAreaTree::collectOverlapsUnlocked`,
-  `completeShape`, `IntOctagon`) and the step slider (Issue187 32 s vs 21: about 17 % of it walks
-  the whole item list per tried move, `StepSlider::cost` and `clearAllItemTemporaryAutorouteData`).
+* **Performance** (see E15): C++ is faster than Java at 1, 4 and 10 threads on bm02, Issue187,
+  Issue022 and Issue214; the large boards (Issue110 at 1 and 4 threads, Issue178, bm01) are
+  1.2-1.5x slower, in the optimizer's candidates: the maze search and its geometry
+  (`expandToOtherLayers` / `ForcedPadRouter::checkForcedPad`, `completeShape`, `Simplex`
+  intersections), 15-25 % slower than Java's JIT code, spread over many functions.
 * Not freed yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with
   `strict_drc`), the `InteractiveSession`
   of the Lua engine, job-level objects of `route()` (job, pipeline, settings merger: freed with

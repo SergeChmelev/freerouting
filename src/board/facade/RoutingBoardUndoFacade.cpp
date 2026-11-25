@@ -25,6 +25,9 @@ bool RoutingBoardUndoFacade::undo(jrt::Set<int32_t>* changedNets) {
       new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   bool result = board->itemList->undo(cancelledObjects, restoredObjects);
   applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
+  if (result) {
+    board->routingLedger()->noteUndone(board->itemList->getStackLevel());
+  }
   return result;
 }
 
@@ -36,6 +39,7 @@ bool RoutingBoardUndoFacade::redo(jrt::Set<int32_t>* changedNets) {
       new (jrt::kOp) jrt::LinkedList<UndoableObjects_Storable*>();
   bool result = board->itemList->redo(cancelledObjects, restoredObjects);
   applyUndoRedoSideEffects(cancelledObjects, restoredObjects, changedNets);
+  board->routingLedger()->dropSnapshotsAbove(board->itemList->getStackLevel() - 1);
   return result;
 }
 

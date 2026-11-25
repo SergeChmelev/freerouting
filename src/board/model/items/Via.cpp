@@ -223,6 +223,9 @@ ExpansionDrill* Via::getAutorouteDrillInfo(ShapeSearchTree* autorouteTree) {
     TileShape* currentDrillShape = TileShape::getInstance(this->getCenter());
     this->autorouteDrillInfo = new (jrt::kSearch) ExpansionDrill(currentDrillShape, this->getCenter(),
                                                   this->firstLayer(), this->lastLayer());
+    if (this->board != nullptr) {
+      this->board->noteAutorouteInfo();
+    }
     int32_t viaLayerCount = this->lastLayer() - this->firstLayer() + 1;
     for (int32_t i = 0; i < viaLayerCount; i++) {
       (*this->autorouteDrillInfo->roomArr)[i] = viaAutorouteInfo->getExpansionRoom(i, autorouteTree);

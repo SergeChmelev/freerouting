@@ -1,6 +1,8 @@
 // Port of app.freerouting.datastructures.ShapeTree
 #pragma once
 
+#include <cstdint>
+
 #include "fwd.h"
 #include "jrt/jrt.h"
 
@@ -36,11 +38,46 @@ class ShapeTree_TreeEntry : public virtual jrt::Object {
   int32_t shapeIndexInObject;  // final in Java
 };
 
+/**
+ * PORT NOTE: not in Java. The coordinates of a query octagon in ShapeTree_TreeNode::oct order
+ * (valid when the query shape is an IntOctagon), for ShapeTree_TreeNode::intersects.
+ */
+struct ShapeTree_OctagonQuery {
+  int32_t q[8] = {};
+  bool valid = false;
+  explicit ShapeTree_OctagonQuery(RegularTileShape* shape) { set(shape); }
+  void set(RegularTileShape* shape);
+};
+
 /** Common functionality of inner nodes and leaf nodes. */
 class ShapeTree_TreeNode : public virtual jrt::Object {
  public:
+  /** Written only through setBoundingShape. */
   RegularTileShape* boundingShape = nullptr;
   ShapeTree_InnerNode* parent = nullptr;
+
+  /**
+   * PORT NOTE: not in Java. The coordinates of boundingShape while it is an IntOctagon (octValid),
+   * in the order IntOctagon::intersects(IntOctagon*) compares them: leftX, rightX, bottomY, topY,
+   * lowerLeftDiagonalX, upperRightDiagonalX, upperLeftDiagonalX, lowerRightDiagonalX. A tree
+   * search tests a node against an octagon without loading the node's shape.
+   */
+  int32_t oct[8] = {};
+  bool octValid = false;
+  /** PORT NOTE: not in Java. Whether the node is a ShapeTree_Leaf. */
+  bool isLeaf = false;
+
+  void setBoundingShape(RegularTileShape* shape);
+
+  /**
+   * PORT NOTE: not in Java. boundingShape->intersects(shape), where query holds shape's
+   * coordinates if it is an octagon: an octagon against an octagon node compares the coordinates
+   * as IntOctagon::intersects(IntOctagon*) does, without loading the node's shape.
+   */
+  bool intersects(const ShapeTree_OctagonQuery& query, Shape* shape);
+
+ private:
+  bool intersectsShape(Shape* shape);  // boundingShape->intersects(shape)
 };
 
 /** Description of an inner node of the tree, which implements a fork to its two children. */
@@ -48,12 +85,24 @@ class ShapeTree_InnerNode : public ShapeTree_TreeNode {
  public:
   /** Creates an inner node with boundingShape and parent. */
   ShapeTree_InnerNode(RegularTileShape* boundingShape, ShapeTree_InnerNode* parent) {
-    this->boundingShape = boundingShape;
+    this->setBoundingShape(boundingShape);
     this->parent = parent;
   }
 
   ShapeTree_TreeNode* firstChild = nullptr;
   ShapeTree_TreeNode* secondChild = nullptr;
+
+  /**
+   * PORT NOTE: not in Java. Copies of the children's oct / octValid (0: first, 1: second), kept by
+   * refreshChildBounds (called by setBoundingShape of a child and where children are linked), so
+   * that a search tests a child without loading it.
+   */
+  int32_t childOct[2][8] = {};
+  bool childOctValid[2] = {false, false};
+  void refreshChildBounds();
+
+  /** child(i)->intersects(query, shape), from the copy when it can. child(i) is not null. */
+  bool childIntersects(int32_t i, const ShapeTree_OctagonQuery& query, Shape* shape);
 };
 
 /** Description of a leaf of the Tree, where the geometric information is stored. */
@@ -63,8 +112,9 @@ class ShapeTree_Leaf : public ShapeTree_TreeNode {
   ShapeTree_Leaf(ShapeTree_Storable* object, int32_t index, ShapeTree_InnerNode* parent,
                  RegularTileShape* boundingShape)
       : object(object), shapeIndexInObject(index) {
-    this->boundingShape = boundingShape;
+    this->setBoundingShape(boundingShape);
     this->parent = parent;
+    this->isLeaf = true;
   }
 
   /** Comparable<Leaf>: by object, then by shape index. */
@@ -84,7 +134,52 @@ class ShapeTree_Leaf : public ShapeTree_TreeNode {
 
   /** Index of the shape in the object. */
   int32_t shapeIndexInObject;
+
+  /** PORT NOTE: not in Java. No layer known for the leaf (kNoLayer in layer). */
+  static constexpr int32_t kNoLayer = INT32_MIN;
+  /**
+   * PORT NOTE: not in Java. The object's shapeLayer(shapeIndexInObject), kept by ShapeSearchTree
+   * (leafInserted, and where a leaf is handed to another trace) so that a search can pass over a
+   * leaf of another layer without loading its object; kNoLayer when unknown.
+   */
+  int32_t layer = kNoLayer;
 };
+
+/**
+ * PORT NOTE: not in Java. Starts loading a node that a search has just pushed (its first two
+ * cache lines: the leaf flag, the children and their coordinates), to overlap the loads.
+ */
+inline void prefetchTreeNode(const ShapeTree_TreeNode* node) {
+#if defined(__GNUC__)
+  __builtin_prefetch(node);
+  __builtin_prefetch(reinterpret_cast<const char*>(node) + 64);
+#else
+  (void)node;
+#endif
+}
+
+/** IntOctagon::intersects(IntOctagon*) on coordinates in ShapeTree_TreeNode::oct order. */
+inline bool octagonCoordinatesIntersect(const int32_t* b, const int32_t* q) {
+  return (b[0] > q[0] ? b[0] : q[0]) <= (b[1] < q[1] ? b[1] : q[1]) &&
+         (b[2] > q[2] ? b[2] : q[2]) <= (b[3] < q[3] ? b[3] : q[3]) &&
+         (b[4] > q[4] ? b[4] : q[4]) <= (b[5] < q[5] ? b[5] : q[5]) &&
+         (b[6] > q[6] ? b[6] : q[6]) <= (b[7] < q[7] ? b[7] : q[7]);
+}
+
+inline bool ShapeTree_TreeNode::intersects(const ShapeTree_OctagonQuery& query, Shape* shape) {
+  if (query.valid && octValid) {
+    return octagonCoordinatesIntersect(oct, query.q);
+  }
+  return intersectsShape(shape);
+}
+
+inline bool ShapeTree_InnerNode::childIntersects(int32_t i, const ShapeTree_OctagonQuery& query,
+                                                 Shape* shape) {
+  if (query.valid && childOctValid[i]) {
+    return octagonCoordinatesIntersect(childOct[i], query.q);
+  }
+  return (i == 0 ? firstChild : secondChild)->intersects(query, shape);
+}
 
 /**
  * Abstract binary search tree for shapes in the plane. The shapes are stored in the leafs of the

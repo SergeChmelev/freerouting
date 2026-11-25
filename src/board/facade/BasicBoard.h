@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -152,6 +153,22 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   jrt::Set<int32_t>* ruleBlockedPins = nullptr;    // [transient]
   jrt::Set<int32_t>* tolerancePins = nullptr;      // [transient]
   ClearanceBaseline* clearanceBaseline = nullptr;  // [transient]
+
+  /**
+   * PORT NOTE: not in Java. False only while no item of the board on view can hold autoroute
+   * data (ItemAutorouteInfo, a via's ExpansionDrill): set by RoutingBoard::
+   * clearAllItemTemporaryAutorouteData after its walk, which it skips while the flag is false.
+   * Such data appears on a visible item only when it is created (Item::getAutorouteInfo,
+   * Via::getAutorouteDrillInfo: noteAutorouteInfo) or comes with an item inserted into the list
+   * (BoardItemRepository::insertItem); undo / redo clear it on the items they restore. A step
+   * slide clears the autoroute state after each tried move without ever creating any.
+   */
+  std::atomic<bool> autorouteInfoMayExist{true};
+  void noteAutorouteInfo() {
+    if (!autorouteInfoMayExist.load(std::memory_order_relaxed)) {
+      autorouteInfoMayExist.store(true, std::memory_order_relaxed);
+    }
+  }
 
   // PORT NOTE: Java `public transient CompletableFuture<Void> postLoadFuture` dropped: it is only
   // set by HeadlessBoardManager (out of scope); single-threaded, post-load work runs synchronously.

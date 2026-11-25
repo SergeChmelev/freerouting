@@ -25,6 +25,8 @@ class Polyline : public virtual jrt::Object {
   jrt::Array<FloatPoint*>* precalculatedFloatCorners = nullptr;
   jrt::Array<Point*>* precalculatedCorners = nullptr;
   IntBox* precalculatedBoundingBox = nullptr;
+  /** PORT NOTE: not in Java. lengthApprox() once computed (the same sum), -1 before. */
+  double precalculatedLength = -1;
 
  public:
   /** Creates a polyline of length polygon.cornerCount + 1 from polygon, so that the i-th corner

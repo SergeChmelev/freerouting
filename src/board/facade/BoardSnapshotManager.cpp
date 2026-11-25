@@ -12,6 +12,7 @@
 #include "board/trace/PolylineTrace.h"
 #include "core/library/Padstack.h"
 #include "datastructures/UndoableObjects.h"
+#include "drc/NetRoutingLedger.h"
 #include "geometry/planar/FloatPoint.h"
 #include "geometry/planar/IntBox.h"
 #include "geometry/planar/IntPoint.h"
@@ -129,11 +130,13 @@ std::string BoardSnapshotManager::getHash() {
 void BoardSnapshotManager::generateSnapshot() {
   board->itemList->generateSnapshot();
   board->components->generateSnapshot();
+  board->routingLedger()->noteSnapshot(board->itemList->getStackLevel());
 }
 
 bool BoardSnapshotManager::popSnapshot() {
   bool itemPopped = board->itemList->popSnapshot();
   bool componentPopped = board->components->popSnapshot();
+  board->routingLedger()->dropSnapshotsAbove(board->itemList->getStackLevel());
   return itemPopped && componentPopped;
 }
 

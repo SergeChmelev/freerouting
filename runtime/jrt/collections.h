@@ -86,7 +86,10 @@ template <class T>
 bool equalsOf(const T& a, const T& b) {
   if constexpr (std::is_pointer_v<T>) {
     using P = std::remove_cv_t<std::remove_pointer_t<T>>;
-    if constexpr (std::is_base_of_v<Object, P>) {
+    if constexpr (requires { typename P::jrt_identity_equals; }) {
+      // PORT NOTE: P declares a final identity equals (Object::equals): no call, no load of b.
+      return a == b;
+    } else if constexpr (std::is_base_of_v<Object, P>) {
       if (a == b) return true;
       if (!a || !b) return false;
       return static_cast<Object*>(const_cast<P*>(a))->equals(static_cast<Object*>(const_cast<P*>(b)));
@@ -108,7 +111,10 @@ template <class T>
 int32_t compareOf(const T& a, const T& b) {
   if constexpr (std::is_pointer_v<T>) {
     using P = std::remove_cv_t<std::remove_pointer_t<T>>;
-    if constexpr (HasCompareToPtr<P>) {
+    if constexpr (requires(P* x, P* y) { P::jrtCompareSame(x, y); }) {
+      // PORT NOTE: a->compareTo(b) for a final compareTo, without the dynamic type test of b.
+      return P::jrtCompareSame(const_cast<P*>(a), const_cast<P*>(b));
+    } else if constexpr (HasCompareToPtr<P>) {
       return const_cast<P*>(a)->compareTo(const_cast<P*>(b));
     } else {
       // Java: natural ordering of a non-Comparable type fails at run time.

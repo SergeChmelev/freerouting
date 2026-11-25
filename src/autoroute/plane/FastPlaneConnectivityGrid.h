@@ -27,6 +27,12 @@ class FastPlaneConnectivityGrid_PlaneFractureResult : public virtual jrt::Object
    */
   jrt::Map<Item*, jrt::Array<jrt::Array<int32_t>*>*>* traceEndIslands;
 
+  /**
+   * PORT NOTE: not in Java. A number no other fracture result has: what is derived from the
+   * (unchanging) island lists of this result is cached under it (ConductionArea).
+   */
+  int64_t serial;
+
   /** Creates a new fracture result (Java: this(islandItems, null)). */
   explicit FastPlaneConnectivityGrid_PlaneFractureResult(jrt::Map<int32_t, jrt::List<Item*>*>* islandItems);
   /** Holds as long as nothing changes inside the box (Java: this(..., Collections.emptyMap())). */
