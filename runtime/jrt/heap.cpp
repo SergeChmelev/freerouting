@@ -192,10 +192,110 @@ struct LiveDump {
   ~LiveDump() { write_live_dump(); }
 } live_dump_instance;
 #else
+// Per-thread cache of small blocks (E14). The optimizer's workers allocate and free many small
+// heap objects (search-tree nodes, ItemSearchTreesInfo, list and map nodes of their board copies);
+// through malloc each of them takes a malloc arena lock, and with 19 workers on two arenas the
+// threads mostly wait for each other. A freed block of up to kCacheMax usable bytes is kept in the
+// freeing thread's cache (by size class) and reused by its next allocation of that class; the
+// blocks are ordinary malloc blocks, so a block cached by another thread than the one that
+// allocated it is fine. The live byte count is kept per thread too and added to the shared
+// counters in batches. Sanitizer builds use plain malloc / free (exact use-after-free reports).
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+constexpr bool kSmallCache = false;
+#else
+constexpr bool kSmallCache = true;
+#endif
+constexpr std::size_t kCacheMax = 1024;                    // the largest cached block (usable bytes)
+constexpr std::size_t kCacheClasses = kCacheMax / 16 + 1;  // class k: usable bytes >= 16 k
+constexpr std::size_t kCacheBytes = std::size_t{4} << 20;  // the most bytes a thread keeps
+constexpr std::ptrdiff_t kNoteBatch = std::ptrdiff_t{256} << 10;
+
+struct SmallCache {  // trivially destructible: still usable after the thread's flusher ran
+  void* head[kCacheClasses];
+  std::size_t bytes;
+  std::ptrdiff_t liveDelta;  // not yet added to g_liveBytes
+  std::size_t allocDelta;    // not yet added to g_allocCount
+  bool registered;           // the flusher exists
+  bool dead;                 // the thread is ending: no caching any more
+};
+thread_local SmallCache t_cache{};
+
+void flush_notes(SmallCache& c) {
+  if (c.liveDelta >= 0) {
+    std::size_t n = static_cast<std::size_t>(c.liveDelta);
+    std::size_t live = g_liveBytes.fetch_add(n, std::memory_order_relaxed) + n;
+    std::size_t peak = g_peakBytes.load(std::memory_order_relaxed);
+    while (live > peak && !g_peakBytes.compare_exchange_weak(peak, live, std::memory_order_relaxed)) {
+    }
+  } else {
+    note_free(static_cast<std::size_t>(-c.liveDelta));
+  }
+  g_allocCount.fetch_add(c.allocDelta, std::memory_order_relaxed);
+  c.liveDelta = 0;
+  c.allocDelta = 0;
+}
+
+struct SmallCacheFlusher {
+  int touched = 0;
+  ~SmallCacheFlusher() {
+    SmallCache& c = t_cache;
+    c.dead = true;
+    for (void*& h : c.head) {
+      while (h != nullptr) {
+        void* next = *static_cast<void**>(h);
+        jrt::platform::heap_free(h);
+        h = next;
+      }
+    }
+    c.bytes = 0;
+    flush_notes(c);
+  }
+};
+thread_local SmallCacheFlusher t_cacheFlusher;
+
+inline void note_alloc_local(std::size_t n) {
+  if (!kSmallCache || t_cache.dead) {
+    note_alloc(n);
+    return;
+  }
+  SmallCache& c = t_cache;
+  c.liveDelta += static_cast<std::ptrdiff_t>(n);
+  c.allocDelta += 1;
+  if (c.liveDelta >= kNoteBatch || c.allocDelta >= 4096) flush_notes(c);
+}
+
+inline void note_free_local(std::size_t n) {
+  if (!kSmallCache || t_cache.dead) {
+    note_free(n);
+    return;
+  }
+  SmallCache& c = t_cache;
+  c.liveDelta -= static_cast<std::ptrdiff_t>(n);
+  if (c.liveDelta <= -kNoteBatch) flush_notes(c);
+}
+
 void* raw_alloc(std::size_t n) {
-  void* p = jrt::platform::heap_zalloc(n == 0 ? 1 : n);
+  if (n == 0) n = 1;
+  if (kSmallCache && n <= kCacheMax) {
+    SmallCache& c = t_cache;
+    std::size_t k = (n + 15) / 16;
+    if (void* p = c.head[k]) {
+      c.head[k] = *static_cast<void**>(p);
+      std::size_t usable = jrt::platform::heap_usable_size(p);
+      c.bytes -= usable;
+      std::memset(p, 0, n);
+      note_alloc_local(usable);
+      return p;
+    }
+    if (!c.registered && !c.dead) {
+      c.registered = true;
+      t_cacheFlusher.touched = 1;  // constructs this thread's flusher (it empties the cache at exit)
+    }
+    n = k * 16;  // the block can go back to class k when freed
+  }
+  void* p = jrt::platform::heap_zalloc(n);
   if (p == nullptr) throw std::bad_alloc();
-  note_alloc(jrt::platform::heap_usable_size(p));
+  note_alloc_local(jrt::platform::heap_usable_size(p));
   return p;
 }
 
@@ -203,7 +303,7 @@ void* raw_alloc_aligned(std::size_t n, std::size_t align) {
   if (align <= alignof(std::max_align_t)) return raw_alloc(n);
   void* p = jrt::platform::heap_aligned_zalloc(align, n == 0 ? align : n);
   if (p == nullptr) throw std::bad_alloc();
-  note_alloc(jrt::platform::heap_usable_size(p));
+  note_alloc_local(jrt::platform::heap_usable_size(p));
   return p;
 }
 
@@ -218,7 +318,18 @@ void raw_free(void* p) noexcept {
     jrt::job_heap_free(p);
     return;
   }
-  note_free(jrt::platform::heap_usable_size(p));
+  std::size_t usable = jrt::platform::heap_usable_size(p);
+  note_free_local(usable);
+  if (kSmallCache && usable >= 16 && usable <= kCacheMax + 16) {
+    SmallCache& c = t_cache;
+    if (c.registered && !c.dead && c.bytes + usable <= kCacheBytes) {
+      std::size_t k = std::min(usable / 16, kCacheClasses - 1);
+      *static_cast<void**>(p) = c.head[k];
+      c.head[k] = p;
+      c.bytes += usable;
+      return;
+    }
+  }
   jrt::platform::heap_free(p);
 }
 #endif
@@ -296,9 +407,22 @@ void* heap_alloc(std::size_t n) { return raw_alloc(n); }
 void heap_free(void* p) { raw_free(p); }
 // Bytes allocated with operator new and not freed yet (job heap and arena chunks not counted
 // as such: arena chunks are heap blocks, job-heap pages are not).
-std::size_t heap_live_bytes() { return g_liveBytes.load(std::memory_order_relaxed); }
-std::size_t heap_peak_bytes() { return g_peakBytes.load(std::memory_order_relaxed); }
-std::size_t heap_alloc_count() { return g_allocCount.load(std::memory_order_relaxed); }
+// (Other threads' counts not yet added in a batch are missing: up to 256 KB per thread.)
+std::size_t heap_live_bytes() {
+#if !JRT_ALLOC_PROFILE
+  return g_liveBytes.load(std::memory_order_relaxed) + static_cast<std::size_t>(t_cache.liveDelta);
+#else
+  return g_liveBytes.load(std::memory_order_relaxed);
+#endif
+}
+std::size_t heap_peak_bytes() { return std::max(g_peakBytes.load(std::memory_order_relaxed), heap_live_bytes()); }
+std::size_t heap_alloc_count() {
+#if !JRT_ALLOC_PROFILE
+  return g_allocCount.load(std::memory_order_relaxed) + t_cache.allocDelta;
+#else
+  return g_allocCount.load(std::memory_order_relaxed);
+#endif
+}
 std::size_t heap_block_size(void* p) { return raw_size(p); }
 
 }  // namespace jrt

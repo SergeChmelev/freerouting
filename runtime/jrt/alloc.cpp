@@ -41,14 +41,18 @@ struct Pool {
 std::mutex g_chunkMutex;
 std::map<std::uintptr_t, std::size_t>* g_chunks = nullptr;  // start -> size
 
-// Lock-free first look (E13): a table of 64 KB pages, written under g_chunkMutex, read with
+// Lock-free lookup (E13, E14): a table of 64 KB pages, written under g_chunkMutex, read with
 // relaxed atomics. A page lying wholly inside a live chunk is arena memory; a page no chunk
-// touches is not; only the two edge pages of a chunk (shared with heap blocks or other chunks)
-// need the map. Level 1 by address bits 47..32, level 2 (one byte per page) by bits 31..16.
+// touches is not. A chunk is at least 1 MB, so on the page where a chunk ends no other chunk ends
+// and on the page where one starts no other starts: an edge page keeps the end offset of the
+// chunk that ends on it (it covers [page, page + lowEnd)) and the start offset of the one that
+// starts on it ([page + highStart, page end)). Level 1 by address bits 47..32, level 2 by 31..16.
 constexpr std::size_t kTablePageBits = 16;
+constexpr std::uint32_t kTablePage = std::uint32_t{1} << kTablePageBits;
 struct PageCounts {
-  std::atomic<std::uint8_t> inner[std::size_t{1} << 16];  // chunks covering the page wholly (0/1)
-  std::atomic<std::uint8_t> edge[std::size_t{1} << 16];   // chunks covering part of it
+  std::atomic<std::uint8_t> inner[std::size_t{1} << 16];      // chunks covering the page wholly (0/1)
+  std::atomic<std::uint32_t> lowEnd[std::size_t{1} << 16];     // 0: no chunk ends on the page
+  std::atomic<std::uint32_t> highStart[std::size_t{1} << 16];  // kTablePage: no chunk starts on it
 };
 std::atomic<PageCounts*> g_pageTable[std::size_t{1} << 16];
 
@@ -58,20 +62,26 @@ PageCounts* page_counts(std::uintptr_t a, bool create) {
   if (t == nullptr && create) {
     t = static_cast<PageCounts*>(std::calloc(1, sizeof(PageCounts)));
     if (t == nullptr) throw std::bad_alloc();
+    for (auto& s : t->highStart) s.store(kTablePage, std::memory_order_relaxed);
     g_pageTable[hi].store(t, std::memory_order_release);
   }
   return t;
 }
 
-void mark_chunk_pages(std::uintptr_t start, std::size_t bytes, int delta) {  // under g_chunkMutex
+// Marks (add) or unmarks a chunk [start, start + bytes); bytes >= 1 MB. Under g_chunkMutex.
+void mark_chunk_pages(std::uintptr_t start, std::size_t bytes, bool add) {
   std::uintptr_t end = start + bytes;
   for (std::uintptr_t page = start >> kTablePageBits; page <= (end - 1) >> kTablePageBits; ++page) {
-    std::uintptr_t lo = page << kTablePageBits, hi = lo + (std::uintptr_t{1} << kTablePageBits);
+    std::uintptr_t lo = page << kTablePageBits, hi = lo + kTablePage;
     PageCounts* t = page_counts(lo, true);
     std::size_t i = (lo >> kTablePageBits) & 0xffff;
-    auto& counter = (start <= lo && hi <= end) ? t->inner[i] : t->edge[i];
-    counter.store(static_cast<std::uint8_t>(counter.load(std::memory_order_relaxed) + delta),
-                  std::memory_order_relaxed);
+    if (start <= lo && hi <= end) {
+      t->inner[i].store(add ? 1 : 0, std::memory_order_relaxed);
+    } else if (start > lo) {  // the chunk starts on this page
+      t->highStart[i].store(add ? static_cast<std::uint32_t>(start - lo) : kTablePage, std::memory_order_relaxed);
+    } else {  // it ends on this page
+      t->lowEnd[i].store(add ? static_cast<std::uint32_t>(end - lo) : 0, std::memory_order_relaxed);
+    }
   }
 }
 
@@ -80,7 +90,7 @@ void* chunk_alloc(std::size_t bytes) {
   std::lock_guard<std::mutex> lock(g_chunkMutex);
   if (g_chunks == nullptr) g_chunks = new std::map<std::uintptr_t, std::size_t>();
   (*g_chunks)[reinterpret_cast<std::uintptr_t>(c)] = bytes;
-  mark_chunk_pages(reinterpret_cast<std::uintptr_t>(c), bytes, +1);
+  mark_chunk_pages(reinterpret_cast<std::uintptr_t>(c), bytes, true);
   return c;
 }
 
@@ -89,7 +99,7 @@ void chunk_free(void* c) {
     std::lock_guard<std::mutex> lock(g_chunkMutex);
     auto it = g_chunks->find(reinterpret_cast<std::uintptr_t>(c));
     if (it != g_chunks->end()) {
-      mark_chunk_pages(it->first, it->second, -1);
+      mark_chunk_pages(it->first, it->second, false);
       g_chunks->erase(it);
     }
   }
@@ -98,19 +108,13 @@ void chunk_free(void* c) {
 
 bool in_arena_chunk(const void* p) {
   auto a = reinterpret_cast<std::uintptr_t>(p);
-  if (PageCounts* t = page_counts(a, false)) {
-    std::size_t i = (a >> kTablePageBits) & 0xffff;
-    if (t->inner[i].load(std::memory_order_relaxed) != 0) return true;
-    if (t->edge[i].load(std::memory_order_relaxed) == 0) return false;
-  } else {
-    return false;
-  }
-  std::lock_guard<std::mutex> lock(g_chunkMutex);
-  if (g_chunks == nullptr) return false;
-  auto it = g_chunks->upper_bound(a);
-  if (it == g_chunks->begin()) return false;
-  --it;
-  return a < it->first + it->second;
+  PageCounts* t = page_counts(a, false);
+  if (t == nullptr) return false;
+  std::size_t i = (a >> kTablePageBits) & 0xffff;
+  if (t->inner[i].load(std::memory_order_relaxed) != 0) return true;
+  auto off = static_cast<std::uint32_t>(a & (kTablePage - 1));
+  return off < t->lowEnd[i].load(std::memory_order_relaxed) ||
+         off >= t->highStart[i].load(std::memory_order_relaxed);
 }
 
 void chunk_free(void* c);

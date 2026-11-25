@@ -12,6 +12,8 @@
 #                base          FR_BASE_BIN (gc-port-baseline build, no -mt option)
 #                main          FR_MAIN_BIN with -mt 1
 #                main-mt<N>    FR_MAIN_BIN with -mt N
+#                old-mt<N>     FR_OLD_BIN with -mt N (a previous build, for before / after runs
+#                              interleaved with the others: a laptop's speed drifts with its heat)
 #   FR_TIMEOUT   per run, seconds (default 5400)
 # writes <outdir>/bench.txt (one line per run) and the logs / SES files of every run. Rerunning
 # into the same outdir skips the runs bench.txt already has (an interrupted run continues).
@@ -20,6 +22,7 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 JAR="${FR_JAVA_JAR:-$HOME/freerouting-java/build/libs/freerouting-current-executable.jar}"
 BASE="${FR_BASE_BIN:-$HOME/build/bench-base/freerouting-cpp}"
 MAIN="${FR_MAIN_BIN:-$HOME/build/bench-main/freerouting-cpp}"
+OLD="${FR_OLD_BIN:-}"
 read -r -a variants <<< "${FR_VARIANTS:-java java-1t base main main-mt4}"
 out="${1:-$HOME/frtest/bench-speed}"
 shift || true
@@ -30,7 +33,7 @@ mkdir -p "$out"
 cd "$repo"
 need=("$JAR")
 for v in "${variants[@]}"; do
-  case "$v" in base) need+=("$BASE") ;; main*) need+=("$MAIN") ;; esac
+  case "$v" in base) need+=("$BASE") ;; main*) need+=("$MAIN") ;; old*) need+=("${OLD:-FR_OLD_BIN}") ;; esac
 done
 for f in "${need[@]}"; do [ -e "$f" ] || { echo "missing: $f" >&2; exit 1; }; done
 ref=""  # the reference variant: the first Java one
@@ -77,6 +80,8 @@ for name in "${boards[@]}"; do
       main) run "$name" "$v" "$rep" "$MAIN" -q -mt 1 -de "$dsn" -do "$ses" ;;
       main-mt*) n="${v#main-mt}"
         run "$name" "$v" "$rep" "$MAIN" -q -mt "$n" -de "$dsn" -do "$ses" ;;
+      old-mt*) n="${v#old-mt}"
+        run "$name" "$v" "$rep" "$OLD" -q -mt "$n" -de "$dsn" -do "$ses" ;;
       *) echo "unknown variant: $v" >&2; exit 2 ;;
     esac
   done

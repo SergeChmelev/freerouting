@@ -919,6 +919,69 @@ peak RSS MB; the SES of every run equals Java's (4 threads). bm02 is the mean of
   same on Issue187, Issue022 and bm01, more on Issue214 (job heap); with 19 threads more than
   Java on Issue022, Issue214 and bm01 (search-region spikes of more concurrent candidates).
 
+### E14 — optimizer threads: malloc locks, the arena lookup, cancelled candidates
+
+Where the time goes (`-v` logs; C++ e13 against Java, 4 threads, seconds): before the optimizer
+(fanout, autorouter, single-threaded in both) C++ takes 1.2-1.55x Java's time (Issue110 28.5 /
+20.2, Issue214 70 / 47, bm01 136 / 88); the optimizer passes 1.6-2x (Issue110 52 / 32, Issue178
+106 / 53, bm01 233 / 131); Issue187 is mostly the step slider after the optimizer (32 / 21).
+From 4 to 19 threads Java's passes gain 30-40 % (bm01 131 -> 81 s), C++'s did not (233 -> 243).
+
+At 19 threads the workers mostly waited (Issue178: about 9 busy of 19, 283 s system time and
+13.9 million voluntary context switches). The waits (perf, lock-wait samples by caller):
+
+* **malloc's arena locks.** The candidates allocate and free many small heap objects (tree nodes,
+  `ItemSearchTreesInfo`, list and map nodes of their board copies); glibc serves 19 threads from
+  two arenas (`M_ARENA_MAX`). `MALLOC_ARENA_MAX=20` alone gave Issue178 139.7 -> 94 s but 6.2 GB
+  instead of 3.8; jemalloc (LD_PRELOAD) 91 s at 3.9 GB. Fix: `raw_alloc` / `raw_free` keep a
+  per-thread cache of blocks up to 1 KB (by 16-byte class, at most 4 MB a thread, flushed when the
+  thread ends), and the live-byte counters are added per thread in 256 KB batches. Not in
+  sanitizer builds.
+* **`g_chunkMutex` in `in_arena_chunk`** (every `dispose` of a pointer on the edge page of an
+  arena chunk took it). A chunk is at least 1 MB, so a 64 KB page holds the end of at most one
+  chunk and the start of at most one: the page table keeps both offsets and the lookup takes no
+  lock any more.
+* **The tail of an early-stopped pass.** C++ waited for every running candidate (up to 2 x
+  threads) before the pass could end; Java leaves them running. The candidates now see a per-pass
+  stop (`PassStop`) that the pass sets when it stops reading results; their results were never
+  read (Issue022 at 19 threads: 8 s of tail, Issue187 5 s).
+
+Not the cause: the worker's chunk pool (16 MB; 512 MB changed nothing), calloc vs malloc, glibc's
+trim / mmap thresholds, `copyLock` (the board copies are 3-4 % of the candidates' time).
+Issue178 at 19 threads: 139.7 -> 95.4 s, system time 283 -> 33 s, context switches 13.9 -> 1.0
+million, peak 3.8 -> 4.3 GB (more candidates at once), SES the same; with the cache the workers
+are 16-17 busy of 19 (10 physical cores, SMT): the rest is single-threaded speed.
+
+`FR_VARIANTS="java-4t java-19t main-mt4 main-mt19 old-mt19" tools/bench_speed.sh` (2026-11-25;
+main = E14, old = ef26aa2, interleaved per board: the laptop's speed drifts with its heat).
+Wall seconds / peak RSS MB; all 45 SES equal Java's (4 threads); bm02 the mean of three runs.
+
+| board | Java 4 thr. | Java 19 thr. | C++ 4 thr. | C++ 19 thr. | C++ 19 thr. before |
+|---|---|---|---|---|---|
+| bm02 | 4.3 / 966 | 3.95 / 1308 | **1.4** / 176 | **1.36** / 340 | 1.48 / 327 |
+| Issue187-processor.Z80 | 27.4 / 1365 | 29.2 / 2626 | 35.8 / 1531 | 44.9 / 1924 | 46.2 / 1792 |
+| Issue022-AutoRouter_interrupted | 26.1 / 1371 | 29.3 / 2599 | 31.9 / 1274 | 36.3 / 3268 | 45.8 / 3191 |
+| Issue214-freerouting | 50.0 / 1392 | 49.9 / 2152 | 72.0 / 2046 | 71.7 / 2815 | 70.5 / 2796 |
+| Issue110-RelayModule | 56.0 / 1581 | 45.7 / 2532 | 74.4 / 1505 | 64.4 / 1942 | 71.8 / 1949 |
+| Issue178-KeebMaker_Sofle_Choc | 77.1 / 3171 | 61.8 / 3889 | 126.7 / 2072 | 88.0 / 4144 | 125.0 / 3681 |
+| DAC2020 bm01 | 225.0 / 2366 | 172.5 / 4667 | 325.0 / 2465 | 260.2 / 5932 | 356.7 / 6345 |
+
+* C++ now gains from 4 to 19 threads like Java: bm01 -20 % (Java -23 %), Issue178 -31 % (Java
+  -20 %), Issue110 -13 % (Java -18 %). Against the e13 build at 19 threads: bm01 -27 %, Issue178
+  -30 %, Issue022 -21 %, Issue110 -10 %.
+* Still slower than Java: 1.4-1.5x at 19 threads on the large boards. The rest is
+  single-threaded speed: the autorouter before the optimizer (Issue214 is almost all of it), the
+  candidates themselves, the step slider (Issue187).
+* Issue187 and Issue022 stay slower with 19 threads than with 4, as in Java: short passes whose
+  candidates beyond the early stop are wasted work.
+
+Exact arithmetic (asked for a filtered-predicate decision; perf, frame pointers, no LTO):
+`BigInteger` with GMP, `RationalPoint`, `RationalVector`, `BigIntDirection` and the exact parts
+of `Line::intersection` together take 0.2-0.7 % (Issue110 0.7 %, Issue178 0.25 %, Issue187
+0.2 %); 0.01-0.09 % of the BigInteger operations leave int64 for GMP (Issue110 17 thousand of
+176 million). The machine-precision side tests take 3-6.5 %. A floating-point filter in front of
+the exact predicates would save well under 1 %.
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at
@@ -935,11 +998,11 @@ peak RSS MB; the SES of every run equals Java's (4 threads). bm02 is the mean of
 * **Search-region spikes after E12**: the arenas still reach about 1 GB live at times in the
   optimizer on bm01 (`-mt 4`), less than before but more than Java's whole heap there; a profile
   of what the search region keeps (`FR_ARENA_WARN_MB=64`) is the next step.
-* **Performance** (see "Java vs C++ at 4 and 19 optimizer threads"): the large boards are 1.4-2x
-  slower than Java, and C++ does not scale from 4 to 19 optimizer threads (contention: the job
-  heap's lock while workers run, `M_ARENA_MAX=2`, `copyLock`). Single-threaded, the time goes to
-  geometry and tree search (`MinAreaTree::collectOverlapsUnlocked`, `completeShape`,
-  `IntOctagon`), the memory model's share is small after E13.
+* **Performance** (see E14): the optimizer threads scale since E14; the large boards are still
+  1.4-1.5x slower than Java, and that is single-threaded speed: the autorouter (1.2-1.55x Java),
+  the candidates (geometry and tree search: `MinAreaTree::collectOverlapsUnlocked`,
+  `completeShape`, `IntOctagon`) and the step slider (Issue187 32 s vs 21: about 17 % of it walks
+  the whole item list per tried move, `StepSlider::cost` and `clearAllItemTemporaryAutorouteData`).
 * Not freed yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with
   `strict_drc`), the `InteractiveSession`
   of the Lua engine, job-level objects of `route()` (job, pipeline, settings merger: freed with

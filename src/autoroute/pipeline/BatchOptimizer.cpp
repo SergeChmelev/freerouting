@@ -781,6 +781,46 @@ namespace {
  * Semaphore of optRoutePass). Tasks run in submission order on the first free thread; each
  * thread has its own WorkerBoardState (Java: ThreadLocal<WorkerBoardState>).
  */
+/**
+ * The stop seen by the candidates of one pass: the job's stop, or the end of the pass. When the
+ * pass stops early, the candidates still running are not read (their results are dropped); they
+ * stop at their next stop check instead of running to the end while the pass waits for them
+ * (Java: pool.shutdownNow() leaves them running). Requests from a candidate go to the job's thread.
+ */
+class PassStop final : public StoppableThread {
+ public:
+  explicit PassStop(StoppableThread* job) : job_(job) {}
+  void cancel() { cancelled_.store(true, std::memory_order_relaxed); }
+
+  void requestStop() override {
+    if (job_ != nullptr) job_->requestStop();
+    else StoppableThread::requestStop();
+  }
+  bool isStopRequested() override {
+    return cancelled_.load(std::memory_order_relaxed)
+        || (job_ != nullptr ? job_->isStopRequested() : StoppableThread::isStopRequested());
+  }
+  void requestStopAutoRouter() override {
+    if (job_ != nullptr) job_->requestStopAutoRouter();
+    else StoppableThread::requestStopAutoRouter();
+  }
+  bool isStopAutoRouterRequested() override {
+    return cancelled_.load(std::memory_order_relaxed)
+        || (job_ != nullptr ? job_->isStopAutoRouterRequested() : StoppableThread::isStopAutoRouterRequested());
+  }
+  void resetAutoRouterStopRequest() override {
+    if (job_ != nullptr) job_->resetAutoRouterStopRequest();
+    else StoppableThread::resetAutoRouterStopRequest();
+  }
+
+ protected:
+  void threadAction() override {}
+
+ private:
+  StoppableThread* job_;
+  std::atomic<bool> cancelled_{false};
+};
+
 class CandidatePool {
  public:
   struct Future {
@@ -981,7 +1021,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
     }
     return false;
   };
-  auto newTask = [&](int32_t itemId) {
+  auto newTask = [&](int32_t itemId, StoppableThread* stop) {
     return new (jrt::kOp) BatchOptimizer_OptimizeCandidateTask(
         job,
         this->board,
@@ -989,7 +1029,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
         this->minCumulativeTraceLength,
         withPreferredDirections,
         this->useIncreasedRipupCosts,
-        this->thread,
+        stop,
         this->deadlineMs,
         this->workerBoardStates,
         baselineMetrics,
@@ -1044,7 +1084,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
       if (stopOrDeadline()) {
         break;
       }
-      BatchOptimizer_OptimizeCandidateTask* task = newTask(candidateItemIds->get(nextCandidate++));
+      BatchOptimizer_OptimizeCandidateTask* task = newTask(candidateItemIds->get(nextCandidate++), this->thread);
       if (readResult([task] { return task->call(); })) {
         break;
       }
@@ -1053,6 +1093,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
     // Java: the ExecutorService loop. Candidates that were started but are not read when the
     // pass stops early are waited for (Java leaves them running) and ignored.
     jrt::JobHeapSharedScope sharedJobHeap;
+    PassStop passStop(this->thread);
     CandidatePool pool(threadPoolSize);
     std::deque<CandidatePool::Future*> futures;
     int32_t nextCandidate = 0;
@@ -1069,7 +1110,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
       while (running < maxRunning
              && static_cast<int32_t>(futures.size()) < maxUnread
              && nextCandidate < candidateItemIds->size()) {
-        futures.push_back(pool.submit(newTask(candidateItemIds->get(nextCandidate++))));
+        futures.push_back(pool.submit(newTask(candidateItemIds->get(nextCandidate++), &passStop)));
         running++;
       }
       if (!pool.isDone(futures.front())) {
@@ -1083,7 +1124,8 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
         break;
       }
     }
-    pool.shutdown();  // Java: pool.shutdownNow() (here: waits for the running candidates)
+    passStop.cancel();  // the unread candidates still running stop at their next check
+    pool.shutdown();    // Java: pool.shutdownNow() (here: waits for the running candidates)
   }
 
   float routeImproved = 0.0f;
