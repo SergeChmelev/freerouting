@@ -1349,15 +1349,33 @@ void BasicBoard::afterDeserialize() {
       for (auto* entry : *borrowShapesMap_->entrySet()) {
         Item* original = entry->getKey();
         Item* copied = entry->getValue();
-        if (original == nullptr || copied == nullptr ||
-            jrt::fast_cast<ObstacleArea>(copied) == nullptr) {
+        if (original == nullptr || copied == nullptr) {
           continue;
         }
-        jrt::Array<TileShape*>* shapes = original->peekTreeShapes(sourceTree);
-        if (shapes != nullptr) {
-          copied->board = this;
-          copied->borrowTreeShapes(shapes, copyTree);
+        bool trace = jrt::fast_cast<PolylineTrace>(copied) != nullptr;
+        if (!trace && jrt::fast_cast<ObstacleArea>(copied) == nullptr) {
+          continue;  // pins and the outline fill lazy caches while computing their shapes
         }
+        jrt::Array<TileShape*>* shapes = original->peekTreeShapes(sourceTree);
+        if (shapes == nullptr) {
+          continue;
+        }
+        copied->board = this;
+        if (trace) {
+          // A trace's shapes are counted by its board: the copy gets an array of its own (it
+          // frees it) holding the source's shapes, which it never counts (borrowedTreeShapes_).
+          for (TileShape* s : *shapes) {
+            if (s != nullptr) borrowedTreeShapes_.insert(s);
+          }
+          jrt::Array<TileShape*>* own;
+          {
+            jrt::DomainScope domain(copied);
+            own = new (jrt::kGeom) jrt::Array<TileShape*>(shapes->length);
+          }
+          for (int32_t i = 0; i < shapes->length; i++) (*own)[i] = (*shapes)[i];
+          shapes = own;
+        }
+        copied->borrowTreeShapes(shapes, copyTree);
       }
     }
     borrowShapesSource_ = nullptr;
@@ -1506,8 +1524,10 @@ void BasicBoard::noteDeadObject(UndoableObjects_Storable* object) {
 }
 
 void BasicBoard::retainTreeShapes(jrt::Array<TileShape*>* shapes) {
+  bool borrowing = !borrowedTreeShapes_.empty();
   for (TileShape* s : *shapes) {
-    if (s != nullptr) ++treeShapeRefs_[s];
+    if (s == nullptr || (borrowing && borrowedTreeShapes_.count(s) != 0)) continue;
+    ++treeShapeRefs_[s];
   }
 }
 

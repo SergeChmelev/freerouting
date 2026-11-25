@@ -10,6 +10,7 @@
 #include "board/actions/ItemSearchTreesInfo.h"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace fr {
@@ -744,6 +745,9 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   void noteDeadObject(UndoableObjects_Storable* object);
   void watchItemList();
   std::unordered_map<TileShape*, int32_t> treeShapeRefs_;
+  // PORT NOTE (C++ only): tree shapes of traces borrowed from the board this one was copied from
+  // (afterDeserialize): never counted, so this board never frees them.
+  std::unordered_set<TileShape*> borrowedTreeShapes_;
   std::vector<TileShape*> deadTreeShapes_;
   std::vector<jrt::Array<TileShape*>*> deadShapeArrays_;
   std::vector<Item*> deadItems_;

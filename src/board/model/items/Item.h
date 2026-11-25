@@ -170,7 +170,8 @@ class Item : public virtual SearchTreeObject,
   /**
    * PORT NOTE (C++ only): takes shapes, the tree shapes of tree computed for an item of the same
    * geometry and rules on a board that outlives this item's board, as this item's tree shapes of
-   * tree instead of computing them again. Not for traces (their shapes are owned and counted).
+   * tree instead of computing them again. A trace's board must not count the shapes (see
+   * BasicBoard::borrowedTreeShapes_) and shapes must be an array of the trace's own.
    */
   void borrowTreeShapes(jrt::Array<TileShape*>* shapes, ShapeTree* tree);
 

@@ -234,7 +234,7 @@ void Item::borrowTreeShapes(jrt::Array<TileShape*>* shapes, ShapeTree* tree) {
   if (this->searchTreesInfo == nullptr) {
     this->searchTreesInfo = newSearchTreesInfo();
   }
-  this->searchTreesInfo->setPrecalculatedTreeShapes(shapes, tree);  // no keeper: not counted
+  this->searchTreesInfo->setPrecalculatedTreeShapes(shapes, tree);
 }
 
 jrt::Object* Item::clone() {
