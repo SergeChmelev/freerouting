@@ -1340,7 +1340,7 @@ void BasicBoard::afterDeserialize() {
   connectivityQueries = nullptr;
   snapshotManager = nullptr;
   if (borrowShapesSource_ != nullptr && borrowShapesMap_ != nullptr) {
-    // C++ only: the copied items other than traces take the source items' tree shapes of the
+    // C++ only: the copied obstacle areas (keepouts, planes) take the source areas. tree shapes of the
     // default tree (both trees have the same type and clearance compensation).
     ShapeSearchTree* sourceTree = borrowShapesSource_->searchTreeManager->getDefaultTree();
     ShapeSearchTree* copyTree = searchTreeManager->getDefaultTree();
@@ -1350,7 +1350,7 @@ void BasicBoard::afterDeserialize() {
         Item* original = entry->getKey();
         Item* copied = entry->getValue();
         if (original == nullptr || copied == nullptr ||
-            jrt::fast_cast<PolylineTrace>(copied) != nullptr) {
+            jrt::fast_cast<ObstacleArea>(copied) == nullptr) {
           continue;
         }
         jrt::Array<TileShape*>* shapes = original->peekTreeShapes(sourceTree);
