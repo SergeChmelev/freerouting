@@ -1102,6 +1102,27 @@ this session: pins, vias, the from-scratch rule). 312a089 vs E16, 4 threads, rel
 `JRT_CHECKED=0`, interleaved, CPU seconds (user + sys), SES equal: Issue178 321.8 -> 293.6
 (-8.8 %), Issue054 44.6 -> 37.2 (-16.6 %); peak RSS not higher (Issue054 1082 -> 834 MB).
 
+`FR_VARIANTS="java-1t main-mt1 java-4t main-mt4 java-10t main-mt10" tools/bench_speed.sh` on main
+after E16 (2026-11-26, release LTO, interleaved per board). Three runs met another job on the
+machine (Java itself up to 2x slower): those cells (Issue178 4 and 10 threads, Issue110 10
+threads, bm01 1 thread) are interleaved reruns. Wall seconds Java / C++ and C++/Java; all SES
+equal Java's; bm02 the mean of three runs.
+
+| board | 1 thread | 4 threads | 10 threads |
+|---|---|---|---|
+| bm02 | 6.26 / 2.48 = **0.40** | 4.60 / 1.22 = **0.27** | 4.20 / 1.16 = **0.28** |
+| Issue187-processor.Z80 | 31.1 / 26.7 = **0.86** | 29.7 / 24.9 = **0.84** | 28.2 / 24.8 = **0.88** |
+| Issue022-AutoRouter_interrupted | 29.4 / 28.2 = **0.96** | 27.0 / 26.2 = **0.97** | 28.8 / 27.1 = **0.94** |
+| Issue214-freerouting | 52.7 / 46.5 = **0.88** | 56.4 / 46.1 = **0.82** | 55.1 / 45.9 = **0.83** |
+| Issue110-RelayModule | 127.6 / 136.4 = **1.07** | 59.0 / 65.1 = **1.10** | 48.7 / 53.6 = **1.09** |
+| Issue178-KeebMaker_Sofle_Choc | 191.9 / 242.2 = **1.26** | 79.0 / 98.6 = **1.24** | 68.5 / 75.0 = **1.09** |
+| DAC2020 bm01 | 482.5 / 641.1 = **1.32** | 230.3 / 276.6 = **1.20** | 185.4 / 223.6 = **1.21** |
+
+Against E15 (same method): Issue110 1 thread 1.24 -> 1.07, Issue178 1 thread 1.50 -> 1.26 and
+4 threads 1.36 -> 1.24, bm01 10 threads 1.53 -> 1.21. (E15's Issue110 at 10 threads, 0.69, was
+a Java run slowed by another job: 103 s instead of about 49.) Peak RSS of C++ is below Java's on
+bm02, Issue110, Issue178 and bm01 at 1 thread, above it on Issue214.
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at
