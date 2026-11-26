@@ -748,6 +748,24 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   // PORT NOTE (C++ only): tree shapes of traces borrowed from the board this one was copied from
   // (afterDeserialize): never counted, so this board never frees them.
   std::unordered_set<TileShape*> borrowedTreeShapes_;
+  // PORT NOTE (C++ only): the board this copy borrowed tree shapes from and the source item of
+  // each borrowing item (copy -> source), for the trees the copy builds later
+  // (borrowTreeShapesFor). The donor outlives this board.
+  BasicBoard* shapeDonor_ = nullptr;
+  std::unordered_map<Item*, Item*> shapeDonorItems_;
+
+ public:
+  /**
+   * PORT NOTE (C++ only): called when this board creates the compensated search tree tree. Items
+   * still unchanged since this board was copied from shapeDonor_ (their default-tree shapes are
+   * still the donor item's) take the donor item's shapes of the donor's tree of the same class
+   * and type, if it has one, instead of computing them again.
+   */
+  void borrowTreeShapesFor(ShapeSearchTree* tree);
+
+ private:
+  /** Gives copied the tree shapes shapes of tree (an own array for a trace, see above). */
+  void borrowShapesInto(Item* copied, jrt::Array<TileShape*>* shapes, ShapeSearchTree* tree);
   std::vector<TileShape*> deadTreeShapes_;
   std::vector<jrt::Array<TileShape*>*> deadShapeArrays_;
   std::vector<Item*> deadItems_;

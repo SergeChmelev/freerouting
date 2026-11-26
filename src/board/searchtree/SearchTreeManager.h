@@ -3,6 +3,8 @@
 #include "fwd.h"
 #include "jrt/jrt.h"
 
+#include <typeinfo>
+
 namespace fr {
 
 /**
@@ -58,6 +60,12 @@ class SearchTreeManager : public virtual jrt::Object {
    * Initializes the tree, if it is not yet allocated.
    */
   virtual ShapeSearchTree* getAutorouteTree(int32_t clearanceClassIndex);
+
+  /**
+   * PORT NOTE (C++ only): the existing tree of this clearance class and dynamic type, or nullptr;
+   * creates nothing (safe while other threads read the board).
+   */
+  ShapeSearchTree* findTree(int32_t clearanceClassIndex, const std::type_info& type);
 
   // The following functions are used internally for performance improvement.
 
