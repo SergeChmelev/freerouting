@@ -1535,11 +1535,39 @@ void BasicBoard::copyItemListFrom(BasicBoard* source,
 
 int64_t BasicBoard::copiesMade() { return gCopiesMade.load(std::memory_order_relaxed); }
 
-std::mutex& BasicBoard::copyLock(const BasicBoard* board) {
+std::shared_mutex& BasicBoard::copyLock(const BasicBoard* board) {
   // Java: synchronized (board) around writing the board in deepCopy. Striped by address: the
   // board layout stays unchanged and only copies of the same board wait for each other.
-  static std::mutex locks[64];
+  static std::shared_mutex locks[64];
   return locks[(reinterpret_cast<std::uintptr_t>(board) >> 6) % 64];
+}
+
+BasicBoard::CopyScope::CopyScope(BasicBoard* board)
+    : board_(board),
+      lock_(copyLock(board)),
+      shared_(board->copiesMayShare_.load(std::memory_order_acquire) &&
+              board->copiesWarmed_.load(std::memory_order_acquire)) {
+  if (shared_) {
+    lock_.lock_shared();
+  } else {
+    lock_.lock();
+  }
+}
+
+BasicBoard::CopyScope::~CopyScope() {
+  if (shared_) {
+    lock_.unlock_shared();
+  } else {
+    lock_.unlock();
+  }
+}
+
+void BasicBoard::CopyScope::copyComplete() {
+  // Alone here (exclusive): every earlier locked part of this copy ran alone too, because the
+  // board was not warmed yet when they started.
+  if (!shared_ && board_->copiesMayShare_.load(std::memory_order_acquire)) {
+    board_->copiesWarmed_.store(true, std::memory_order_release);
+  }
 }
 
 namespace {

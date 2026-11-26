@@ -1,6 +1,8 @@
 #include "geometry/planar/Simplex.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 
 #include "geometry/planar/Circle.h"
 #include "geometry/planar/ConvexShape.h"
@@ -577,8 +579,274 @@ TileShape* Simplex::intersection(TileShape* other) { return other->intersection(
 bool Simplex::intersects(Shape* other) { return other->intersects(this); }
 
 bool Simplex::intersects(Simplex* other) {
+  // PORT NOTE: Java makes the intersection and asks whether it is empty; the search trees ask
+  // this for every leaf whose bounding shape meets the query (intersectionIsEmpty).
+  bool empty;
+  if (intersectionIsEmpty(other, empty)) {
+    // FR_VERIFY_SIMPLEX (diagnostics): compare with the intersection itself.
+    static const bool verify = std::getenv("FR_VERIFY_SIMPLEX") != nullptr;
+    if (verify && intersection(other)->isEmpty() != empty) {
+      std::fprintf(stderr, "SIMPLEX-INTERSECTS-DIFF %d + %d lines: %s\n", lines->length,
+                   other->lines->length, empty ? "empty" : "not empty");
+    }
+    return !empty;
+  }
   ConvexShape* is = intersection(other);
   return !is->isEmpty();
+}
+
+namespace {
+/** A line of Simplex::intersectionIsEmpty with what the steps read of it. */
+struct SimplexLine {
+  Line* line;
+  int32_t ax, ay, bx, by;  // the points a and b
+  int32_t dirX, dirY;      // the direction (Line::directionInts)
+};
+
+constexpr int32_t kStackLines = 32;  // sortLines sorts more lines in another way
+
+constexpr int8_t kSideUnknown = 0;
+constexpr int8_t kSideLeft = 1;
+constexpr int8_t kSideRight = 2;
+constexpr int8_t kSideCollinear = 3;
+
+/** Line::compareTo (the same arithmetic). */
+inline int32_t compareLines(const SimplexLine& l1, const SimplexLine& l2) {
+  int32_t dx1 = l1.bx - l1.ax;
+  int32_t dy1 = l1.by - l1.ay;
+  int32_t dx2 = l2.bx - l2.ax;
+  int32_t dy2 = l2.by - l2.ay;
+  if (dy1 > 0) {
+    if (dy2 < 0) {
+      return -1;
+    }
+    if (dy2 == 0) {
+      if (dx2 > 0) {
+        return 1;
+      }
+      return -1;
+    }
+  } else if (dy1 < 0) {
+    if (dy2 >= 0) {
+      return 1;
+    }
+  } else {  // dy1 == 0
+    if (dx1 > 0) {
+      if (dy2 != 0 || dx2 < 0) {
+        return -1;
+      }
+      return 0;
+    }
+    if (dy2 > 0 || (dy2 == 0 && dx2 > 0)) {
+      return 1;
+    }
+    if (dy2 < 0) {
+      return -1;
+    }
+    return 0;
+  }
+  double determinant = static_cast<double>(dx2) * dy1 - static_cast<double>(dy2) * dx1;
+  return determinant > 0 ? 1 : (determinant < 0 ? -1 : 0);
+}
+
+/** current.line->sideOfIntersection(p1.line, p2.line) (the same arithmetic). */
+inline int8_t sideOfIntersection(const SimplexLine& current, const SimplexLine& p1,
+                                 const SimplexLine& p2) {
+  // Line::intersectionApprox
+  double d1x = p1.bx - p1.ax;
+  double d1y = p1.by - p1.ay;
+  double d2x = p2.bx - p2.ax;
+  double d2y = p2.by - p2.ay;
+  double det1 = static_cast<double>(p1.ax) * p1.by - static_cast<double>(p1.ay) * p1.bx;
+  double det2 = static_cast<double>(p2.ax) * p2.by - static_cast<double>(p2.ay) * p2.bx;
+  double det = d2x * d1y - d2y * d1x;
+  double isX;
+  double isY;
+  if (det == 0) {
+    isX = jrt::Integer::MAX_VALUE;
+    isY = jrt::Integer::MAX_VALUE;
+  } else {
+    isX = (d2x * det1 - d1x * det2) / det;
+    isY = (d2y * det1 - d1y * det2) / det;
+  }
+  // Line::sideOfApprox with the tolerance 1
+  double sideDet = (current.by - current.ay) * (isX - current.ax) -
+                   (current.bx - current.ax) * (isY - current.ay);
+  if (sideDet - 1.0 > 0) {
+    return kSideLeft;
+  }
+  if (sideDet + 1.0 < 0) {
+    return kSideRight;
+  }
+  // collinear within the tolerance: the exact side
+  Side* exact = current.line->sideOfIntersection(p1.line, p2.line);
+  if (exact == Side::ON_THE_LEFT()) {
+    return kSideLeft;
+  }
+  return exact == Side::ON_THE_RIGHT() ? kSideRight : kSideCollinear;
+}
+}  // namespace
+
+bool Simplex::intersectionIsEmpty(Simplex* other, bool& empty) {
+  if (this->isEmpty() || other->isEmpty()) {
+    empty = true;
+    return true;
+  }
+  int32_t count = lines->length + other->lines->length;
+  if (count > kStackLines) {
+    return false;
+  }
+  // intersection(): the lines of both, sorted
+  SimplexLine all[kStackLines];
+  for (int32_t i = 0; i < count; i++) {
+    Line* line = i < lines->length ? (*lines)[i] : (*other->lines)[i - lines->length];
+    auto* a = jrt::fast_cast<IntPoint>(line->a);
+    auto* b = a != nullptr ? jrt::fast_cast<IntPoint>(line->b) : nullptr;
+    if (b == nullptr) {
+      return false;
+    }
+    SimplexLine& current = all[i];
+    current.line = line;
+    current.ax = a->x;
+    current.ay = a->y;
+    current.bx = b->x;
+    current.by = b->y;
+    if (!line->directionInts(current.dirX, current.dirY)) {
+      return false;
+    }
+  }
+  for (int32_t i = 1; i < count; i++) {  // sortLines
+    SimplexLine x = all[i];
+    int32_t j = i;
+    while (j > 0 && compareLines(all[j - 1], x) > 0) {
+      all[j] = all[j - 1];
+      --j;
+    }
+    all[j] = x;
+  }
+
+  // removeRedundantLines(): the sorted lines without multiple lines
+  const SimplexLine* sorted[kStackLines];
+  int8_t intersectionSides[kStackLines];
+  int32_t newLength = 1;
+  sorted[0] = &all[0];
+  intersectionSides[0] = kSideUnknown;
+  const SimplexLine* prev = &all[0];
+  for (int32_t i = 1; i < count; i++) {
+    const SimplexLine& current = all[i];
+    // Line::fastEquals: the determinant first, the directions if it is 0
+    double dx1 = prev->ax - current.ax;
+    double dy1 = prev->ay - current.ay;
+    double dx2 = current.bx - current.ax;
+    double dy2 = current.by - current.ay;
+    if (dx1 * dy2 - dx2 * dy1 != 0 || !current.line->fastEquals(prev->line)) {
+      sorted[newLength] = &current;
+      intersectionSides[newLength] = kSideUnknown;
+      prev = &current;
+      ++newLength;
+    }
+  }
+
+  bool tryAgain = newLength > 2;
+  int32_t indexOfLastRemovedLine = newLength;
+  while (tryAgain) {
+    tryAgain = false;
+    int32_t prevInd = newLength - 1;
+    int32_t nextInd;
+    const SimplexLine* prevLine = sorted[prevInd];
+    const SimplexLine* currentLine = sorted[0];
+    const SimplexLine* nextLine;
+    for (int32_t ind = 0; ind < newLength; ind++) {
+      if (ind == newLength - 1) {
+        nextInd = 0;
+      } else {
+        nextInd = ind + 1;
+      }
+      nextLine = sorted[nextInd];
+
+      bool removeLine = false;
+      double det = static_cast<double>(prevLine->dirX) * nextLine->dirY -
+                   static_cast<double>(prevLine->dirY) * nextLine->dirX;
+      if (det != 0) {  // prevLine and nextLine are not parallel
+        if (intersectionSides[ind] == kSideUnknown) {
+          intersectionSides[ind] = sideOfIntersection(*currentLine, *prevLine, *nextLine);
+        }
+        if (det > 0) {
+          removeLine = intersectionSides[ind] != kSideLeft;
+        } else {
+          if (intersectionSides[ind] == kSideLeft) {
+            if (static_cast<double>(prevLine->dirX) * currentLine->dirY -
+                    static_cast<double>(prevLine->dirY) * currentLine->dirX >
+                0) {
+              newLength = 0;
+              tryAgain = false;
+              break;
+            }
+          }
+        }
+      } else {  // prevLine and nextLine are parallel
+        // prevLine->sideOf(nextLine->a) == ON_THE_LEFT (IntPoint::sideOf, negated twice)
+        int32_t v1x = nextLine->ax - prevLine->ax;
+        int32_t v1y = nextLine->ay - prevLine->ay;
+        int32_t v2x = prevLine->bx - prevLine->ax;
+        int32_t v2y = prevLine->by - prevLine->ay;
+        if (static_cast<double>(v1x) * v2y - static_cast<double>(v1y) * v2x > 0) {
+          newLength = 0;
+          tryAgain = false;
+          break;
+        }
+      }
+      if (removeLine) {
+        tryAgain = true;
+        --newLength;
+        for (int32_t i = ind; i < newLength; i++) {
+          sorted[i] = sorted[i + 1];
+          intersectionSides[i] = intersectionSides[i + 1];
+        }
+
+        if (newLength < 3) {
+          tryAgain = false;
+          break;
+        }
+        // reset 3 precalculated intersectionSides
+        if (ind == 0) {
+          prevInd = newLength - 1;
+        }
+        intersectionSides[prevInd] = kSideUnknown;
+        if (ind >= newLength) {
+          nextInd = 0;
+        } else {
+          nextInd = ind;
+        }
+        intersectionSides[nextInd] = kSideUnknown;
+        --ind;
+        indexOfLastRemovedLine = ind;
+      } else {
+        prevLine = currentLine;
+        prevInd = ind;
+      }
+      currentLine = nextLine;
+      if (!tryAgain && ind >= indexOfLastRemovedLine) {
+        // tried all lines without removing one
+        break;
+      }
+    }
+  }
+
+  if (newLength == 2) {
+    Line* line0 = sorted[0]->line;
+    Line* line1 = sorted[1]->line;
+    if (line0->isParallel(line1)) {
+      if (!line0->direction()->equals(line1->direction())) {
+        // the two remaining lines have opposite direction; the simplex may be empty.
+        if (line1->sideOf(line0->a) == Side::ON_THE_LEFT()) {
+          newLength = 0;
+        }
+      }
+    }
+  }
+  empty = newLength == 0;
+  return true;
 }
 
 bool Simplex::intersects(IntBox* box) { return intersects(box->toSimplex()); }

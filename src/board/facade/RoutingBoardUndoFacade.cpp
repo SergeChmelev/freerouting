@@ -65,13 +65,14 @@ RoutingBoard* RoutingBoardUndoFacade::deepCopy() {
       new (jrt::kOp) jrt::ArrayList<FastPlaneConnectivityGrid_FractureMemo*>();
   {
     // Reads the source board (Java: still inside synchronized (board)).
-    std::lock_guard<std::mutex> lock(BasicBoard::copyLock(board));
+    BasicBoard::CopyScope lock(board);
     for (ConductionArea* plane : *writtenPlanes) {
       planeMemos->add(plane->fractureMemoForCopy());
     }
     clearanceBaseline = board->clearanceBaseline;
     // Taken with the board written: the copy has the same items, so the same counts.
     ledgerCounts = board->routingLedger()->counts();
+    lock.copyComplete();  // the last locked part of the copy
   }
 
   auto* boardCopy = jrt::fast_cast<RoutingBoard>(copied);

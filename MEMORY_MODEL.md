@@ -1148,6 +1148,38 @@ Against E15 (same method): Issue110 1 thread 1.24 -> 1.07, Issue178 1 thread 1.5
 a Java run slowed by another job: 103 s instead of about 49.) Peak RSS of C++ is below Java's on
 bm02, Issue110, Issue178 and bm01 at 1 thread, above it on Issue214.
 
+### E18 — shared copies of an unchanging baseline; the emptiness test of two simplexes
+
+**Copies of the baseline share the copy lock.** The candidates of a pass copy the same baseline;
+`copyLock` was a plain mutex (Java: `synchronized (board)`), so the copies queued up at the start
+of a pass. Copying only reads the board, except what it computes once and keeps (an area's shape,
+a via's center, the undo facade, the incomplete counts of dirty nets), and every copy of an
+unchanged board asks for the same things. The lock is now a `std::shared_mutex`:
+`BasicBoard::CopyScope` takes it exclusively until one complete copy has been made of a board
+declared unchanging (`SharedCopiesScope`, the baseline while its candidates run), shared after.
+Issue178 (interleaved, 3 rounds): 9 threads 75.4 -> 74.9 s (noise), 19 threads 69.5 / 77.5 /
+71.6 -> 68.7 / 69.5 / 69.5 s. Java at 9 threads: 67.5 s.
+
+**Where the 9 threads wait** (gdb samples of all threads, Issue178 in the optimizer): about 91 %
+of the thread samples run, 5 % wait for malloc's arena lock (two arenas, `limit_malloc_arenas`),
+3 % are the main thread waiting for the candidates. The logger and the profiler take global locks
+even when off, but are called rarely: 0.1 % of the samples together.
+
+**`Simplex::intersects(Simplex*)`** (12 % of Issue178 at one thread; every leaf whose bounding
+octagon meets a query in `overlappingLeavesUnlocked` / `overlappingTreeEntriesWithClearance`):
+Java builds the intersection (a new line array, sorted, `removeRedundantLines` with new arrays)
+and asks whether it is empty. `intersectionIsEmpty` runs the same steps (the same order, the same
+floating-point expressions, the exact side when the approximate one is collinear) on arrays on
+the stack with each line's coordinates read once, for up to 32 lines; more falls back.
+`FR_VERIFY_SIMPLEX=1` compares every answer with the intersection: no difference on bm02,
+Issue022, Issue187, Issue110, Issue214, Issue178. Issue178 (interleaved, 2 rounds): 1 thread
+245.0 / 246.4 -> 234.7 / 241.3 s (-3 %), 9 threads 76.5 / 74.1 -> 73.7 / 73.4 s (-2.5 %; Java
+63.7 / 70.9 s).
+
+ThreadSanitizer (Issue054 `-mt 8`): 44 warnings with the shared lock, 45 on the commit before it,
+the same ones: lazy caches in geometry shared by the baseline and its copies (`Line::direction`
+/ `directionInts`, `Polyline::boundingBox`, `Direction::equals` / `sideOf`). None in copying.
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at

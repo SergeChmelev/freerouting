@@ -1007,6 +1007,10 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
   // winner selection and early stop logic are the same in both.
 
   BatchOptimizer_CandidateResult* winningCandidate = nullptr;
+  // C++ only: the baseline does not change while the candidates run, so their copies of it need
+  // not wait for each other once one is complete (BasicBoard::CopyScope). Ended below, before
+  // the winner is replayed and the baseline replaced.
+  BasicBoard::SharedCopiesScope sharedCopies(this->board);
   // A new candidate starts as soon as a thread is free, even while an older and slower
   // candidate is still running, so one slow candidate does not idle the other threads. The
   // results are still read in candidate order, so the winner and the early stop are the same.
@@ -1151,6 +1155,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
     passStop.cancel();  // the unread candidates still running stop at their next check
     pool.shutdown();    // Java: pool.shutdownNow() (here: waits for the running candidates)
   }
+  sharedCopies.end();
 
   float routeImproved = 0.0f;
 

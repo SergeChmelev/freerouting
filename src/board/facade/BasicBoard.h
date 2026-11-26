@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <memory>
 #include <set>
+#include <shared_mutex>
 #include <unordered_set>
 #include <vector>
 
@@ -703,7 +704,63 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   /** Diagnostics (FR_MEM_STATS): board copies made / freed by discard() so far. */
   static int64_t copiesMade();
   /** Lock held while a copy reads this board (Java: synchronized (board) in deepCopy). */
-  static std::mutex& copyLock(const BasicBoard* board);
+  static std::shared_mutex& copyLock(const BasicBoard* board);
+
+  /**
+   * PORT NOTE (C++ only): holds copyLock(board) for a locked part of a copy of board. Copying
+   * only reads the board, except for what it computes on first use and keeps in it (an area's
+   * absolute shape, a via's center, the undo facade, the incomplete counts of dirty nets). All
+   * copies of an unchanged board ask for the same things, so after one complete copy the others
+   * only read: the lock is taken exclusively until a complete copy has been made of a board that
+   * is declared unchanging (SharedCopiesScope: the baseline of an optimizer pass), shared after.
+   */
+  class CopyScope {
+   public:
+    explicit CopyScope(BasicBoard* board);
+    ~CopyScope();
+    CopyScope(const CopyScope&) = delete;
+    CopyScope& operator=(const CopyScope&) = delete;
+    /** Called in the last locked part of a complete copy (RoutingBoardUndoFacade::deepCopy). */
+    void copyComplete();
+
+   private:
+    BasicBoard* board_;
+    std::shared_mutex& lock_;
+    bool shared_;
+  };
+
+  /**
+   * PORT NOTE (C++ only): while one is alive the board does not change (the caller's promise:
+   * the baseline of an optimizer pass while its candidates run), so its copies may be made
+   * together once one of them is complete (CopyScope).
+   */
+  class SharedCopiesScope {
+   public:
+    explicit SharedCopiesScope(BasicBoard* board) : board_(board) {
+      board_->copiesWarmed_.store(false, std::memory_order_release);
+      board_->copiesMayShare_.store(true, std::memory_order_release);
+    }
+    ~SharedCopiesScope() { end(); }
+    SharedCopiesScope(const SharedCopiesScope&) = delete;
+    SharedCopiesScope& operator=(const SharedCopiesScope&) = delete;
+    /** Ends the promise (before the board may change or be dropped). */
+    void end() {
+      if (board_ != nullptr) {
+        board_->copiesMayShare_.store(false, std::memory_order_release);
+        board_->copiesWarmed_.store(false, std::memory_order_release);
+        board_ = nullptr;
+      }
+    }
+
+   private:
+    BasicBoard* board_;
+  };
+
+ private:
+  std::atomic<bool> copiesMayShare_{false};
+  std::atomic<bool> copiesWarmed_{false};
+
+ public:
   static int64_t copiesDiscarded();
   /** Diagnostics (FR_MEM_STATS): deferred-disposal counters. */
   static std::string graveyardStats();

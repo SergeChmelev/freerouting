@@ -1521,7 +1521,7 @@ RoutingBoard* RoutingBoard::deepCopy() {
   RoutingBoardUndoFacade* facade;
   {
     // Optimizer workers copy the same baseline board at once: the facade is made only once.
-    std::lock_guard<std::mutex> lock(copyLock(this));
+    CopyScope lock(this);
     facade = getUndoFacade();
   }
   return facade->deepCopy();
@@ -1532,7 +1532,7 @@ BasicBoard* RoutingBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>*
   jrt::IdentityHashMap<Item*, Item*>* ownMap = nullptr;  // stage E: freed below if made here
   {
     // Java writes the board under synchronized (board); reading it back runs in parallel.
-    std::lock_guard<std::mutex> lock(copyLock(this));
+    CopyScope lock(this);
     copy = new (jrt::kBoard) RoutingBoard(BasicBoard_CopyTag{}, this);
     if (itemMap == nullptr) itemMap = ownMap = new (jrt::kOp) jrt::IdentityHashMap<Item*, Item*>();
     copy->copyItemListFrom(this, itemMap);

@@ -153,6 +153,14 @@ class Simplex final : public TileShape {
   virtual Simplex* removeRedundantLines();
 
  private:
+  /**
+   * PORT NOTE (C++ only): whether intersection(other) is empty, without making it: the steps of
+   * intersection() and removeRedundantLines() on arrays on the stack, with the coordinates of
+   * the lines read once. Returns false if it does not handle the two simplexes (many lines, a
+   * line that is not through integer points); empty is set otherwise.
+   */
+  bool intersectionIsEmpty(Simplex* other, bool& empty);
+
   /** Calculates the division lines for cutting outerSimplex minus this simplex at the inner
    * corner innerCornerNo. */
   jrt::Array<Line*>* calcDivisionLines(int32_t innerCornerNo, Simplex* outerSimplex);
