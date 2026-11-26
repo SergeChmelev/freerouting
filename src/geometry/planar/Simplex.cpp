@@ -1,5 +1,7 @@
 #include "geometry/planar/Simplex.h"
 
+#include <algorithm>
+
 #include "geometry/planar/Circle.h"
 #include "geometry/planar/ConvexShape.h"
 #include "geometry/planar/Direction.h"
@@ -26,11 +28,12 @@ void sortLines(jrt::Array<Line*>* lines) {
   // PORT NOTE: a simplex has a few lines: a stable insertion sort (the result of every stable
   // sort is the same) without the std::function comparator and the merge buffer.
   int32_t n = lines->length;
+  Line** v = lines->begin();
   if (n > 32) {
-    jrt::Arrays::sort<Line*>(lines, [](Line* a, Line* b) { return a->compareTo(b); });
+    // (a circle's tangents: 64 lines) the same stable order, without std::function
+    std::stable_sort(v, v + n, [](Line* a, Line* b) { return a->compareTo(b) < 0; });
     return;
   }
-  Line** v = lines->begin();
   for (int32_t i = 1; i < n; i++) {
     Line* x = v[i];
     int32_t j = i;
