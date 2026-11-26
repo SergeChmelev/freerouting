@@ -135,7 +135,63 @@ ShapeSearchTree* SearchTreeManager::findTree(int32_t clearanceClassIndex,
       return currentTree;
     }
   }
+  for (ShapeSearchTree* currentTree : lendingTrees_) {
+    if (currentTree->compensatedClearanceClassNo == clearanceClassIndex &&
+        typeid(*currentTree) == type) {
+      return currentTree;
+    }
+  }
   return nullptr;
+}
+
+ShapeSearchTree* SearchTreeManager::newAutorouteTreeObject(int32_t clearanceClassIndex) {
+  if (this->board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
+    // fast algorithm with 90 degree restriction
+    return new (jrt::kBoard) ShapeSearchTree90Degree(this->board, clearanceClassIndex);
+  }
+  if (this->board->rules->getTraceAngleRestriction() == AngleRestriction::FORTYFIVE_DEGREE) {
+    // fast algorithm with 45 degree restriction
+    return new (jrt::kBoard) ShapeSearchTree45Degree(this->board, clearanceClassIndex);
+  }
+  // slow algorithm or no angle restriction
+  return new (jrt::kBoard) ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(),
+                                           this->board, clearanceClassIndex);
+}
+
+std::vector<int32_t> SearchTreeManager::autorouteTreeClasses() {
+  std::vector<int32_t> result;
+  for (ShapeSearchTree* currentTree : *compensatedSearchTrees) {
+    if (currentTree != defaultTree) {
+      result.push_back(currentTree->compensatedClearanceClassNo);
+    }
+  }
+  return result;
+}
+
+void SearchTreeManager::prepareLendingTree(int32_t clearanceClassIndex) {
+  for (ShapeSearchTree* currentTree : *compensatedSearchTrees) {
+    if (currentTree->compensatedClearanceClassNo == clearanceClassIndex) {
+      return;  // the tree itself lends (getAutorouteTree would return it)
+    }
+  }
+  for (ShapeSearchTree* currentTree : lendingTrees_) {
+    if (currentTree->compensatedClearanceClassNo == clearanceClassIndex) {
+      return;
+    }
+  }
+  ShapeSearchTree* tree = newAutorouteTreeObject(clearanceClassIndex);
+  lendingTrees_.push_back(tree);
+  auto itScope = this->board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
+  for (;;) {
+    Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
+    if (currentItem == nullptr) {
+      break;
+    }
+    if (currentItem->isOnTheBoard()) {
+      currentItem->treeShapeCount(tree);  // computes and keeps the item's shapes for the tree
+    }
+  }
 }
 
 ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex) {
@@ -146,19 +202,7 @@ ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex
   }
 
   // Create a new ShapeSearchTree object based on the board's settings
-  ShapeSearchTree* currentAutorouteTree;
-  if (this->board->rules->getTraceAngleRestriction() == AngleRestriction::NINETY_DEGREE) {
-    // fast algorithm with 90 degree restriction
-    currentAutorouteTree = new (jrt::kBoard) ShapeSearchTree90Degree(this->board, clearanceClassIndex);
-  } else if (this->board->rules->getTraceAngleRestriction() ==
-             AngleRestriction::FORTYFIVE_DEGREE) {
-    // fast algorithm with 45 degree restriction
-    currentAutorouteTree = new (jrt::kBoard) ShapeSearchTree45Degree(this->board, clearanceClassIndex);
-  } else {
-    // slow algorithm or no angle restriction
-    currentAutorouteTree = new (jrt::kBoard) ShapeSearchTree(FortyfiveDegreeBoundingDirections::INSTANCE(),
-                                               this->board, clearanceClassIndex);
-  }
+  ShapeSearchTree* currentAutorouteTree = newAutorouteTreeObject(clearanceClassIndex);
   this->compensatedSearchTrees->add(currentAutorouteTree);
   // C++ only: a candidate copy takes the shapes of its unchanged items from the baseline's tree.
   this->board->borrowTreeShapesFor(currentAutorouteTree);
@@ -180,6 +224,10 @@ void SearchTreeManager::disposeTrees() {
     tree->disposeNodes();
     jrt::dispose(tree);
   }
+  for (ShapeSearchTree* tree : lendingTrees_) {
+    jrt::dispose(tree);  // no nodes
+  }
+  lendingTrees_.clear();
   compensatedSearchTrees->clear();
   jrt::dispose(compensatedSearchTrees);
   compensatedSearchTrees = nullptr;

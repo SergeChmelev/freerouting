@@ -1102,6 +1102,19 @@ this session: pins, vias, the from-scratch rule). 312a089 vs E16, 4 threads, rel
 `JRT_CHECKED=0`, interleaved, CPU seconds (user + sys), SES equal: Issue178 321.8 -> 293.6
 (-8.8 %), Issue054 44.6 -> 37.2 (-16.6 %); peak RSS not higher (Issue054 1082 -> 834 MB).
 
+**Lending trees (E17).** The later-tree borrowing needs a donor tree of the same class on the
+baseline. The board after the autorouter has the trees of all the classes it routed; the winner
+of a pass, which becomes the next baseline, has only the tree of the class it routed (Issue178:
+two passes, in the second about 560 of 1100 autoroute trees were built without a donor and
+computed every item's shapes again, 16 s of 242 at one thread). Before a pass the optimizer now
+gives the baseline a lending tree for every class the earlier baselines had a tree of
+(`SearchTreeManager::prepareLendingTree`, classes kept in `BasicBoard::TreeShapeRequests`): a
+tree object of the kind `getAutorouteTree` creates, outside the search trees and without leaves
+(never searched, never updated, so it cannot change a result), and every item's shapes for it,
+computed from scratch on the main thread. `findTree` finds it; a candidate that still meets no
+donor tree adds its class for the next pass. Issue178 at 4 threads -5 % (105.6 -> 99.4 and
+101.2 -> 96.2 s, interleaved), Issue110 at 1 thread -2 %; `FR_VERIFY_TREE_SHAPES`: no difference.
+
 `FR_VARIANTS="java-1t main-mt1 java-4t main-mt4 java-10t main-mt10" tools/bench_speed.sh` on main
 after E16 (2026-11-26, release LTO, interleaved per board). Three runs met another job on the
 machine (Java itself up to 2x slower): those cells (Issue178 4 and 10 threads, Issue110 10

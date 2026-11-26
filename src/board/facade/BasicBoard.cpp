@@ -1414,6 +1414,12 @@ void BasicBoard::borrowTreeShapesFor(ShapeSearchTree* tree) {
   ShapeSearchTree* donorDefault = shapeDonor_->searchTreeManager->getDefaultTree();
   ShapeSearchTree* ownDefault = searchTreeManager->getDefaultTree();
   if (donorTree == nullptr || donorDefault == nullptr || ownDefault == nullptr) {
+    if (donorTree == nullptr && shapeDonor_->treeShapeRequests != nullptr) {
+      // The baseline has no tree of this class to lend from: ask for one in the next pass.
+      TreeShapeRequests& requests = *shapeDonor_->treeShapeRequests;
+      std::lock_guard<std::mutex> lock(requests.mutex);
+      requests.clearanceClasses.insert(tree->compensatedClearanceClassNo);
+    }
     return;
   }
   auto itScope = itemList->readScope();

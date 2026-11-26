@@ -4,6 +4,7 @@
 #include "jrt/jrt.h"
 
 #include <typeinfo>
+#include <vector>
 
 namespace fr {
 
@@ -18,6 +19,10 @@ class SearchTreeManager : public virtual jrt::Object {
   BasicBoard* board;
   ShapeSearchTree* defaultTree;
   bool clearanceCompensationUsed;
+  /** PORT NOTE (C++ only): see prepareLendingTree. Owned. */
+  std::vector<ShapeSearchTree*> lendingTrees_;
+  /** The tree object getAutorouteTree creates for a clearance class (not registered, empty). */
+  ShapeSearchTree* newAutorouteTreeObject(int32_t clearanceClassIndex);
 
  public:
   /** Creates a new instance of SearchTreeManager. */
@@ -66,6 +71,19 @@ class SearchTreeManager : public virtual jrt::Object {
    * creates nothing (safe while other threads read the board).
    */
   ShapeSearchTree* findTree(int32_t clearanceClassIndex, const std::type_info& type);
+
+  /**
+   * PORT NOTE (C++ only): makes this board able to lend the tree shapes of an autoroute tree of
+   * clearance class clearanceClassIndex (BasicBoard::borrowTreeShapesFor) if it has no such tree:
+   * a tree object of the kind getAutorouteTree would create, outside the search trees and without
+   * leaves (never searched, never updated), and the shapes every item has for it, computed from
+   * scratch. The winner of an optimizer pass has the autoroute tree of the class it routed only;
+   * the next pass's candidates need the other classes too. Not while other threads read the board.
+   */
+  void prepareLendingTree(int32_t clearanceClassIndex);
+
+  /** PORT NOTE (C++ only): the clearance classes of the trees other than the default tree. */
+  std::vector<int32_t> autorouteTreeClasses();
 
   // The following functions are used internally for performance improvement.
 

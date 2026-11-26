@@ -8,6 +8,7 @@
 #include <deque>
 #include <exception>
 #include <memory>
+#include <set>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -21,6 +22,7 @@
 #include "autoroute/pipeline/NamedAlgorithmType.h"
 #include "autoroute/pipeline/TaskState.h"
 #include "board/facade/RoutingBoard.h"
+#include "board/searchtree/SearchTreeManager.h"
 #include "board/model/items/Item.h"
 #include "board/model/items/Pin.h"
 #include "board/model/items/Trace.h"
@@ -934,6 +936,28 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
 
   this->minCumulativeTraceLength = boardStatisticsBefore->traces->totalWeightedLength.value();
   jrt::List<int32_t>* candidateItemIds = prepareCandidateItems();
+  {
+    // C++ only: before the candidates start, the baseline gets lending trees for the clearance
+    // classes of the autoroute trees the earlier baselines had and for those whose tree shapes
+    // earlier candidates could not borrow: the board after the autorouter has the trees of all
+    // the classes it routed, the winner of a pass only the tree of the class it routed.
+    if (this->treeShapeRequests_ == nullptr) {
+      this->treeShapeRequests_ = std::make_shared<BasicBoard::TreeShapeRequests>();
+    }
+    auto requests = std::static_pointer_cast<BasicBoard::TreeShapeRequests>(this->treeShapeRequests_);
+    this->board->treeShapeRequests = requests;
+    std::set<int32_t> classes;
+    {
+      std::lock_guard<std::mutex> lock(requests->mutex);
+      for (int32_t clearanceClass : this->board->searchTreeManager->autorouteTreeClasses()) {
+        requests->clearanceClasses.insert(clearanceClass);
+      }
+      classes = requests->clearanceClasses;
+    }
+    for (int32_t clearanceClass : classes) {
+      this->board->searchTreeManager->prepareLendingTree(clearanceClass);
+    }
+  }
 
   if (this->settings->optimizer != nullptr
       && this->settings->optimizer->maxItems.has_value()

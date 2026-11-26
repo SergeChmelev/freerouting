@@ -10,6 +10,8 @@
 #include "board/actions/ItemSearchTreesInfo.h"
 
 #include <unordered_map>
+#include <memory>
+#include <set>
 #include <unordered_set>
 #include <vector>
 
@@ -753,6 +755,22 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   // (borrowTreeShapesFor). The donor outlives this board.
   BasicBoard* shapeDonor_ = nullptr;
   std::unordered_map<Item*, Item*> shapeDonorItems_;
+
+ public:
+  /**
+   * PORT NOTE (C++ only): the clearance classes of the autoroute trees the baselines of the
+   * optimizer's passes had, and of those that copies of a baseline built without a donor tree to
+   * borrow from (borrowTreeShapesFor): the optimizer shares one with the baseline of each pass
+   * and prepares lending trees for them before the pass (SearchTreeManager::
+   * prepareLendingTree). Written by the candidates' threads too.
+   */
+  struct TreeShapeRequests {
+    std::mutex mutex;
+    std::set<int32_t> clearanceClasses;
+  };
+  std::shared_ptr<TreeShapeRequests> treeShapeRequests;
+
+ private:
 
  public:
   /**

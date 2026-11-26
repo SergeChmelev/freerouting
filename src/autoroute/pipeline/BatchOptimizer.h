@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "autoroute/pipeline/NamedAlgorithm.h"
 #include "fwd.h"
 #include "jrt/jrt.h"
@@ -239,6 +241,13 @@ class BatchOptimizer : public NamedAlgorithm {
  private:
   /** Java: ThreadLocal.withInitial(WorkerBoardState::new); one instance (set in constructor). */
   BatchOptimizer_WorkerBoardState* workerBoardStates;
+  /**
+   * PORT NOTE (C++ only): the clearance classes whose autoroute-tree shapes the candidates could
+   * not borrow from their baseline (BasicBoard::TreeShapeRequests); optRoutePass prepares lending
+   * trees for them on the baseline of the next pass. A std::shared_ptr<BasicBoard::
+   * TreeShapeRequests> (the type is not complete here).
+   */
+  std::shared_ptr<void> treeShapeRequests_;
 
  public:
   /** Creates a new instance of BatchOptimizer, which is used to optimize the board. */
