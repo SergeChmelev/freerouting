@@ -1139,11 +1139,18 @@ bm02, Issue110, Issue178 and bm01 at 1 thread, above it on Issue214.
 * **Search-region spikes after E12**: the arenas still reach about 1 GB live at times in the
   optimizer on bm01 (`-mt 4`), less than before but more than Java's whole heap there; a profile
   of what the search region keeps (`FR_ARENA_WARN_MB=64`) is the next step.
-* **Performance** (see E15): C++ is faster than Java at 1, 4 and 10 threads on bm02, Issue187,
-  Issue022 and Issue214; the large boards (Issue110 at 1 and 4 threads, Issue178, bm01) are
-  1.2-1.5x slower, in the optimizer's candidates: the maze search and its geometry
-  (`expandToOtherLayers` / `ForcedPadRouter::checkForcedPad`, `completeShape`, `Simplex`
-  intersections), 15-25 % slower than Java's JIT code, spread over many functions.
+* **Performance** (see E15, E16): C++ is faster than Java at 1, 4 and 10 threads on bm02,
+  Issue187, Issue022 and Issue214; the large boards are still slower (Issue110 1.07-1.10x,
+  Issue178 1.09-1.26x, bm01 1.2-1.3x), in the optimizer's candidates. Issue178 at one thread
+  after E16 (perf against a Java JFR profile, seconds scaled to 242 / 192 wall): the maze search
+  93 / 81 (spread over many small functions; the tree search itself is twice Java's speed), the
+  autorouter's tree built per candidate 24 / 15, the candidate's teardown 10 / 0 (Java's
+  collector runs on other threads), connected sets 32 / 28, the main autorouter 27 / 21.
+  Tried without gain: the items' search-tree info of a candidate in its arena instead of the
+  heap (18 % fewer heap blocks freed, the same time: small blocks are cheap since E14).
+  Ideas not tried: the default tree of a pass's candidates cloned from the first candidate's
+  (the same items in the same order give the same tree) instead of inserted leaf by leaf; the
+  candidate's teardown on another thread.
 * Not freed yet: the strict-DRC snapshots of `AutorouteConnectionRouter` (only with
   `strict_drc`), the `InteractiveSession`
   of the Lua engine, job-level objects of `route()` (job, pipeline, settings merger: freed with
