@@ -1114,6 +1114,18 @@ tree object of the kind `getAutorouteTree` creates, outside the search trees and
 computed from scratch on the main thread. `findTree` finds it; a candidate that still meets no
 donor tree adds its class for the next pass. Issue178 at 4 threads -5 % (105.6 -> 99.4 and
 101.2 -> 96.2 s, interleaved), Issue110 at 1 thread -2 %; `FR_VERIFY_TREE_SHAPES`: no difference.
+The large boards against Java after E17 (same method as the table below, C++/Java at 1 / 4 / 10
+threads, all SES equal): Issue110 1.11 / 1.13 / 1.12 (128.6, 62.1, 54.5 s), Issue178 1.17 /
+1.17 / 1.13 (224.3, 95.9, 75.2 s; before 242.2 and 98.6 s at 1 and 4 threads), bm01 1.25 /
+1.22 / 1.17 (650.8, 288.2, 223.3 s). Only Issue178 moved: Issue110's ten passes had donor trees
+already, and on bm01 the candidates are a smaller share of the pass.
+
+What the optimizer does on these boards (the same in Java): the candidates are every trace and
+via that is not fixed, left to right; a pass applies its one best result and the next pass
+starts over. On Issue110 eight of ten passes improved the board; on Issue178 and bm01 both
+passes' winners were rejected after the replay (`DRC_COUNT_REGRESSION`: one new clearance
+violation) and the board before the optimizer was restored, so there 60-70 % of the run changes
+nothing.
 
 `FR_VARIANTS="java-1t main-mt1 java-4t main-mt4 java-10t main-mt10" tools/bench_speed.sh` on main
 after E16 (2026-11-26, release LTO, interleaved per board). Three runs met another job on the
