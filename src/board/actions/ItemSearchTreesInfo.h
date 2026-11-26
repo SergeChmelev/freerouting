@@ -95,6 +95,19 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
     return currentTreeInfo != nullptr ? currentTreeInfo->precalculatedTreeShapes : nullptr;
   }
 
+  /**
+   * PORT NOTE (C++ only): getPrecalculatedTreeShapes without touching the lookup cache, for
+   * readers on other threads (optimizer candidates copying a shared board).
+   */
+  jrt::Array<TileShape*>* peekPrecalculatedTreeShapes(ShapeTree* tree) const {
+    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
+      if (currentTreeInfo->tree == tree) {
+        return currentTreeInfo->precalculatedTreeShapes;
+      }
+    }
+    return nullptr;
+  }
+
   /** Sets the item tree entries for the tree with identification number treeNo. */
   void setPrecalculatedTreeShapes(jrt::Array<TileShape*>* tileShapes, ShapeTree* tree) {
     if (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo = infoOf(tree)) {

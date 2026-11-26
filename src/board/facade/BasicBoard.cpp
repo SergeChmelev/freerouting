@@ -1339,10 +1339,105 @@ void BasicBoard::afterDeserialize() {
   itemRepository = nullptr;
   connectivityQueries = nullptr;
   snapshotManager = nullptr;
+  if (borrowShapesSource_ != nullptr && borrowShapesMap_ != nullptr) {
+    // C++ only: the copied obstacle areas (keepouts, planes) take the source areas. tree shapes of the
+    // default tree (both trees have the same type and clearance compensation).
+    ShapeSearchTree* sourceTree = borrowShapesSource_->searchTreeManager->getDefaultTree();
+    ShapeSearchTree* copyTree = searchTreeManager->getDefaultTree();
+    if (sourceTree != nullptr && copyTree != nullptr && typeid(*sourceTree) == typeid(*copyTree) &&
+        sourceTree->compensatedClearanceClassNo == copyTree->compensatedClearanceClassNo) {
+      for (auto* entry : *borrowShapesMap_->entrySet()) {
+        Item* original = entry->getKey();
+        Item* copied = entry->getValue();
+        if (original == nullptr || copied == nullptr) {
+          continue;
+        }
+        bool trace = jrt::fast_cast<PolylineTrace>(copied) != nullptr;
+        if (!trace && jrt::fast_cast<ObstacleArea>(copied) == nullptr) {
+          continue;  // pins and the outline fill lazy caches while computing their shapes
+        }
+        jrt::Array<TileShape*>* shapes = original->peekTreeShapes(sourceTree);
+        if (shapes == nullptr) {
+          continue;
+        }
+        copied->board = this;
+        borrowShapesInto(copied, shapes, copyTree);
+        shapeDonorItems_[copied] = original;
+      }
+    }
+    shapeDonor_ = shapeDonorItems_.empty() ? nullptr : borrowShapesSource_;
+    borrowShapesSource_ = nullptr;
+    borrowShapesMap_ = nullptr;
+  }
   jrt::DisposeOnExit loopSource2(this->getItems());
   for (Item* currentItem : *loopSource2) {
     currentItem->board = this;
     searchTreeManager->insert(currentItem);
+  }
+}
+
+void BasicBoard::borrowShapesInto(Item* copied, jrt::Array<TileShape*>* shapes,
+                                  ShapeSearchTree* tree) {
+  if (jrt::fast_cast<PolylineTrace>(copied) != nullptr) {
+    // A trace's shapes are counted by its board: the copy gets an array of its own (it frees it)
+    // holding the source's shapes, which it never counts (borrowedTreeShapes_).
+    for (TileShape* s : *shapes) {
+      if (s != nullptr) borrowedTreeShapes_.insert(s);
+    }
+    jrt::Array<TileShape*>* own;
+    {
+      jrt::DomainScope domain(copied);
+      own = new (jrt::kGeom) jrt::Array<TileShape*>(shapes->length);
+    }
+    for (int32_t i = 0; i < shapes->length; i++) (*own)[i] = (*shapes)[i];
+    shapes = own;
+  }
+  copied->borrowTreeShapes(shapes, tree);
+}
+
+void BasicBoard::borrowTreeShapesFor(ShapeSearchTree* tree) {
+  if (shapeDonor_ == nullptr || shapeDonorItems_.empty()) {
+    return;
+  }
+  ShapeSearchTree* donorTree =
+      shapeDonor_->searchTreeManager->findTree(tree->compensatedClearanceClassNo, typeid(*tree));
+  ShapeSearchTree* donorDefault = shapeDonor_->searchTreeManager->getDefaultTree();
+  ShapeSearchTree* ownDefault = searchTreeManager->getDefaultTree();
+  if (donorTree == nullptr || donorDefault == nullptr || ownDefault == nullptr) {
+    return;
+  }
+  auto itScope = itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
+  for (Item* item = jrt::fast_cast<Item>(itemList->readObject(it)); item != nullptr;
+       item = jrt::fast_cast<Item>(itemList->readObject(it))) {
+    auto found = shapeDonorItems_.find(item);
+    if (found == shapeDonorItems_.end()) {
+      continue;
+    }
+    Item* donor = found->second;
+    // Unchanged since the copy: its default-tree shapes are still exactly the donor's.
+    jrt::Array<TileShape*>* own = item->peekTreeShapes(ownDefault);
+    jrt::Array<TileShape*>* donorOwn = donor->peekTreeShapes(donorDefault);
+    if (own == nullptr || donorOwn == nullptr || own->length != donorOwn->length) {
+      continue;
+    }
+    bool same = true;
+    for (int32_t i = 0; same && i < own->length; i++) same = (*own)[i] == (*donorOwn)[i];
+    if (!same) {
+      continue;
+    }
+    jrt::Array<TileShape*>* shapes = donor->peekTreeShapes(donorTree);
+    if (shapes != nullptr && item->peekTreeShapes(tree) == nullptr) {
+      borrowShapesInto(item, shapes, tree);
+    }
+  }
+}
+
+void BasicBoard::prepareTreeShapeBorrowing(BasicBoard* copy,
+                                           jrt::IdentityHashMap<Item*, Item*>* itemMap) {
+  if (BorrowTreeShapesScope::active() && itemMap != nullptr) {
+    copy->borrowShapesSource_ = this;
+    copy->borrowShapesMap_ = itemMap;
   }
 }
 
@@ -1474,8 +1569,10 @@ void BasicBoard::noteDeadObject(UndoableObjects_Storable* object) {
 }
 
 void BasicBoard::retainTreeShapes(jrt::Array<TileShape*>* shapes) {
+  bool borrowing = !borrowedTreeShapes_.empty();
   for (TileShape* s : *shapes) {
-    if (s != nullptr) ++treeShapeRefs_[s];
+    if (s == nullptr || (borrowing && borrowedTreeShapes_.count(s) != 0)) continue;
+    ++treeShapeRefs_[s];
   }
 }
 
@@ -1649,6 +1746,7 @@ void BasicBoard::discardLast(BasicBoard* board) {
 BasicBoard* BasicBoard::copyAsDeserialized(jrt::IdentityHashMap<Item*, Item*>* itemMap) {
   BasicBoard* copy = new (jrt::kBoard) BasicBoard(BasicBoard_CopyTag{}, this);
   copy->copyItemListFrom(this, itemMap);
+  prepareTreeShapeBorrowing(copy, itemMap);
   copy->afterDeserialize();
   return copy;
 }

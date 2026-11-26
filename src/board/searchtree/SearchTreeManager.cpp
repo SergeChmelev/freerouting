@@ -127,6 +127,17 @@ void SearchTreeManager::clearanceClassRemoved(int32_t no) {
   }
 }
 
+ShapeSearchTree* SearchTreeManager::findTree(int32_t clearanceClassIndex,
+                                             const std::type_info& type) {
+  for (ShapeSearchTree* currentTree : *compensatedSearchTrees) {
+    if (currentTree->compensatedClearanceClassNo == clearanceClassIndex &&
+        typeid(*currentTree) == type) {
+      return currentTree;
+    }
+  }
+  return nullptr;
+}
+
 ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex) {
   for (ShapeSearchTree* currentTree : *compensatedSearchTrees) {
     if (currentTree->compensatedClearanceClassNo == clearanceClassIndex) {
@@ -149,6 +160,8 @@ ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex
                                                this->board, clearanceClassIndex);
   }
   this->compensatedSearchTrees->add(currentAutorouteTree);
+  // C++ only: a candidate copy takes the shapes of its unchanged items from the baseline's tree.
+  this->board->borrowTreeShapesFor(currentAutorouteTree);
 
   auto itScope = this->board->itemList->readScope();
   jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;

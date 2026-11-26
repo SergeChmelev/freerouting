@@ -1499,7 +1499,13 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
   } else {
     replayRegion.emplace();
   }
-  RoutingBoard* workerBoard = workerBoardState->acquire(baselineBoard);
+  RoutingBoard* workerBoard;
+  {
+    // C++ only: a candidate board is dropped before the baseline of the pass, so its items other
+    // than traces can use the baseline items' tree shapes instead of computing them again.
+    BasicBoard::BorrowTreeShapesScope borrow(useCandidateArena);
+    workerBoard = workerBoardState->acquire(baselineBoard);
+  }
   if (useCandidateArena) {
     candidateArena.board = workerBoard;
   }

@@ -225,6 +225,18 @@ jrt::Array<TileShape*>* Item::getPrecalculatedTreeShapes(ShapeTree* tree) {
   return precalculatedTreeShapes;
 }
 
+jrt::Array<TileShape*>* Item::peekTreeShapes(ShapeTree* tree) {
+  return this->searchTreesInfo != nullptr ? this->searchTreesInfo->peekPrecalculatedTreeShapes(tree)
+                                          : nullptr;
+}
+
+void Item::borrowTreeShapes(jrt::Array<TileShape*>* shapes, ShapeTree* tree) {
+  if (this->searchTreesInfo == nullptr) {
+    this->searchTreesInfo = newSearchTreesInfo();
+  }
+  this->searchTreesInfo->setPrecalculatedTreeShapes(shapes, tree);
+}
+
 jrt::Object* Item::clone() {
   Item* dup = copy(this->getId());
 
