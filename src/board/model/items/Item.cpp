@@ -2,6 +2,10 @@
 #include "board/model/items/Item.h"
 #include "geometry/planar/GeomCopy.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+
 #include "autoroute/ItemAutorouteInfo.h"
 #include "board/actions/ItemIdGenerator.h"
 #include "board/actions/ItemInfoPrinter.h"
@@ -42,6 +46,8 @@
 #include "geometry/planar/Circle.h"
 #include "geometry/planar/FloatPoint.h"
 #include "geometry/planar/IntBox.h"
+#include "geometry/planar/Line.h"
+#include "geometry/planar/Simplex.h"
 #include "geometry/planar/IntPoint.h"
 #include "geometry/planar/Point.h"
 #include "geometry/planar/Shape.h"
@@ -220,9 +226,14 @@ jrt::Array<TileShape*>* Item::getPrecalculatedTreeShapes(ShapeTree* tree) {
     } else {
       precalculatedTreeShapes = this->calculateTreeShapes(searchTree);
     }
-    this->searchTreesInfo->setPrecalculatedTreeShapes(precalculatedTreeShapes, tree);
+    this->searchTreesInfo->setPrecalculatedTreeShapes(precalculatedTreeShapes, tree, true);
   }
   return precalculatedTreeShapes;
+}
+
+jrt::Array<TileShape*>* Item::peekTreeShapesFromScratch(ShapeTree* tree) {
+  return this->searchTreesInfo != nullptr ? this->searchTreesInfo->peekShapesFromScratch(tree)
+                                          : nullptr;
 }
 
 jrt::Array<TileShape*>* Item::peekTreeShapes(ShapeTree* tree) {
@@ -231,10 +242,39 @@ jrt::Array<TileShape*>* Item::peekTreeShapes(ShapeTree* tree) {
 }
 
 void Item::borrowTreeShapes(jrt::Array<TileShape*>* shapes, ShapeTree* tree) {
+  // FR_VERIFY_TREE_SHAPES (diagnostics): compare with the shapes computed from scratch, which
+  // Java's copy (by serialization) computes; prints the items whose borrowed shapes differ.
+  static const bool verify = std::getenv("FR_VERIFY_TREE_SHAPES") != nullptr;
+  if (verify) {
+    if (auto* searchTree = jrt::fast_cast<ShapeSearchTree>(tree)) {
+      jrt::LocalGeomRegion work;
+      work.setTakesOps(true);
+      jrt::Array<TileShape*>* fresh = this->calculateTreeShapes(searchTree);
+      auto key = [](TileShape* s) -> std::string {
+        if (s == nullptr) return "null";
+        if (auto* x = jrt::fast_cast<Simplex>(s)) {
+          std::string r = "S";
+          for (Line* l : *x->edgeLines()) r += " " + jrt::str(l->a) + ">" + jrt::str(l->b);
+          return r;
+        }
+        return jrt::str(s);
+      };
+      bool same = fresh->length == shapes->length;
+      for (int32_t i = 0; same && i < fresh->length; i++) {
+        same = key((*fresh)[i]) == key((*shapes)[i]);
+      }
+      if (!same) {
+        std::fprintf(stderr, "TREE-SHAPES-DIFF %s id=%d class=%d n=%d/%d\n",
+                     jrt::className(this).c_str(), getId(),
+                     searchTree->compensatedClearanceClassNo, shapes->length, fresh->length);
+      }
+    }
+  }
   if (this->searchTreesInfo == nullptr) {
     this->searchTreesInfo = newSearchTreesInfo();
   }
-  this->searchTreesInfo->setPrecalculatedTreeShapes(shapes, tree);
+  // lent shapes are always shapes computed from scratch (peekTreeShapesFromScratch)
+  this->searchTreesInfo->setPrecalculatedTreeShapes(shapes, tree, true);
 }
 
 jrt::Object* Item::clone() {

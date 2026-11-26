@@ -168,6 +168,12 @@ class Item : public virtual SearchTreeObject,
    */
   jrt::Array<TileShape*>* peekTreeShapes(ShapeTree* tree);
   /**
+   * PORT NOTE (C++ only): peekTreeShapes if the shapes were computed from scratch, else nullptr:
+   * the shapes a copy of this item may borrow (see ItemSearchTreesInfo_SearchTreeInfo::
+   * shapesFromScratch).
+   */
+  jrt::Array<TileShape*>* peekTreeShapesFromScratch(ShapeTree* tree);
+  /**
    * PORT NOTE (C++ only): takes shapes, the tree shapes of tree computed for an item of the same
    * geometry and rules on a board that outlives this item's board, as this item's tree shapes of
    * tree instead of computing them again. A trace's board must not count the shapes (see

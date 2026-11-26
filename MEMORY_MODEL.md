@@ -1069,6 +1069,39 @@ C++ is faster on the boards where the step slider, the connected sets or the aut
 dominate (bm02, Issue187, Issue022, Issue214); the large boards, whose time is the optimizer's
 candidates (the maze search on board copies), are still 1.2-1.5x slower.
 
+### E16 — optimizer candidates borrow the baseline's tree shapes
+
+On the large boards most of the optimizer's time is its candidates, and each candidate copies the
+baseline board and computes the tree shapes of every item again, for the default tree while
+copying and for the autorouter's compensated tree when it routes (Issue178 at one thread: 52 s
+and 57 s of 459, against 25 s and 26 s in Java; the shape computation itself is 2.4x Java's).
+The copy has the same geometry and rules as the baseline, so the same shapes:
+
+* **Default tree** (`BasicBoard::afterDeserialize`, inside `BorrowTreeShapesScope`, set by
+  `OptimizeCandidateTask::call` around `acquire` for a candidate-arena board): the copied traces,
+  obstacle areas, pins and vias take the source item's shapes. A trace's board gets an array of
+  its own holding the source's shapes, which it never counts (`borrowedTreeShapes_`); a pin or
+  via computes its center at once in its cache domain (computing its shapes would have; later it
+  would land in the job heap).
+* **Trees built later** (`SearchTreeManager::getAutorouteTree` → `borrowTreeShapesFor`): items whose
+  default-tree shapes are still the donor's (unchanged since the copy) take the donor's shapes of
+  its tree of the same class and type.
+* **Only shapes computed from scratch** (`ItemSearchTreesInfo_SearchTreeInfo::shapesFromScratch`,
+  set by `Item::getPrecalculatedTreeShapes`, cleared by `setPrecalculatedTreeShapes` from
+  `ShapeSearchTree::changeEntries` / `reuseEntriesAfterCutout`): a trace's shapes put together
+  piece by piece when traces are combined or cut are not always the shapes computed from
+  scratch, which Java's copy (by serialization) computes; lending them changed the SES once
+  (Issue110, one thread). `FR_VERIFY_TREE_SHAPES=1` compares every lent array with a fresh
+  computation (Issue110, Issue178, Issue214, Issue187: no difference).
+* The board outline is not lent (computing its shapes builds its line slices, needed anyway).
+  The copies die before the baseline (the winner is replayed after the candidates have ended,
+  and the replay's own copy does not borrow).
+
+Merged from two parallel attempts (branch `fast-board-copy`: obstacle areas, traces, later trees;
+this session: pins, vias, the from-scratch rule). 312a089 vs E16, 4 threads, release LTO,
+`JRT_CHECKED=0`, interleaved, CPU seconds (user + sys), SES equal: Issue178 321.8 -> 293.6
+(-8.8 %), Issue054 44.6 -> 37.2 (-16.6 %); peak RSS not higher (Issue054 1082 -> 834 MB).
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at

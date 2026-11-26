@@ -1501,8 +1501,8 @@ BatchOptimizer_CandidateResult* BatchOptimizer_OptimizeCandidateTask::call() {
   }
   RoutingBoard* workerBoard;
   {
-    // C++ only: a candidate board is dropped before the baseline of the pass, so its items other
-    // than traces can use the baseline items' tree shapes instead of computing them again.
+    // C++ only: a candidate board is dropped before the baseline of the pass, so its items can
+    // use the baseline items' tree shapes instead of computing them again.
     BasicBoard::BorrowTreeShapesScope borrow(useCandidateArena);
     workerBoard = workerBoardState->acquire(baselineBoard);
   }

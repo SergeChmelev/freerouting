@@ -633,9 +633,10 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
 
   /**
    * PORT NOTE (C++ only): set by copyAsDeserialized inside a BorrowTreeShapesScope: the board
-   * copied and the item map; afterDeserialize then gives the copied items other than traces the
-   * source items' default-tree shapes instead of computing them again (the same shapes: same
-   * geometry and rules). Only for copies that die before their source (optimizer candidates).
+   * copied and the item map; afterDeserialize then gives the copied traces, obstacle areas, pins
+   * and vias the source items' default-tree shapes, where those were computed from scratch,
+   * instead of computing them again (the same shapes: same geometry and rules). Only for copies
+   * that die before their source (optimizer candidates).
    */
   BasicBoard* borrowShapesSource_ = nullptr;
   jrt::IdentityHashMap<Item*, Item*>* borrowShapesMap_ = nullptr;
@@ -643,8 +644,7 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
  public:
   /**
    * PORT NOTE (C++ only): while one is alive on this thread, board copies borrow the tree shapes
-   * of the source's items other than traces (see borrowShapesSource_). The copy must be dropped
-   * before the source.
+   * of the source's items (see borrowShapesSource_). The copy must be dropped before the source.
    */
   class BorrowTreeShapesScope {
    public:

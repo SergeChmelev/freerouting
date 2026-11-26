@@ -29,6 +29,14 @@ class ItemSearchTreesInfo_SearchTreeInfo : public virtual jrt::Object {
   ShapeTree* tree;  // final
   jrt::Array<ShapeTree_Leaf*>* entryArr;
   jrt::Array<TileShape*>* precalculatedTreeShapes;
+  /**
+   * PORT NOTE (C++ only): precalculatedTreeShapes are the shapes computed for the item from
+   * scratch (Item::calculateTreeShapes), not shapes put together piece by piece when traces are
+   * combined or cut (ShapeSearchTree::changeEntries, reuseEntriesAfterCutout): only such shapes
+   * are what a copy of the board computes (Java's copy, by serialization), so only they are
+   * lent to a copy (BasicBoard::afterDeserialize, borrowTreeShapesFor).
+   */
+  bool shapesFromScratch = false;
 
   explicit ItemSearchTreesInfo_SearchTreeInfo(ShapeTree* tree) : tree(tree) {
     entryArr = nullptr;
@@ -109,18 +117,36 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
   }
 
   /** Sets the item tree entries for the tree with identification number treeNo. */
-  void setPrecalculatedTreeShapes(jrt::Array<TileShape*>* tileShapes, ShapeTree* tree) {
+  /** PORT NOTE: fromScratch, see ItemSearchTreesInfo_SearchTreeInfo::shapesFromScratch. */
+  void setPrecalculatedTreeShapes(jrt::Array<TileShape*>* tileShapes, ShapeTree* tree,
+                                  bool fromScratch = false) {
     if (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo = infoOf(tree)) {
       if (currentTreeInfo->precalculatedTreeShapes == tileShapes) return;
       retain(tileShapes);  // first: shapes reused from the old array stay counted
       release(currentTreeInfo->precalculatedTreeShapes);
       currentTreeInfo->precalculatedTreeShapes = tileShapes;
+      currentTreeInfo->shapesFromScratch = fromScratch;
       return;
     }
     auto* newTreeInfo = new (jrt::Like{this}) ItemSearchTreesInfo_SearchTreeInfo(tree);
     retain(tileShapes);
     newTreeInfo->precalculatedTreeShapes = tileShapes;
+    newTreeInfo->shapesFromScratch = fromScratch;
     this->treeList->add(newTreeInfo);
+  }
+
+  /**
+   * PORT NOTE (C++ only): peekPrecalculatedTreeShapes if they were computed from scratch, else
+   * nullptr (reads only, like peekPrecalculatedTreeShapes).
+   */
+  jrt::Array<TileShape*>* peekShapesFromScratch(ShapeTree* tree) const {
+    for (ItemSearchTreesInfo_SearchTreeInfo* currentTreeInfo : *this->treeList) {
+      if (currentTreeInfo->tree == tree) {
+        return currentTreeInfo->shapesFromScratch ? currentTreeInfo->precalculatedTreeShapes
+                                                  : nullptr;
+      }
+    }
+    return nullptr;
   }
 
   /** Clears the stored information about the precalculated tree shapes for all search trees. */
@@ -130,6 +156,7 @@ class ItemSearchTreesInfo : public virtual jrt::Object {
       // bounding shape can be the tree shape itself): the board counts those leaves too.
       release(currentTreeInfo->precalculatedTreeShapes);
       currentTreeInfo->precalculatedTreeShapes = nullptr;
+      currentTreeInfo->shapesFromScratch = false;
     }
   }
 

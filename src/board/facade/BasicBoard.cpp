@@ -17,6 +17,7 @@
 #include "board/facade/BoardSnapshotManager.h"
 #include "board/facade/RoutingBoard.h"
 #include "board/model/items/ComponentObstacleArea.h"
+#include "board/model/items/DrillItem.h"
 #include "board/model/items/ComponentOutline.h"
 #include "board/model/items/ConductionArea.h"
 #include "board/model/items/Connectable.h"
@@ -1340,8 +1341,9 @@ void BasicBoard::afterDeserialize() {
   connectivityQueries = nullptr;
   snapshotManager = nullptr;
   if (borrowShapesSource_ != nullptr && borrowShapesMap_ != nullptr) {
-    // C++ only: the copied obstacle areas (keepouts, planes) take the source areas. tree shapes of the
-    // default tree (both trees have the same type and clearance compensation).
+    // C++ only: the copied traces, obstacle areas (keepouts, planes), pins and vias take the
+    // source items' tree shapes of the default tree (both trees have the same type and clearance
+    // compensation), when those were computed from scratch: the shapes the copy would compute.
     ShapeSearchTree* sourceTree = borrowShapesSource_->searchTreeManager->getDefaultTree();
     ShapeSearchTree* copyTree = searchTreeManager->getDefaultTree();
     if (sourceTree != nullptr && copyTree != nullptr && typeid(*sourceTree) == typeid(*copyTree) &&
@@ -1353,14 +1355,22 @@ void BasicBoard::afterDeserialize() {
           continue;
         }
         bool trace = jrt::fast_cast<PolylineTrace>(copied) != nullptr;
-        if (!trace && jrt::fast_cast<ObstacleArea>(copied) == nullptr) {
-          continue;  // pins and the outline fill lazy caches while computing their shapes
+        auto* drillItem = jrt::fast_cast<DrillItem>(copied);
+        if (!trace && drillItem == nullptr && jrt::fast_cast<ObstacleArea>(copied) == nullptr) {
+          continue;  // the outline fills its line slices while computing its shapes
         }
-        jrt::Array<TileShape*>* shapes = original->peekTreeShapes(sourceTree);
+        jrt::Array<TileShape*>* shapes = original->peekTreeShapesFromScratch(sourceTree);
         if (shapes == nullptr) {
           continue;
         }
         copied->board = this;
+        if (drillItem != nullptr) {
+          // What computing its shapes leaves cached in a pin or via, in its cache domain: its
+          // center. Computed later by whoever asks first, it would be made in that caller's
+          // domain (the job heap, in a candidate: not freed before the job ends).
+          ItemCacheScope cacheScope(copied);
+          drillItem->getCenter();
+        }
         borrowShapesInto(copied, shapes, copyTree);
         shapeDonorItems_[copied] = original;
       }
@@ -1426,7 +1436,7 @@ void BasicBoard::borrowTreeShapesFor(ShapeSearchTree* tree) {
     if (!same) {
       continue;
     }
-    jrt::Array<TileShape*>* shapes = donor->peekTreeShapes(donorTree);
+    jrt::Array<TileShape*>* shapes = donor->peekTreeShapesFromScratch(donorTree);
     if (shapes != nullptr && item->peekTreeShapes(tree) == nullptr) {
       borrowShapesInto(item, shapes, tree);
     }
