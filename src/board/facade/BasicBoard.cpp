@@ -1,3 +1,4 @@
+#include <cstdio>
 // Port of app.freerouting.board.facade.BasicBoard
 #include "board/facade/BasicBoard.h"
 
@@ -155,6 +156,13 @@ jrt::Set<Item*>* BasicBoard::cachedNormalContacts(Item* item) {
   }
   jrt::Set<Item*>* contacts = normalContactCache->get(item);
   if (contacts == nullptr) {
+    if (contactDonor_ != nullptr) {
+      contacts = donorContacts(item);  // C++ only: FrozenContactsScope
+      if (contacts != nullptr) {
+        normalContactCache->put(item, contacts);
+        return contacts;
+      }
+    }
     // PORT NOTE (stage E): the cached set outlives the current operation region: allocate it in
     // the item's domain (heap on the main board, the candidate region on a worker board).
     jrt::DomainScope domain(item);
@@ -164,6 +172,118 @@ jrt::Set<Item*>* BasicBoard::cachedNormalContacts(Item* item) {
     }
   }
   return contacts;
+}
+
+BasicBoard::FrozenContactsScope::FrozenContactsScope(BasicBoard* board) : board_(board) {
+  auto itScope = board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
+  for (;;) {
+    UndoableObjects_Storable* current = board->itemList->readObject(it);
+    if (current == nullptr) {
+      break;
+    }
+    auto* item = jrt::fast_cast<Item>(current);
+    if (item != nullptr && jrt::fast_cast<Connectable>(current) != nullptr) {
+      board->cachedNormalContacts(item);
+    }
+  }
+  board->contactsFrozen_.store(true, std::memory_order_release);
+}
+
+void BasicBoard::FrozenContactsScope::end() {
+  if (board_ != nullptr) {
+    board_->contactsFrozen_.store(false, std::memory_order_release);
+    board_ = nullptr;
+  }
+}
+
+void BasicBoard::noteTreeChange(IntBox* box, int32_t firstLayer, int32_t lastLayer) {
+  if (box == nullptr) {
+    treeChangesUnknown_ = true;
+    return;
+  }
+  if (box->isEmpty()) {
+    return;  // no geometry: touches nothing
+  }
+  treeChanges_.push_back({box->ll->x, box->ll->y, box->ur->x, box->ur->y, firstLayer, lastLayer});
+}
+
+jrt::Set<Item*>* BasicBoard::donorContacts(Item* item) {
+  if (treeChangesUnknown_ || netAssignmentChangeCount != 0 ||
+      !contactDonor_->contactsFrozen_.load(std::memory_order_acquire)) {
+    return nullptr;
+  }
+  auto source = copyToDonor_.find(item);
+  if (source == copyToDonor_.end()) {
+    return nullptr;  // made by this board
+  }
+  if (contactDonor_->normalContactCache == nullptr ||
+      contactDonor_->normalContactCacheVersion != contactDonor_->itemList->getContentVersion()) {
+    return nullptr;
+  }
+  jrt::Set<Item*>* donorSet = contactDonor_->normalContactCache->get(source->second);
+  if (donorSet == nullptr) {
+    return nullptr;
+  }
+  if (!treeChanges_.empty()) {
+    jrt::OpRegionIfTopLevel work;  // the bounding box
+    IntBox* box = item->boundingBox();
+    if (box == nullptr) {
+      return nullptr;
+    }
+    if (!box->isEmpty()) {
+      int32_t firstLayer = item->firstLayer();
+      int32_t lastLayer = item->lastLayer();
+      // one more unit around the box: touching boxes count as near
+      int64_t llx = static_cast<int64_t>(box->ll->x) - 1;
+      int64_t lly = static_cast<int64_t>(box->ll->y) - 1;
+      int64_t urx = static_cast<int64_t>(box->ur->x) + 1;
+      int64_t ury = static_cast<int64_t>(box->ur->y) + 1;
+      for (const TreeChange& change : treeChanges_) {
+        if (change.lastLayer < firstLayer || change.firstLayer > lastLayer) {
+          continue;
+        }
+        if (change.llx <= urx && change.urx >= llx && change.lly <= ury && change.ury >= lly) {
+          return nullptr;  // a change near the item: its contacts may differ
+        }
+      }
+    }
+  }
+  jrt::Set<Item*>* result;
+  {
+    jrt::DomainScope domain(item);  // as cachedNormalContacts allocates it
+    result = new (jrt::kOp) jrt::TreeSet<Item*>();
+    for (Item* donorContact : *donorSet) {
+      auto mapped = donorToCopy_.find(donorContact);
+      if (mapped == donorToCopy_.end()) {
+        jrt::dispose(result);
+        return nullptr;
+      }
+      result->add(mapped->second);
+    }
+  }
+  // FR_VERIFY_CONTACTS (diagnostics): compare with the contacts computed on this board.
+  static const bool verify = std::getenv("FR_VERIFY_CONTACTS") != nullptr;
+  if (verify) {
+    jrt::OpRegionIfTopLevel work;
+    jrt::DisposeOnExit fresh(item->getNormalContacts());
+    bool same = fresh.get() != nullptr && fresh.get()->size() == result->size();
+    if (same) {
+      auto it1 = fresh.get()->begin();
+      for (Item* reused : *result) {
+        if (*it1 != reused) {
+          same = false;
+          break;
+        }
+        ++it1;
+      }
+    }
+    if (!same) {
+      std::fprintf(stderr, "CONTACTS-DIFF item %d: reused %d, computed %d\n", item->getId(),
+                   result->size(), fresh.get() != nullptr ? fresh.get()->size() : -1);
+    }
+  }
+  return result;
 }
 
 NetRoutingLedger* BasicBoard::routingLedger() {
@@ -198,6 +318,10 @@ void BasicBoard::incrementRevision(Item* item) {
 }
 
 void BasicBoard::noteChange(Item* item) {
+  if (contactDonor_ != nullptr) {
+    jrt::OpRegionIfTopLevel work;  // the bounding box
+    noteTreeChange(item->boundingBox(), item->firstLayer(), item->lastLayer());
+  }
   if (!journalEnabled) {
     return;
   }
@@ -214,6 +338,9 @@ IntBox* BasicBoard::keepBox(IntBox* box) {
 }
 
 void BasicBoard::noteChange(IntBox* box, int32_t firstLayer, int32_t lastLayer) {
+  if (contactDonor_ != nullptr) {
+    noteTreeChange(box, firstLayer, lastLayer);
+  }
   if (!journalEnabled) {
     return;
   }
@@ -225,6 +352,7 @@ void BasicBoard::noteChange(IntBox* box, int32_t firstLayer, int32_t lastLayer) 
 }
 
 void BasicBoard::noteUnknownChange() {
+  treeChangesUnknown_ = true;
   if (!journalEnabled) {
     return;
   }
@@ -1340,6 +1468,7 @@ void BasicBoard::afterDeserialize() {
   itemRepository = nullptr;
   connectivityQueries = nullptr;
   snapshotManager = nullptr;
+  BasicBoard* contactDonorPending = nullptr;
   if (borrowShapesSource_ != nullptr && borrowShapesMap_ != nullptr) {
     // C++ only: the copied traces, obstacle areas (keepouts, planes), pins and vias take the
     // source items' tree shapes of the default tree (both trees have the same type and clearance
@@ -1376,6 +1505,17 @@ void BasicBoard::afterDeserialize() {
       }
     }
     shapeDonor_ = shapeDonorItems_.empty() ? nullptr : borrowShapesSource_;
+    if (borrowShapesSource_->contactsFrozen_.load(std::memory_order_acquire)) {
+      contactDonorPending = borrowShapesSource_;
+      copyToDonor_.reserve(borrowShapesMap_->size());
+      donorToCopy_.reserve(borrowShapesMap_->size());
+      for (auto* entry : *borrowShapesMap_->entrySet()) {
+        if (entry->getKey() != nullptr && entry->getValue() != nullptr) {
+          copyToDonor_.emplace(entry->getValue(), entry->getKey());
+          donorToCopy_.emplace(entry->getKey(), entry->getValue());
+        }
+      }
+    }
     borrowShapesSource_ = nullptr;
     borrowShapesMap_ = nullptr;
   }
@@ -1384,6 +1524,7 @@ void BasicBoard::afterDeserialize() {
     currentItem->board = this;
     searchTreeManager->insert(currentItem);
   }
+  contactDonor_ = contactDonorPending;  // from here on, the changes are the copy's own
 }
 
 void BasicBoard::borrowShapesInto(Item* copied, jrt::Array<TileShape*>* shapes,

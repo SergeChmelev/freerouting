@@ -827,6 +827,44 @@ class BasicBoard : public virtual jrt::Object, public TreeShapeKeeper {
   };
   std::shared_ptr<TreeShapeRequests> treeShapeRequests;
 
+  /**
+   * PORT NOTE (C++ only): while one is alive, the board (the baseline of an optimizer pass, which
+   * does not change meanwhile) keeps the normal contacts of all its connectable items, computed
+   * when the scope starts; the copies made inside a BorrowTreeShapesScope take them for their
+   * items (cachedNormalContacts). A contact touches the item (they share a point of their
+   * geometry), so a copied item keeps the contacts of its source until something changes in the
+   * search trees whose bounding box meets the item's: the copy records the boxes of its changes
+   * (noteChange) and computes the contacts of the items near them.
+   */
+  class FrozenContactsScope {
+   public:
+    explicit FrozenContactsScope(BasicBoard* board);
+    ~FrozenContactsScope() { end(); }
+    FrozenContactsScope(const FrozenContactsScope&) = delete;
+    FrozenContactsScope& operator=(const FrozenContactsScope&) = delete;
+    /** Ends the promise (before the board may change or be dropped). */
+    void end();
+
+   private:
+    BasicBoard* board_;
+  };
+
+ private:
+  // FrozenContactsScope: on the baseline, whether its contact cache is frozen; on a copy, the
+  // baseline, the item maps both ways and the boxes of the copy's tree changes since it was made.
+  std::atomic<bool> contactsFrozen_{false};
+  BasicBoard* contactDonor_ = nullptr;
+  std::unordered_map<Item*, Item*> copyToDonor_;
+  std::unordered_map<Item*, Item*> donorToCopy_;
+  struct TreeChange {
+    int32_t llx, lly, urx, ury, firstLayer, lastLayer;
+  };
+  std::vector<TreeChange> treeChanges_;
+  bool treeChangesUnknown_ = false;
+  void noteTreeChange(IntBox* box, int32_t firstLayer, int32_t lastLayer);
+  /** The contacts of the donor's source item of item, mapped to this board, if still valid. */
+  jrt::Set<Item*>* donorContacts(Item* item);
+
  private:
 
  public:

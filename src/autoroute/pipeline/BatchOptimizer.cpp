@@ -1011,6 +1011,8 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
   // not wait for each other once one is complete (BasicBoard::CopyScope). Ended below, before
   // the winner is replayed and the baseline replaced.
   BasicBoard::SharedCopiesScope sharedCopies(this->board);
+  // C++ only: the candidates' copies take the baseline's normal contacts (FrozenContactsScope).
+  BasicBoard::FrozenContactsScope frozenContacts(this->board);
   // A new candidate starts as soon as a thread is free, even while an older and slower
   // candidate is still running, so one slow candidate does not idle the other threads. The
   // results are still read in candidate order, so the winner and the early stop are the same.
@@ -1156,6 +1158,7 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
     pool.shutdown();    // Java: pool.shutdownNow() (here: waits for the running candidates)
   }
   sharedCopies.end();
+  frozenContacts.end();
 
   float routeImproved = 0.0f;
 
