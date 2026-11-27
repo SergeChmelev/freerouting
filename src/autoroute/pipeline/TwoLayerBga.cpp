@@ -15,14 +15,15 @@
 namespace fr {
 
 jrt::Set<std::string>* TwoLayerBga::MODES() {
-  static jrt::Set<std::string>* v = [] {
-    // PORT NOTE: Java Set.of (immutable, unordered); only contains() is used.
-    auto* s = new (jrt::kOp) jrt::HashSet<std::string>();
+  static jrt::Set<std::string>* v = jrt::onHeap([] {
+    // PORT NOTE: Java Set.of (immutable, unordered); only contains() is used. On the heap: it
+    // outlives the job that made it.
+    auto* s = new (jrt::kBoard) jrt::HashSet<std::string>();
     s->add("off");
     s->add("no_fanout");
     s->add("direct_first");
     return s;
-  }();
+  });
   return v;
 }
 

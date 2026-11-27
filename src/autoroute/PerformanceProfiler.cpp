@@ -123,6 +123,11 @@ void PerformanceProfiler::reset() {
   std::lock_guard<std::mutex> lock(mapsMutex());
   timings()->clear();
   counts()->clear();
+  // PORT NOTE: Java keeps the pass history and the configuration until the next job overwrites
+  // them; here they are made in the job's memory (kOp), which is gone after the job: dropped
+  // with the timings (they were printed just before). Matters when a process runs several jobs.
+  passHistory()->clear();
+  configInfo() = nullptr;
 }
 
 }  // namespace fr

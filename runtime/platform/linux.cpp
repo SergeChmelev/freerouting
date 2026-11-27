@@ -36,6 +36,8 @@ void limit_malloc_arenas(int arenas) {
   if (std::getenv("MALLOC_ARENA_MAX") == nullptr) mallopt(M_ARENA_MAX, arenas);
 }
 
+void set_binary_stdio() {}
+
 void print_stack_trace() {
   void* frames[40];
   int count = backtrace(frames, 40);

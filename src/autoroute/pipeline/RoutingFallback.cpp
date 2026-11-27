@@ -88,7 +88,9 @@ std::string RoutingFallback_Outcome::toString() {
 // ---- RoutingFallback ----
 
 jrt::List<RoutingFallback_Strategy*>* RoutingFallback::KNOWN() {
-  static jrt::List<RoutingFallback_Strategy*>* v = new (jrt::kBoard) jrt::ArrayList<RoutingFallback_Strategy*>({
+  // On the heap (onHeap: the strategies too): a process may run several jobs (API / MCP servers),
+  // and kOp objects made during the first one would go with its job region.
+  static jrt::List<RoutingFallback_Strategy*>* v = jrt::onHeap([] { return new (jrt::kBoard) jrt::ArrayList<RoutingFallback_Strategy*>({
       new (jrt::kOp) RoutingFallback_Strategy(
           "no-neck", false, [](RouterSettings* settings) { settings->setNeckWidthUm(0); }, false, false),
       new (jrt::kOp) RoutingFallback_Strategy(
@@ -122,7 +124,7 @@ jrt::List<RoutingFallback_Strategy*>* RoutingFallback::KNOWN() {
       new (jrt::kOp) RoutingFallback_Strategy("continue", false, [](RouterSettings*) {}, false, false),
       new (jrt::kOp) RoutingFallback_Strategy(
           "continue-no-neck", false, [](RouterSettings* settings) { settings->setNeckWidthUm(0); }, false, false),
-  });
+  }); });
   return v;
 }
 

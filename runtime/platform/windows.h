@@ -35,6 +35,9 @@ bool local_time(std::time_t t, std::tm* out);
 /** glibc's per-thread malloc arenas have no Windows counterpart (the process heap is shared):
  * nothing to do. */
 void limit_malloc_arenas(int arenas);
+/** Puts stdin and stdout in binary mode (Windows: no CR LF translation; the MCP server writes
+ * one JSON message per line). Nothing to do on Linux. */
+void set_binary_stdio();
 
 // ---- diagnostics -----------------------------------------------------------------------------
 /** Prints the current call stack to stderr (addresses with module names). */
