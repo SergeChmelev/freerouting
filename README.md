@@ -4,6 +4,9 @@ A C++20 port of [freerouting](https://github.com/freerouting/freerouting) — th
 printed circuit board autorouter — with a headless command line, a KiCad plugin and an
 experimental Lua/Nuklear user interface.
 
+The port exists to make the autorouter easier to integrate natively into EDA systems as a
+plugin: a single native executable (or library) with no Java runtime to install, start or ship.
+
 The port follows the Java sources (freerouting v2.x, upstream commit `f3fbba4`) class by class,
 so its routing results are **byte-for-byte identical to Java's**: the Specctra session (`.ses`) it
 writes for a design is the same file Java writes. Differences are only in the runtime:
@@ -25,9 +28,11 @@ writes for a design is the same file Java writes. Differences are only in the ru
 | UI | Lua + Nuklear + MoonGL: view, autoroute, interactive routing and dragging ([ui/](ui)) |
 | Not ported | Java GUI (Swing), API server, MCP, KiCad JSON board input, KiCad DRC report, SES input, result JSON |
 
-Speed (one thread, same machine): from about Java's speed on large boards with long post-processing
-to several times faster on boards dominated by the optimizer; see the speed comparison in
-[MEMORY_MODEL.md](MEMORY_MODEL.md).
+Speed: about **20 % faster than the Java version** on average (same machine, 1, 4 and 10 threads,
+six large test boards; from 5–10 % on the slowest boards to about a third on others, several
+times on small ones), with less CPU time and usually less memory. These numbers are for the
+profile-guided build (`tools/pgo_build.sh`, below); see the table in
+[MEMORY_MODEL.md](MEMORY_MODEL.md) (E20).
 
 ## Command line
 
@@ -67,6 +72,11 @@ cmake --build build --target freerouting-cpp
 
 `-DJRT_CHECKED=0` turns off the runtime's internal consistency checks (bounds and lifetime checks
 of the Java runtime emulation) for release builds.
+
+The fastest build is profile-guided (GCC): `tools/pgo_build.sh` builds an instrumented binary,
+routes a few test boards with it and rebuilds with the profile (about 40 minutes; the result is
+`~/build/fr-pgo/freerouting-cpp`, `FR_BUILD_DIR` changes it). It is 8–11 % faster than a plain
+release build.
 
 ### Windows (cross-compiled in WSL / Linux)
 
