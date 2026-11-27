@@ -1268,8 +1268,10 @@ cell, interleaved, wall seconds; C++/Java):
 | DAC2020 bm01 | 1.07 -> **0.91** | 1.05 -> **0.90** | 1.06 -> **0.91** |
 
 Seconds of the slowest cells: bm01 1 thread Java 486, combo2 443; 10 threads 179 / 163 (CPU
-869 / 704 s). Peak memory at or below Java's except bm01 at 4 threads (2.6 against 2.4 GB) and
-10 threads (4.2 against 4.2 GB).
+869 / 704 s). Peak memory is unchanged by E20 (main within a few %); against Java's (heap of
+the JVM process) it is lower on most cells, higher on Issue214 at every thread count (1.9-2.2
+against 0.9-2.0 GB), on Issue187 and Issue178 at 1 thread, and on bm01 at 4 threads (2.6
+against 2.4 GB).
 
 ## TODO (after E10)
 
