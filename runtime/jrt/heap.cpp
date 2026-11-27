@@ -207,7 +207,11 @@ constexpr bool kSmallCache = true;
 #endif
 constexpr std::size_t kCacheMax = 1024;                    // the largest cached block (usable bytes)
 constexpr std::size_t kCacheClasses = kCacheMax / 16 + 1;  // class k: usable bytes >= 16 k
-constexpr std::size_t kCacheBytes = std::size_t{4} << 20;  // the most bytes a thread keeps
+// The most bytes a thread keeps. A candidate's board copy allocates tens of MB of small blocks and
+// frees them when it is dropped: with 4 MB most of the next copy's blocks came from malloc again
+// (Issue178 at 10 threads: 64 -> 54 s with 128 MB, the same peak memory, as 8 malloc arenas
+// would give at +1.2 GB; the blocks are freed memory malloc would keep anyway).
+constexpr std::size_t kCacheBytes = std::size_t{128} << 20;
 constexpr std::ptrdiff_t kNoteBatch = std::ptrdiff_t{256} << 10;
 
 struct SmallCache {  // trivially destructible: still usable after the thread's flusher ran
