@@ -1180,6 +1180,53 @@ ThreadSanitizer (Issue054 `-mt 8`): 44 warnings with the shared lock, 45 on the 
 the same ones: lazy caches in geometry shared by the baseline and its copies (`Line::direction`
 / `directionInts`, `Polyline::boundingBox`, `Direction::equals` / `sideOf`). None in copying.
 
+### E19 — branch perf/combo: contacts from the baseline, line coordinates, lent default shapes, a larger thread cache
+
+Four changes, each on its own branch (`perf/frozen-contacts`, `perf/line-coords`,
+`perf/lend-default`, `perf/thread-cache`), merged here. All SES equal Java's.
+
+* **Normal contacts from the baseline** (`BasicBoard::FrozenContactsScope`): the baseline of a
+  pass computes the normal contacts of its connectable items once; a candidate's copy records
+  the bounding boxes of its search-tree changes (`noteChange`) and, for an item it copied and no
+  change came near (a contact shares a point with the item, so only a change whose box meets the
+  item's box can add or drop one), maps the baseline's contacts instead of searching the tree.
+  The candidates spent 14 % of Issue178 at one thread in `cachedNormalContacts` (the connected
+  sets of `getAutorouteItems`). `FR_VERIFY_CONTACTS=1` compares every reused set with the one
+  computed: no difference on the 40-board sample and the six large boards. Issue178: 1 thread
+  -12 %, 9 threads -6 %.
+* **A line keeps its points' coordinates** (`Line::ax` .. `by`; a and b are always IntPoints
+  once the line exists): `compareTo`, `intersectionApprox`, `sideOfApprox`, `fastEquals`,
+  `directionInts`, `IntPoint::sideOf` no longer cast and read the point objects. Issue178:
+  1 thread -7.5 %, 9 threads -8 %.
+* **Lent default-tree shapes** (`SearchTreeManager::prepareLendingDefaultTree`): before a pass
+  the baseline computes from scratch, for a tree object like the default tree, the shapes of the
+  items whose own default-tree shapes are not (traces changed piecewise); the copies borrow them.
+  `FR_VERIFY_TREE_SHAPES`: no difference. About -1 %.
+* **Thread cache of small blocks 4 -> 128 MB** (`kCacheBytes`): a candidate's copy allocates tens
+  of MB of small blocks and frees them when dropped; with 4 MB most of the next copy's blocks came
+  from malloc and its arena locks again. Issue178 at 10 threads 64 -> 54 s, 4 threads -7 %, the
+  same peak memory. (8 malloc arenas give the same time with +1.2 GB on Issue178, +2 GB on bm01.)
+* Tried without effect: `ItemSearchTreesInfo` remembering the trees of its recent records
+  (`perf/tree-info-lookup`).
+
+Java against main (E18) and perf/combo (2026-11-27, release LTO, one round per cell, wall
+seconds; C++/Java):
+
+| board | 1 thread | 4 threads | 10 threads |
+|---|---|---|---|
+| bm02 | 0.40 -> **0.37** | 0.26 -> **0.25** | 0.26 -> **0.25** |
+| Issue187-processor.Z80 | 0.83 -> **0.77** | 0.83 -> **0.77** | 0.81 -> **0.76** |
+| Issue022-AutoRouter_interrupted | 0.88 -> **0.82** | 0.86 -> **0.82** | 0.91 -> **0.83** |
+| Issue214-freerouting | 0.74 -> **0.70** | 0.73 -> **0.71** | 0.73 -> **0.71** |
+| Issue110-RelayModule | 1.08 -> 1.01 | 1.08 -> 1.04 | 1.09 -> 1.04 |
+| Issue178-KeebMaker_Sofle_Choc | 1.09 -> **0.89** | 1.17 -> **0.95** | 1.05 -> **0.84** |
+| DAC2020 bm01 | 1.10 -> 1.02 | 1.19 -> 1.09 | 1.13 -> 1.05 |
+
+bm01 at 10 threads (`-v`, same hour): the autorouter after the fanout 91.1 s against Java's
+84.0, the optimizer 98.2 against 92.3. The autorouter is single-threaded and 90 % maze search,
+40 % of it shove checks (`TraceShover::checkUncached`); the next place to compare with a Java
+profile.
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at
