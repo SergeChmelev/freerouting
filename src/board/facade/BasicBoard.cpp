@@ -1474,6 +1474,7 @@ void BasicBoard::afterDeserialize() {
     // source items' tree shapes of the default tree (both trees have the same type and clearance
     // compensation), when those were computed from scratch: the shapes the copy would compute.
     ShapeSearchTree* sourceTree = borrowShapesSource_->searchTreeManager->getDefaultTree();
+    ShapeSearchTree* lendingDefault = borrowShapesSource_->searchTreeManager->lendingDefaultTree();
     ShapeSearchTree* copyTree = searchTreeManager->getDefaultTree();
     if (sourceTree != nullptr && copyTree != nullptr && typeid(*sourceTree) == typeid(*copyTree) &&
         sourceTree->compensatedClearanceClassNo == copyTree->compensatedClearanceClassNo) {
@@ -1489,6 +1490,9 @@ void BasicBoard::afterDeserialize() {
           continue;  // the outline fills its line slices while computing its shapes
         }
         jrt::Array<TileShape*>* shapes = original->peekTreeShapesFromScratch(sourceTree);
+        if (shapes == nullptr && lendingDefault != nullptr) {
+          shapes = original->peekTreeShapesFromScratch(lendingDefault);
+        }
         if (shapes == nullptr) {
           continue;
         }

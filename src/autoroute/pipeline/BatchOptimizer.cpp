@@ -957,6 +957,8 @@ float BatchOptimizer::optRoutePass(int32_t passNo, bool withPreferredDirections)
     for (int32_t clearanceClass : classes) {
       this->board->searchTreeManager->prepareLendingTree(clearanceClass);
     }
+    // and the default-tree shapes from scratch of the items whose own are not
+    this->board->searchTreeManager->prepareLendingDefaultTree();
   }
 
   if (this->settings->optimizer != nullptr
