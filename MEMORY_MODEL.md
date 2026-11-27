@@ -1227,6 +1227,50 @@ bm01 at 10 threads (`-v`, same hour): the autorouter after the fanout 91.1 s aga
 40 % of it shove checks (`TraceShover::checkUncached`); the next place to compare with a Java
 profile.
 
+### E20 — branch perf/combo2: a flat shove-check cache, a profile-guided build
+
+Two changes on their own branches (`perf/flat-shove-cache`, `perf/pgo`), merged here. All SES
+equal Java's (the 40-board sample, the six large boards, every cell of the table below);
+`FR_VERIFY_SIMPLEX` / `_CONTACTS` / `_TREE_SHAPES` show no difference; AddressSanitizer clean on
+the six large boards.
+
+* **Flat shove-check cache** (`ShoveCheckCache`): a key is serialized into ints (19 header ints
+  and the coordinates, at most 51) appended to one `keyInts_` vector, its record (offset, length,
+  hash, result, obstacle, layer) to `recs_`, and an open-addressing table of 2^17 slots
+  (`slots_`, generation-tagged, so `clearEntries` only bumps the generation) maps the hash to the
+  record. No node allocation per entry, no hashing of key objects; the `MAX_ENTRIES` rule (clear,
+  then do not insert) and replacing an existing key's value are kept. bm01 at 10 threads
+  187 -> 177 s (one noisy round), Issue110 at 1 thread about -5 %.
+* **Profile-guided build** (`tools/pgo_build.sh`, CMake `FR_PGO=generate|use`, `FR_PGO_DIR`):
+  an instrumented release build (`-fprofile-update=prefer-atomic`), training on bm02, Issue022,
+  Issue187, Issue214, Issue110 at 4 threads and Issue178 at 10 (`FR_PGO_TRAIN`, about 40 min),
+  then `-fprofile-use -fprofile-partial-training` in the same build directory (the profile files
+  are named after the object paths). In a git worktree set `FR_FIXTURES` to the main checkout's
+  `upstream/fixtures`. Alone: Issue110 1 thread -11 %, Issue178 10 threads -8 %, bm01 10 threads
+  -8 % (CPU 827 -> 745 s).
+* Tried without effect or slower: the live-chunk map as a sorted vector (`perf/cheap-regions`:
+  slower, a job keeps thousands of chunks live and the inserts move them), the map with a
+  free-list node allocator and an inline first range (`perf/cheap-regions-v2`: no change), a
+  `thread_local` last-hit memo of `fast_cast` (`perf/cast-memo-tls`: slower, the TLS access costs
+  more than the hit saves).
+
+Java against main (E19) and perf/combo2 built with `tools/pgo_build.sh` (2026-11-27, one round per
+cell, interleaved, wall seconds; C++/Java):
+
+| board | 1 thread | 4 threads | 10 threads |
+|---|---|---|---|
+| bm02 | 0.34 -> **0.31** | 0.22 -> **0.21** | 0.26 -> **0.25** |
+| Issue187-processor.Z80 | 0.78 -> **0.68** | 0.79 -> **0.70** | 0.78 -> **0.70** |
+| Issue022-AutoRouter_interrupted | 0.84 -> **0.75** | 0.83 -> **0.76** | 0.85 -> **0.75** |
+| Issue214-freerouting | 0.73 -> **0.66** | 0.73 -> **0.67** | 0.74 -> **0.67** |
+| Issue110-RelayModule | 1.04 -> **0.94** | 1.05 -> **0.95** | 1.05 -> **0.94** |
+| Issue178-KeebMaker_Sofle_Choc | 0.95 -> **0.87** | 0.97 -> **0.88** | 0.86 -> **0.79** |
+| DAC2020 bm01 | 1.07 -> **0.91** | 1.05 -> **0.90** | 1.06 -> **0.91** |
+
+Seconds of the slowest cells: bm01 1 thread Java 486, combo2 443; 10 threads 179 / 163 (CPU
+869 / 704 s). Peak memory at or below Java's except bm01 at 4 threads (2.6 against 2.4 GB) and
+10 threads (4.2 against 4.2 GB).
+
 ## TODO (after E10)
 
 * **Peak memory of large boards** (after E13): Issue214 still keeps 0.9 GB in the job heap at
