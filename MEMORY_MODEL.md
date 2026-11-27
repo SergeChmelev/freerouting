@@ -1253,6 +1253,19 @@ the six large boards.
   free-list node allocator and an inline first range (`perf/cheap-regions-v2`: no change), a
   `thread_local` last-hit memo of `fast_cast` (`perf/cast-memo-tls`: slower, the TLS access costs
   more than the hit saves).
+* Tried afterwards, without effect (SES equal in all of them):
+  * **Starting the longest candidates of a pass first.** Thread samples of the bm01 optimizer at
+    10 threads: all threads busy within a pass, 1-2 at its end for 6-12 s (the last slow
+    candidates; the next pass needs the winner). Candidate times logged per pass and the pass
+    replayed on 10 simulated threads: in list order 82.7 s, longest first with the times known
+    72.7 s (-12 %; Issue110 -13 %, Issue178 -1 %). But nothing known before a candidate runs
+    predicts its time: its time in the previous pass, the trace length, item count or bounding
+    box of its connection (rank correlation 0.4-0.67) all order worse than the list (84-86 s).
+  * `-march=x86-64-v3 -ffp-contract=off` (AVX2, BMI2; no FMA contraction, so the same rounding):
+    no change on Issue110, Issue214, Issue178.
+  * The maze expansion list as a binary heap plus a hash of the elements present, with the
+    tree set's poll order and duplicate rule (`perf/maze-heap`): no change at one thread, 10
+    threads slightly slower and +5 % memory.
 
 Java against main (E19) and perf/combo2 built with `tools/pgo_build.sh` (2026-11-27, one round per
 cell, interleaved, wall seconds; C++/Java):
