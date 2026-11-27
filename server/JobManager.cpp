@@ -147,7 +147,7 @@ uint32_t JobManager::crc32(const std::string& data) {
 
 JobManager::JobManager() {
   fr::FRLogger::sink = [this](int32_t level, const std::string& text) { appendLog(level, text); };
-  thread_ = std::thread([this] { threadMain(); });
+  thread_ = jrt::JobThread([this] { threadMain(); });
 }
 
 JobManager::~JobManager() { shutdown(); }

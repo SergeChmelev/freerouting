@@ -10,6 +10,7 @@
 
 #include "ApiCommon.h"
 #include "JobManager.h"
+#include "jrt/job_thread.h"
 #include "logger/FRLogger.h"
 #include "platform/platform.h"
 
@@ -267,7 +268,7 @@ int McpServer::runStdio() {
 
   std::mutex callsMutex;
   std::map<std::string, std::shared_ptr<std::atomic<bool>>> inFlight;  // request id -> cancelled
-  std::vector<std::thread> threads;
+  std::vector<jrt::JobThread> threads;
   std::atomic<bool> closed{false};
 
   std::string line;
@@ -320,7 +321,7 @@ int McpServer::runStdio() {
   }
   // The client went away: stop the calls still waiting (their jobs are cancelled), then exit.
   closed = true;
-  for (std::thread& t : threads) t.join();
+  for (jrt::JobThread& t : threads) t.join();
   return 0;
 }
 

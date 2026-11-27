@@ -22,6 +22,8 @@
 #include <thread>
 #include <vector>
 
+#include "jrt/job_thread.h"
+
 namespace fr {
 class BasicBoard;
 class RoutingBoard;
@@ -147,7 +149,7 @@ class Engine {
   void setStatus(const std::function<void(Status&)>& update);
   void appendLog(int32_t level, const std::string& text);
 
-  std::thread thread_;
+  jrt::JobThread thread_;
   std::mutex mutex_;  // guards queue_, status_, snapshot_
   std::condition_variable cv_;
   std::deque<Command> queue_;

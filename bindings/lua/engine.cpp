@@ -187,7 +187,7 @@ Engine::Engine() {
   }
   fr::FRLogger::consoleOutput = false;
   fr::FRLogger::sink = [this](int32_t level, const std::string& text) { appendLog(level, text); };
-  thread_ = std::thread([this] { threadMain(); });
+  thread_ = jrt::JobThread([this] { threadMain(); });
 }
 
 Engine::~Engine() {

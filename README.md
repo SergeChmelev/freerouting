@@ -82,6 +82,19 @@ routes a few test boards with it and rebuilds with the profile (about 40 minutes
 `~/build/fr-pgo/freerouting-cpp`, `FR_BUILD_DIR` changes it). It is 8–11 % faster than a plain
 release build.
 
+### macOS
+
+Needs Xcode 16.3+ (or its Command Line Tools: Apple clang 17) and Homebrew:
+
+```bash
+brew install cmake ninja gmp geos
+cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-DJRT_CHECKED=0
+cmake --build build --target freerouting-cpp
+```
+
+CMake finds GMP and GEOS under Homebrew's prefix. The Lua module of the UI (`ui/`) is built on
+Linux only. The macOS build has not been tested yet.
+
 ### Windows (cross-compiled in WSL / Linux)
 
 ```bash

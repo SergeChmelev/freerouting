@@ -14,6 +14,7 @@
 #include <thread>
 #include <vector>
 
+#include "jrt/job_thread.h"
 #include "autoroute/ItemRouteResult.h"
 #include "autoroute/ItemSelectionStrategy.h"
 #include "autoroute/events/TaskStateChangedEvent.h"
@@ -882,7 +883,7 @@ class CandidatePool {
       queue_.clear();
     }
     workAvailable_.notify_all();
-    for (std::thread& t : workers_) {
+    for (jrt::JobThread& t : workers_) {
       t.join();
     }
   }
@@ -919,7 +920,7 @@ class CandidatePool {
   std::condition_variable completed_;
   std::deque<Future*> queue_;                   // submitted, not started
   std::vector<std::unique_ptr<Future>> futures_;  // every submitted task (owned)
-  std::vector<std::thread> workers_;
+  std::vector<jrt::JobThread> workers_;
   int64_t completions_ = 0;
   int64_t seenCompletions_ = 0;
   bool stopping_ = false;

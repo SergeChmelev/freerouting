@@ -1,5 +1,7 @@
 #include "jrt/lang.h"
 
+#include "jrt/charconv.h"
+
 #include <cxxabi.h>
 
 #include <atomic>
@@ -94,7 +96,7 @@ double Double::parseDouble(const std::string& s0) {
   if (sv == "Infinity") return POSITIVE_INFINITY;
   if (sv == "-Infinity") return NEGATIVE_INFINITY;
   double d = 0;
-  auto res = std::from_chars(sv.data(), sv.data() + sv.size(), d);
+  auto res = fromChars(sv.data(), sv.data() + sv.size(), d);
   if (res.ec == std::errc::result_out_of_range) {
     // from_chars reports range errors; Java returns +-Infinity or +-0.
     return std::strtod(std::string(sv).c_str(), nullptr);
@@ -134,7 +136,7 @@ std::string javaFloatingToString(F v) {
     auto r2 = std::to_chars(b2, b2 + sizeof b2, v < 0 ? -v : v, std::chars_format::scientific, 1);
     std::string s2(b2, r2.ptr);
     F back{};
-    std::from_chars(b2, r2.ptr, back);
+    fromChars(b2, r2.ptr, back);
     if (back == (v < 0 ? -v : v)) {
       auto e2 = s2.find('e');
       std::string d2;

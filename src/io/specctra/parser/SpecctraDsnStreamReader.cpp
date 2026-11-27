@@ -7,6 +7,7 @@
 #include "io/specctra/parser/Keyword.h"
 #include "io/specctra/parser/ScopeKeyword.h"
 #include "logger/FRLogger.h"
+#include "jrt/charconv.h"
 
 namespace fr::dsn {
 
@@ -845,7 +846,7 @@ std::optional<double> SpecctraDsnStreamReader::parseNumberFormatUS(const std::st
   }
   std::string number = (negative ? "-" : "") + digits;
   double value = 0.0;
-  auto res = std::from_chars(number.data(), number.data() + number.size(), value);
+  auto res = jrt::fromChars(number.data(), number.data() + number.size(), value);
   if (res.ec == std::errc::result_out_of_range) {
     // overflow -> infinity, underflow -> (signed) zero, like Double.parseDouble
     bool tiny = false;

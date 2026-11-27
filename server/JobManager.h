@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "jrt/job_thread.h"
+
 namespace frserver {
 
 /** Java core.RoutingJobState. */
@@ -204,7 +206,7 @@ class JobManager {
   std::deque<std::string> ready_;
   std::shared_ptr<Job> running_;
   bool quit_ = false;
-  std::thread thread_;
+  jrt::JobThread thread_;
   static constexpr size_t kMaxLogLines = 20000;
 };
 

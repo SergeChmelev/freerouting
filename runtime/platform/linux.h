@@ -1,4 +1,5 @@
-// Linux (glibc) implementation of the platform interface (platform/platform.h).
+// POSIX declarations of the platform interface (platform/platform.h): implemented for Linux
+// (glibc) in platform/linux.cpp and for macOS in platform/macos.cpp.
 // The same functions are declared in platform/windows.h; keep both in step.
 #pragma once
 

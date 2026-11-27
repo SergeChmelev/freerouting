@@ -71,7 +71,8 @@ endif()
 #                       when building for Windows, e.g. cross-compiling in WSL:
 #                         cmake -G Ninja -B build-win -DCMAKE_TOOLCHAIN_FILE=tools/windows/mingw-toolchain.cmake
 #                         cmake --build build-win --target freerouting-cpp
-#   FR_BUNDLED_DEPS=OFF uses the system libraries (Linux: apt install libgmp-dev libgeos-dev).
+#   FR_BUNDLED_DEPS=OFF uses the system libraries (Linux: apt install libgmp-dev libgeos-dev;
+#                       macOS: brew install gmp geos).
 if(WIN32)
   option(FR_BUNDLED_DEPS "Download and build static GMP and GEOS" ON)
 else()
@@ -80,6 +81,10 @@ endif()
 if(FR_BUNDLED_DEPS)
   include(${CMAKE_SOURCE_DIR}/cmake/BundledDeps.cmake)
 else()
+  if(APPLE)
+    # Homebrew's prefix (Apple silicon, Intel) is not on the compiler's default search paths.
+    list(APPEND CMAKE_PREFIX_PATH $ENV{HOMEBREW_PREFIX} /opt/homebrew /usr/local)
+  endif()
   # Static GMP in executables by default; the Lua module links it shared.
   option(FR_STATIC_GMP "Link GMP statically into executables" ON)
   find_library(GMP_SHARED_LIB gmp REQUIRED)
@@ -92,9 +97,13 @@ else()
   else()
     target_link_libraries(fr_gmp_exe INTERFACE fr_gmp_shared)
   endif()
-  add_library(fr_gmp_headers INTERFACE)  # system gmp.h: nothing to add
+  find_path(GMP_INCLUDE_DIR gmp.h REQUIRED)
+  add_library(fr_gmp_headers INTERFACE)
+  target_include_directories(fr_gmp_headers SYSTEM INTERFACE ${GMP_INCLUDE_DIR})
   find_library(GEOS_LIB geos_c REQUIRED)
+  find_path(GEOS_INCLUDE_DIR geos_c.h REQUIRED)
   add_library(fr_geos INTERFACE)
+  target_include_directories(fr_geos SYSTEM INTERFACE ${GEOS_INCLUDE_DIR})
   target_link_libraries(fr_geos INTERFACE ${GEOS_LIB})
 endif()
 # Windows: one self-contained .exe (no libstdc++ / libgcc / winpthread DLLs next to it).
@@ -111,6 +120,8 @@ file(GLOB JRT_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/runtime/jrt/*.cpp)
 # Operating-system services (runtime/platform/platform.h): one implementation per target system.
 if(WIN32)
   list(APPEND JRT_SOURCES ${CMAKE_SOURCE_DIR}/runtime/platform/windows.cpp)
+elseif(APPLE)
+  list(APPEND JRT_SOURCES ${CMAKE_SOURCE_DIR}/runtime/platform/macos.cpp)
 else()
   list(APPEND JRT_SOURCES ${CMAKE_SOURCE_DIR}/runtime/platform/linux.cpp)
 endif()
@@ -181,7 +192,8 @@ target_link_libraries(bigint_fuzz PRIVATE jrt fr_gmp_exe)
 add_test(NAME bigint_fuzz COMMAND bigint_fuzz)
 
 # --- Lua 5.3 module "frcore" for the Nuklear/MoonGL front end (ui/)
-if(PkgConfig_FOUND AND NOT WIN32)
+# (Linux only: the module's link options are GNU ld's.)
+if(PkgConfig_FOUND AND NOT WIN32 AND NOT APPLE)
   pkg_check_modules(LUA53 IMPORTED_TARGET lua5.3)
 endif()
 if(LUA53_FOUND AND TARGET frcore)
