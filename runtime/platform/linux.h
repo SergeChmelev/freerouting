@@ -36,6 +36,9 @@ bool local_time(std::time_t t, std::tm* out);
  * many optimizer threads doubled the peak). An explicit MALLOC_ARENA_MAX in the environment
  * wins. */
 void limit_malloc_arenas(int arenas);
+/** Puts stdin and stdout in binary mode (Windows: no CR LF translation; the MCP server writes
+ * one JSON message per line). Nothing to do on Linux. */
+void set_binary_stdio();
 
 // ---- diagnostics -----------------------------------------------------------------------------
 /** Prints the current call stack to stderr (addresses with module names; for addr2line). */

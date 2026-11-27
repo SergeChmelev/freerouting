@@ -6,6 +6,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <fcntl.h>
+#include <io.h>
 #include <malloc.h>
 
 #include <cstdio>
@@ -64,6 +66,11 @@ bool utc_time(std::time_t t, std::tm* out) { return gmtime_s(out, &t) == 0; }
 bool local_time(std::time_t t, std::tm* out) { return localtime_s(out, &t) == 0; }
 
 void limit_malloc_arenas(int) {}
+
+void set_binary_stdio() {
+  _setmode(_fileno(stdin), _O_BINARY);
+  _setmode(_fileno(stdout), _O_BINARY);
+}
 
 void print_stack_trace() {
   void* frames[40];

@@ -128,10 +128,19 @@ if(FR_SOURCES)
   target_include_directories(frcore PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/runtime)
   target_compile_options(frcore PRIVATE ${FR_COMMON_FLAGS})
   target_link_libraries(frcore PUBLIC jrt fr_geos)
+  # Local REST API and MCP servers of the executable (server/): routing jobs on the core, JSON-RPC
+  # over stdio, HTTP on 127.0.0.1. Header-only nlohmann/json and cpp-httplib, found or downloaded
+  # (cmake/ServerDeps.cmake).
+  include(${CMAKE_SOURCE_DIR}/cmake/ServerDeps.cmake)
+  file(GLOB FR_SERVER_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/server/*.cpp)
+  add_library(frserver STATIC ${FR_SERVER_SOURCES})
+  target_include_directories(frserver PUBLIC ${CMAKE_SOURCE_DIR}/server)
+  target_compile_options(frserver PRIVATE ${FR_COMMON_FLAGS})
+  target_link_libraries(frserver PUBLIC frcore jrt fr_json fr_httplib)
   if(EXISTS ${CMAKE_SOURCE_DIR}/src/main.cpp)
     add_executable(freerouting-cpp ${CMAKE_SOURCE_DIR}/src/main.cpp)
     target_compile_options(freerouting-cpp PRIVATE ${FR_COMMON_FLAGS})
-    target_link_libraries(freerouting-cpp PRIVATE frcore jrt fr_gmp_exe)
+    target_link_libraries(freerouting-cpp PRIVATE frserver frcore jrt fr_gmp_exe)
   endif()
   # Differential-testing helpers (see tools/parity/)
   # KiCad project inputs (src/io/kicad), after the Java tests
