@@ -1,5 +1,7 @@
 #include "board/optimize/ShoveCheckCache.h"
 
+#include <algorithm>
+#include <cstring>
 #include <typeinfo>
 
 #include "board/facade/RoutingBoard.h"
@@ -24,35 +26,122 @@ ShoveCheckCache* ShoveCheckCache::CURRENT() {
 
 ShoveCheckCache* ShoveCheckCache::forThread() { return CURRENT(); }
 
+uint32_t ShoveCheckCache::findSlot(const int32_t* key, int32_t len, int32_t hash,
+                                   bool& found) const {
+  const uint32_t mask = (uint32_t{1} << kSlotBits) - 1;
+  uint32_t i = (static_cast<uint32_t>(hash) * 0x9E3779B1u) >> (32 - kSlotBits);
+  for (;; i = (i + 1) & mask) {
+    uint64_t s = slots_[i];
+    if (static_cast<uint32_t>(s >> 32) != generation_) {
+      found = false;
+      return i;
+    }
+    const Rec& r = recs_[static_cast<uint32_t>(s) - 1];
+    if (r.hash == hash && static_cast<int32_t>(r.len) == len &&
+        std::memcmp(keyInts_.data() + r.off, key, sizeof(int32_t) * len) == 0) {
+      found = true;
+      return i;
+    }
+  }
+}
+
 ShoveCheckCache_Entry* ShoveCheckCache::tryGet(RoutingBoard* board, int64_t contentStamp,
                                                ShoveCheckCache_Key* key) {
   reset(board, contentStamp);
-  return entries->get(key);
+  if (recs_.empty()) {
+    return nullptr;
+  }
+  int32_t buf[ShoveCheckCache_Key::kMaxInts];
+  int32_t len = key->serialize(buf);
+  bool found;
+  uint32_t slot = findSlot(buf, len, key->hashCode(), found);
+  if (!found) {
+    return nullptr;
+  }
+  const Rec& r = recs_[static_cast<uint32_t>(slots_[slot]) - 1];
+  if (hitEntry_ == nullptr) {
+    hitEntry_ = new (jrt::kBoard) ShoveCheckCache_Entry(false, 0, false, -1, false, -1);
+  }
+  hitEntry_->result = r.result;
+  hitEntry_->ids = r.ids;
+  hitEntry_->wroteObstacle = r.wroteObstacle;
+  hitEntry_->obstacle = r.obstacle;
+  hitEntry_->wroteLayer = r.wroteLayer;
+  hitEntry_->layer = r.layer;
+  return hitEntry_;
 }
 
 void ShoveCheckCache::put(RoutingBoard* board, int64_t contentStamp, ShoveCheckCache_Key* key,
                           ShoveCheckCache_Entry* entry) {
   reset(board, contentStamp);
-  if (entries->size() >= MAX_ENTRIES) {
+  if (static_cast<int32_t>(recs_.size()) >= MAX_ENTRIES) {
     clearEntries();
     board->getShoveCacheObstacles()->clear();
     return;
   }
-  // PORT NOTE (stage E): the cache is global; key and entry may live in an operation region.
-  entries->put(key->heapCopy(), new (jrt::kBoard) ShoveCheckCache_Entry(*entry));
+  if (slots_.empty()) {
+    slots_.assign(std::size_t{1} << kSlotBits, 0);
+  }
+  int32_t buf[ShoveCheckCache_Key::kMaxInts];
+  int32_t len = key->serialize(buf);
+  int32_t hash = key->hashCode();
+  bool found;
+  uint32_t slot = findSlot(buf, len, hash, found);
+  Rec* r;
+  if (found) {
+    r = &recs_[static_cast<uint32_t>(slots_[slot]) - 1];  // Java: put replaces the value
+  } else {
+    Rec fresh{};
+    fresh.off = static_cast<uint32_t>(keyInts_.size());
+    fresh.len = static_cast<uint32_t>(len);
+    fresh.hash = hash;
+    keyInts_.insert(keyInts_.end(), buf, buf + len);
+    recs_.push_back(fresh);
+    slots_[slot] = (static_cast<uint64_t>(generation_) << 32) | static_cast<uint32_t>(recs_.size());
+    r = &recs_.back();
+  }
+  r->result = entry->result;
+  r->ids = entry->ids;
+  r->wroteObstacle = entry->wroteObstacle;
+  r->obstacle = entry->obstacle;
+  r->wroteLayer = entry->wroteLayer;
+  r->layer = entry->layer;
 }
 
 void ShoveCheckCache::clearEntries() {
-  // PORT NOTE (stage E): keys and entries are the cache's heap copies (put); nothing else holds
-  // them or the map's entry objects.
-  for (auto* e : entries->entryVector()) {
-    ShoveCheckCache_Key* key = e->getKey();
-    jrt::dispose(key->coords);
-    jrt::dispose(key);
-    jrt::dispose(e->getValue());
-    jrt::dispose(e);
+  recs_.clear();
+  keyInts_.clear();
+  if (++generation_ == 0) {  // the tags wrapped: wipe the table once
+    std::fill(slots_.begin(), slots_.end(), 0);
+    generation_ = 1;
   }
-  entries->clear();
+}
+
+int32_t ShoveCheckCache_Key::serialize(int32_t* out) const {
+  int32_t n = 0;
+  out[n++] = kind;
+  out[n++] = lineCount;
+  out[n++] = sideNo;
+  out[n++] = static_cast<int32_t>(sideX);
+  out[n++] = static_cast<int32_t>(sideX >> 32);
+  out[n++] = static_cast<int32_t>(sideY);
+  out[n++] = static_cast<int32_t>(sideY >> 32);
+  out[n++] = sideHasPoint ? 1 : 0;
+  out[n++] = dirX;
+  out[n++] = dirY;
+  out[n++] = netCount;
+  out[n++] = net0;
+  out[n++] = net1;
+  out[n++] = layer;
+  out[n++] = clearanceClass;
+  out[n++] = depth;
+  out[n++] = viaDepth;
+  out[n++] = springOverDepth;
+  out[n++] = timed ? 1 : 0;
+  // coords: Arrays.equals compares the lengths too (the kind and line count fix them)
+  int32_t m = coords == nullptr ? 0 : coords->length;
+  for (int32_t i = 0; i < m; i++) out[n++] = (*coords)[i];
+  return n;
 }
 
 ShoveCheckCache_Key* ShoveCheckCache_Key::heapCopy() {
@@ -76,7 +165,7 @@ void ShoveCheckCache::reset(RoutingBoard* board, int64_t contentStamp) {
   if (contentStamp == stamp && owner != nullptr && owner == board) {
     return;
   }
-  if (!entries->isEmpty()) {
+  if (!recs_.empty()) {
     clearEntries();
   }
   board->getShoveCacheObstacles()->clear();

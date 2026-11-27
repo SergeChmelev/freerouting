@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "fwd.h"
 #include "jrt/jrt.h"
 
@@ -41,6 +44,10 @@ class ShoveCheckCache_Key final : public virtual jrt::Object {
   ShoveCheckCache_Key* heapCopy();
 
   int32_t hashCode() override { return hash; }
+
+  /** PORT NOTE (C++ only): every field equals() compares, as ints (at most kMaxInts). */
+  static constexpr int32_t kMaxInts = 19 + 4 * 8;
+  int32_t serialize(int32_t* out) const;
 };
 
 /** A check's outcome and recorded side-effects on shared board state. */
@@ -83,8 +90,29 @@ class ShoveCheckCache final : public virtual jrt::Object {
   /** PORT NOTE: Java ThreadLocal -> single process-wide instance (single-threaded port). */
   static ShoveCheckCache* CURRENT();
 
-  jrt::Map<ShoveCheckCache_Key*, ShoveCheckCache_Entry*>* entries =
-      new (jrt::kBoard) jrt::HashMap<ShoveCheckCache_Key*, ShoveCheckCache_Entry*>();
+  // PORT NOTE (C++ only): Java's HashMap<Key, Entry> as flat arrays: the serialized keys
+  // (keyInts_), one record per entry (recs_) and an open-addressing table of record indexes
+  // tagged with a generation (slots_), so that clearing is a new generation. Same lookups, same
+  // capacity rule (MAX_ENTRIES), no heap block per entry.
+  struct Rec {
+    uint32_t off;
+    uint32_t len;
+    int32_t hash;
+    bool result;
+    bool wroteObstacle;
+    bool wroteLayer;
+    int32_t ids;
+    int32_t obstacle;
+    int32_t layer;
+  };
+  static constexpr int32_t kSlotBits = 17;  // 2 x MAX_ENTRIES slots
+  std::vector<int32_t> keyInts_;
+  std::vector<Rec> recs_;
+  std::vector<uint64_t> slots_;  // generation << 32 | (record index + 1)
+  uint32_t generation_ = 1;
+  ShoveCheckCache_Entry* hitEntry_ = nullptr;  // filled from the record a lookup found
+  /** The slot of the key (found: holds its record) or the empty slot where it goes. */
+  uint32_t findSlot(const int32_t* key, int32_t len, int32_t hash, bool& found) const;
   /** PORT NOTE: Java WeakReference<RoutingBoard> -> plain pointer (only compared by identity). */
   RoutingBoard* owner = nullptr;
   int64_t stamp = jrt::Long::MIN_VALUE;
@@ -123,7 +151,7 @@ class ShoveCheckCache final : public virtual jrt::Object {
 
  private:
   void reset(RoutingBoard* board, int64_t contentStamp);
-  /** Empties the cache, freeing its keys, entries and map nodes (the cache owns them). */
+  /** Empties the cache (a new generation of the slot table). */
   void clearEntries();
 
  public:
