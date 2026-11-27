@@ -16,23 +16,38 @@
 
 namespace fr {
 
+void Line::cacheCoordinates() {
+  auto* ia = jrt::fast_cast<IntPoint>(a);
+  auto* ib = jrt::fast_cast<IntPoint>(b);
+  ax = ia->x;
+  ay = ia->y;
+  bx = ib->x;
+  by = ib->y;
+}
+
 Line::Line(Point* a, Point* b) {
   if (jrt::fast_cast<IntPoint>(a) != nullptr && jrt::fast_cast<IntPoint>(b) != nullptr) {
     this->a = a;
     this->b = b;
     this->dir = nullptr;
+    cacheCoordinates();
     return;
   }
   jrt::Array<IntPoint*>* support = integerSupport(a, b);
   this->a = (*support)[0];
   this->b = (*support)[1];
   this->dir = nullptr;
+  cacheCoordinates();
 }
 
 Line::Line(int32_t ax, int32_t ay, int32_t bx, int32_t by) {
   this->a = new (jrt::kGeom) IntPoint(ax, ay);
   this->b = new (jrt::kGeom) IntPoint(bx, by);
   this->dir = nullptr;
+  this->ax = ax;
+  this->ay = ay;
+  this->bx = bx;
+  this->by = by;
 }
 
 Line* Line::ofInts(int32_t ax, int32_t ay, int32_t bx, int32_t by) {
@@ -52,12 +67,14 @@ Line::Line(Point* a, Direction* dir) {
     this->a = a;
     this->b = b;
     this->dir = dir;
+    cacheCoordinates();
     return;
   }
   jrt::Array<IntPoint*>* support = integerSupport(a, b);
   this->a = (*support)[0];
   this->b = (*support)[1];
   this->dir = nullptr;
+  cacheCoordinates();
 }
 
 Line* Line::capAt(Point* point) {
@@ -226,13 +243,10 @@ bool Line::equals(jrt::Object* other) {
 }
 
 bool Line::fastEquals(Line* other) {
-  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
-  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
-  IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
-  double dx1 = otherA->x - thisA->x;
-  double dy1 = otherA->y - thisA->y;
-  double dx2 = thisB->x - thisA->x;
-  double dy2 = thisB->y - thisA->y;
+  double dx1 = other->ax - ax;
+  double dy1 = other->ay - ay;
+  double dx2 = bx - ax;
+  double dy2 = by - ay;
   double det = dx1 * dy2 - dx2 * dy1;
   if (det != 0) {
     return false;
@@ -244,14 +258,7 @@ Direction* Line::direction() {
   if (dir == nullptr) {
     jrt::DomainScope domain(this);  // PORT NOTE (stage E): cache in the holder's domain
     // PORT NOTE: fast path without the temporary difference vector (same arithmetic).
-    auto* ia = jrt::fast_cast<IntPoint>(a);
-    auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(b) : nullptr;
-    if (ib != nullptr) {
-      dir = IntVector::normalizedDirection(ib->x - ia->x, ib->y - ia->y);
-      return dir;
-    }
-    Vector* d = b->differenceBy(a);
-    dir = Direction::getInstance(d);
+    dir = IntVector::normalizedDirection(bx - ax, by - ay);
   }
   return dir;
 }
@@ -269,14 +276,8 @@ bool Line::directionInts(int32_t& x, int32_t& y) {
     y = dirY;
     return dirIntsState > 0;
   }
-  auto* ia = jrt::fast_cast<IntPoint>(a);
-  auto* ib = ia != nullptr ? jrt::fast_cast<IntPoint>(b) : nullptr;
-  if (ib == nullptr) {
-    dirIntsState = -1;
-    return false;
-  }
-  x = ib->x - ia->x;
-  y = ib->y - ia->y;
+  x = bx - ax;
+  y = by - ay;
   IntVector::normalizeDirectionCoordinates(x, y);
   dirX = x;
   dirY = y;
@@ -294,10 +295,7 @@ Side* Line::sideOf(FloatPoint* point, double tolerance) {
 }
 
 Side* Line::sideOfApprox(double px, double py, double tolerance) {
-  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
-  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
-  double det = (thisB->y - thisA->y) * (px - thisA->x) -
-               (thisB->x - thisA->x) * (py - thisA->y);
+  double det = (by - ay) * (px - ax) - (bx - ax) * (py - ay);
   Side* result;
   if (det - tolerance > 0) {
     result = Side::ON_THE_LEFT();
@@ -342,11 +340,9 @@ bool Line::isOnTheRight(TileShape* tile) {
 }
 
 double Line::signedDistance(FloatPoint* point) {
-  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
-  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
-  double dx = thisB->x - thisA->x;
-  double dy = thisB->y - thisA->y;
-  double det = dy * (point->x - thisA->x) - dx * (point->y - thisA->y);
+  double dx = bx - ax;
+  double dy = by - ay;
+  double det = dy * (point->x - ax) - dx * (point->y - ay);
   double length = jrt::Math::sqrt(dx * dx + dy * dy);
   return det / length;
 }
@@ -474,17 +470,12 @@ FloatPoint* Line::intersectionApprox(Line* other) {
 }
 
 void Line::intersectionApprox(Line* other, double& isX, double& isY) {
-  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
-  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
-  IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
-  IntPoint* otherB = jrt::fast_cast<IntPoint>(other->b);
-  double d1x = thisB->x - thisA->x;
-  double d1y = thisB->y - thisA->y;
-  double d2x = otherB->x - otherA->x;
-  double d2y = otherB->y - otherA->y;
-  double det1 = static_cast<double>(thisA->x) * thisB->y - static_cast<double>(thisA->y) * thisB->x;
-  double det2 =
-      static_cast<double>(otherA->x) * otherB->y - static_cast<double>(otherA->y) * otherB->x;
+  double d1x = bx - ax;
+  double d1y = by - ay;
+  double d2x = other->bx - other->ax;
+  double d2y = other->by - other->ay;
+  double det1 = static_cast<double>(ax) * by - static_cast<double>(ay) * bx;
+  double det2 = static_cast<double>(other->ax) * other->by - static_cast<double>(other->ay) * other->bx;
   double det = d2x * d1y - d2y * d1x;
   if (det == 0) {
     isX = jrt::Integer::MAX_VALUE;
@@ -566,14 +557,10 @@ double Line::cosAngle(Line* other) {
 }
 
 int32_t Line::compareTo(Line* other) {
-  IntPoint* thisA = jrt::fast_cast<IntPoint>(a);
-  IntPoint* thisB = jrt::fast_cast<IntPoint>(b);
-  IntPoint* otherA = jrt::fast_cast<IntPoint>(other->a);
-  IntPoint* otherB = jrt::fast_cast<IntPoint>(other->b);
-  int32_t dx1 = thisB->x - thisA->x;
-  int32_t dy1 = thisB->y - thisA->y;
-  int32_t dx2 = otherB->x - otherA->x;
-  int32_t dy2 = otherB->y - otherA->y;
+  int32_t dx1 = bx - ax;
+  int32_t dy1 = by - ay;
+  int32_t dx2 = other->bx - other->ax;
+  int32_t dy2 = other->by - other->ay;
   if (dy1 > 0) {
     if (dy2 < 0) {
       return -1;
@@ -678,10 +665,8 @@ Line* Line::mirrorHorizontal(IntPoint* pole) {
 }
 
 float Line::length() {
-  IntPoint* ipa = jrt::fast_cast<IntPoint>(a);
-  IntPoint* ipb = jrt::fast_cast<IntPoint>(b);
-  double dx = static_cast<double>(ipb->x) - ipa->x;
-  double dy = static_cast<double>(ipb->y) - ipa->y;
+  double dx = static_cast<double>(bx) - ax;
+  double dy = static_cast<double>(by) - ay;
   return static_cast<float>(jrt::Math::sqrt(dx * dx + dy * dy));
 }
 

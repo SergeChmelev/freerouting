@@ -14,8 +14,20 @@ class Line : public virtual jrt::Object {
  public:
   Point* a;
   Point* b;
+  /**
+   * PORT NOTE (C++ only): the coordinates of a and b, which are always IntPoints once the line
+   * is made (integerSupport) and never change. The hot line operations read them here instead of
+   * casting and reading the two point objects.
+   */
+  int32_t ax = 0;
+  int32_t ay = 0;
+  int32_t bx = 0;
+  int32_t by = 0;
 
  private:
+  /** Sets ax, ay, bx and by from a and b (called by every constructor). */
+  void cacheCoordinates();
+
   Direction* dir;  // should only be accessed from direction() (lazily cached).
   /**
    * PORT NOTE: not in Java. directionInts() of a line without dir, once computed (dirIntsState 1:

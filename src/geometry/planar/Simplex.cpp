@@ -700,17 +700,12 @@ bool Simplex::intersectionIsEmpty(Simplex* other, bool& empty) {
   SimplexLine all[kStackLines];
   for (int32_t i = 0; i < count; i++) {
     Line* line = i < lines->length ? (*lines)[i] : (*other->lines)[i - lines->length];
-    auto* a = jrt::fast_cast<IntPoint>(line->a);
-    auto* b = a != nullptr ? jrt::fast_cast<IntPoint>(line->b) : nullptr;
-    if (b == nullptr) {
-      return false;
-    }
     SimplexLine& current = all[i];
     current.line = line;
-    current.ax = a->x;
-    current.ay = a->y;
-    current.bx = b->x;
-    current.by = b->y;
+    current.ax = line->ax;
+    current.ay = line->ay;
+    current.bx = line->bx;
+    current.by = line->by;
     if (!line->directionInts(current.dirX, current.dirY)) {
       return false;
     }

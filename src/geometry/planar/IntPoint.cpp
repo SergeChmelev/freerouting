@@ -91,19 +91,13 @@ Side* IntPoint::sideOf(Line* line) {
   // PORT NOTE: allocation-free fast path for a line through integer points. Same arithmetic as
   // the generic path below: v1 = this - a, v2 = b - a, IntVector::sideOf dispatches to
   // v2.sideOf(v1) = Side::of(v1.x * v2.y - v1.y * v2.x) and negates it.
-  auto* a = jrt::fast_cast<IntPoint>(line->a);
-  auto* b = a != nullptr ? jrt::fast_cast<IntPoint>(line->b) : nullptr;
-  if (b != nullptr) {
-    int32_t v1x = x - a->x;
-    int32_t v1y = y - a->y;
-    int32_t v2x = b->x - a->x;
-    int32_t v2y = b->y - a->y;
-    double determinant = static_cast<double>(v1x) * v2y - static_cast<double>(v1y) * v2x;
-    return Side::of(determinant)->negate();
-  }
-  Vector* v1 = differenceBy(line->a);
-  Vector* v2 = line->b->differenceBy(line->a);
-  return v1->sideOf(v2);
+  // (line->a and line->b are IntPoints: Line keeps their coordinates.)
+  int32_t v1x = x - line->ax;
+  int32_t v1y = y - line->ay;
+  int32_t v2x = line->bx - line->ax;
+  int32_t v2y = line->by - line->ay;
+  double determinant = static_cast<double>(v1x) * v2y - static_cast<double>(v1y) * v2x;
+  return Side::of(determinant)->negate();
 }
 
 FloatPoint* IntPoint::toFloat() { return new (jrt::kGeom) FloatPoint(x, y); }
