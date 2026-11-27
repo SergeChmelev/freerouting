@@ -32,6 +32,22 @@ if(FR_LTO AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT FR_SANITIZE AND NOT 
   endif()
 endif()
 
+# Profile-guided optimization (GCC). FR_PGO=generate builds an instrumented binary that writes
+# its profile to FR_PGO_DIR when it exits; FR_PGO=use builds with that profile (the same build
+# directory: the profile files are named after the object files). tools/pgo_build.sh does both
+# and the training runs. The code generated changes, not what it computes: the SES are the same.
+set(FR_PGO "" CACHE STRING "Profile-guided optimization: generate, use or empty")
+set(FR_PGO_DIR "${CMAKE_BINARY_DIR}/pgo-data" CACHE PATH "Profile data directory of FR_PGO")
+if(FR_PGO STREQUAL "generate")
+  add_compile_options(-fprofile-generate=${FR_PGO_DIR} -fprofile-update=prefer-atomic)
+  add_link_options(-fprofile-generate=${FR_PGO_DIR} -fprofile-update=prefer-atomic)
+  message(STATUS "Profile-guided optimization: generate (${FR_PGO_DIR})")
+elseif(FR_PGO STREQUAL "use")
+  add_compile_options(-fprofile-use=${FR_PGO_DIR} -fprofile-partial-training -Wno-missing-profile)
+  add_link_options(-fprofile-use=${FR_PGO_DIR} -fprofile-partial-training)
+  message(STATUS "Profile-guided optimization: use (${FR_PGO_DIR})")
+endif()
+
 find_package(PkgConfig)
 find_package(Threads REQUIRED)
 # Memory (MEMORY_MODEL.md): explicit ownership, no garbage collector. operator new = calloc,
