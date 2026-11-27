@@ -65,6 +65,10 @@ else()
   target_link_libraries(fr_httplib INTERFACE Threads::Threads)
   message(STATUS "cpp-httplib: downloaded ${FR_HTTPLIB_VERSION}")
 endif()
+# A JSON body sent without "Content-Type: application/json" (curl -d) arrives as form data, which
+# cpp-httplib limits to 8 KB by default: the same limit as any other body (set for every user of
+# httplib.h, so that all translation units see the same inline code).
+target_compile_definitions(fr_httplib INTERFACE "CPPHTTPLIB_FORM_URL_ENCODED_PAYLOAD_MAX_LENGTH=(140u*1024*1024)")
 if(WIN32)
   # Winsock (and the crypto API cpp-httplib uses for its random numbers)
   target_link_libraries(fr_httplib INTERFACE ws2_32 crypt32)

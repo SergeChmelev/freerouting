@@ -161,6 +161,12 @@ MCP server and the REST API (one server process for all boards) and compares the
 byte; on bm02, Issue029 (with rules), Issue034, Issue054, Issue102, Issue107 (with rules) and
 Issue313 the three are identical, on Linux and (bm02) with the Windows `.exe`.
 
+`ctest -R server_test` ([tests/server_test.cpp](tests/server_test.cpp), about 20 s) checks the
+servers in one process: the MCP protocol (initialize, tools/list, errors), every tool, cancel and
+time limit, the REST endpoints and their errors, MCP over HTTP, and the SES of MCP and REST against
+the CLI's on bm02, Issue107 (with rules) and Issue313. It needs the Java project's fixtures in
+`upstream/fixtures` (`-DFR_FIXTURES_DIR=<dir>` points elsewhere).
+
 **REST API**: `freerouting-cpp --api [--port 37864] [--host 127.0.0.1]` serves Java's API v1 with
 the same paths and JSON field names ([upstream docs](https://github.com/freerouting/freerouting/blob/master/docs/API/API_v1.md)):
 `GET /v1/system/status|environment`, `POST /v1/sessions/create`, `GET /v1/sessions/list|{id}|{id}/logs`,
@@ -186,7 +192,7 @@ src/                the ported freerouting core (mirrors the Java packages) and 
 server/             MCP server, REST API v1, routing job manager
 bindings/lua/, ui/  Lua module and the Nuklear user interface
 integrations/kicad/ KiCad plugin
-tests/              runtime unit tests, BigInteger fuzzing against GMP
+tests/              runtime unit tests, BigInteger fuzzing against GMP, KiCad inputs, MCP / REST servers
 tools/              parity checks against Java (parity/, parity_corpus.sh, smoke.sh),
                     benchmarks, memory tools (mem/), Windows toolchain, porting generators
 docs/porting/       notes of the porting phases

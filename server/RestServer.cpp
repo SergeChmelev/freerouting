@@ -5,10 +5,7 @@
 #include <filesystem>
 #include <thread>
 
-// A JSON body sent without "Content-Type: application/json" (curl -d) arrives as form data, which
-// cpp-httplib limits to 8 KB by default: the same limit as any other body here.
-#define CPPHTTPLIB_FORM_URL_ENCODED_PAYLOAD_MAX_LENGTH (140u * 1024 * 1024)
-#include <httplib.h>
+#include <httplib.h>  // CPPHTTPLIB_FORM_URL_ENCODED_PAYLOAD_MAX_LENGTH: cmake/ServerDeps.cmake
 
 #include "ApiCommon.h"
 #include "JobManager.h"
@@ -403,14 +400,18 @@ void registerRoutes(httplib::Server& svr, McpServer& mcp) {
 
 }  // namespace
 
-int runRestServer(const RestOptions& options) {
-  JobManager::instance();  // the routing thread
+struct RestServer::Impl {
   McpServer mcp;
   httplib::Server svr;
+};
+
+RestServer::RestServer() : impl_(std::make_unique<Impl>()) {
+  JobManager::instance();  // the routing thread
+  httplib::Server& svr = impl_->svr;
   svr.set_payload_max_length(static_cast<size_t>(kMaxFileBytes * 4 / 3 + 1024 * 1024));
   svr.set_read_timeout(60, 0);
   svr.set_write_timeout(60, 0);
-  registerRoutes(svr, mcp);
+  registerRoutes(svr, impl_->mcp);
   svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
     std::string cid = req.get_header_value("X-Correlation-ID");
     res.set_header("X-Correlation-ID", cid.empty() ? JobManager::newUuid() : cid);
@@ -430,13 +431,30 @@ int runRestServer(const RestOptions& options) {
     }
     reply(res, 500, json{{"error", msg}, {"documentation", kDocs}});
   });
-  if (!svr.bind_to_port(options.host, options.port)) {
+}
+
+RestServer::~RestServer() { stop(); }
+
+int RestServer::bind(const std::string& host, int port) {
+  if (port == 0) return impl_->svr.bind_to_any_port(host);
+  return impl_->svr.bind_to_port(host, port) ? port : -1;
+}
+
+bool RestServer::listen() { return impl_->svr.listen_after_bind(); }
+
+void RestServer::stop() {
+  if (impl_->svr.is_running()) impl_->svr.stop();
+}
+
+int runRestServer(const RestOptions& options) {
+  RestServer server;
+  if (server.bind(options.host, options.port) < 0) {
     std::fprintf(stderr, "cannot listen on %s:%d\n", options.host.c_str(), options.port);
     return 1;
   }
   fr::FRLogger::info("API web server started successfully at http://" + options.host + ":" +
                      std::to_string(options.port) + " (freerouting-cpp REST API v1, MCP at /v1/mcp).");
-  return svr.listen_after_bind() ? 0 : 1;
+  return server.listen() ? 0 : 1;
 }
 
 }  // namespace frserver
