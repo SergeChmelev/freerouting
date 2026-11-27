@@ -21,6 +21,8 @@ class SearchTreeManager : public virtual jrt::Object {
   bool clearanceCompensationUsed;
   /** PORT NOTE (C++ only): see prepareLendingTree. Owned. */
   std::vector<ShapeSearchTree*> lendingTrees_;
+  /** PORT NOTE (C++ only): see prepareLendingDefaultTree. Owned. */
+  ShapeSearchTree* lendingDefaultTree_ = nullptr;
   /** The tree object getAutorouteTree creates for a clearance class (not registered, empty). */
   ShapeSearchTree* newAutorouteTreeObject(int32_t clearanceClassIndex);
 
@@ -81,6 +83,16 @@ class SearchTreeManager : public virtual jrt::Object {
    * the next pass's candidates need the other classes too. Not while other threads read the board.
    */
   void prepareLendingTree(int32_t clearanceClassIndex);
+
+  /**
+   * PORT NOTE (C++ only): a tree object like the default tree (outside the search trees, without
+   * leaves: never searched, never updated) holding the default-tree shapes computed from scratch
+   * of the traces, pins, vias and obstacle areas whose own default-tree shapes are not (a trace
+   * changed piecewise keeps pieces of its old shapes). Copies borrow them in afterDeserialize
+   * instead of computing them. Not while other threads read the board.
+   */
+  void prepareLendingDefaultTree();
+  ShapeSearchTree* lendingDefaultTree() { return lendingDefaultTree_; }
 
   /** PORT NOTE (C++ only): the clearance classes of the trees other than the default tree. */
   std::vector<int32_t> autorouteTreeClasses();

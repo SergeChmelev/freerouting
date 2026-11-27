@@ -9,6 +9,8 @@
 #include "board/searchtree/ShapeSearchTree.h"
 #include "board/searchtree/ShapeSearchTree45Degree.h"
 #include "board/searchtree/ShapeSearchTree90Degree.h"
+#include "board/model/items/DrillItem.h"
+#include "board/model/items/ObstacleArea.h"
 #include "board/trace/PolylineTrace.h"
 #include "datastructures/ShapeTree.h"
 #include "datastructures/UndoableObjects.h"
@@ -219,6 +221,35 @@ ShapeSearchTree* SearchTreeManager::getAutorouteTree(int32_t clearanceClassIndex
   return currentAutorouteTree;
 }
 
+void SearchTreeManager::prepareLendingDefaultTree() {
+  if (lendingDefaultTree_ == nullptr) {
+    lendingDefaultTree_ = new (jrt::kBoard) ShapeSearchTree(
+        FortyfiveDegreeBoundingDirections::INSTANCE(), this->board,
+        defaultTree->compensatedClearanceClassNo);
+  }
+  auto itScope = this->board->itemList->readScope();
+  jrt::Iterator<UndoableObjects_UndoableObjectNode*>* it = &itScope;
+  for (;;) {
+    Item* currentItem = jrt::fast_cast<Item>(this->board->itemList->readObject(it));
+    if (currentItem == nullptr) {
+      break;
+    }
+    if (!currentItem->isOnTheBoard()) {
+      continue;
+    }
+    // the kinds BasicBoard::afterDeserialize lends
+    if (jrt::fast_cast<PolylineTrace>(currentItem) == nullptr &&
+        jrt::fast_cast<DrillItem>(currentItem) == nullptr &&
+        jrt::fast_cast<ObstacleArea>(currentItem) == nullptr) {
+      continue;
+    }
+    if (currentItem->peekTreeShapesFromScratch(defaultTree) != nullptr) {
+      continue;  // the default tree lends them
+    }
+    currentItem->treeShapeCount(lendingDefaultTree_);  // computes and keeps them, from scratch
+  }
+}
+
 void SearchTreeManager::disposeTrees() {
   for (ShapeSearchTree* tree : *compensatedSearchTrees) {
     tree->disposeNodes();
@@ -228,6 +259,10 @@ void SearchTreeManager::disposeTrees() {
     jrt::dispose(tree);  // no nodes
   }
   lendingTrees_.clear();
+  if (lendingDefaultTree_ != nullptr) {
+    jrt::dispose(lendingDefaultTree_);  // no nodes
+    lendingDefaultTree_ = nullptr;
+  }
   compensatedSearchTrees->clear();
   jrt::dispose(compensatedSearchTrees);
   compensatedSearchTrees = nullptr;
