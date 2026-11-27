@@ -7,7 +7,7 @@
 //   -dr <file.rules>   apply a rules file
 //   -mp <n>            maximum autorouter passes
 //   -mt <n>            maximum threads of the optimizer (Java: router.max_threads; 1 = sequential)
-//   --timeout <dur>    job timeout (Java Duration syntax, e.g. PT10M)
+//   --timeout <dur>    job timeout: an ISO-8601 duration (Java Duration syntax, e.g. PT10M) or HH:MM:SS
 //   --no-optimizer     skip the optimization stage
 //   --no-drc           skip the final design rules check
 //   --router.<path>=<value>  one router setting by its JSON name, like Java (e.g.
@@ -252,6 +252,54 @@ bool isMultiFileConcatenation(const std::string& rawArg, const std::vector<std::
   return true;
 }
 
+// --timeout: the engine reads the job timeout as "HH:MM:SS" (RouterSettings.job_timeout, like
+// Java). The CLI also takes an ISO-8601 duration as Java's Duration.parse reads it (PT10M,
+// PT1H30M, P1DT2H, PT90S, PT2.5S; case-insensitive; fractions of a second are dropped) and
+// converts it. Text with a ':' is passed on as it is. Returns nullopt for anything else.
+std::optional<std::string> cliTimeoutToHms(const std::string& text) {
+  if (text.find(':') != std::string::npos) return text;
+  const size_t n = text.size();
+  auto is = [&](size_t k, char upper) { return k < n && (text[k] == upper || text[k] == upper + 32); };
+  auto digit = [&](size_t k) { return k < n && text[k] >= '0' && text[k] <= '9'; };
+  if (!is(0, 'P')) return std::nullopt;
+  size_t i = 1;
+  int64_t totalSeconds = 0;
+  bool inTime = false, anyDate = false, anyTime = false;
+  while (i < n) {
+    if (is(i, 'T')) {
+      if (inTime) return std::nullopt;
+      inTime = true;
+      ++i;
+      continue;
+    }
+    size_t j = i;
+    while (digit(j)) ++j;
+    if (j == i || j - i > 12) return std::nullopt;
+    int64_t value = std::stoll(text.substr(i, j - i));
+    bool fraction = false;
+    if (j < n && (text[j] == '.' || text[j] == ',')) {
+      fraction = true;
+      ++j;
+      while (digit(j)) ++j;
+    }
+    int64_t unit;
+    if (!inTime && is(j, 'D')) unit = 86400;
+    else if (inTime && is(j, 'H')) unit = 3600;
+    else if (inTime && is(j, 'M')) unit = 60;
+    else if (inTime && is(j, 'S')) unit = 1;
+    else return std::nullopt;
+    if (fraction && unit != 1) return std::nullopt;
+    totalSeconds += value * unit;
+    (inTime ? anyTime : anyDate) = true;
+    i = j + 1;
+  }
+  if (inTime ? !anyTime : !anyDate) return std::nullopt;  // "P", "PT", "P1DT"
+  char hms[48];
+  std::snprintf(hms, sizeof hms, "%lld:%02lld:%02lld", static_cast<long long>(totalSeconds / 3600),
+                static_cast<long long>(totalSeconds / 60 % 60), static_cast<long long>(totalSeconds % 60));
+  return std::string(hms);
+}
+
 bool fileExists(const std::string& path) {
   std::error_code ec;
   return std::filesystem::exists(path, ec);
@@ -367,7 +415,15 @@ int runMain(int argc, char** argv) {
     else if (a == "-dr") rules = next();
     else if (a == "-mp") maxPasses = std::stoi(next());
     else if (a == "-mt") maxThreads = std::stoi(next());
-    else if (a == "--timeout") timeout = next();
+    else if (a == "--timeout") {
+      std::string text = next();
+      timeout = cliTimeoutToHms(text);
+      if (!timeout) {
+        std::fprintf(stderr, "invalid --timeout '%s': use an ISO-8601 duration (PT10M) or HH:MM:SS\n",
+                     text.c_str());
+        return 2;
+      }
+    }
     else if (a == "--no-optimizer") optimizer = false;
     else if (a == "--no-drc") drc = false;
     else if (a == "-q") fr::FRLogger::logLevel = fr::FRLogger::LEVEL_WARN;
